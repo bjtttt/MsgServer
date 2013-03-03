@@ -19,7 +19,7 @@ start(_StartType, StartArgs) ->
     %           {ok, P} -> P;
     %           undefined -> ?DEF_PORT
     %       end,
-    case ti_sup_db:start_link(DefDB, DefPortDB) of % Error
+    case ti_sup_db:start_link(DefDB, DefPortDB) of
         {ok, PidDB} ->
             ti_sup:start_child(),
             %{ok, PidDB};

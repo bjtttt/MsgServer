@@ -22,8 +22,8 @@ start_child() ->
     supervisor:start_child(?SERVER, []).
 
 init([LSock]) ->
-    Server = {ti_server, {ti_server, start_link, [LSock]},
-              temporary, brutal_kill, worker, [ti_server]},
+    Server = {ti_server_man, {ti_server_man, start_link, [LSock]},
+              temporary, brutal_kill, worker, [ti_server_man]},
     Children = [Server],
     RestartStrategy = {simple_one_for_one, 0, 1},
     {ok, {RestartStrategy, Children}}.

@@ -2,18 +2,20 @@
 
 -behaviour(gen_server).
 
--export([start_link/1]).
+-include("ti_common.hrl").
+
+-export([start_link/2]).
 
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2,
          terminate/2, code_change/3]).
 
--record(state, {lsock}).
+-record(state, {db, dbport, dbsock, dbpid, count}).
 
-start_link(LSock) ->
-    gen_server:start_link(?MODULE, [LSock], []).
+start_link(DB, Port) ->
+    gen_server:start_link({local, ?MODULE}, ?MODULE, [DB, Port], []).
 
-init([LSock]) ->
-    {ok, #state{lsock = LSock}, 0}.
+init([DB, Port]) ->
+	{ok, #state{db=DB, dbport=Port, count=0}, 0}.
 
 handle_call(Msg, _From, State) ->
     {reply, {ok, Msg}, State}.
@@ -26,10 +28,21 @@ handle_info({tcp, Socket, RawData}, State) ->
     {noreply, NewState};
 handle_info({tcp_closed, _Socket}, State) ->
     {stop, normal, State};
-handle_info(timeout, #state{lsock = LSock} = State) ->
-    {ok, _Sock} = gen_tcp:accept(LSock),
-    ti_sup:start_child(),
-    {noreply, State}.
+handle_info(timeout, State) ->
+	if
+		State#state.count > ?DB_CONN_CNT_MAX ->
+			error_logger:error_msg("Stop connect DB (~p:~p) because of ~p failures.~n", [State#state.db, State#state.dbport, State#state.count]),
+			case gen_tcp:connect(State#state.db, State#state.dbport, [{active, true}]) of
+				{ok, CSock} ->
+					{noreply, State#state{dbsock=CSock}};
+				{error, Reason} ->
+					error_logger:error_msg("Cannot connect DB (~p:~p) : ~p~nTry again.~n", [State#state.db, State#state.dbport, Reason]),
+					ti_sup_db:start_link(State#state.db, State#state.dbport),
+					{noreply, State}
+			end;
+		State#state.count =< ?DB_CONN_CNT_MAX ->
+			State#state{count=State#state.count+1}
+	end.
 
 terminate(_Reason, _State) ->
     ok.
