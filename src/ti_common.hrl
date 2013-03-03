@@ -1,1 +1,1 @@
--define(DB_CONN_CNT_MAX,(100)).
+-define(DB_CONN_CNT_MAX,(10)).
