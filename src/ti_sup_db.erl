@@ -23,8 +23,8 @@ start_child() ->
     supervisor:start_child(?SERVER, []).
 
 init([DB, Port]) ->
-    Server = {ti_server_db, {ti_server_db, start_link, [DB, Port]},
-              temporary, brutal_kill, worker, [ti_server_db]},
+    Server = {ti_client_db, {ti_client_db, start_link, [DB, Port]},
+              temporary, brutal_kill, worker, [ti_client_db]},
     Children = [Server],
     RestartStrategy = {simple_one_for_one, 0, 1},
     {ok, {RestartStrategy, Children}}.
