@@ -30,8 +30,12 @@ handle_info({tcp, Socket, RawData}, State) ->
     {noreply, NewState};
 handle_info({tcp_closed, _Socket}, State) ->
     {stop, normal, State};
+%%
+%% we should maintain the mapping : socket, pid & VDR ID
+%%
 handle_info(timeout, #state{lsock = LSock} = State) ->
-    {ok, _Sock} = gen_tcp:accept(LSock),
+    {ok, SockVDR} = gen_tcp:accept(LSock),
+	PidVDR = spawn(fun() -> sendback_vdr(SockVDR) end),
     ti_sup:start_child(),
     {noreply, State}.
 
@@ -42,7 +46,7 @@ code_change(_OldVsn, State, _Extra) ->
     {ok, State}.
 
 %%
-%% Process data from management server.
+%% Process the data from management server.
 %%     1. parse data
 %%     2. send message to VDR process
 %%
@@ -50,3 +54,6 @@ handle_data(Socket, RawData, State) ->
 	Socket,
 	RawData,
     State.
+
+sendback_vdr(Socket) ->
+	ok.
