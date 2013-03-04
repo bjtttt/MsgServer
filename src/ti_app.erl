@@ -16,9 +16,17 @@ start() ->
 %%     3. Start server for VDR
 %%     4. Start server for monitor (not implemented yet)
 %%
+%%  msgservertable : common states
+%%  vdrinittable, vdrtable : when VDR connects, keep its socket as key in vdrinittable first.
+%%                           after receiving VDR ID, the entry will be moved to vdrtable and use VDR ID as key instead.
+%%  mantable : 
+%%
 start(_StartType, StartArgs) ->
 	[DefPort, DefPortMan, DefDB, DefPortDB] = StartArgs,
 	ets:new(msgservertable,[set,public,named_table,{keypos,1},{read_concurrency,true},{write_concurrency,true}]),
+	ets:new(vdrinittable,[set,public,named_table,{keypos,1},{read_concurrency,true},{write_concurrency,true}]),
+	ets:new(vdrtable,[set,public,named_table,{keypos,1},{read_concurrency,true},{write_concurrency,true}]),
+	ets:new(mantable,[set,public,named_table,{keypos,1},{read_concurrency,true},{write_concurrency,true}]),
 	ets:insert(serverstatetable,{dbconncount,0}),
 	% start DB client
 	case ti_sup_db:start_link(DefDB, DefPortDB) of
