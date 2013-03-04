@@ -37,7 +37,12 @@ terminate(_Reason, _State) ->
 code_change(_OldVsn, State, _Extra) ->
     {ok, State}.
 
-%% Internal functions
+%%
+%% Process data from VDR.
+%%     1. parse data
+%%     2. send message to DB client process
+%%     3. check whether message should be sent to management server
+%%
 handle_data(Socket, RawData, State) ->
     try
         {Function, RawArgList} =
