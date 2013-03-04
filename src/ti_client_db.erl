@@ -82,8 +82,11 @@ db_message_processor(Socket) ->
 		{From, Msg} ->
 			% Communicate with DB here
 			From,
-			Msg,
+			do_process_message(Socket, Msg),
 			db_message_processor(Socket);
 		stop ->
 			true
 	end.
+
+do_process_message(Socket, Msg) ->
+	ok.
