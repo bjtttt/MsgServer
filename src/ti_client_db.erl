@@ -9,13 +9,14 @@
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2,
          terminate/2, code_change/3]).
 
--record(state, {db, dbport, dbsock, dbpid, dbmsgpid, count}).
+% Need consideration here
+-record(state, {db, dbport, dbsock, dbpid, dbmsgpid}).
 
 start_link(DB, Port) ->
     gen_server:start_link({local, ?MODULE}, ?MODULE, [DB, Port], []).
 
 init([DB, Port]) ->
-	{ok, #state{db=DB, dbport=Port, dbsock=undefined, dbpid=self(), dbmsgpid=undefined, count=0}, 0}.
+	{ok, #state{db=DB, dbport=Port, dbsock=undefined, dbpid=self(), dbmsgpid=undefined}, 0}.
 
 handle_call(Msg, _From, State) ->
     {reply, {ok, Msg}, State}.
@@ -29,19 +30,23 @@ handle_info({tcp, Socket, RawData}, State) ->
 handle_info({tcp_closed, _Socket}, State) ->
     {stop, normal, State};
 handle_info(timeout, State) ->
+	[{dbconncount,Count}] = ets:lookup(serverstatetable, dbconncount),
 	if
-		State#state.count > ?DB_CONN_CNT_MAX ->
-			error_logger:error_msg("Stop connecting DB (~p:~p) because of ~p continous failures.~n", [State#state.db, State#state.dbport, State#state.count]);
-		State#state.count =< ?DB_CONN_CNT_MAX ->
+		Count > ?DB_CONN_CNT_MAX ->
+			error_logger:error_msg("Stop connecting DB (~p:~p) because of ~p continous failures.~nExit~n", [State#state.db, State#state.dbport, Count]),
+			exit("DB connection error.");
+		Count =< ?DB_CONN_CNT_MAX ->
 			case gen_tcp:connect(State#state.db, State#state.dbport, [{active, true}]) of
 				{ok, SockConn} ->
-					% Create a process here to communicate with the database
+					ets:insert(serverstatetable, {dbconncount,0}),
 					PidConn = spawn(fun() -> db_message_processor(SockConn) end),
-					{noreply, State#state{dbsock=SockConn,dbmsgpid=PidConn,count=0}};
+					ets:insert(serverstatetable,{dbmsgpid,PidConn}),
+					{noreply, State#state{dbsock=SockConn,dbmsgpid=PidConn}};
 				{error, Reason} ->
+					ets:insert(serverstatetable, {dbconncount,Count+1}),
 					error_logger:error_msg("Cannot connect DB (~p:~p) : ~p~nTry again.~n", [State#state.db, State#state.dbport, Reason]),
 					ti_sup_db:start_link(State#state.db, State#state.dbport),
-					{noreply, State#state{count=(State#state.count + 1)}}
+					{noreply, State}
 			end
 	end.
 

@@ -20,20 +20,21 @@ start(_StartType, StartArgs) ->
     %           undefined -> ?DEF_PORT
     %       end,
 	ets:new(msgservertable,[set,public,named_table,{keypos,1},{read_concurrency,true},{write_concurrency,true}]),
+	ets:insert(serverstatetable,{dbconncount,0}),
 	case ti_sup_db:start_link(DefDB, DefPortDB) of
-        {ok, PidDB} ->
+        {ok, _PidDB} ->
             ti_sup:start_child(),
-            ets:insert(serverstatetable,{dbsuppid,PidDB}),
+            %ets:insert(serverstatetable,{dbsuppid,PidDB}),
 			case gen_tcp:listen(DefPortMan, [{active, true}]) of
 				{ok, LSockMan} ->
 				    case ti_sup_man:start_link() of
-				        {ok, PidMan} ->
+				        {ok, _PidMan} ->
 				            ti_sup:start_child(LSockMan),
-            				ets:insert(serverstatetable,{mansuppid,PidMan}),
+            				%ets:insert(serverstatetable,{mansuppid,PidMan}),
 						    {ok, LSock} = gen_tcp:listen(DefPort, [{active, true}]),
 						    case ti_sup:start_link(LSock) of
-						        {ok, Pid} ->
-            						ets:insert(serverstatetable,{suppid,Pid}),
+						        {ok, _Pid} ->
+            						%ets:insert(serverstatetable,{suppid,Pid}),
 						            ti_sup:start_child(),
 						            {ok, "Success!"};
 						        Other ->
