@@ -1,3 +1,7 @@
+%%%
+%%% Need considering sending message to management server
+%%%
+
 -module(ti_server_man).
 
 -behaviour(gen_server).
@@ -37,17 +41,12 @@ terminate(_Reason, _State) ->
 code_change(_OldVsn, State, _Extra) ->
     {ok, State}.
 
-%% Internal functions
+%%
+%% Process data from management server.
+%%     1. parse data
+%%     2. send message to VDR process
+%%
 handle_data(Socket, RawData, State) ->
-    try
-        {Function, RawArgList} =
-            lists:splitwith(fun (C) -> C =/= $[ end, RawData),
-        {ok, Toks, _Line} = erl_scan:string(RawArgList ++ ".", 1),
-        {ok, Args} = erl_parse:parse_term(Toks),
-        Result = apply(simple_cache, list_to_atom(Function), Args),
-        gen_tcp:send(Socket, io_lib:fwrite("OK:~p.~n", [Result]))
-    catch
-        _Class:Err ->
-            gen_tcp:send(Socket, io_lib:fwrite("ERROR:~p.~n", [Err]))
-    end,
+	Socket,
+	RawData,
     State.
