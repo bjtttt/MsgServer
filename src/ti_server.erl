@@ -1,3 +1,7 @@
+%%%
+%%% Need considering how management server sends message to VDR
+%%%
+
 -module(ti_server).
 
 -behaviour(gen_server).
@@ -44,15 +48,6 @@ code_change(_OldVsn, State, _Extra) ->
 %%     3. check whether message should be sent to management server
 %%
 handle_data(Socket, RawData, State) ->
-    try
-        {Function, RawArgList} =
-            lists:splitwith(fun (C) -> C =/= $[ end, RawData),
-        {ok, Toks, _Line} = erl_scan:string(RawArgList ++ ".", 1),
-        {ok, Args} = erl_parse:parse_term(Toks),
-        Result = apply(simple_cache, list_to_atom(Function), Args),
-        gen_tcp:send(Socket, io_lib:fwrite("OK:~p.~n", [Result]))
-    catch
-        _Class:Err ->
-            gen_tcp:send(Socket, io_lib:fwrite("ERROR:~p.~n", [Err]))
-    end,
+	Socket,
+	RawData,
     State.
