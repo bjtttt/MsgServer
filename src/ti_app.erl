@@ -2,23 +2,20 @@
 
 -behaviour(application).
 
--export([start/0, start/2, stop/1]).
+-include("ti_common.hrl").
 
--define(DEF_PORT, 6000).
--define(DEF_PORT_MAN, 6001).
--define(DEF_DB, "127.0.0.1").
--define(DEF_PORT_DB, 6002).
+-export([start/0, start/2, stop/1]).
 
 start() ->
 	start(normal, [?DEF_PORT, ?DEF_PORT_MAN, ?DEF_DB, ?DEF_PORT_DB]).
 
-%%%
-%%% Steps :
-%%%     1. Start connection to DB
-%%%     2. Start server for management
-%%%     3. Start server for VDR
-%%%     4. Start server for monitor (not implemented yet)
-%%%
+%%
+%% Steps :
+%%     1. Start connection to DB
+%%     2. Start server for management
+%%     3. Start server for VDR
+%%     4. Start server for monitor (not implemented yet)
+%%
 start(_StartType, StartArgs) ->
 	[DefPort, DefPortMan, DefDB, DefPortDB] = StartArgs,
 	ets:new(msgservertable,[set,public,named_table,{keypos,1},{read_concurrency,true},{write_concurrency,true}]),
