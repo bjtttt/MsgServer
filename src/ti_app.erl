@@ -12,46 +12,53 @@
 start() ->
 	start(normal, [?DEF_PORT, ?DEF_PORT_MAN, ?DEF_DB, ?DEF_PORT_DB]).
 
-%start(_StartType, _StartArgs) ->
+%%%
+%%% Steps :
+%%%     1. Start connection to DB
+%%%     2. Start server for management
+%%%     3. Start server for VDR
+%%%     4. Start server for monitor (not implemented yet)
+%%%
 start(_StartType, StartArgs) ->
 	[DefPort, DefPortMan, DefDB, DefPortDB] = StartArgs,
-    %Port = case application:get_env(tcp_interface, port) of
-    %           {ok, P} -> P;
-    %           undefined -> ?DEF_PORT
-    %       end,
 	ets:new(msgservertable,[set,public,named_table,{keypos,1},{read_concurrency,true},{write_concurrency,true}]),
 	ets:insert(serverstatetable,{dbconncount,0}),
 	case ti_sup_db:start_link(DefDB, DefPortDB) of
-        {ok, _PidDB} ->
+        {ok, PidDB} ->
+            ets:insert(serverstatetable,{dbsuppid,PidDB}),
             ti_sup:start_child(),
-            %ets:insert(serverstatetable,{dbsuppid,PidDB}),
 			case gen_tcp:listen(DefPortMan, [{active, true}]) of
 				{ok, LSockMan} ->
-				    case ti_sup_man:start_link() of
-				        {ok, _PidMan} ->
+				    case ti_sup_man:start_link(LSockMan) of
+				        {ok,PidMan} ->
+            				ets:insert(serverstatetable,{mansuppid,PidMan}),
 				            ti_sup:start_child(LSockMan),
-            				%ets:insert(serverstatetable,{mansuppid,PidMan}),
-						    {ok, LSock} = gen_tcp:listen(DefPort, [{active, true}]),
-						    case ti_sup:start_link(LSock) of
-						        {ok, _Pid} ->
-            						%ets:insert(serverstatetable,{suppid,Pid}),
-						            ti_sup:start_child(),
-						            {ok, "Success!"};
-						        Other ->
-									error_logger:error_msg("Cannot start listen from the VDR : ~p~nExit.~n", Other),
-						            {error, Other}
-						    end;
-				        OtherMan ->
-							error_logger:error_msg("Cannot start listen from the management server : ~p~nExit.~n", OtherMan),
-				            {error, OtherMan}
+							case gen_tcp:listen(DefPort, [{active, true}]) of
+								{ok, LSock} ->
+								    case ti_sup:start_link(LSock) of
+								        {ok, Pid} ->
+		            						ets:insert(serverstatetable,{suppid,Pid}),
+								            ti_sup:start_child(LSock),
+											ok;
+								        _ ->
+											error_logger:error_msg("Cannot start server for VDR.~nExit.~n"),
+								            error 
+								    end;
+								{error, Reason} ->
+									error_logger:error_msg("Cannot start listen from VDR : ~p~nExit.~n", Reason),
+									{error, Reason}
+							end;
+				        _ ->
+							error_logger:error_msg("Cannot start server for management.~nExit.~n"),
+				            error
 				    end;
 				{error, ReasonMan} ->
-					error_logger:error_msg("Cannot start listen from the management server : ~p~nExit.~n", ReasonMan),
+					error_logger:error_msg("Cannot start listen from management : ~p~nExit.~n", ReasonMan),
 					{error, ReasonMan}
 			end;
-        OtherDB ->
-			error_logger:error_msg("Cannot start connection to the database : ~p:~p~nExit.~n", [OtherDB, DefPortDB]),
-            {error, OtherDB}
+        _ ->
+			error_logger:error_msg("Cannot start connection to DB : ~p:~p~nExit.~n", [DefDB, DefPortDB]),
+            error
     end.
 
 stop(_State) ->
