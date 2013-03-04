@@ -40,7 +40,7 @@ handle_info(timeout, State) ->
 				{ok, SockConn} ->
 					ets:insert(serverstatetable, {dbconncount,0}),
 					PidConn = spawn(fun() -> db_message_processor(SockConn) end),
-					ets:insert(serverstatetable,{dbmsgpid,PidConn}),
+					ets:insert(serverstatetable,{dbconnpid,PidConn}),
 					{noreply, State#state{dbsock=SockConn,dbmsgpid=PidConn}};
 				{error, Reason} ->
 					ets:insert(serverstatetable, {dbconncount,Count+1}),
@@ -72,4 +72,12 @@ handle_data(Socket, RawData, State) ->
     State.
 
 db_message_processor(Socket) ->
-	ok.
+	receive
+		{From, Msg} ->
+			% Communicate with DB here
+			From,
+			Msg,
+			db_message_processor(Socket);
+		stop ->
+			true
+	end.
