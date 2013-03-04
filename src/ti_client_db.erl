@@ -71,6 +71,12 @@ handle_data(Socket, RawData, State) ->
     end,
     State.
 
+%%%
+%%% VDR process will send message to this process. 
+%%% This process will translate the message and send the new message to the database.
+%%% At the same time, it will check whether the message from VDR should also be sent to the manage server or not.
+%%% If so, this process will send the message to the process which is responsible for the talk to the management server.
+%%%
 db_message_processor(Socket) ->
 	receive
 		{From, Msg} ->
