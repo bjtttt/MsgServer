@@ -34,8 +34,8 @@ handle_info(timeout, State) ->
 			error_logger:error_msg("Stop connect DB (~p:~p) because of ~p failures.~n", [State#state.db, State#state.dbport, State#state.count]);
 		State#state.count =< ?DB_CONN_CNT_MAX ->
 			case gen_tcp:connect(State#state.db, State#state.dbport, [{active, true}]) of
-				{ok, CSock} ->
-					{noreply, State#state{dbsock=CSock, count=0}};
+				{ok, ConnSock} ->
+					{noreply, State#state{dbsock=ConnSock, count=0}};
 				{error, Reason} ->
 					error_logger:error_msg("Cannot connect DB (~p:~p) : ~p~nTry again.~n", [State#state.db, State#state.dbport, Reason]),
 					ti_sup_db:start_link(State#state.db, State#state.dbport),

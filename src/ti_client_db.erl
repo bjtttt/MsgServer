@@ -9,13 +9,13 @@
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2,
          terminate/2, code_change/3]).
 
--record(state, {db, dbport, dbsock, dbpid, count}).
+-record(state, {db, dbport, dbsock, dbpid, dbmsgpid, count}).
 
 start_link(DB, Port) ->
     gen_server:start_link({local, ?MODULE}, ?MODULE, [DB, Port], []).
 
 init([DB, Port]) ->
-	{ok, #state{db=DB, dbport=Port, dbpid=self(), count=0}, 0}.
+	{ok, #state{db=DB, dbport=Port, dbsock=undefined, dbpid=self(), dbmsgpid=undefined, count=0}, 0}.
 
 handle_call(Msg, _From, State) ->
     {reply, {ok, Msg}, State}.
@@ -34,8 +34,10 @@ handle_info(timeout, State) ->
 			error_logger:error_msg("Stop connecting DB (~p:~p) because of ~p continous failures.~n", [State#state.db, State#state.dbport, State#state.count]);
 		State#state.count =< ?DB_CONN_CNT_MAX ->
 			case gen_tcp:connect(State#state.db, State#state.dbport, [{active, true}]) of
-				{ok, ConnSock} ->
-					{noreply, State#state{dbsock=ConnSock,count=0}};
+				{ok, SockConn} ->
+					% Create a process here to communicate with the database
+					PidConn = spawn(fun() -> db_message_processor(SockConn) end),
+					{noreply, State#state{dbsock=SockConn,dbmsgpid=PidConn,count=0}};
 				{error, Reason} ->
 					error_logger:error_msg("Cannot connect DB (~p:~p) : ~p~nTry again.~n", [State#state.db, State#state.dbport, Reason]),
 					ti_sup_db:start_link(State#state.db, State#state.dbport),
@@ -63,3 +65,6 @@ handle_data(Socket, RawData, State) ->
             gen_tcp:send(Socket, io_lib:fwrite("ERROR:~p.~n", [Err]))
     end,
     State.
+
+db_message_processor(Socket) ->
+	ok.
