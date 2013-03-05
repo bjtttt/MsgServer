@@ -82,6 +82,7 @@ stop(_State) ->
 %%%
 %%% Application get stop message.
 %%% Need keeping some states?
+%%% Is this function proper?
 %%%
 app_message_processor() ->
 	receive
