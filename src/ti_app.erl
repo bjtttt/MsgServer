@@ -27,7 +27,12 @@ start(_StartType, StartArgs) ->
 	ets:new(vdrinittable,[set,public,named_table,{keypos,1},{read_concurrency,true},{write_concurrency,true}]),
 	ets:new(vdrtable,[set,public,named_table,{keypos,1},{read_concurrency,true},{write_concurrency,true}]),
 	ets:new(mantable,[set,public,named_table,{keypos,1},{read_concurrency,true},{write_concurrency,true}]),
+	% if dbconncount reaches DB_CONN_CNT_MAX, msgserver will stop
 	ets:insert(serverstatetable,{dbconncount,0}),
+	% make sure that msgserver can get stop message from any internal process
+    ets:insert(serverstatetable,{apppid,self()}),
+	PidAppMsg = spawn(fun() -> app_message_processor() end),
+    ets:insert(serverstatetable,{appmsgpid,PidAppMsg}),
 	% start DB client
 	case ti_sup_db:start_link(DefDB, DefPortDB) of
         {ok, PidDB} ->
@@ -73,3 +78,15 @@ start(_StartType, StartArgs) ->
 
 stop(_State) ->
     ok.
+
+%%%
+%%% Application get stop message.
+%%% Need keeping some states?
+%%%
+app_message_processor() ->
+	receive
+		{stop, Msg} ->
+			exit("~p~nMsgServer stops.~n", [Msg]);
+		_ ->
+			app_message_processor()
+	end.
