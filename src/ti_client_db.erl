@@ -33,8 +33,10 @@ handle_info(timeout, State) ->
 	[{dbconncount,Count}] = ets:lookup(serverstatetable, dbconncount),
 	if
 		Count > ?DB_CONN_CNT_MAX ->
-			error_logger:error_msg("Stop connecting DB (~p:~p) because of ~p continous failures.~nExit~n", [State#state.db, State#state.dbport, Count]),
-			exit("DB connection error.");
+			error_logger:error_msg("DB connection (~p:~p) fialures count : ~n", [State#state.db, State#state.dbport, Count]),
+			[{appmsgpid,PidAppMsg}] = ets:lookup(serverstatetable, appmsgpid),
+			% tell application to stop
+			PidAppMsg!{stop, "Max DB connection error count reaches."};
 		Count =< ?DB_CONN_CNT_MAX ->
 			case gen_tcp:connect(State#state.db, State#state.dbport, [{active, true}]) of
 				{ok, SockConn} ->
