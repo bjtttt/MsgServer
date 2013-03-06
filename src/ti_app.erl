@@ -22,6 +22,7 @@ start() ->
 %%  mantable : 
 %%
 start(_StartType, StartArgs) ->
+    PidApp = self(),
 	try
 		[DefPort, DefPortMan, DefDB, DefPortDB, DefPortMon] = StartArgs,
 		ets:new(msgservertable,[set,public,named_table,{keypos,1},{read_concurrency,true},{write_concurrency,true}]),
@@ -30,75 +31,86 @@ start(_StartType, StartArgs) ->
 		ets:new(mantable,[set,public,named_table,{keypos,1},{read_concurrency,true},{write_concurrency,true}]),
 		error_logger:error_msg("Server tables are ok.~n"),
 		% make sure that msgserver can get stop message from any internal process?
-	    PidApp = self(),
 	    ets:insert(msgservertable, {apppid,PidApp}),
 		error_logger:error_msg("Server application PID : ~p~n",[PidApp]),
-		PidAppMsg = spawn(fun() -> app_message_processor() end),
-	    ets:insert(msgservertable,{appmsgpid, PidAppMsg}),
-	 	error_logger:error_msg("Server application message PID : ~p~n",[PidAppMsg]),
+		%PidAppMsg = spawn(fun() -> app_message_processor() end),
+	    %ets:insert(msgservertable,{appmsgpid, PidAppMsg}),
+	 	%error_logger:error_msg("Server application message PID : ~p~n",[PidAppMsg]),
 		% start DB client
 		case gen_tcp:listen(DefPortDB, [{active,true}]) of
 			{ok, LSock} ->
 				error_logger:error_msg("Database starts listening.~n"),
 				case ti_sup_db:start_link(LSock, DefDB, DefPortDB) of
 			        {ok, Pid} ->
-						error_logger:error_msg("Database supervisor starts.~n"),
+						error_logger:error_info("Database supervisor starts.~n"),
 			            ets:insert(msgservertable, {supdbpid, Pid}),
 			            ets:insert(msgservertable, {supdblsock, LSock}),
 			            ti_sup_db:start_child(),
 						% start management server, VDR server & monitor server
-						start_server_man(DefPortMan, DefPort, DefPortMon),
-						error_logger:error_msg("Msg server starts.~n");
+						start_server_man(PidApp, DefPortMan, DefPort, DefPortMon),
+						error_logger:error_info("Msg server starts.~n");
 					ignore ->
-			            exit("Cannot start connetion to DB : ignore~nExit.~n");
+                        error_logger:error_msg("Cannot start connetion to DB : ignore~nExit.~n"),
+			            exit(PidApp, "Exit.");
 			        {error, Error} ->
 						case Error of
 							{already_started, Pid} ->
-			            		exit(self(), io:format("Cannot start connetion to DB : already started - ~p~nExit.~n", [Pid]));
+			            		error_logger:error_msg("Cannot start connetion to DB : already started - ~p~nExit.~n", [Pid]),
+                                exit(PidApp, "Exit.");
 							{shutdown, Term} ->
-			            		exit(self(), io:format("Cannot start connetion to DB : shutdown - ~p~nExit.~n", [Term]));
+			            		error_logger:error_msg("Cannot start connetion to DB : shutdown - ~p~nExit.~n", [Term]),
+                                exit(PidApp, "Exit.");
 							Term ->
-								exit(self(), io:format("Cannot start connetion to DB : ~p~nExit.~n", [Term]))
+								error_logger:error_msg("Cannot start connetion to DB : ~p~nExit.~n", [Term]),
+                                exit(PidApp, "Exit.")
 						end
 			    end;
 			{error, Reason} ->
-				exit("Cannot start connetion to DB : ~p~nExit.~n", [Reason])
+				error_logger:error_msg("Cannot start connetion to DB : ~p~nExit.~n", [Reason]),
+                exit(PidApp, "Exit.")
 		end
 	catch
 		error:AppError ->
-			exit(self(), io:format("Server application fails (error) : ~p~nExit.~n", AppError));
+			error_logger:error_msg("Server application fails (error) : ~p~nExit.~n", [AppError]),
+            exit(PidApp, "Exit.");
 		throw:AppThrow ->
-			exit(self(), io:format("Server application fails (throw) : ~p~nExit.~n", AppThrow));
+			error_logger:error_msg("Server application fails (throw) : ~p~nExit.~n", [AppThrow]),
+            exit(PidApp, "Exit.");
 		exit:AppReason ->
-			exit(self(), io:format("Server application fails (exit) : ~p~nExit.~n", AppReason))
+			error_logger:error_msg("Server application fails (exit) : ~p~nExit.~n", [AppReason]),
+            exit(PidApp, "Exit.")
 	end.			
 
 %%%
 %%% Start management server
 %%% VDR server and monitor server will also be started here
 %%%
-start_server_man(PortMan, Port, PortMon) ->
+start_server_man(PidApp, PortMan, Port, PortMon) ->
 	case gen_tcp:listen(PortMan, [{active, true}]) of
 		{ok, LSock} ->
-			error_logger:error_msg("Management starts listening.~n"),
+			error_logger:error_info("Management starts listening.~n"),
 		    case ti_sup_man:start_link(LSock) of
 		        {ok,Pid} ->
-					error_logger:error_msg("Management supervisor starts.~n"),
+					error_logger:error_info("Management supervisor starts.~n"),
     				ets:insert(msgservertable,{supmanpid,Pid}),
     				ets:insert(msgservertable,{supmanlsock,LSock}),
 		            ti_sup_man:start_child(),
 					% start VDR server & monitor server
-					start_server(Port, PortMon);
+					start_server(PidApp, Port, PortMon);
 				ignore ->
-		            exit("Cannot start server for management : ignore~nExit.~n");
+		            error_logger:error_msg("Cannot start server for management : ignore~nExit.~n"),
+                    exit(PidApp, "Exit.");
 		        {error, Error} ->
 					case Error of
 						{already_started, Pid} ->
-		            		exit("Cannot start server for management : already started - ~p~nExit.~n", [Pid]);
+		            		error_logger:error_msg("Cannot start server for management : already started - ~p~nExit.~n", [Pid]),
+                            exit(PidApp, "Exit.");
 						{shutdown, Term} ->
-		            		exit("Cannot start server for management : shutdown - ~p~nExit.~n", [Term]);
+		            		error_logger:error_msg("Cannot start server for management : shutdown - ~p~nExit.~n", [Term]),
+                            exit(PidApp, "Exit.");
 						Term ->
-							exit("Cannot start server for management : ~p~nExit.~n", [Term])
+							error_logger:error_msg("Cannot start server for management : ~p~nExit.~n", [Term]),
+                            exit(PidApp, "Exit.")
 					end
 		    end;
 		{error, Reason} ->
@@ -109,61 +121,71 @@ start_server_man(PortMan, Port, PortMon) ->
 %%% Start VDR server
 %%% Monitor server will also be started here
 %%%
-start_server(Port, PortMon) ->
+start_server(PidApp, Port, PortMon) ->
 	case gen_tcp:listen(Port, [{active, true}]) of
 		{ok, LSock} ->
-			error_logger:error_msg("VDR starts listening.~n"),
+			error_logger:error_info("VDR starts listening.~n"),
 		    case ti_sup:start_link(LSock) of
 		        {ok, Pid} ->
-					error_logger:error_msg("VDR supervisor starts.~n"),
+					error_logger:error_info("VDR supervisor starts.~n"),
 					ets:insert(msgservertable,{suppid,Pid}),
 					ets:insert(msgservertable,{suplsock,LSock}),
 		            ti_sup:start_child(),
 					% start monitor server
-					start_server_mon(PortMon);
+					start_server_mon(PidApp, PortMon);
 				ignore ->
-		            exit("Cannot start server for VDR : ignore~nExit.~n");
+		            exit("Cannot start server for VDR : ignore~nExit.~n"),
+                    exit(PidApp, "Exit.");
 		        {error, Error} ->
 					case Error of
 						{already_started, Pid} ->
-		            		exit("Cannot start server for VDR : already started - ~p~nExit.~n", [Pid]);
+		            		exit("Cannot start server for VDR : already started - ~p~nExit.~n", [Pid]),
+                            exit(PidApp, "Exit.");
 						{shutdown, Term} ->
-		            		exit("Cannot start server for VDR : shutdown - ~p~nExit.~n", [Term]);
+		            		exit("Cannot start server for VDR : shutdown - ~p~nExit.~n", [Term]),
+                            exit(PidApp, "Exit.");
 						Term ->
-							exit("Cannot start server for VDR : ~p~nExit.~n", [Term])
+							exit("Cannot start server for VDR : ~p~nExit.~n", [Term]),
+                            exit(PidApp, "Exit.")
 					end
 		    end;
 		{error, Reason} ->
-			exit("Cannot start server for VDR : ~p~nExit.~n", [Reason])
+			exit("Cannot start server for VDR : ~p~nExit.~n", [Reason]),
+            exit(PidApp, "Exit.")
 	end.
 
 %%%
 %%% Start monitor server
 %%%
-start_server_mon(Port) ->
+start_server_mon(PidApp, Port) ->
 	case gen_tcp:listen(Port, [{active, true}]) of
 		{ok, LSock} ->
-			error_logger:error_msg("Monitor starts listening.~n"),
+			error_logger:error_info("Monitor starts listening.~n"),
 		    case ti_sup_mon:start_link(LSock) of
 		        {ok, Pid} ->
-					error_logger:error_msg("Monitor supervisor starts.~n"),
+					error_logger:error_info("Monitor supervisor starts.~n"),
 					ets:insert(msgservertable,{supmonpid,Pid}),
 					ets:insert(msgservertable,{supmonlsock,LSock}),
 		            ti_sup_mon:start_child();
 				ignore ->
-		            exit("Cannot start server for monitor : ignore~nExit.~n");
+		            exit("Cannot start server for monitor : ignore~nExit.~n"),
+                    exit(PidApp, "Exit.");
 		        {error, Error} ->
 					case Error of
 						{already_started, Pid} ->
-		            		exit("Cannot start server for monitor : already started - ~p~nExit.~n", [Pid]);
+		            		exit("Cannot start server for monitor : already started - ~p~nExit.~n", [Pid]),
+                            exit(PidApp, "Exit.");
 						{shutdown, Term} ->
-		            		exit("Cannot start server for monitor : shutdown - ~p~nExit.~n", [Term]);
+		            		exit("Cannot start server for monitor : shutdown - ~p~nExit.~n", [Term]),
+                            exit(PidApp, "Exit.");
 						Term ->
-							exit("Cannot start server for monitor : ~p~nExit.~n", [Term])
+							exit("Cannot start server for monitor : ~p~nExit.~n", [Term]),
+                            exit(PidApp, "Exit.")
 					end
 		    end;
 		{error, Reason} ->
-			exit("Cannot start server for monitor : ~p~nExit.~n", [Reason])
+			exit("Cannot start server for monitor : ~p~nExit.~n", [Reason]),
+            exit(PidApp, "Exit.")
 	end.
 
 stop(_State) ->
@@ -174,10 +196,9 @@ stop(_State) ->
 %%% Need keeping some states?
 %%% Is this function proper?
 %%%
-app_message_processor() ->
-	receive
-		{stop, Msg} ->
-			exit("~p~nMsgServer stops.~n", [Msg]);
-		_ ->
-			app_message_processor()
-	end.
+%app_message_processor() ->
+%	receive
+%			exit("~p~nMsgServer stops.~n", [Msg]);
+%		_ ->
+%			app_message_processor()
+%	end.
