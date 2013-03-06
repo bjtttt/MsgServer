@@ -6,6 +6,7 @@
 -define(DEF_PORT_MAN, 6001).
 -define(DEF_DB, "127.0.0.1").
 -define(DEF_PORT_DB, 6002).
+-define(DEF_PORT_MON, 6003).
 
 %%% DB_SUP_MAX and DB_SUP_WITHIN are use in DB Supervisor for DB client restart mechanism
 %%% In development, they are 0 and 1 to make debug more easy and efficient.

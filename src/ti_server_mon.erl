@@ -1,8 +1,8 @@
 %%%
-%%% Need considering sending message to management server
+%%% Need considering how management server sends message to VDR
 %%%
 
--module(ti_server_man).
+-module(ti_server_mon).
 
 -behaviour(gen_server).
 
@@ -30,13 +30,8 @@ handle_info({tcp, Socket, RawData}, State) ->
     {noreply, NewState};
 handle_info({tcp_closed, _Socket}, State) ->
     {stop, normal, State};
-%%
-%% we should maintain the mapping : socket, pid & VDR ID
-%%
 handle_info(timeout, #state{lsock = LSock} = State) ->
-    {ok, Sock} = gen_tcp:accept(LSock),
-	Pid = spawn(fun() -> sendback_vdr(Sock) end),
-	Pid,
+    {ok, _Sock} = gen_tcp:accept(LSock),
     ti_sup:start_child(),
     {noreply, State}.
 
@@ -47,14 +42,9 @@ code_change(_OldVsn, State, _Extra) ->
     {ok, State}.
 
 %%
-%% Process the data from management server.
-%%     1. parse data
-%%     2. send message to VDR process
+%% Process data from monitor.
 %%
 handle_data(Socket, RawData, State) ->
 	Socket,
 	RawData,
     State.
-
-sendback_vdr(Socket) ->
-	Socket.
