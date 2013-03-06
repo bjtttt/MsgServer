@@ -27,10 +27,14 @@ start(_StartType, StartArgs) ->
 	ets:new(vdrinittable,[set,public,named_table,{keypos,1},{read_concurrency,true},{write_concurrency,true}]),
 	ets:new(vdrtable,[set,public,named_table,{keypos,1},{read_concurrency,true},{write_concurrency,true}]),
 	ets:new(mantable,[set,public,named_table,{keypos,1},{read_concurrency,true},{write_concurrency,true}]),
+	error_logger:error_info("Server tables are ok.~n"),
 	% make sure that msgserver can get stop message from any internal process?
-    ets:insert(serverstatetable, {apppid,self()}),
+    PidApp = self(),
+    ets:insert(msgservertable, {apppid,PidApp}),
+	error_logger:error_info("Server application PID : ~p~n",[PidApp]),
 	PidAppMsg = spawn(fun() -> app_message_processor() end),
     ets:insert(serverstatetable,{appmsgpid, PidAppMsg}),
+ 	error_logger:error_info("Server application message PID : ~p~n",[PidAppMsg]),
 	% start DB client
 	case gen_tcp:listen(DefPortDB, [{active,true}]) of
 		{ok, LSock} ->
