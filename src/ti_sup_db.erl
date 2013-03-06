@@ -16,8 +16,6 @@
 
 -define(SERVER, ?MODULE).
 
-%start_link(LSock) ->
-%    supervisor:start_link({local, ?SERVER}, ?MODULE, [LSock]).
 start_link(DB, Port) ->
     supervisor:start_link({local, ?SERVER}, ?MODULE, [DB, Port]).
 
