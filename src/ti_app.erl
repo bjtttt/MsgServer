@@ -51,34 +51,34 @@ start(_StartType, StartArgs) ->
 						error_logger:error_info("Msg server starts.~n");
 					ignore ->
                         error_logger:error_msg("Cannot start connetion to DB : ignore~nExit.~n"),
-			            exit(PidApp, "Exit.");
+			            exit(PidApp, shutdown);
 			        {error, Error} ->
 						case Error of
 							{already_started, Pid} ->
 			            		error_logger:error_msg("Cannot start connetion to DB : already started - ~p~nExit.~n", [Pid]),
-                                exit(PidApp, "Exit.");
+                                exit(PidApp, shutdown);
 							{shutdown, Term} ->
 			            		error_logger:error_msg("Cannot start connetion to DB : shutdown - ~p~nExit.~n", [Term]),
-                                exit(PidApp, "Exit.");
+                                exit(PidApp, shutdown);
 							Term ->
 								error_logger:error_msg("Cannot start connetion to DB : ~p~nExit.~n", [Term]),
-                                exit(PidApp, "Exit.")
+                                exit(PidApp, shutdown)
 						end
 			    end;
 			{error, Reason} ->
 				error_logger:error_msg("Cannot start connetion to DB : ~p~nExit.~n", [Reason]),
-                exit(PidApp, "Exit.")
+                exit(PidApp, shutdown)
 		end
 	catch
 		error:AppError ->
 			error_logger:error_msg("Server application fails (error) : ~p~nExit.~n", [AppError]),
-            exit(PidApp, "Exit.");
+            exit(PidApp, shutdown);
 		throw:AppThrow ->
 			error_logger:error_msg("Server application fails (throw) : ~p~nExit.~n", [AppThrow]),
-            exit(PidApp, "Exit.");
+            exit(PidApp, shutdown);
 		exit:AppReason ->
 			error_logger:error_msg("Server application fails (exit) : ~p~nExit.~n", [AppReason]),
-            exit(PidApp, "Exit.")
+            exit(PidApp, shutdown)
 	end.			
 
 %%%
@@ -99,22 +99,23 @@ start_server_man(PidApp, PortMan, Port, PortMon) ->
 					start_server(PidApp, Port, PortMon);
 				ignore ->
 		            error_logger:error_msg("Cannot start server for management : ignore~nExit.~n"),
-                    exit(PidApp, "Exit.");
+                    exit(PidApp, shutdown);
 		        {error, Error} ->
 					case Error of
 						{already_started, Pid} ->
 		            		error_logger:error_msg("Cannot start server for management : already started - ~p~nExit.~n", [Pid]),
-                            exit(PidApp, "Exit.");
+                            exit(PidApp, shutdown);
 						{shutdown, Term} ->
 		            		error_logger:error_msg("Cannot start server for management : shutdown - ~p~nExit.~n", [Term]),
-                            exit(PidApp, "Exit.");
+                            exit(PidApp, shutdown);
 						Term ->
 							error_logger:error_msg("Cannot start server for management : ~p~nExit.~n", [Term]),
-                            exit(PidApp, "Exit.")
+                            exit(PidApp, shutdown)
 					end
 		    end;
 		{error, Reason} ->
-			exit("Cannot start server for management : ~p~nExit.~n", [Reason])
+			error_logger:error_msg("Cannot start server for management : ~p~nExit.~n", [Reason]),
+            exit(PidApp, shutdown)
 	end.
 
 %%%
@@ -134,24 +135,24 @@ start_server(PidApp, Port, PortMon) ->
 					% start monitor server
 					start_server_mon(PidApp, PortMon);
 				ignore ->
-		            exit("Cannot start server for VDR : ignore~nExit.~n"),
-                    exit(PidApp, "Exit.");
+		            error_logger:error_msg("Cannot start server for VDR : ignore~nExit.~n"),
+                    exit(PidApp, shutdown);
 		        {error, Error} ->
 					case Error of
 						{already_started, Pid} ->
-		            		exit("Cannot start server for VDR : already started - ~p~nExit.~n", [Pid]),
-                            exit(PidApp, "Exit.");
+		            		error_logger:error_msg("Cannot start server for VDR : already started - ~p~nExit.~n", [Pid]),
+                            exit(PidApp, shutdown);
 						{shutdown, Term} ->
-		            		exit("Cannot start server for VDR : shutdown - ~p~nExit.~n", [Term]),
-                            exit(PidApp, "Exit.");
+		            		error_logger:error_msg("Cannot start server for VDR : shutdown - ~p~nExit.~n", [Term]),
+                            exit(PidApp, shutdown);
 						Term ->
-							exit("Cannot start server for VDR : ~p~nExit.~n", [Term]),
-                            exit(PidApp, "Exit.")
+							error_logger:error_msg("Cannot start server for VDR : ~p~nExit.~n", [Term]),
+                            exit(PidApp, shutdown)
 					end
 		    end;
 		{error, Reason} ->
-			exit("Cannot start server for VDR : ~p~nExit.~n", [Reason]),
-            exit(PidApp, "Exit.")
+			error_logger:error_msg("Cannot start server for VDR : ~p~nExit.~n", [Reason]),
+            exit(PidApp, shutdown)
 	end.
 
 %%%
@@ -168,24 +169,24 @@ start_server_mon(PidApp, Port) ->
 					ets:insert(msgservertable,{supmonlsock,LSock}),
 		            ti_sup_mon:start_child();
 				ignore ->
-		            exit("Cannot start server for monitor : ignore~nExit.~n"),
-                    exit(PidApp, "Exit.");
+		            error_logger:error_msg("Cannot start server for monitor : ignore~nExit.~n"),
+                    exit(PidApp, shutdown);
 		        {error, Error} ->
 					case Error of
 						{already_started, Pid} ->
-		            		exit("Cannot start server for monitor : already started - ~p~nExit.~n", [Pid]),
-                            exit(PidApp, "Exit.");
+		            		error_logger:error_msg("Cannot start server for monitor : already started - ~p~nExit.~n", [Pid]),
+                            exit(PidApp, shutdown);
 						{shutdown, Term} ->
-		            		exit("Cannot start server for monitor : shutdown - ~p~nExit.~n", [Term]),
-                            exit(PidApp, "Exit.");
+		            		error_logger:error_msg("Cannot start server for monitor : shutdown - ~p~nExit.~n", [Term]),
+                            exit(PidApp, shutdown);
 						Term ->
-							exit("Cannot start server for monitor : ~p~nExit.~n", [Term]),
-                            exit(PidApp, "Exit.")
+							error_logger:error_msg("Cannot start server for monitor : ~p~nExit.~n", [Term]),
+                            exit(PidApp, shutdown)
 					end
 		    end;
 		{error, Reason} ->
-			exit("Cannot start server for monitor : ~p~nExit.~n", [Reason]),
-            exit(PidApp, "Exit.")
+			error_logger:error_msg("Cannot start server for monitor : ~p~nExit.~n", [Reason]),
+            exit(PidApp, shutdown)
 	end.
 
 stop(_State) ->
