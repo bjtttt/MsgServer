@@ -34,10 +34,10 @@ handle_info({tcp_closed, _Socket}, State) ->
 %% we should maintain the mapping : socket, pid & VDR ID
 %%
 handle_info(timeout, #state{lsock = LSock} = State) ->
-    {ok, Sock} = gen_tcp:accept(LSock),
-	Pid = spawn(fun() -> sendback_vdr(Sock) end),
-	Pid,
-    ti_sup:start_child(),
+    {ok, _Sock} = gen_tcp:accept(LSock),
+	%Pid = spawn(fun() -> sendback_vdr(Sock) end),
+	%Pid,
+    ti_sup_man:start_child(),
     {noreply, State}.
 
 terminate(_Reason, _State) ->
@@ -53,8 +53,8 @@ code_change(_OldVsn, State, _Extra) ->
 %%
 handle_data(Socket, RawData, State) ->
 	Socket,
-	RawData,
+	ti_man_data_parser:parse_data(RawData),
     State.
 
-sendback_vdr(Socket) ->
-	Socket.
+%sendback_vdr(Socket) ->
+%	Socket.

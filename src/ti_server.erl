@@ -49,5 +49,5 @@ code_change(_OldVsn, State, _Extra) ->
 %%
 handle_data(Socket, RawData, State) ->
 	Socket,
-	RawData,
+	ti_vdr_data_parser:parse_data(RawData),
     State.
