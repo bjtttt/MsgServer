@@ -38,13 +38,16 @@ start(_StartType, StartArgs) ->
 	% start DB client
 	case gen_tcp:listen(DefPortDB, [{active,true}]) of
 		{ok, LSock} ->
+			error_logger:error_info("Database starts listening.~n"),
 			case ti_sup_db:start_link(LSock, DefDB, DefPortDB) of
 		        {ok, Pid} ->
+					error_logger:error_info("Database supervisor starts.~n"),
 		            ets:insert(serverstatetable, {supdbpid, Pid}),
 		            ets:insert(serverstatetable, {supdblsock, LSock}),
-		            ti_sup:start_child(),
+		            ti_sup_db:start_child(),
 					% start management server, VDR server & monitor server
-					start_server_man(DefPortMan, DefPort, DefPortMon);
+					start_server_man(DefPortMan, DefPort, DefPortMon),
+					error_logger:error_info("Msg server starts.~n");
 				ignore ->
 		            exit("Cannot start connetion to DB : ignore~nExit.~n");
 		        {error, Error} ->
@@ -149,7 +152,7 @@ start_server_mon(Port) ->
 	end.
 
 stop(_State) ->
-    ok.
+	error_logger:error_info("Msg server stops.~n").
 
 %%%
 %%% Application get stop message.
