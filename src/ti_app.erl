@@ -54,11 +54,11 @@ start(_StartType, StartArgs) ->
 			        {error, Error} ->
 						case Error of
 							{already_started, Pid} ->
-			            		exit("Cannot start connetion to DB : already started - ~p~nExit.~n", [Pid]);
+			            		exit(self(), io:format("Cannot start connetion to DB : already started - ~p~nExit.~n", [Pid]));
 							{shutdown, Term} ->
-			            		exit("Cannot start connetion to DB : shutdown - ~p~nExit.~n", [Term]);
+			            		exit(self(), io:format("Cannot start connetion to DB : shutdown - ~p~nExit.~n", [Term]));
 							Term ->
-								exit("Cannot start connetion to DB : ~p~nExit.~n", [Term])
+								exit(self(), io:format("Cannot start connetion to DB : ~p~nExit.~n", [Term]))
 						end
 			    end;
 			{error, Reason} ->
@@ -66,11 +66,11 @@ start(_StartType, StartArgs) ->
 		end
 	catch
 		error:AppError ->
-			exit("Server application fails (error) : ~p~nExit.~n", AppError);
+			exit(self(), io:format("Server application fails (error) : ~p~nExit.~n", AppError));
 		throw:AppThrow ->
-			exit("Server application fails (throw) : ~p~nExit.~n", AppThrow);
+			exit(self(), io:format("Server application fails (throw) : ~p~nExit.~n", AppThrow));
 		exit:AppReason ->
-			exit("Server application fails (exit) : ~p~nExit.~n", AppReason)
+			exit(self(), io:format("Server application fails (exit) : ~p~nExit.~n", AppReason))
 	end.			
 
 %%%
