@@ -2,7 +2,7 @@
 %%% Need considering how management server sends message to VDR
 %%%
 
--module(ti_server_mon).
+-module(ti_server_vdr).
 
 -behaviour(gen_server).
 
@@ -32,7 +32,7 @@ handle_info({tcp_closed, _Socket}, State) ->
     {stop, normal, State};
 handle_info(timeout, #state{lsock = LSock} = State) ->
     {ok, _Sock} = gen_tcp:accept(LSock),
-    ti_sup_mon:start_child(),
+    ti_sup:start_child(),
     {noreply, State}.
 
 terminate(_Reason, _State) ->
@@ -42,9 +42,12 @@ code_change(_OldVsn, State, _Extra) ->
     {ok, State}.
 
 %%
-%% Process data from monitor.
+%% Process data from VDR.
+%%     1. parse data
+%%     2. send message to DB client process
+%%     3. check whether message should be sent to management server
 %%
 handle_data(Socket, RawData, State) ->
 	Socket,
-	ti_mon_data_parser:parse_data(RawData),
+	ti_vdr_data_parser:parse_data(RawData),
     State.
