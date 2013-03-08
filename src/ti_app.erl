@@ -4,8 +4,10 @@
 
 -include("ti_common.hrl").
 
+%%%
+%%% start/1 is useless and will be removed in the future
+%%%
 -export([start/1, start/2, stop/1]).
-
 
 start(_StartType, StartArgs) ->
     % Initialize tables
