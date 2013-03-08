@@ -1,5 +1,5 @@
 %%%
-%%% This is for the connection from the VDR
+%%% This is the root supervisor 
 %%%
 
 -module(ti_sup).
@@ -20,16 +20,20 @@ start_link(StartArgs) ->
 start_child() ->
     supervisor:start_child(?SERVER, []).
 
+%%%
+%%% In the DEV phase, Max is 0 and Within is 1
+%%% After release, they should be adjusted to proper values.
+%%%
 init([StartArgs]) ->
 	[PortVDR, PortMan, DB, PortDB, PortMon] = StartArgs,
     VDRServer = {ti_server_vdr, {ti_server_vdr, start_link, [PortVDR]},
-              temporary, brutal_kill, supervisor, [ti_server_vdr]},
+              permanent, brutal_kill, supervisor, [ti_server_vdr]},
     ManServer = {ti_server_man, {ti_server_man, start_link, [PortMan]},
-              temporary, brutal_kill, supervisor, [ti_server_man]},
+              permanent, brutal_kill, supervisor, [ti_server_man]},
     DBClient = {ti_client_db, {ti_client_db, start_link, [DB, PortDB]},
-              temporary, brutal_kill, supervisor, [ti_client_db]},
+              permanent, brutal_kill, supervisor, [ti_client_db]},
     MonServer = {ti_server_mon, {ti_server_mon, start_link, [PortMon]},
-              temporary, brutal_kill, supervisor, [ti_server_mon]},
+              permanent, brutal_kill, supervisor, [ti_server_mon]},
     Children = [VDRServer, ManServer, DBClient, MonServer],
     RestartStrategy = {simple_one_for_one, 0, 1},
     {ok, {RestartStrategy, Children}}.
