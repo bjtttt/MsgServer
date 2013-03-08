@@ -8,12 +8,23 @@
 
 
 start(_StartType, StartArgs) ->
+    % Initialize tables
+    ets:new(msgservertable,[set,public,named_table,{keypos,1},{read_concurrency,true},{write_concurrency,true}]),
+    % Key - Value : VDR Socket : VDR ID
+    ets:new(vdrinittable,[set,public,named_table,{keypos,1},{read_concurrency,true},{write_concurrency,true}]),
+    % Key - Value : VDR ID : VDR Socket
+    ets:new(vdrtable,[set,public,named_table,{keypos,1},{read_concurrency,true},{write_concurrency,true}]),
+    ets:new(mantable,[set,public,named_table,{keypos,1},{read_concurrency,true},{write_concurrency,true}]),
     case ti_sup:start_link(StartArgs) of
         {ok, Pid} ->
             {ok, Pid};
         Other ->
             {error, Other}
     end.
+
+stop(_State) ->
+    %error_logger:info_msg("Msg server stops.~n"),
+    ok.
 
 %%%
 %%% Useless function
@@ -97,6 +108,9 @@ start(StartArgs) ->
 	end.			
 
 %%%
+%%% Useless function
+%%%
+%%%
 %%% Start management server
 %%% VDR server and monitor server will also be started here
 %%%
@@ -133,6 +147,9 @@ start_server_man(PortMan, Port, PortMon) ->
             {error, shutdown}
 	end.
 
+%%%
+%%% Useless function
+%%%
 %%%
 %%% Start VDR server
 %%% Monitor server will also be started here
@@ -171,6 +188,9 @@ start_server(Port, PortMon) ->
 	end.
 
 %%%
+%%% Useless function
+%%%
+%%%
 %%% Start monitor server
 %%%
 start_server_mon(Port) ->
@@ -204,10 +224,6 @@ start_server_mon(Port) ->
 			error_logger:error_msg("Cannot start server for monitor : ~p~nExit.~n", [Reason]),
             {error, Reason}
 	end.
-
-stop(_State) ->
-	error_logger:info_msg("Msg server stops.~n"),
-	ok.
 
 %%%
 %%% Application get stop message.
