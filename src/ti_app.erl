@@ -9,11 +9,20 @@
 
 start(_StartType, StartArgs) ->
     % Initialize tables
+    % This table should include:
+    % DB PID : it is used for the communication with VDR
     ets:new(msgservertable,[set,public,named_table,{keypos,1},{read_concurrency,true},{write_concurrency,true}]),
-    % Key - Value : VDR Socket : VDR ID
+    % It seems to be a little stupid to use two tables.
+    % However, I haven't found a more efficient way to look up VDR ID from VDR Socket or reversely.
+    % PID is used for the communication with DB & Manange Platform
+    % Key - Value, PID : VDR Socket : VDR ID, PID
     ets:new(vdrinittable,[set,public,named_table,{keypos,1},{read_concurrency,true},{write_concurrency,true}]),
-    % Key - Value : VDR ID : VDR Socket
+    % Key - Value, PID : VDR ID : VDR Socket, PID
     ets:new(vdrtable,[set,public,named_table,{keypos,1},{read_concurrency,true},{write_concurrency,true}]),
+    % There will be more than one management platforms.
+    % However, I still don't know how to deal with them.
+    % This table is use to store the information for Socket(?), PID, and others(?)
+    % PID is used for the commnunication with VDR
     ets:new(mantable,[set,public,named_table,{keypos,1},{read_concurrency,true},{write_concurrency,true}]),
     case ti_sup:start_link(StartArgs) of
         {ok, Pid} ->
