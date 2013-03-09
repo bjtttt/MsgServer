@@ -26,11 +26,14 @@ start_child() ->
 %%%
 init([StartArgs]) ->
 	[PortVDR, PortMan, PortMon, DB, PortDB, LSock] = StartArgs,
-    % Children definitions
-    VDRServer = {ti_server_vdr, {ti_server_vdr, start_link, [PortVDR]}, permanent, brutal_kill, supervisor, [ti_server_vdr]},
-    ManServer = {ti_server_man, {ti_server_man, start_link, [PortMan]}, permanent, brutal_kill, supervisor, [ti_server_man]},
-    DBClient = {ti_client_db, {ti_client_db, start_link, [DB, PortDB, LSock]}, permanent, brutal_kill, supervisor, [ti_client_db]},
-    MonServer = {ti_server_mon, {ti_server_mon, start_link, [PortMon]}, permanent, brutal_kill, supervisor, [ti_server_mon]},
-    Children = [VDRServer, ManServer, DBClient, MonServer],
-    RestartStrategy = {simple_one_for_one, 0, 1},
+    VDRServer = {ti_sup_vdr, {ti_sup_vdr, start_link, [PortVDR]}, 
+                 permanent, brutal_kill, supervisor, [ti_server_vdr]},
+    ManServer = {ti_sup_man, {ti_sup_man, start_link, [PortMan]}, 
+                 permanent, brutal_kill, supervisor, [ti_server_man]},
+    MonServer = {ti_sup_mon, {ti_sup_mon, start_link, [PortMon]}, 
+                 permanent, brutal_kill, supervisor, [ti_server_mon]},
+    DBClient = {ti_sup_db, {ti_sup_db, start_link, [DB, PortDB, LSock]}, 
+                permanent, brutal_kill, supervisor, [ti_client_db]},
+    Children = [VDRServer, ManServer, MonServer, DBClient],
+    RestartStrategy = {one_for_one, 0, 1},
     {ok, {RestartStrategy, Children}}.
