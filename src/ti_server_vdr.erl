@@ -14,7 +14,7 @@
 -record(state, {lsock}).
 
 start_link(LSock) ->
-    gen_server:start_link({local, ?MODULE}, ?MODULE, [LSock], []).
+    gen_server:start_link(?MODULE, [LSock], []).
 
 init([LSock]) ->
     {ok, #state{lsock = LSock}, 0}.

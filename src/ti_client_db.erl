@@ -13,7 +13,7 @@
 -record(state, {lsock, db, dbport, dbsock, dbpid, dbmsgpid}).
 
 start_link(DB, Port, LSock) ->
-    gen_server:start_link({local, ?MODULE}, ?MODULE, [DB, Port, LSock], []).
+    gen_server:start_link(?MODULE, [DB, Port, LSock], []).
 
 init([DB, Port, LSock]) ->
 	{ok, #state{lsock=LSock, db=DB, dbport=Port, dbsock=undefined, dbpid=self(), dbmsgpid=undefined}, 0}.
