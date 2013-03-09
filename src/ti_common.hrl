@@ -17,3 +17,8 @@
 %-define(LOG_DEBUG_INFO_ERR, 2).
 %-define(LOG_INFO_ERR, 1).
 %-define(LOG_ERR, 0).
+
+%%%
+%%% There is only one super user, name is super, password is super.
+%%% 
+-record(user, {name, level, ip, time}).

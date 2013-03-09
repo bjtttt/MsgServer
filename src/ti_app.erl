@@ -26,7 +26,14 @@ start(_StartType, StartArgs) ->
     % This table is use to store the information for Socket(?), PID, and others(?)
     % PID is used for the commnunication with VDR
     ets:new(mantable,[set,public,named_table,{keypos,1},{read_concurrency,true},{write_concurrency,true}]),
-    case ti_sup:start_link(StartArgs) of
+    % This table includes all uses
+    ets:new(usertable,[set,public,named_table,{keypos,1},{read_concurrency,true},{write_concurrency,true}]),
+    % This table includes the user who has logged in
+    ets:new(montable,[set,public,named_table,{keypos,1},{read_concurrency,true},{write_concurrency,true}]),
+    [_PortVDR, _PortMan, _PortMon, _DB, PortDB] = StartArgs,
+    {ok, LSock} = gen_tcp:listen(PortDB, [{active, true}]),
+    NewStartArgs = [StartArgs|LSock],
+    case ti_sup:start_link(NewStartArgs) of
         {ok, Pid} ->
             {ok, Pid};
         Other ->

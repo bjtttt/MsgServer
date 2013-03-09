@@ -14,15 +14,15 @@
 
 -define(SERVER, ?MODULE).
 
-start_link(LSock) ->
+start_link(Port) ->
+    {ok, LSock} = gen_tcp:listen(Port, [{active, true}]),
     supervisor:start_link({local, ?SERVER}, ?MODULE, [LSock]).
 
 start_child() ->
     supervisor:start_child(?SERVER, []).
 
 init([LSock]) ->
-    Server = {ti_server, {ti_server, start_link, [LSock]},
-              temporary, brutal_kill, worker, [ti_server]},
+    Server = {ti_server, {ti_server, start_link, [LSock]}, temporary, brutal_kill, worker, [ti_server]},
     Children = [Server],
     RestartStrategy = {simple_one_for_one, 0, 1},
     {ok, {RestartStrategy, Children}}.

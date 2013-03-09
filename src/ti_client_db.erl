@@ -4,7 +4,7 @@
 
 -include("ti_common.hrl").
 
--export([start_link/2]).
+-export([start_link/3]).
 
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2,
          terminate/2, code_change/3]).
@@ -12,10 +12,10 @@
 % Need consideration here
 -record(state, {lsock, db, dbport, dbsock, dbpid, dbmsgpid}).
 
-start_link(DB, Port) ->
-    gen_server:start_link({local, ?MODULE}, ?MODULE, [DB, Port], []).
+start_link(DB, Port, LSock) ->
+    gen_server:start_link({local, ?MODULE}, ?MODULE, [DB, Port, LSock], []).
 
-init([LSock, DB, Port]) ->
+init([DB, Port, LSock]) ->
 	{ok, #state{lsock=LSock, db=DB, dbport=Port, dbsock=undefined, dbpid=self(), dbmsgpid=undefined}, 0}.
 
 handle_call(Msg, _From, State) ->
