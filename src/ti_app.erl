@@ -32,8 +32,7 @@ start(_StartType, StartArgs) ->
     ets:new(montable,[set,public,named_table,{keypos,1},{read_concurrency,true},{write_concurrency,true}]),
     [_PortVDR, _PortMan, _PortMon, _DB, PortDB] = StartArgs,
     {ok, LSock} = gen_tcp:listen(PortDB, [{active, true}]),
-    NewStartArgs = [StartArgs|LSock],
-    case ti_sup:start_link(NewStartArgs) of
+    case ti_sup:start_link(StartArgs ++ [LSock]) of
         {ok, Pid} ->
             {ok, Pid};
         Other ->
