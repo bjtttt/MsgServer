@@ -6,7 +6,7 @@
 
 -behaviour(supervisor).
 
--include("ti_common.hrl").
+-include("ti_header.hrl").
 
 %% API
 -export([start_link/3, start_child/0]).

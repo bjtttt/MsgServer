@@ -6,7 +6,7 @@
 
 -behaviour(gen_server).
 
--include("ti_common.hrl").
+-include("ti_header.hrl").
 
 -export([start_link/3]).
 
@@ -14,13 +14,13 @@
          terminate/2, code_change/3]).
 
 % Need consideration here
--record(state, {lsock, db, dbport, dbsock, dbpid, dbmsgpid}).
+-record(state, {lsock, db, dbport, dbsock}).
 
 start_link(DB, Port, LSock) ->
     gen_server:start_link(?MODULE, [DB, Port, LSock], []).
 
 init([DB, Port, LSock]) ->
-	{ok, #state{lsock=LSock, db=DB, dbport=Port, dbsock=undefined, dbpid=self(), dbmsgpid=undefined}, 0}.
+	{ok, #state{lsock=LSock, db=DB, dbport=Port, dbsock=undefined}, 0}.
 
 handle_call(Msg, _From, State) ->
     {reply, {ok, Msg}, State}.
@@ -34,19 +34,19 @@ handle_info({tcp, Socket, RawData}, State) ->
 handle_info({tcp_closed, _Socket}, State) ->
     {stop, normal, State};
 handle_info(timeout, State) ->
-    error_logger:info_msg("~p~n", [calendar:now_to_local_time(erlang:now())]),
-    error_logger:info_msg("Try to connect DB (~p:~p) ... ", [State#state.db, State#state.dbport]),
+    error_logger:info_msg("~p : Try to connect DB (~p:~p) ... ", 
+						  [calendar:now_to_local_time(erlang:now()), State#state.db, State#state.dbport]),
 	case gen_tcp:connect(State#state.db, State#state.dbport, [{active, true}]) of
 		{ok, CSock} ->
-			error_logger:info_msg("Connected.~n"),
-            error_logger:info_msg("~p~n", [calendar:now_to_local_time(erlang:now())]),
+			error_logger:info_msg("~p : Connected.~n", 
+								  [calendar:now_to_local_time(erlang:now())]),
 			Pid = spawn(fun() -> db_message_processor(CSock) end),
 			ets:insert(msgservertable, {dbconnpid, Pid}),
-			{noreply, State#state{dbsock=CSock, dbmsgpid=Pid}};
+			ti_sup_db:start_child(),
+			{noreply, State#state{dbsock=CSock}};
 		{error, Reason} ->
-			error_logger:error_msg("Fails.~n"),
-            error_logger:info_msg("~p~n", [calendar:now_to_local_time(erlang:now())]),
-			error_logger:error_msg("Error message : ~p~n", [Reason]),
+			error_logger:error_msg("~p : Fails : ~p.~n", 
+								   [calendar:now_to_local_time(erlang:now()), Reason]),
 			Pid = ets:lookup(msgservertable, dbconnpid),
 			case Pid of
 				-1 ->
@@ -55,7 +55,7 @@ handle_info(timeout, State) ->
 					ets:insert(msgservertable, {dbconnpid, -1})
 			end,
 			ti_sup_db:start_child(),
-			{stop, State}
+			{stop, error, State}
 	end.
 
 terminate(_Reason, _State) ->
@@ -75,6 +75,8 @@ handle_data(Socket, RawData, State) ->
 %%% This process will translate the message and send the new message to the database.
 %%% At the same time, it will check whether the message from VDR should also be sent to the manage server or not.
 %%% If so, this process will send the message to the process which is responsible for the talk to the management server.
+%%%
+%%% Socket : connection between DB
 %%%
 db_message_processor(Socket) ->
 	receive

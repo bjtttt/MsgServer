@@ -31,7 +31,21 @@ handle_info({tcp, Socket, RawData}, State) ->
 handle_info({tcp_closed, _Socket}, State) ->
     {stop, normal, State};
 handle_info(timeout, #state{lsock = LSock} = State) ->
-    {ok, _Sock} = gen_tcp:accept(LSock),
+    case gen_tcp:accept(LSock) of
+		{ok, ASock} ->
+			case ti_common:safepeername(ASock) of
+				{ok, {Address, Port}} ->
+            		error_logger:info_msg("~p : VDR connection from ~p:~p~n", [calendar:now_to_local_time(erlang:now()), Address, Port]),
+					ok;
+				{error, Msg} ->
+            		error_logger:info_msg("~p : unknown VDR connection : ~p~n", [calendar:now_to_local_time(erlang:now()), Msg]),
+					ok
+			end,
+			% -1 means this VDR hasn't report its ID yet.
+			ets:insert(vdrinittable, {ASock, -1, calendar:now_to_local_time(erlang:now())});
+		{error, Reason} ->
+       		error_logger:error_msg("~p : accepting VDR error : ~p~n", [calendar:now_to_local_time(erlang:now()), Reason])
+	end,
     ti_sup:start_child(),
     {noreply, State}.
 
@@ -51,3 +65,6 @@ handle_data(Socket, RawData, State) ->
 	Socket,
 	ti_vdr_data_parser:parse_data(RawData),
     State.
+
+
+

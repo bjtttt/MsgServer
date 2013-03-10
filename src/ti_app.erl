@@ -14,8 +14,7 @@
 -export([start/1, start/2, stop/1]).
 
 start(StartType, StartArgs) ->
-	TimeStamp = calendar:now_to_local_time(erlang:now()),
-    error_logger:info_msg("~p~n", [TimeStamp]),
+    error_logger:info_msg("~p~n", [calendar:now_to_local_time(erlang:now())]),
     error_logger:info_msg("Initialize tables.~n"),
     error_logger:info_msg("StartType : ~p~n", [StartType]),
     error_logger:info_msg("StartArgs : ~p~n", [StartArgs]),
