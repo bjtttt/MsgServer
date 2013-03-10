@@ -25,14 +25,14 @@ start_child() ->
 %%% After release, they should be adjusted to proper values.
 %%%
 init([StartArgs]) ->
-	[PortVDR, PortMan, PortMon, DB, PortDB, LSock] = StartArgs,
-    VDRServer = {ti_sup_vdr, {ti_sup_vdr, start_link, [PortVDR]}, 
+	[LSockVDR, LSockMan, LSockMon, LSockDB] = StartArgs,
+    VDRServer = {ti_sup_vdr, {ti_sup_vdr, start_link, [LSockVDR]}, 
                  permanent, brutal_kill, supervisor, [ti_server_vdr]},
-    ManServer = {ti_sup_man, {ti_sup_man, start_link, [PortMan]}, 
+    ManServer = {ti_sup_man, {ti_sup_man, start_link, [ LSockMan]}, 
                  permanent, brutal_kill, supervisor, [ti_server_man]},
-    MonServer = {ti_sup_mon, {ti_sup_mon, start_link, [PortMon]}, 
+    MonServer = {ti_sup_mon, {ti_sup_mon, start_link, [LSockMon]}, 
                  permanent, brutal_kill, supervisor, [ti_server_mon]},
-    DBClient = {ti_sup_db, {ti_sup_db, start_link, [DB, PortDB, LSock]}, 
+    DBClient = {ti_sup_db, {ti_sup_db, start_link, [LSockDB]}, 
                 permanent, brutal_kill, supervisor, [ti_client_db]},
     Children = [VDRServer, ManServer, MonServer, DBClient],
     RestartStrategy = {one_for_one, 0, 1},

@@ -45,11 +45,11 @@ handle_info(timeout, #state{lsock = LSock} = State) ->
             % The time is the last active time for the VDR, for example, sending message or ack.
 			% The last value is the timeout for VDR. However, what the initialized value should it be?
 			ets:insert(vdrinittable, {AccSock, -1, calendar:now_to_local_time(erlang:now()), 60}),
-            ti_sup_vdr:start_child(),
+            ti_sup_vdr:init([LSock]),
             {noreply, State};
 		{error, Reason} ->
        		error_logger:error_msg("~p : accepting VDR error : ~p~n", [calendar:now_to_local_time(erlang:now()), Reason]),
-            ti_sup_vdr:start_child(),
+            ti_sup_vdr:init([LSock]),
             {stop, error, State}
 	end.
 
@@ -67,6 +67,16 @@ code_change(_OldVsn, State, _Extra) ->
 %%
 handle_data(Socket, RawData, State) ->
 	Socket,
+    case ti_common:safepeername(Socket) of
+        {ok, {Address, _Port}} ->
+            gen_tcp:send(Socket, Address),
+            %error_logger:info_msg("~p : VDR connection from ~p:~p~n", [calendar:now_to_local_time(erlang:now()), Address, Port]),
+            ok;
+        {error, Msg} ->
+            gen_tcp:send(Socket, Msg),
+            %error_logger:info_msg("~p : unknown VDR connection : ~p~n", [calendar:now_to_local_time(erlang:now()), Msg]),
+            ok
+    end,
 	ti_vdr_data_parser:parse_data(RawData),
     State.
 

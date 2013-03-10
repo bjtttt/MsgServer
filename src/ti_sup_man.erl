@@ -15,8 +15,7 @@
 
 -define(SERVER, ?MODULE).
 
-start_link(Port) ->
-    {ok, LSock} = gen_tcp:listen(Port, [{active, true}]),
+start_link(LSock) ->
     supervisor:start_link({local, ?SERVER}, ?MODULE, [LSock]).
 
 start_child() ->

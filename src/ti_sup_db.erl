@@ -16,14 +16,14 @@
 
 -define(SERVER, ?MODULE).
 
-start_link(DB, Port, LSock) ->
-    supervisor:start_link({local, ?SERVER}, ?MODULE, [DB, Port, LSock]).
+start_link() ->
+    supervisor:start_link({local, ?SERVER}, ?MODULE, []).
 
 start_child() ->
     supervisor:start_child(?SERVER, []).
 
 init([DB, Port, LSock]) ->
-    DBClient = {ti_client_db, {ti_client_db, start_link, [DB, Port, LSock]}, 
+    DBClient = {ti_client_db, {ti_client_db, start_link, []}, 
               temporary, brutal_kill, worker, [ti_client_db]},
     Children = [DBClient],
     RestartStrategy = {one_for_one, ?DB_SUP_MAX, ?DB_SUP_WITHIN},

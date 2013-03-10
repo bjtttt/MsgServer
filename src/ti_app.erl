@@ -23,14 +23,22 @@ start(StartType, StartArgs) ->
 	% Any time when the connection between the server and the DB is created, its value will be updated.
     % Before sending any message to the DB connection process, it is a must to check this value.
 	ets:insert(msgservertable,{dbconnpid,-1}),
+    [PortVDR, PortMan, PortMon, DB, PortDB] = StartArgs,
+    ets:insert(msgservertable, {portvdr, PortVDR}),
+    ets:insert(msgservertable, {portman, PortMan}),
+    ets:insert(msgservertable, {portmon, PortMon}),
+    ets:insert(msgservertable, {db, DB}),
+    ets:insert(msgservertable, {portdb, PortDB}),
     ets:new(vdrinittable,[set,public,named_table,{keypos,1},{read_concurrency,true},{write_concurrency,true}]),
     ets:new(vdrtable,[set,public,named_table,{keypos,1},{read_concurrency,true},{write_concurrency,true}]),
     ets:new(mantable,[set,public,named_table,{keypos,1},{read_concurrency,true},{write_concurrency,true}]),
     ets:new(usertable,[set,public,named_table,{keypos,1},{read_concurrency,true},{write_concurrency,true}]),
     ets:new(montable,[set,public,named_table,{keypos,1},{read_concurrency,true},{write_concurrency,true}]),
-    [_PortVDR, _PortMan, _PortMon, _DB, PortDB] = StartArgs,
-    {ok, LSock} = gen_tcp:listen(PortDB, [{active, true}]),
-    case ti_sup:start_link(StartArgs ++ [LSock]) of
+    {ok, LSockVDR} = gen_tcp:listen(PortVDR, [{active, true}]),
+    {ok, LSockMan} = gen_tcp:listen(PortMan, [{active, true}]),
+    {ok, LSockMon} = gen_tcp:listen(PortMon, [{active, true}]),
+    {ok, LSockDB} = gen_tcp:listen(PortDB, [{active, true}]),
+    case ti_sup:start_link(StartArgs ++ [LSockVDR, LSockMan, LSockMon, LSockDB]) of
         {ok, Pid} ->
 			error_logger:info_msg("Msg server starts.~n"),
             {ok, Pid};
