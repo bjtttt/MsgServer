@@ -44,7 +44,7 @@ handle_info(timeout, #state{lsock = LSock} = State) ->
 			% -1 means this VDR hasn't report its ID yet.
             % The time is the last active time for the VDR, for example, sending message or ack.
 			% The last value is the timeout for VDR. However, what the initialized value should it be?
-			ets:insert(vdrinittable, {AccSock, -1, calendar:now_to_local_time(erlang:now(), 60)}),
+			ets:insert(vdrinittable, {AccSock, -1, calendar:now_to_local_time(erlang:now()), 60}),
             ti_sup:start_child(),
             {noreply, State};
 		{error, Reason} ->
