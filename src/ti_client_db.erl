@@ -47,7 +47,7 @@ handle_info(timeout, State) ->
 		{error, Reason} ->
 			error_logger:error_msg("~p : Fails : ~p.~n", 
 								   [calendar:now_to_local_time(erlang:now()), Reason]),
-			Pid = ets:lookup(msgservertable, dbconnpid),
+			[{dbconnpid, Pid}] = ets:lookup(msgservertable, dbconnpid),
 			case Pid of
 				-1 ->
 					ok;

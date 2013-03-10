@@ -13,7 +13,8 @@
              ti_client_db,
              ti_vdr_data_parser,
              ti_man_data_parser,
-             ti_mon_data_parser]},
+             ti_mon_data_parser,
+             ti_common]},
   {registered, [ti_sup, ti_sup_vdr, ti_sup_man, ti_sup_db, ti_sup_mon]},
   {applications, [kernel, sasl, stdlib]},
   {mod, {ti_app, [6000, 6001, 6003, "127.0.0.1", 6002]}}
