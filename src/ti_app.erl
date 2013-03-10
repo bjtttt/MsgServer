@@ -6,7 +6,7 @@
 
 -behaviour(application).
 
--include("ti_common.hrl").
+-include("ti_header.hrl").
 
 %%%
 %%% start/1 is useless and will be removed in the future
