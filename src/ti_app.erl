@@ -1,3 +1,7 @@
+%%%
+%%% This is the application
+%%%
+
 -module(ti_app).
 
 -behaviour(application).
@@ -9,38 +13,30 @@
 %%%
 -export([start/1, start/2, stop/1]).
 
-start(_StartType, StartArgs) ->
-    % Initialize tables
-    % This table should include:
-    % DB PID : it is used for the communication with VDR
+start(StartType, StartArgs) ->
+    error_logger:info_msg("Initialize tables.~n"),
+    error_logger:info_msg("StartType : ~p~n", [StartType]),
+    error_logger:info_msg("StartArgs : ~p~n", [StartArgs]),
     ets:new(msgservertable,[set,public,named_table,{keypos,1},{read_concurrency,true},{write_concurrency,true}]),
-    % It seems to be a little stupid to use two tables.
-    % However, I haven't found a more efficient way to look up VDR ID from VDR Socket or reversely.
-    % PID is used for the communication with DB & Manange Platform
-    % Key - Value, PID : VDR Socket : VDR ID, PID
+	ets:insert(msgservertable,{dbconnpid,-1}),
     ets:new(vdrinittable,[set,public,named_table,{keypos,1},{read_concurrency,true},{write_concurrency,true}]),
-    % Key - Value, PID : VDR ID : VDR Socket, PID
     ets:new(vdrtable,[set,public,named_table,{keypos,1},{read_concurrency,true},{write_concurrency,true}]),
-    % There will be more than one management platforms.
-    % However, I still don't know how to deal with them.
-    % This table is use to store the information for Socket(?), PID, and others(?)
-    % PID is used for the commnunication with VDR
     ets:new(mantable,[set,public,named_table,{keypos,1},{read_concurrency,true},{write_concurrency,true}]),
-    % This table includes all uses
     ets:new(usertable,[set,public,named_table,{keypos,1},{read_concurrency,true},{write_concurrency,true}]),
-    % This table includes the user who has logged in
     ets:new(montable,[set,public,named_table,{keypos,1},{read_concurrency,true},{write_concurrency,true}]),
     [_PortVDR, _PortMan, _PortMon, _DB, PortDB] = StartArgs,
     {ok, LSock} = gen_tcp:listen(PortDB, [{active, true}]),
     case ti_sup:start_link(StartArgs ++ [LSock]) of
         {ok, Pid} ->
+			error_logger:info_msg("Msg server starts.~n"),
             {ok, Pid};
         Other ->
+			error_logger:info_msg("Msg server fails to start.~n"),
             {error, Other}
     end.
 
 stop(_State) ->
-    %error_logger:info_msg("Msg server stops.~n"),
+    error_logger:info_msg("Msg server stops.~n"),
     ok.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -257,3 +253,7 @@ start_server_mon(Port) ->
 %		_ ->
 %			app_message_processor()
 %	end.
+
+
+
+

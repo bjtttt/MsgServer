@@ -1,3 +1,7 @@
+%%%
+%%% This is the DB client. However, it use gen_server.
+%%%
+
 -module(ti_client_db).
 
 -behaviour(gen_server).
@@ -30,16 +34,25 @@ handle_info({tcp, Socket, RawData}, State) ->
 handle_info({tcp_closed, _Socket}, State) ->
     {stop, normal, State};
 handle_info(timeout, State) ->
+    error_logger:info_msg("Try to connect DB (~p:~p) ... ", [State#state.db, State#state.dbport]),
 	case gen_tcp:connect(State#state.db, State#state.dbport, [{active, true}]) of
 		{ok, CSock} ->
-			ets:insert(serverstatetable, {dbconncount,0}),
+			error_logger:info_msg("Connected.~n"),
 			Pid = spawn(fun() -> db_message_processor(CSock) end),
-			ets:insert(serverstatetable,{dbconnpid,Pid}),
-			{noreply, State#state{dbsock=CSock,dbmsgpid=Pid}};
+			ets:insert(msgservertable, {dbconnpid, Pid}),
+			{noreply, State#state{dbsock=CSock, dbmsgpid=Pid}};
 		{error, Reason} ->
-			error_logger:error_msg("Cannot connect DB (~p:~p) : ~p~nTry again.~n", [State#state.db, State#state.dbport, Reason]),
-			ti_sup_db:start_link(State#state.db, State#state.dbport),
-			{noreply, State}
+			error_logger:error_msg("Fails.~n"),
+			error_logger:error_msg("Error message : ~p~n", [Reason]),
+			Pid = ets:lookup(msgservertable, dbconnpid),
+			case Pid of
+				-1 ->
+					ok;
+				_ ->
+					ets:insert(msgservertable, {dbconnpid, -1})
+			end,
+			ti_sup_db:start_child(),
+			{stop, State}
 	end.
 
 terminate(_Reason, _State) ->
