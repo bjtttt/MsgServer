@@ -39,7 +39,6 @@ handle_info(timeout, State) ->
 		{ok, CSock} ->
 			error_logger:info_msg("Connected.~n"),
 			Pid = spawn(fun() -> db_message_processor(CSock) end),
-<<<<<<< HEAD
 			ets:insert(msgservertable, {dbconnpid, Pid}),
 			{noreply, State#state{dbsock=CSock, dbmsgpid=Pid}};
 		{error, Reason} ->
@@ -52,12 +51,6 @@ handle_info(timeout, State) ->
 				_ ->
 					ets:insert(msgservertable, {dbconnpid, -1})
 			end,
-=======
-			ets:insert(msgservertable,{dbconnpid,Pid}),
-			{noreply, State#state{dbsock=CSock,dbmsgpid=Pid}};
-		{error, Reason} ->
-			error_logger:error_msg("Cannot connect DB (~p:~p) : ~p~nTry again.~n", [State#state.db, State#state.dbport, Reason]),
->>>>>>> df38ec2f69d9f3c85537da137d7f86932b8f2dd9
 			ti_sup_db:start_child(),
 			{stop, State}
 	end.
