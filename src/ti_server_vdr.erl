@@ -32,8 +32,8 @@ handle_info({tcp_closed, _Socket}, State) ->
     {stop, normal, State};
 handle_info(timeout, #state{lsock = LSock} = State) ->
     case gen_tcp:accept(LSock) of
-		{ok, ASock} ->
-			case ti_common:safepeername(ASock) of
+		{ok, AccSock} ->
+			case ti_common:safepeername(AccSock) of
 				{ok, {Address, Port}} ->
             		error_logger:info_msg("~p : VDR connection from ~p:~p~n", [calendar:now_to_local_time(erlang:now()), Address, Port]),
 					ok;
@@ -42,12 +42,16 @@ handle_info(timeout, #state{lsock = LSock} = State) ->
 					ok
 			end,
 			% -1 means this VDR hasn't report its ID yet.
-			ets:insert(vdrinittable, {ASock, -1, calendar:now_to_local_time(erlang:now())});
+            % The time is the last active time for the VDR, for example, sending message or ack.
+			% The last value is the timeout for VDR. However, what the initialized value should it be?
+			ets:insert(vdrinittable, {AccSock, -1, calendar:now_to_local_time(erlang:now(), 60)}),
+            ti_sup:start_child(),
+            {noreply, State};
 		{error, Reason} ->
-       		error_logger:error_msg("~p : accepting VDR error : ~p~n", [calendar:now_to_local_time(erlang:now()), Reason])
-	end,
-    ti_sup:start_child(),
-    {noreply, State}.
+       		error_logger:error_msg("~p : accepting VDR error : ~p~n", [calendar:now_to_local_time(erlang:now()), Reason]),
+            ti_sup:start_child(),
+            {stop, error, State}
+	end.
 
 terminate(_Reason, _State) ->
     ok.
