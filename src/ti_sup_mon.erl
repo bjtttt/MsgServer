@@ -15,7 +15,7 @@
 -define(SERVER, ?MODULE).
 
 start_link(LSock) ->
-   supervisor:start_link({local, ?SERVER}, ?MODULE, [LSock]).
+    supervisor:start_link({local, ?SERVER}, ?MODULE, [LSock]).
 
 start_child() ->
     supervisor:start_child(?SERVER, []).

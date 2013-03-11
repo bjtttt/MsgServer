@@ -19,9 +19,6 @@ start(StartType, StartArgs) ->
     error_logger:info_msg("StartType : ~p~n", [StartType]),
     error_logger:info_msg("StartArgs : ~p~n", [StartArgs]),
     ets:new(msgservertable,[set,public,named_table,{keypos,1},{read_concurrency,true},{write_concurrency,true}]),
-	% When dbconnid is -1, it means the server hasn't connected the DB yet.
-	% Any time when the connection between the server and the DB is created, its value will be updated.
-    % Before sending any message to the DB connection process, it is a must to check this value.
 	ets:insert(msgservertable,{dbconnpid,-1}),
     [PortVDR, PortMan, PortMon, DB, PortDB] = StartArgs,
     ets:insert(msgservertable, {portvdr, PortVDR}),
@@ -38,7 +35,7 @@ start(StartType, StartArgs) ->
     {ok, LSockMan} = gen_tcp:listen(PortMan, [{active, true}]),
     {ok, LSockMon} = gen_tcp:listen(PortMon, [{active, true}]),
     {ok, LSockDB} = gen_tcp:listen(PortDB, [{active, true}]),
-    case ti_sup:start_link(StartArgs ++ [LSockVDR, LSockMan, LSockMon, LSockDB]) of
+    case ti_sup:start_link([StartArgs | [LSockVDR, LSockMan, LSockMon, LSockDB]]) of
         {ok, Pid} ->
 			error_logger:info_msg("Msg server starts.~n"),
             {ok, Pid};
