@@ -35,8 +35,13 @@ start(StartType, StartArgs) ->
     {ok, LSockMan} = gen_tcp:listen(PortMan, [{active, true}]),
     {ok, LSockMon} = gen_tcp:listen(PortMon, [{active, true}]),
     {ok, LSockDB} = gen_tcp:listen(PortDB, [{active, true}]),
-    case ti_sup:start_link([StartArgs | [LSockVDR, LSockMan, LSockMon, LSockDB]]) of
+    ets:insert(msgservertable, {lsockvdr, LSockVDR}),
+    ets:insert(msgservertable, {lsockman, LSockMan}),
+    ets:insert(msgservertable, {lsockmon, LSockMon}),
+    ets:insert(msgservertable, {lsockdb, LSockDB}),
+    case ti_sup:start_link() of
         {ok, Pid} ->
+			ti_sup:start_child(),
 			error_logger:info_msg("Msg server starts.~n"),
             {ok, Pid};
         Other ->

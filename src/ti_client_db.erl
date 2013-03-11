@@ -8,19 +8,21 @@
 
 -include("ti_header.hrl").
 
--export([start_link/3]).
+-export([start_link/0]).
 
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2,
          terminate/2, code_change/3]).
 
 % Need consideration here
--record(state, {lsock, db, dbport, dbsock}).
+-record(state, {db, dbport, dbsock}).
 
-start_link(DB, Port, LSock) ->
-    gen_server:start_link(?MODULE, [DB, Port, LSock], []).
+start_link() ->
+	[{db, DB}] = ets:lookup(msgservertable, db),
+	[{portdb, Port}] = ets:lookup(msgservertable, portdb),
+    gen_server:start_link(?MODULE, [DB, Port], []).
 
-init([DB, Port, LSock]) ->
-	{ok, #state{lsock=LSock, db=DB, dbport=Port, dbsock=undefined}, 0}.
+init([DB, Port]) ->
+	{ok, #state{db=DB, dbport=Port, dbsock=undefined}, 0}.
 
 handle_call(Msg, _From, State) ->
     {reply, {ok, Msg}, State}.

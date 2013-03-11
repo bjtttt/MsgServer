@@ -9,7 +9,7 @@
 -include("ti_header.hrl").
 
 %% API
--export([start_link/3, start_child/0]).
+-export([start_link/0, start_child/0]).
 
 %% Supervisor callbacks
 -export([init/1]).
@@ -22,7 +22,7 @@ start_link() ->
 start_child() ->
     supervisor:start_child(?SERVER, []).
 
-init([DB, Port, LSock]) ->
+init([]) ->
     DBClient = {ti_client_db, {ti_client_db, start_link, []}, 
               temporary, brutal_kill, worker, [ti_client_db]},
     Children = [DBClient],
