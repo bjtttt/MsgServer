@@ -11,6 +11,7 @@
              ti_server_man,
              ti_server_mon,
              ti_client_db,
+             ti_handler_vdr,
              ti_vdr_data_parser,
              ti_man_data_parser,
              ti_mon_data_parser,

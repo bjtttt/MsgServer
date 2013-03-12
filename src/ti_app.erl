@@ -31,17 +31,17 @@ start(StartType, StartArgs) ->
     ets:new(mantable,[set,public,named_table,{keypos,1},{read_concurrency,true},{write_concurrency,true}]),
     ets:new(usertable,[set,public,named_table,{keypos,1},{read_concurrency,true},{write_concurrency,true}]),
     ets:new(montable,[set,public,named_table,{keypos,1},{read_concurrency,true},{write_concurrency,true}]),
-    {ok, LSockVDR} = gen_tcp:listen(PortVDR, [{active, true}]),
-    {ok, LSockMan} = gen_tcp:listen(PortMan, [{active, true}]),
-    {ok, LSockMon} = gen_tcp:listen(PortMon, [{active, true}]),
-    {ok, LSockDB} = gen_tcp:listen(PortDB, [{active, true}]),
-    ets:insert(msgservertable, {lsockvdr, LSockVDR}),
-    ets:insert(msgservertable, {lsockman, LSockMan}),
-    ets:insert(msgservertable, {lsockmon, LSockMon}),
-    ets:insert(msgservertable, {lsockdb, LSockDB}),
+    %{ok, LSockVDR} = gen_tcp:listen(PortVDR, [{active, true}]),
+    %{ok, LSockMan} = gen_tcp:listen(PortMan, [{active, true}]),
+    %{ok, LSockMon} = gen_tcp:listen(PortMon, [{active, true}]),
+    %{ok, LSockDB} = gen_tcp:listen(PortDB, [{active, true}]),
+    %ets:insert(msgservertable, {lsockvdr, LSockVDR}),
+    %ets:insert(msgservertable, {lsockman, LSockMan}),
+    %ets:insert(msgservertable, {lsockmon, LSockMon}),
+    %ets:insert(msgservertable, {lsockdb, LSockDB}),
     case ti_sup:start_link() of
         {ok, Pid} ->
-			ti_sup:start_child(),
+			%ti_sup:start_child(),
 			error_logger:info_msg("Msg server starts.~n"),
             {ok, Pid};
         Other ->

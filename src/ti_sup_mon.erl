@@ -20,7 +20,7 @@ start_link() ->
 start_child() ->
     supervisor:start_child(?SERVER, []).
 
-init([LSock]) ->
+init([]) ->
     MonServer = {ti_server_mon, {ti_server_mon, start_link, []}, 
               temporary, brutal_kill, worker, [ti_server_mon]},
     Children = [MonServer],
