@@ -6,10 +6,8 @@
 
 -behaviour(supervisor).
 
-%% API
--export([start_link/0, start_child/0]).
+-export([start_link/0, start_child/2]).
 
-%% Supervisor callbacks
 -export([init/1]).
 
 -define(SERVER, ?MODULE).
@@ -17,25 +15,31 @@
 start_link() ->
     supervisor:start_link({local, ?SERVER}, ?MODULE, []).
 
-start_child() ->
-    supervisor:start_child(?SERVER, []).
+start_child(Module, Socket) ->
+    case Module of
+        "VDR" ->
+            supervisor:start_child(ti_sup_handler_vdr, [Socket]);
+        _ ->
+            TimeStamp = calendar:now_to_local_time(erlang:now()),
+            Format = "~p : ti_sup:start_child(~p, Socket) : First parameter error~n",
+            error_logger:error_msg(Format, [TimeStamp, Module])
+    end.
 
-%%%
-%%% In the DEV phase, Max is 0 and Within is 1
-%%% After release, they should be adjusted to proper values.
-%%%
 init([]) ->
+    % VDR
     [{portvdr, PortVDR}] = ets:lookup(msgservertable, portvdr),
+    % Listen VDR connection
     VDRServer = {
-				 ti_server_vdr,                             % Id       = internal id
+				 ti_sup_server_vdr,                         % Id       = internal id
 				 {ti_server_vdr, start_link, [PortVDR]},    % StartFun = {M, F, A}
-				 temporary,                                 % Restart  = permanent | transient | temporary
+				 permanent,                                 % Restart  = permanent | transient | temporary
 				 brutal_kill,                               % Shutdown = brutal_kill | int() >= 0 | infinity
 				 worker,                                    % Type     = worker | supervisor
 				 [ti_server_vdr]                            % Modules  = [Module] | dynamic
 				},
+    % Process VDR communication
     VDRHandler = {
-				  ti_sup_handler_vdr,
+				  ti_sup_handler_vdr,               % Id       = internal id
 				  {supervisor, start_link, [{local, ti_sup_handler_vdr}, ?MODULE, [ti_handler_vdr]]},
 				  permanent, 						% Restart  = permanent | transient | temporary
 				  brutal_kill, 					    % Shutdown = brutal_kill | int() >= 0 | infinity
@@ -51,23 +55,22 @@ init([]) ->
     %            permanent, brutal_kill, supervisor, [ti_client_db]},
     %Children = [VDRServer, ManServer, MonServer, DBClient],
     RestartStrategy = {one_for_one, 0, 1},
-    {ok, {RestartStrategy, Children}}.
-
+    {ok, {RestartStrategy, Children}};
+%%%
+%%% I don't know what this function for.
+%%%
 init ([Module]) ->
-    {ok,
-     {_SupFlags = {simple_one_for_one, 0, 1},
-      [
-                                                % TCP Client
-       {   undefined,                               % Id       = internal id
-           {Module,start_link,[]},                  % StartFun = {M, F, A}
-           temporary,                               % Restart  = permanent | transient | temporary
-           2000,                                    % Shutdown = brutal_kill | int () >= 0 | infinity
-           worker,                                  % Type     = worker | supervisor
-           []                                       % Modules  = [Module] | dynamic
-       }]
-     }
-    }.
-
+    VDRClient = {
+                 undefined,                 % Id       = internal id
+                 {Module, start_link, []},  % StartFun = {M, F, A}
+                 temporary,                 % Restart  = permanent | transient | temporary
+                 brutal_kill,               % Shutdown = brutal_kill | int() >= 0 | infinity
+                 worker,                    % Type     = worker | supervisor
+                 []                         % Modules  = [Module] | dynamic
+                },
+    Children = [VDRClient],
+    RestartStrategy = {simple_one_for_one, 0, 1},
+    {ok, {RestartStrategy, Children}}.
 
 
 

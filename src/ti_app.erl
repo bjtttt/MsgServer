@@ -8,10 +8,12 @@
 
 -include("ti_header.hrl").
 
-%%%
+-export([start_client/1]).
+
+-export([start/2, stop/1]).
+
 %%% start/1 is useless and will be removed in the future
-%%%
--export([start/1, start/2, stop/1]).
+-export([start/1]).
 
 start(StartType, StartArgs) ->
     error_logger:info_msg("~p~n", [calendar:now_to_local_time(erlang:now())]),
@@ -31,27 +33,14 @@ start(StartType, StartArgs) ->
     ets:new(mantable,[set,public,named_table,{keypos,1},{read_concurrency,true},{write_concurrency,true}]),
     ets:new(usertable,[set,public,named_table,{keypos,1},{read_concurrency,true},{write_concurrency,true}]),
     ets:new(montable,[set,public,named_table,{keypos,1},{read_concurrency,true},{write_concurrency,true}]),
-    %{ok, LSockVDR} = gen_tcp:listen(PortVDR, [{active, true}]),
-    %{ok, LSockMan} = gen_tcp:listen(PortMan, [{active, true}]),
-    %{ok, LSockMon} = gen_tcp:listen(PortMon, [{active, true}]),
-    %{ok, LSockDB} = gen_tcp:listen(PortDB, [{active, true}]),
-    %ets:insert(msgservertable, {lsockvdr, LSockVDR}),
-    %ets:insert(msgservertable, {lsockman, LSockMan}),
-    %ets:insert(msgservertable, {lsockmon, LSockMon}),
-    %ets:insert(msgservertable, {lsockdb, LSockDB}),
-    case ti_sup:start_link() of
-        {ok, Pid} ->
-			%ti_sup:start_child(),
-			error_logger:info_msg("Msg server starts.~n"),
-            {ok, Pid};
-        Other ->
-			error_logger:info_msg("Msg server fails to start.~n"),
-            {error, Other}
-    end.
+    ti_sup:start_link().
 
 stop(_State) ->
     error_logger:info_msg("Msg server stops.~n"),
     ok.
+
+start_client(Module) ->
+    supervisor:start_child(Module).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%% File END.

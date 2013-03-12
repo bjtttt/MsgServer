@@ -11,11 +11,16 @@
 -export([init/1, handle_call/3, handle_cast/2, 
          handle_info/2, terminate/2, code_change/3]). 
 
--record(state,{
-			lsock,   % Listening socket
-			acceptor % Asynchronous acceptor's internal reference 
-			}). 
+%%%
+%%% lsock       : Listening socket
+%%% acceptor    : Asynchronous acceptor's internal reference
+%%%
+-record(state, {lsock, acceptor}). 
 
+%%%
+%%% In fact, we can get PortVDR from msgservertable.
+%%% Here, the reason that we use parameter is for efficiency.
+%%%
 start_link(PortVDR) ->    
 	gen_server:start_link({local, ?MODULE}, ?MODULE, [PortVDR], []). 
 
@@ -23,12 +28,15 @@ init([PortVDR]) ->
 	process_flag(trap_exit, true),    
 	Opts = [binary, {packet, 2}, {reuseaddr, true}, {keepalive, true}, {backlog, 30}, {active, false}],    
 	case gen_tcp:listen(PortVDR, Opts) of	    
-		{ok, LSock} ->                    %Create first accepting process	        
+		{ok, LSock} -> 
+            % Create first accepting process	        
 			case prim_inet:async_accept(LSock, -1) of
                 {ok, Ref} ->
                     {ok, #state{lsock = LSock, acceptor = Ref}};
                 Error ->
-                    error_logger:error_msg("~p : VDR server async accept fails : ~p~n", [calendar:now_to_local_time(erlang:now()), Error]),
+                    TimeStamp = calendar:now_to_local_time(erlang:now()),
+                    Format = "~p : VDR server async accept fails : ~p~n",
+                    error_logger:error_msg(Format, [TimeStamp, Error]),
                     {stop, Error}
             end;
 		{error, Reason} ->	        
@@ -36,15 +44,20 @@ init([PortVDR]) ->
 	end. 
 
 handle_call(Request, _From, State) ->    
-	{stop, {unknown_call, Request}, State}. 
+	{stop, {unknown_call, Request}, State}.
+
 handle_cast(_Msg, State) ->    
 	{noreply, State}. 
+
 handle_info({inet_async, LSock, Ref, {ok, CSock}}, #state{lsock=LSock, acceptor=Ref}=State) ->    
 	try        
 		case set_sockopt(LSock, CSock) of	        
 			ok -> 
 				ok;	        
 			{error, Reason} -> 
+                TimeStamp = calendar:now_to_local_time(erlang:now()),
+                Format = "~p : ti_server_vdr:set_sockopt(LSock, CSock) fails : ~p~n",
+                error_logger:error_msg(Format, [TimeStamp, Reason]),
 				exit({set_sockopt, Reason})       
 		end,
 		% New client connected
