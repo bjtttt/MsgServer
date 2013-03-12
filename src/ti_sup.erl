@@ -6,7 +6,7 @@
 
 -behaviour(supervisor).
 
--export([start_link/0, start_child/2]).
+-export([start_link/0, start_child/1]).
 
 -export([init/1]).
 
@@ -15,10 +15,10 @@
 start_link() ->
     supervisor:start_link({local, ?SERVER}, ?MODULE, []).
 
-start_child(Module, Socket) ->
+start_child(Module) ->
     case Module of
         "VDR" ->
-            supervisor:start_child(ti_sup_handler_vdr, [Socket]);
+            supervisor:start_child(ti_sup_handler_vdr, []);
         _ ->
             TimeStamp = calendar:now_to_local_time(erlang:now()),
             Format = "~p : ti_sup:start_child(~p, Socket) : First parameter error~n",
@@ -57,7 +57,7 @@ init([]) ->
     RestartStrategy = {one_for_one, 0, 1},
     {ok, {RestartStrategy, Children}};
 %%%
-%%% I don't know what this function for.
+%%% I don't know what this function for. :-(
 %%%
 init ([Module]) ->
     VDRClient = {

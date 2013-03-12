@@ -56,28 +56,38 @@ handle_info({inet_async, LSock, Ref, {ok, CSock}}, #state{lsock=LSock, acceptor=
 				ok;	        
 			{error, Reason} -> 
                 TimeStamp = calendar:now_to_local_time(erlang:now()),
-                Format = "~p : ti_server_vdr:set_sockopt(LSock, CSock) fails : ~p~n",
+                Format = "~p : ti_server_vdr:handler_info - set_sockopt(LSock, CSock) fails : ~p~n",
                 error_logger:error_msg(Format, [TimeStamp, Reason]),
 				exit({set_sockopt, Reason})       
 		end,
+        
 		% New client connected
         % Spawn a new process using the simple_one_for_one supervisor.
-		{ok, Pid} = ti_sup_vdr:start_client(CSock),        
+        % Why it is "the simple_one_for_one supervisor"?
+		{ok, Pid} = ti_app:start_client("VDR"),        
 		gen_tcp:controlling_process(CSock, Pid),         
-		%% Signal the network driver that we are ready to accept another connection        
+		
+        %% Signal the network driver that we are ready to accept another connection        
 		case prim_inet:async_accept(LSock, -1) of	        
 			{ok, NewRef} -> 
                 {noreply, State#state{acceptor=NewRef}};
-			Error -> 
+			Error ->
+                EFormat = "~p : ti_server_vdr:handle_info - prim_inet:async_accept(LSock, -1) fails : ~p~n",
+                ETimeStamp = calendar:now_to_local_time(erlang:now()),
+                error_logger:error_msg(EFormat, [ETimeStamp, inet:format_error(Error)]),
                 exit({async_accept, inet:format_error(Error)})        
 		end
 	catch 
 		exit:Why ->        
-			error_logger:error_msg("Error in async accept: ~p.\n", [Why]),        
+            FFormat = "~p : Error in async accept : ~p~n",
+            FTimeStamp = calendar:now_to_local_time(erlang:now()),
+			error_logger:error_msg(FFormat, [FTimeStamp, Why]),        
 			{stop, Why, State}    
 	end; 
 handle_info({inet_async, LSock, Ref, Error}, #state{lsock=LSock, acceptor=Ref} = State) ->    
-	error_logger:error_msg("Error in socket acceptor: ~p.\n", [Error]),    
+    FFormat = "~p : Error in socket acceptor : ~p~n",
+    FTimeStamp = calendar:now_to_local_time(erlang:now()),
+    error_logger:error_msg(FFormat, [FTimeStamp, Error]),        
 	{stop, Error, State}; 
 handle_info(_Info, State) ->    
 	{noreply, State}. 
