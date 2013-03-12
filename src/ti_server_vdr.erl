@@ -64,7 +64,7 @@ handle_info({inet_async, LSock, Ref, {ok, CSock}}, #state{lsock=LSock, acceptor=
 		% New client connected
         % Spawn a new process using the simple_one_for_one supervisor.
         % Why it is "the simple_one_for_one supervisor"?
-		{ok, Pid} = ti_app:start_client("VDR"),        
+		{ok, Pid} = ti_app:start_client_vdr(CSock),        
 		gen_tcp:controlling_process(CSock, Pid),         
 		
         %% Signal the network driver that we are ready to accept another connection        

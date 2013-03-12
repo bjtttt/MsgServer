@@ -8,7 +8,7 @@
 
 -include("ti_header.hrl").
 
--export([start_client/1]).
+-export([start_client_vdr/1]).
 
 -export([start/2, stop/1]).
 
@@ -39,8 +39,8 @@ stop(_State) ->
     error_logger:info_msg("Msg server stops.~n"),
     ok.
 
-start_client(Module) ->
-    supervisor:start_child(Module).
+start_client_vdr(Socket) ->
+    ti_sup:start_child_vdr(Socket).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%% File END.
