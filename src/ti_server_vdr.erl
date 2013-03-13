@@ -26,7 +26,7 @@ start_link(PortVDR) ->
 
 init([PortVDR]) ->    
 	process_flag(trap_exit, true),    
-	Opts = [binary, {packet, 2}, {reuseaddr, true}, {keepalive, true}, {backlog, 30}, {active, false}],    
+	Opts = [binary, {packet, 2}, {reuseaddr, true}, {keepalive, true}, {backlog, 30}, {active, true}],    
 	case gen_tcp:listen(PortVDR, Opts) of	    
 		{ok, LSock} -> 
             % Create first accepting process	        
@@ -64,17 +64,34 @@ handle_info({inet_async, LSock, Ref, {ok, CSock}}, #state{lsock=LSock, acceptor=
 		% New client connected
         % Spawn a new process using the simple_one_for_one supervisor.
         % Why it is "the simple_one_for_one supervisor"?
-		{ok, Pid} = ti_app:start_client_vdr(CSock),        
-		gen_tcp:controlling_process(CSock, Pid),         
-		
+		%{ok, Pid} = ti_app:start_client_vdr(CSock),        
+		case gen_server:start_link(ti_handler_vdr, [CSock], []) of
+            {ok, Pid}  ->
+                case gen_tcp:controlling_process(CSock, Pid) of
+                    ok ->
+                        ok;
+                    {error, EReason} ->
+                        RTimeStamp = calendar:now_to_local_time(erlang:now()),
+                        RFormat = "~p : gen_tcp:controlling_process(CSock, Pid) fails : ~p~n",
+                        error_logger:error_msg(RFormat, [RTimeStamp, EReason])
+                end;
+            {error, EError} ->
+                ETimeStamp = calendar:now_to_local_time(erlang:now()),
+                EFormat = "~p : gen_server:start_link(ti_handler_vdr, [CSock], []) fails : ~p~n",
+                error_logger:error_msg(EFormat, [ETimeStamp, EError]);
+            ignore ->
+                ITimeStamp = calendar:now_to_local_time(erlang:now()),
+                IFormat = "~p : gen_server:start_link(ti_handler_vdr, [CSock], []) fails : ignore~n",
+                error_logger:error_msg(IFormat, [ITimeStamp])
+        end,
         %% Signal the network driver that we are ready to accept another connection        
 		case prim_inet:async_accept(LSock, -1) of	        
 			{ok, NewRef} -> 
                 {noreply, State#state{acceptor=NewRef}};
 			Error ->
-                EFormat = "~p : ti_server_vdr:handle_info - prim_inet:async_accept(LSock, -1) fails : ~p~n",
-                ETimeStamp = calendar:now_to_local_time(erlang:now()),
-                error_logger:error_msg(EFormat, [ETimeStamp, inet:format_error(Error)]),
+                EFormat2 = "~p : ti_server_vdr:handle_info - prim_inet:async_accept(LSock, -1) fails : ~p~n",
+                ETimeStamp2 = calendar:now_to_local_time(erlang:now()),
+                error_logger:error_msg(EFormat2, [ETimeStamp2, inet:format_error(Error)]),
                 exit({async_accept, inet:format_error(Error)})        
 		end
 	catch 
@@ -84,6 +101,12 @@ handle_info({inet_async, LSock, Ref, {ok, CSock}}, #state{lsock=LSock, acceptor=
 			error_logger:error_msg(FFormat, [FTimeStamp, Why]),        
 			{stop, Why, State}    
 	end; 
+handle_info({tcp, Socket, Data}, State) ->    
+    gen_tcp:send(Socket, "aaaaa"),
+    inet:setopts(Socket, [{active, true}]), 
+    io:format("~p got message ~p\n", [self(), Data]),    
+    ok = gen_tcp:send(Socket, <<"Echo back : ", Data/binary>>),    
+    {noreply, State}; 
 handle_info({inet_async, LSock, Ref, Error}, #state{lsock=LSock, acceptor=Ref} = State) ->    
     FFormat = "~p : Error in socket acceptor : ~p~n",
     FTimeStamp = calendar:now_to_local_time(erlang:now()),
@@ -98,7 +121,7 @@ terminate(_Reason, State) ->
 
 code_change(_OldVsn, State, _Extra) ->    
 	{ok, State}. 
-
+    
 %%%
 %%% Taken from prim_inet.  We are merely copying some socket options from the
 %%% listening socket to the new client socket.

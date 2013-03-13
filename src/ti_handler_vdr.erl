@@ -14,8 +14,8 @@ start_link(Socket) ->
 	gen_server:start_link(?MODULE, [Socket], []). 
 
 init([Socket]) ->	
-	inet:setopts(Socket, [{active, once}, {packet, 2}, binary]),    
-	{ok, {IP, _Port}} = inet:peername(Socket),    
+	inet:setopts(Socket, [{active, true}, {packet, 2}, binary]),   
+	{ok, {IP, _Port}} = inet:peername(Socket),
 	{ok, #state{socket=Socket, addr=IP}}. 
 
 handle_call(_Request, _From, State) ->
@@ -23,7 +23,8 @@ handle_call(_Request, _From, State) ->
 handle_cast(_Msg, State) ->    
 	{noreply, State}. 
 handle_info({tcp, Socket, Data}, State) ->    
-	inet:setopts(Socket, [{active, once}]),	
+    gen_tcp:send(Socket, "aaaaa"),
+	inet:setopts(Socket, [{active, true}]),	
 	io:format("~p got message ~p\n", [self(), Data]),    
 	ok = gen_tcp:send(Socket, <<"Echo back : ", Data/binary>>),    
 	{noreply, State}; 

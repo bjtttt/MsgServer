@@ -1,5 +1,5 @@
 %%%
-%%% This is the application
+%%%
 %%%
 
 -module(ti_app).
@@ -8,7 +8,7 @@
 
 -include("ti_header.hrl").
 
--export([start_client_vdr/1]).
+%-export([start_client_vdr/1]).
 
 -export([start/2, stop/1]).
 
@@ -33,14 +33,22 @@ start(StartType, StartArgs) ->
     ets:new(mantable,[set,public,named_table,{keypos,1},{read_concurrency,true},{write_concurrency,true}]),
     ets:new(usertable,[set,public,named_table,{keypos,1},{read_concurrency,true},{write_concurrency,true}]),
     ets:new(montable,[set,public,named_table,{keypos,1},{read_concurrency,true},{write_concurrency,true}]),
-    ti_sup:start_link().
+    case supervisor:start_link(ti_sup, []) of
+        {ok, Pid} ->
+            io:format("ti_app PID vs. ti_sup PID : ~p vs ~p~n", [self(), Pid]),
+            {ok, Pid};
+        ignore ->
+            ignore;
+        {error, Error} ->
+            {error, Error}
+    end.
 
 stop(_State) ->
     error_logger:info_msg("Msg server stops.~n"),
     ok.
 
-start_client_vdr(Socket) ->
-    ti_sup:start_child_vdr(Socket).
+%start_client_vdr(Socket) ->
+%    ti_sup:start_child_vdr(Socket).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%% File END.
