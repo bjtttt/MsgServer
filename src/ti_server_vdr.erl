@@ -120,19 +120,18 @@ handle_info({inet_async, LSock, Ref, {ok, CSock}}, #state{lsock=LSock, acceptor=
             {stop, Why, State}    
 	end;
 handle_info({tcp, Socket, Data}, State) ->    
-    inet:setopts(Socket, [{active, true}]), 
-    io:format("~p got message ~p\n", [self(), Data]),    
-    ok = gen_tcp:send(Socket, <<"Echo back : ", Data/binary>>),    
+    inet:setopts(Socket, [{active, once}]),
+    % Should be modified in the future
+    ok = gen_tcp:send(Socket, <<"VDR server : ", Data/binary>>),    
     {noreply, State}; 
 handle_info({inet_async, LSock, Ref, Error}, #state{lsock=LSock, acceptor=Ref} = State) ->    
-    FFormat = "~p : Error in socket acceptor : ~p~n",
-    FTimeStamp = calendar:now_to_local_time(erlang:now()),
-    error_logger:error_msg(FFormat, [FTimeStamp, Error]),        
+    ti_common:logerror("VDR server error in socket acceptor : ~p~n", Error),
 	{stop, Error, State}; 
 handle_info(_Info, State) ->    
 	{noreply, State}. 
 
-terminate(_Reason, State) ->    
+terminate(Reason, State) ->    
+    ti_common:logerror("VDR server is terminated~n", Reason),
 	gen_tcp:close(State#state.lsock),    
 	ok. 
 

@@ -26,17 +26,20 @@ handle_cast(_Msg, State) ->
 	{noreply, State}. 
 
 handle_info({tcp, Socket, Data}, State) ->    
-	inet:setopts(Socket, [{active, once}]),	
-	io:format("~p got message ~p\n", [self(), Data]),    
-	ok = gen_tcp:send(Socket, <<"Echo back : ", Data/binary>>),    
+	inet:setopts(Socket, [{active, once}]),
+    Bin = ti_vdr_data_parser:parse_data(Data),
+    % Should be modified in the future
+	ok = gen_tcp:send(Socket, <<"VDR : ", Bin/binary>>),    
 	{noreply, State}; 
 handle_info({tcp_closed, _Socket}, #state{addr=Addr} = StateData) ->    
-	error_logger:info_msg("~p Client ~p disconnected.\n", [self(), Addr]),    
+    ti_common:loginfo("VDR ~p is disconnected~n", Addr),
+    ti_common:loginfo("VDR Pid ~p stops~n", self()),
 	{stop, normal, StateData}; 
 handle_info(_Info, StateData) ->    
 	{noreply, StateData}. 
 
 terminate(_Reason, #state{socket=Socket}) ->    
+    ti_common:loginfo("VDR Pid ~p is terminated~n", self()),
 	(catch gen_tcp:close(Socket)),    
 	ok.
 
