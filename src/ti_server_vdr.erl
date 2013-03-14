@@ -24,9 +24,12 @@
 start_link(PortVDR) ->    
 	gen_server:start_link({local, ?MODULE}, ?MODULE, [PortVDR], []). 
 
+%%%
+%%% {backlog, 30} specifies the length of the OS accept queue. 
+%%%
 init([PortVDR]) ->    
 	process_flag(trap_exit, true),    
-	Opts = [binary, {packet, 2}, {reuseaddr, true}, {keepalive, true}, {backlog, 30}, {active, true}],    
+	Opts = [binary, {packet, 0}, {reuseaddr, true}, {keepalive, true}, {active, once}],    
 	% VDR server start listening
     case gen_tcp:listen(PortVDR, Opts) of	    
 		{ok, LSock} -> 
@@ -64,20 +67,20 @@ handle_info({inet_async, LSock, Ref, {ok, CSock}}, #state{lsock=LSock, acceptor=
 		% {ok, Pid} = ti_app:start_client_vdr(CSock),        
 	    %Pid = spawn(fun() -> loop(CSock) end),
         %gen_tcp:controlling_process(CSock, Pid),
-        loop(CSock),
-        %case gen_server:start_link(ti_handler_vdr, [CSock], []) of
-        %    {ok, Pid}  ->
-        %        case gen_tcp:controlling_process(CSock, Pid) of
-        %            ok ->
-        %                ok;
-        %            {error, Reason1} ->
-        %                ti_common:logerror("VDR server gen_server:controlling_process fails when inet_async : ~p~n", Reason1)
-        %        end;
-        %    {error, Reason2} ->
-        %        ti_common:logerror("VDR server gen_server:start_link(ti_handler_vdr,...) fails when inet_async : ~p~n", Reason2);
-        %    ignore ->
-        %        ti_common:logerror("VDR server gen_server:start_link(ti_handler_vdr,...) fails when inet_async : ignore~n")
-        %end,
+        %loop(CSock),
+        case gen_server:start_link(ti_handler_vdr, [CSock], []) of
+            {ok, Pid}  ->
+                case gen_tcp:controlling_process(CSock, Pid) of
+                   ok ->
+                        ok;
+                    {error, Reason1} ->
+                        ti_common:logerror("VDR server gen_server:controlling_process fails when inet_async : ~p~n", Reason1)
+                end;
+            {error, Reason2} ->
+                ti_common:logerror("VDR server gen_server:start_link(ti_handler_vdr,...) fails when inet_async : ~p~n", Reason2);
+            ignore ->
+                ti_common:logerror("VDR server gen_server:start_link(ti_handler_vdr,...) fails when inet_async : ignore~n")
+        end,
         %% Signal the network driver that we are ready to accept another connection        
 		case prim_inet:async_accept(LSock, -1) of	        
 			{ok, NewRef} -> 
@@ -134,18 +137,18 @@ set_sockopt(LSock, CSock) ->
 %%%
 %%% Test only
 %%%
-loop(Socket) ->
-    receive
-        {tcp, Socket, Bin} ->
-            %inet:setopts(Socket, [{active, true}]),
-            io:format("Server received binary = ~p~n", [Bin]),
-            gen_tcp:send(Socket, Bin),
-            loop(Socket);
-        {tcp_closed, Socket} ->
-            io:format("Server socket closed~n");
-        Msg ->
-            Msg
-    end.
+%loop(Socket) ->
+%    receive
+%        {tcp, Socket, Bin} ->
+%            %inet:setopts(Socket, [{active, true}]),
+%            io:format("Server received binary = ~p~n", [Bin]),
+%            gen_tcp:send(Socket, Bin),
+%            loop(Socket);
+%        {tcp_closed, Socket} ->
+%            io:format("Server socket closed~n");
+%        Msg ->
+%            Msg
+%    end.
 
 
 								
