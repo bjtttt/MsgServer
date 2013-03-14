@@ -20,9 +20,11 @@ init([Socket]) ->
 	{ok, #state{socket=Socket, addr=IP}}. 
 
 handle_call(_Request, _From, State) ->
-	{noreply, ok, State}. 
+	{noreply, ok, State}.
+
 handle_cast(_Msg, State) ->    
 	{noreply, State}. 
+
 handle_info({tcp, Socket, Data}, State) ->    
 	inet:setopts(Socket, [{active, once}]),	
 	io:format("~p got message ~p\n", [self(), Data]),    

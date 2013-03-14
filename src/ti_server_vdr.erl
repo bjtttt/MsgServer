@@ -74,8 +74,7 @@ handle_info({inet_async, LSock, Ref, {ok, CSock}}, #state{lsock=LSock, acceptor=
                     {error, Reason1} ->
                         ti_common:logerror("VDR server gen_server:controlling_process fails when inet_async : ~p~n", Reason1)
                 end;
-            {ok, Pid, Info} ->
-                Info,
+            {ok, Pid, _Info} ->
                 case gen_tcp:controlling_process(CSock, Pid) of
                    ok ->
                         ok;
@@ -83,11 +82,11 @@ handle_info({inet_async, LSock, Ref, {ok, CSock}}, #state{lsock=LSock, acceptor=
                         ti_common:logerror("VDR server gen_server:controlling_process fails when inet_async : ~p~n", Reason1)
                 end;
             {error, already_present} ->
-                ok;
+                ti_common:logerror("VDR server ti_sup:start_child_vdr fails when inet_async : already_present~n");
             {error, {already_started, Pid}} ->
-                Pid;
+                ti_common:logerror("VDR server ti_sup:start_child_vdr fails when inet_async : already_started PID : ~p~n", Pid);
             {error, Msg} ->
-                Msg
+                ti_common:logerror("VDR server ti_sup:start_child_vdr fails when inet_async : ~p~n", Msg)
         end,
 		% {ok, Pid} = ti_app:start_client_vdr(CSock),        
 	    %Pid = spawn(fun() -> loop(CSock) end),
@@ -112,13 +111,14 @@ handle_info({inet_async, LSock, Ref, {ok, CSock}}, #state{lsock=LSock, acceptor=
                 {noreply, State#state{acceptor=NewRef}};
 			Error ->
                 ti_common:logerror("VDR server prim_inet:async_accept fails when inet_async : ~p~n", inet:format_error(Error)),
-                exit({async_accept, inet:format_error(Error)})        
+                {stop, Error, State}
+                %exit({async_accept, inet:format_error(Error)})        
 		end
 	catch 
 		exit:Why ->        
             ti_common:logerror("VDR server error in async accept : ~p~n", Why),			
             {stop, Why, State}    
-	end; 
+	end;
 handle_info({tcp, Socket, Data}, State) ->    
     inet:setopts(Socket, [{active, true}]), 
     io:format("~p got message ~p\n", [self(), Data]),    
@@ -148,15 +148,15 @@ set_sockopt(LSock, CSock) ->
 	case prim_inet:getopts(LSock, [active, nodelay, keepalive, delay_send, priority, tos]) of	    
 		{ok, Opts} ->	        
 			case prim_inet:setopts(CSock, Opts) of		        
-				ok    -> 
+				ok -> 
 					ok;		        
 				Error -> 
-					gen_tcp:close(CSock),
-                    Error	        
+					ti_common:logerror("VDR server prim_inet:setopts fails : ~p~n", Error),    
+                    gen_tcp:close(CSock)
 			end;	   
 		Error ->	       
-			gen_tcp:close(CSock), 
-			Error   
+            ti_common:logerror("VDR server prim_inet:getopts fails : ~p~n", Error),
+			gen_tcp:close(CSock)
 	end.
 
 %%%
