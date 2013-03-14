@@ -35,20 +35,21 @@ start(StartType, StartArgs) ->
     ets:new(montable,[set,public,named_table,{keypos,1},{read_concurrency,true},{write_concurrency,true}]),
     case supervisor:start_link(ti_sup, []) of
         {ok, Pid} ->
-            io:format("ti_app PID vs. ti_sup PID : ~p vs ~p~n", [self(), Pid]),
+            error_logger:info_msg("Message server starts~n"),
+            error_logger:info_msg("Application PID is ~p~n", [self()]),
+            error_logger:info_msg("Supervisor PID : ~p~n", [Pid]),
             {ok, Pid};
         ignore ->
+            error_logger:info_msg("Message server fails to start : ignore~n"),
             ignore;
         {error, Error} ->
+            error_logger:info_msg("Message server fails to start : ~p~n", [Error]),
             {error, Error}
     end.
 
 stop(_State) ->
-    error_logger:info_msg("Msg server stops.~n"),
+    error_logger:info_msg("Message server stops.~n"),
     ok.
-
-%start_client_vdr(Socket) ->
-%    ti_sup:start_child_vdr(Socket).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%% File END.

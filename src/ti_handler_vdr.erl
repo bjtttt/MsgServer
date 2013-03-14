@@ -23,7 +23,6 @@ handle_call(_Request, _From, State) ->
 handle_cast(_Msg, State) ->    
 	{noreply, State}. 
 handle_info({tcp, Socket, Data}, State) ->    
-    gen_tcp:send(Socket, "aaaaa"),
 	inet:setopts(Socket, [{active, true}]),	
 	io:format("~p got message ~p\n", [self(), Data]),    
 	ok = gen_tcp:send(Socket, <<"Echo back : ", Data/binary>>),    

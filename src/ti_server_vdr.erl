@@ -27,19 +27,19 @@ start_link(PortVDR) ->
 init([PortVDR]) ->    
 	process_flag(trap_exit, true),    
 	Opts = [binary, {packet, 2}, {reuseaddr, true}, {keepalive, true}, {backlog, 30}, {active, true}],    
-	case gen_tcp:listen(PortVDR, Opts) of	    
+	% VDR server start listening
+    case gen_tcp:listen(PortVDR, Opts) of	    
 		{ok, LSock} -> 
             % Create first accepting process	        
 			case prim_inet:async_accept(LSock, -1) of
                 {ok, Ref} ->
                     {ok, #state{lsock = LSock, acceptor = Ref}};
                 Error ->
-                    TimeStamp = calendar:now_to_local_time(erlang:now()),
-                    Format = "~p : VDR server async accept fails : ~p~n",
-                    error_logger:error_msg(Format, [TimeStamp, Error]),
+                    ti_common:logerror("VDR server async accept fails : ~p~n", Error),
                     {stop, Error}
             end;
 		{error, Reason} ->	        
+            ti_common:logerror("VDR server listen fails : ~p~n", Reason),
 			{stop, Reason}    
 	end. 
 
@@ -55,54 +55,43 @@ handle_info({inet_async, LSock, Ref, {ok, CSock}}, #state{lsock=LSock, acceptor=
 			ok -> 
 				ok;	        
 			{error, Reason} -> 
-                TimeStamp = calendar:now_to_local_time(erlang:now()),
-                Format = "~p : ti_server_vdr:handler_info - set_sockopt(LSock, CSock) fails : ~p~n",
-                error_logger:error_msg(Format, [TimeStamp, Reason]),
-				exit({set_sockopt, Reason})       
+                ti_common:logerror("VDR server set_sockopt fails when inet_async : ~p~n", Reason),
+  				exit({set_sockopt, Reason})       
 		end,
-        
 		% New client connected
         % Spawn a new process using the simple_one_for_one supervisor.
         % Why it is "the simple_one_for_one supervisor"?
-		%{ok, Pid} = ti_app:start_client_vdr(CSock),        
-		case gen_server:start_link(ti_handler_vdr, [CSock], []) of
-            {ok, Pid}  ->
-                case gen_tcp:controlling_process(CSock, Pid) of
-                    ok ->
-                        ok;
-                    {error, EReason} ->
-                        RTimeStamp = calendar:now_to_local_time(erlang:now()),
-                        RFormat = "~p : gen_tcp:controlling_process(CSock, Pid) fails : ~p~n",
-                        error_logger:error_msg(RFormat, [RTimeStamp, EReason])
-                end;
-            {error, EError} ->
-                ETimeStamp = calendar:now_to_local_time(erlang:now()),
-                EFormat = "~p : gen_server:start_link(ti_handler_vdr, [CSock], []) fails : ~p~n",
-                error_logger:error_msg(EFormat, [ETimeStamp, EError]);
-            ignore ->
-                ITimeStamp = calendar:now_to_local_time(erlang:now()),
-                IFormat = "~p : gen_server:start_link(ti_handler_vdr, [CSock], []) fails : ignore~n",
-                error_logger:error_msg(IFormat, [ITimeStamp])
-        end,
+		% {ok, Pid} = ti_app:start_client_vdr(CSock),        
+	    %Pid = spawn(fun() -> loop(CSock) end),
+        %gen_tcp:controlling_process(CSock, Pid),
+        loop(CSock),
+        %case gen_server:start_link(ti_handler_vdr, [CSock], []) of
+        %    {ok, Pid}  ->
+        %        case gen_tcp:controlling_process(CSock, Pid) of
+        %            ok ->
+        %                ok;
+        %            {error, Reason1} ->
+        %                ti_common:logerror("VDR server gen_server:controlling_process fails when inet_async : ~p~n", Reason1)
+        %        end;
+        %    {error, Reason2} ->
+        %        ti_common:logerror("VDR server gen_server:start_link(ti_handler_vdr,...) fails when inet_async : ~p~n", Reason2);
+        %    ignore ->
+        %        ti_common:logerror("VDR server gen_server:start_link(ti_handler_vdr,...) fails when inet_async : ignore~n")
+        %end,
         %% Signal the network driver that we are ready to accept another connection        
 		case prim_inet:async_accept(LSock, -1) of	        
 			{ok, NewRef} -> 
                 {noreply, State#state{acceptor=NewRef}};
 			Error ->
-                EFormat2 = "~p : ti_server_vdr:handle_info - prim_inet:async_accept(LSock, -1) fails : ~p~n",
-                ETimeStamp2 = calendar:now_to_local_time(erlang:now()),
-                error_logger:error_msg(EFormat2, [ETimeStamp2, inet:format_error(Error)]),
+                ti_common:logerror("VDR server prim_inet:async_accept fails when inet_async : ~p~n", inet:format_error(Error)),
                 exit({async_accept, inet:format_error(Error)})        
 		end
 	catch 
 		exit:Why ->        
-            FFormat = "~p : Error in async accept : ~p~n",
-            FTimeStamp = calendar:now_to_local_time(erlang:now()),
-			error_logger:error_msg(FFormat, [FTimeStamp, Why]),        
-			{stop, Why, State}    
+            ti_common:logerror("VDR server error in async accept : ~p~n", Why),			
+            {stop, Why, State}    
 	end; 
 handle_info({tcp, Socket, Data}, State) ->    
-    gen_tcp:send(Socket, "aaaaa"),
     inet:setopts(Socket, [{active, true}]), 
     io:format("~p got message ~p\n", [self(), Data]),    
     ok = gen_tcp:send(Socket, <<"Echo back : ", Data/binary>>),    
@@ -142,6 +131,21 @@ set_sockopt(LSock, CSock) ->
 			Error   
 	end.
 
+%%%
+%%% Test only
+%%%
+loop(Socket) ->
+    receive
+        {tcp, Socket, Bin} ->
+            %inet:setopts(Socket, [{active, true}]),
+            io:format("Server received binary = ~p~n", [Bin]),
+            gen_tcp:send(Socket, Bin),
+            loop(Socket);
+        {tcp_closed, Socket} ->
+            io:format("Server socket closed~n");
+        Msg ->
+            Msg
+    end.
 
 
 								
