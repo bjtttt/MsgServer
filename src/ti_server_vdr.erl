@@ -15,7 +15,9 @@
 %%% lsock       : Listening socket
 %%% acceptor    : Asynchronous acceptor's internal reference
 %%%
--record(state, {lsock, acceptor}). 
+-record(state, {lsock, acceptor}).
+
+
 
 %%%
 %%% In fact, we can get PortVDR from msgservertable.
@@ -64,23 +66,46 @@ handle_info({inet_async, LSock, Ref, {ok, CSock}}, #state{lsock=LSock, acceptor=
 		% New client connected
         % Spawn a new process using the simple_one_for_one supervisor.
         % Why it is "the simple_one_for_one supervisor"?
-		% {ok, Pid} = ti_app:start_client_vdr(CSock),        
-	    %Pid = spawn(fun() -> loop(CSock) end),
-        %gen_tcp:controlling_process(CSock, Pid),
-        %loop(CSock),
-        case gen_server:start_link(ti_handler_vdr, [CSock], []) of
-            {ok, Pid}  ->
+        case ti_sup:start_child_vdr(CSock) of
+            {ok, Pid} ->
                 case gen_tcp:controlling_process(CSock, Pid) of
                    ok ->
                         ok;
                     {error, Reason1} ->
                         ti_common:logerror("VDR server gen_server:controlling_process fails when inet_async : ~p~n", Reason1)
                 end;
-            {error, Reason2} ->
-                ti_common:logerror("VDR server gen_server:start_link(ti_handler_vdr,...) fails when inet_async : ~p~n", Reason2);
-            ignore ->
-                ti_common:logerror("VDR server gen_server:start_link(ti_handler_vdr,...) fails when inet_async : ignore~n")
+            {ok, Pid, Info} ->
+                Info,
+                case gen_tcp:controlling_process(CSock, Pid) of
+                   ok ->
+                        ok;
+                    {error, Reason1} ->
+                        ti_common:logerror("VDR server gen_server:controlling_process fails when inet_async : ~p~n", Reason1)
+                end;
+            {error, already_present} ->
+                ok;
+            {error, {already_started, Pid}} ->
+                Pid;
+            {error, Msg} ->
+                Msg
         end,
+		% {ok, Pid} = ti_app:start_client_vdr(CSock),        
+	    %Pid = spawn(fun() -> loop(CSock) end),
+        %gen_tcp:controlling_process(CSock, Pid),
+        %loop(CSock),
+        %case gen_server:start_link(ti_handler_vdr, [CSock], []) of
+        %    {ok, Pid}  ->
+        %        case gen_tcp:controlling_process(CSock, Pid) of
+        %           ok ->
+        %                ok;
+        %            {error, Reason1} ->
+        %                ti_common:logerror("VDR server gen_server:controlling_process fails when inet_async : ~p~n", Reason1)
+        %        end;
+        %    {error, Reason2} ->
+        %        ti_common:logerror("VDR server gen_server:start_link(ti_handler_vdr,...) fails when inet_async : ~p~n", Reason2);
+        %    ignore ->
+        %        ti_common:logerror("VDR server gen_server:start_link(ti_handler_vdr,...) fails when inet_async : ignore~n")
+        %end,
         %% Signal the network driver that we are ready to accept another connection        
 		case prim_inet:async_accept(LSock, -1) of	        
 			{ok, NewRef} -> 

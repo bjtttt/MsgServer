@@ -14,6 +14,7 @@ start_link(Socket) ->
 	gen_server:start_link(?MODULE, [Socket], []). 
 
 init([Socket]) ->	
+    inet:setopts(Socket, [{active, once}]), 
 	%inet:setopts(Socket, [{active, true}, {packet, 0}, binary]),   
 	{ok, {IP, _Port}} = inet:peername(Socket),
 	{ok, #state{socket=Socket, addr=IP}}. 

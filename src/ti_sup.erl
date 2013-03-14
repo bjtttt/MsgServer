@@ -6,14 +6,22 @@
 
 -behaviour(supervisor).
 
--export([start_link/0]).%, start_child_vdr/1]).
+-export([start_link/0, start_child_vdr/1]).
 
 -export([init/1]).
 
 -define(SERVER, ?MODULE).
 
-%start_child_vdr(CSock) ->
-%    supervisor:start_child(ti_sup_handler_vdr, [CSock]).
+%%% 
+%%% startchild_ret() = {ok, Child :: child()}
+%%%                  | {ok, Child :: child(), Info :: term()}
+%%%                  | {error, startchild_err()}
+%%% startchild_err() = already_present
+%%%                  | {already_started, Child :: child()}
+%%%                  | term()
+%%% 
+start_child_vdr(CSock) ->
+    supervisor:start_child(ti_sup_handler_vdr, [CSock]).
     
 start_link() ->
     supervisor:start_link({local, ?SERVER}, ?MODULE, []).
@@ -33,15 +41,15 @@ init([]) ->
 				 [ti_server_vdr]                            % Modules  = [Module] | dynamic
 				},
     % Process VDR communication
-    %VDRHandler = {
-	%			  ti_sup_handler_vdr,               % Id       = internal id
-	%			  {supervisor, start_link, [{local, ti_sup_handler_vdr}, ?MODULE, [ti_handler_vdr]]},
-	%			  permanent, 						% Restart  = permanent | transient | temporary
-	%			  brutal_kill, 					    % Shutdown = brutal_kill | int() >= 0 | infinity
-	%			  supervisor, 				    	% Type     = worker | supervisor
-	%			  []								% Modules  = [Module] | dynamic
-	%			 },
-	%Children = [VDRServer, VDRHandler],
+    VDRHandler = {
+				  ti_sup_handler_vdr,               % Id       = internal id
+				  {supervisor, start_link, [{local, ti_sup_handler_vdr}, ?MODULE, [ti_handler_vdr]]},
+				  permanent, 						% Restart  = permanent | transient | temporary
+				  brutal_kill, 					    % Shutdown = brutal_kill | int() >= 0 | infinity
+				  supervisor, 				    	% Type     = worker | supervisor
+				  []								% Modules  = [Module] | dynamic
+				 },
+	Children = [VDRServer, VDRHandler],
     %ManServer = {ti_sup_man, {ti_sup_man, start_link, []}, 
     %             permanent, brutal_kill, supervisor, [ti_server_man]},
     %MonServer = {ti_sup_mon, {ti_sup_mon, start_link, []}, 
@@ -49,24 +57,24 @@ init([]) ->
     %DBClient = {ti_sup_db, {ti_sup_db, start_link, []}, 
     %            permanent, brutal_kill, supervisor, [ti_client_db]},
     %Children = [VDRServer, ManServer, MonServer, DBClient],
-    Children = [VDRServer],
+    %Children = [VDRServer],
     RestartStrategy = {one_for_one, 0, 1},
-    {ok, {RestartStrategy, Children}}.
+    {ok, {RestartStrategy, Children}};
 %%%
 %%% I don't know what this function for. :-(
 %%%
-%init ([Module]) ->
-%    VDRClient = {
-%                 undefined,                 % Id       = internal id
-%                 {Module, start_link, []},  % StartFun = {M, F, A}
-%                 temporary,                 % Restart  = permanent | transient | temporary
-%                 brutal_kill,               % Shutdown = brutal_kill | int() >= 0 | infinity
-%                 worker,                    % Type     = worker | supervisor
-%                 []                         % Modules  = [Module] | dynamic
-%                },
-%    Children = [VDRClient],
-%    RestartStrategy = {simple_one_for_one, 0, 1},
-%    {ok, {RestartStrategy, Children}}.
+init ([Module]) ->
+    VDRClient = {
+                 undefined,                 % Id       = internal id
+                 {Module, start_link, []},  % StartFun = {M, F, A}
+                 temporary,                 % Restart  = permanent | transient | temporary
+                 brutal_kill,               % Shutdown = brutal_kill | int() >= 0 | infinity
+                 worker,                    % Type     = worker | supervisor
+                 []                         % Modules  = [Module] | dynamic
+                },
+    Children = [VDRClient],
+    RestartStrategy = {simple_one_for_one, 0, 1},
+    {ok, {RestartStrategy, Children}}.
 
 
 
