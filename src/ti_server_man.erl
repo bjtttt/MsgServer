@@ -20,7 +20,7 @@
 
 
 %%%
-%%% In fact, we can get PortVDR from msgservertable.
+%%% In fact, we can get PortMan from msgservertable.
 %%% Here, the reason that we use parameter is for efficiency.
 %%%
 start_link(PortMan) ->    
@@ -92,7 +92,7 @@ handle_info({inet_async, LSock, Ref, {ok, CSock}}, #state{lsock=LSock, acceptor=
 	    %Pid = spawn(fun() -> loop(CSock) end),
         %gen_tcp:controlling_process(CSock, Pid),
         %loop(CSock),
-        %case gen_server:start_link(ti_handler_vdr, [CSock], []) of
+        %case gen_server:start_link(ti_handler_man, [CSock], []) of
         %    {ok, Pid}  ->
         %        case gen_tcp:controlling_process(CSock, Pid) of
         %           ok ->
