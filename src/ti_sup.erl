@@ -6,7 +6,7 @@
 
 -behaviour(supervisor).
 
--export([start_link/0, start_child_vdr/1, start_child_man/1, start_child_mon/1]).
+-export([start_link/0, start_child_vdr/1, start_child_man/1, start_child_mon/1, start_child_db/2]).
 
 -export([init/1]).
 
@@ -26,6 +26,8 @@ start_child_man(CSock) ->
     supervisor:start_child(ti_sup_handler_man, [CSock]).
 start_child_mon(CSock) ->
     supervisor:start_child(ti_sup_handler_mon, [CSock]).
+start_child_db(DB, PortDB) ->
+    supervisor:start_child(ti_client_db, [DB, PortDB]).
     
 start_link() ->
     supervisor:start_link({local, ?SERVER}, ?MODULE, []).
@@ -35,6 +37,8 @@ init([]) ->
     [{portvdr, PortVDR}] = ets:lookup(msgservertable, portvdr),
     [{portman, PortMan}] = ets:lookup(msgservertable, portman),
     [{portmon, PortMon}] = ets:lookup(msgservertable, portmon),
+    [{db, DB}] = ets:lookup(msgservertable, db),
+    [{portdb, PortDB}] = ets:lookup(msgservertable, portdb),
     % Listen VDR connection
     VDRServer = {
 				 ti_server_vdr,                             % Id       = internal id
@@ -89,10 +93,16 @@ init([]) ->
                   supervisor,                       % Type     = worker | supervisor
                   []                                % Modules  = [Module] | dynamic
                  },
-    %DBClient = {ti_sup_db, {ti_sup_db, start_link, []}, 
-    %            permanent, brutal_kill, supervisor, [ti_client_db]},
-    %Children = [VDRServer, ManServer, MonServer, DBClient],
-    Children = [VDRServer, VDRHandler, ManServer, ManHandler, MonServer, MonHandler],
+    % Listen Monitor connection
+    DBClient  = {
+                 ti_client_db,                              % Id       = internal id
+                 {ti_client_db, start_link, [DB, PortDB]},  % StartFun = {M, F, A}
+                 permanent,                                 % Restart  = permanent | transient | temporary
+                 brutal_kill,                               % Shutdown = brutal_kill | int() >= 0 | infinity
+                 worker,                                    % Type     = worker | supervisor
+                 [ti_client_db]                             % Modules  = [Module] | dynamic
+                },
+    Children = [VDRServer, VDRHandler, ManServer, ManHandler, MonServer, MonHandler, DBClient],
     RestartStrategy = {one_for_one, 0, 1},
     {ok, {RestartStrategy, Children}};
 %%%

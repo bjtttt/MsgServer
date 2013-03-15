@@ -28,6 +28,7 @@ start(StartType, StartArgs) ->
     ets:insert(msgservertable, {portmon, PortMon}),
     ets:insert(msgservertable, {db, DB}),
     ets:insert(msgservertable, {portdb, PortDB}),
+    ets:insert(msgservertable, {dbconnpid, -1}),
     ets:new(vdrinittable,[set,public,named_table,{keypos,1},{read_concurrency,true},{write_concurrency,true}]),
     ets:new(vdrtable,[set,public,named_table,{keypos,1},{read_concurrency,true},{write_concurrency,true}]),
     ets:new(mantable,[set,public,named_table,{keypos,1},{read_concurrency,true},{write_concurrency,true}]),
