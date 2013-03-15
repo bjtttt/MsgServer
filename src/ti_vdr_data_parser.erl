@@ -6,7 +6,19 @@
 
 -module(ti_vdr_data_parser).
 
--export([parse_data/1]).
+-export([parse_data/1, compose_data/1]).
 
-parse_data(RawData) ->
-    RawData.
+%%%
+%%% Parse the data from VDR
+%%%
+parse_data(Data) ->
+    Data.
+
+%%%
+%%% Compose the data to VDR
+%%%
+compose_data(Data) ->
+    Data.
+
+
+

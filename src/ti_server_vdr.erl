@@ -119,10 +119,12 @@ handle_info({inet_async, LSock, Ref, {ok, CSock}}, #state{lsock=LSock, acceptor=
             ti_common:logerror("VDR server error in async accept : ~p~n", Why),			
             {stop, Why, State}    
 	end;
-handle_info({tcp, Socket, Data}, State) ->    
-    inet:setopts(Socket, [{active, once}]),
+handle_info({tcp, Socket, Data}, State) ->  
+    %inet:setopts(Socket, [{active, once}]),
     % Should be modified in the future
-    ok = gen_tcp:send(Socket, <<"VDR server : ", Data/binary>>),    
+    %ok = gen_tcp:send(Socket, <<"VDR server : ", Data/binary>>),
+    process_vdr_data(Socket, Data),
+    inet:setopts(Socket, [{active, once}]),
     {noreply, State}; 
 handle_info({inet_async, LSock, Ref, Error}, #state{lsock=LSock, acceptor=Ref} = State) ->    
     ti_common:logerror("VDR server error in socket acceptor : ~p~n", Error),
@@ -159,20 +161,28 @@ set_sockopt(LSock, CSock) ->
 	end.
 
 %%%
-%%% Test only
+%%% This function should refer to the document on the mechanism
 %%%
-%loop(Socket) ->
-%    receive
-%        {tcp, Socket, Bin} ->
-%            %inet:setopts(Socket, [{active, true}]),
-%            io:format("Server received binary = ~p~n", [Bin]),
-%            gen_tcp:send(Socket, Bin),
-%            loop(Socket);
-%        {tcp_closed, Socket} ->
-%            io:format("Server socket closed~n");
-%        Msg ->
-%            Msg
-%    end.
-
+process_vdr_data(Socket, Data) ->
+    Bin = ti_vdr_data_parser:parse_data(Data),
+    [{dbconnpid, Pid}] = ets:lookup(msgservertable, dbconnpid),
+    case Pid of
+        -1 ->
+            ti_common:logerror("DB Client is not available~n");
+        _ ->
+            Pid!Bin
+    end,
+    receive
+        {From, Resp} ->
+            if
+                From == Pid ->
+                    Back = ti_vdr_data_parser:compose_data(Resp),
+                    gen_tcp:send(Socket, Back);
+                From =/= Pid ->
+                    ti_common:logerror("Unknown response from ~p~n", From)
+            end;
+        _ ->
+            ti_common:logerror("Unknown response from DB~n")
+    end.
 
 								
