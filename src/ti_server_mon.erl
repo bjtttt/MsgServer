@@ -55,6 +55,12 @@ handle_cast(_Msg, State) ->
 	{noreply, State}. 
 
 handle_info({inet_async, LSock, Ref, {ok, CSock}}, #state{lsock=LSock, acceptor=Ref}=State) ->    
+    case ti_common:safepeername(CSock) of
+        {ok, {Address, _Port}} ->
+            ti_common:loginfo("Accepted monitor IP : ~p~n", Address);
+        {error, Explain} ->
+           ti_common:loginfo("Unknown accepted monitor : ~p~n", Explain)
+    end,
 	try        
 		case set_sockopt(LSock, CSock) of	        
 			ok -> 

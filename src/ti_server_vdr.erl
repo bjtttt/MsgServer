@@ -54,8 +54,14 @@ handle_call(Request, _From, State) ->
 handle_cast(_Msg, State) ->    
 	{noreply, State}. 
 
-handle_info({inet_async, LSock, Ref, {ok, CSock}}, #state{lsock=LSock, acceptor=Ref}=State) ->    
-	try        
+handle_info({inet_async, LSock, Ref, {ok, CSock}}, #state{lsock=LSock, acceptor=Ref}=State) ->
+    case ti_common:safepeername(CSock) of
+        {ok, {Address, _Port}} ->
+            ti_common:loginfo("Accepted VDR IP : ~p~n", Address);
+        {error, Explain} ->
+           ti_common:loginfo("Unknown accepted VDR : ~p~n", Explain)
+    end,
+    try        
 		case set_sockopt(LSock, CSock) of	        
 			ok -> 
 				ok;	        
@@ -88,23 +94,6 @@ handle_info({inet_async, LSock, Ref, {ok, CSock}}, #state{lsock=LSock, acceptor=
             {error, Msg} ->
                 ti_common:logerror("VDR server ti_sup:start_child_vdr fails when inet_async : ~p~n", Msg)
         end,
-		% {ok, Pid} = ti_app:start_client_vdr(CSock),        
-	    %Pid = spawn(fun() -> loop(CSock) end),
-        %gen_tcp:controlling_process(CSock, Pid),
-        %loop(CSock),
-        %case gen_server:start_link(ti_handler_vdr, [CSock], []) of
-        %    {ok, Pid}  ->
-        %        case gen_tcp:controlling_process(CSock, Pid) of
-        %           ok ->
-        %                ok;
-        %            {error, Reason1} ->
-        %                ti_common:logerror("VDR server gen_server:controlling_process fails when inet_async : ~p~n", Reason1)
-        %        end;
-        %    {error, Reason2} ->
-        %        ti_common:logerror("VDR server gen_server:start_link(ti_handler_vdr,...) fails when inet_async : ~p~n", Reason2);
-        %    ignore ->
-        %        ti_common:logerror("VDR server gen_server:start_link(ti_handler_vdr,...) fails when inet_async : ignore~n")
-        %end,
         %% Signal the network driver that we are ready to accept another connection        
 		case prim_inet:async_accept(LSock, -1) of	        
 			{ok, NewRef} -> 
@@ -170,19 +159,19 @@ process_vdr_data(Socket, Data) ->
         -1 ->
             ti_common:logerror("DB Client is not available~n");
         _ ->
-            Pid!Bin
-    end,
-    receive
-        {From, Resp} ->
-            if
-                From == Pid ->
-                    Back = ti_vdr_data_parser:compose_data(Resp),
-                    gen_tcp:send(Socket, Back);
-                From =/= Pid ->
-                    ti_common:logerror("Unknown response from ~p~n", From)
-            end;
-        _ ->
-            ti_common:logerror("Unknown response from DB~n")
+            Pid!Bin,
+            receive
+                {From, Resp} ->
+                    if
+                        From == Pid ->
+                            Back = ti_vdr_data_parser:compose_data(Resp),
+                            gen_tcp:send(Socket, Back);
+                        From =/= Pid ->
+                            ti_common:logerror("Unknown VDR response from ~p~n", From)
+                    end;
+                _ ->
+                    ti_common:logerror("Unknown VDR response from DB~n")
+            end
     end.
 
 								

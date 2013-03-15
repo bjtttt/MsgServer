@@ -55,6 +55,12 @@ handle_cast(_Msg, State) ->
 	{noreply, State}. 
 
 handle_info({inet_async, LSock, Ref, {ok, CSock}}, #state{lsock=LSock, acceptor=Ref}=State) ->    
+    case ti_common:safepeername(CSock) of
+        {ok, {Address, _Port}} ->
+            ti_common:loginfo("Accepted management IP : ~p~n", Address);
+        {error, Explain} ->
+           ti_common:loginfo("Unknown accepted management : ~p~n", Explain)
+    end,
 	try        
 		case set_sockopt(LSock, CSock) of	        
 			ok -> 
@@ -88,23 +94,6 @@ handle_info({inet_async, LSock, Ref, {ok, CSock}}, #state{lsock=LSock, acceptor=
             {error, Msg} ->
                 ti_common:logerror("Management server ti_sup:start_child_vdr fails when inet_async : ~p~n", Msg)
         end,
-		% {ok, Pid} = ti_app:start_client_vdr(CSock),        
-	    %Pid = spawn(fun() -> loop(CSock) end),
-        %gen_tcp:controlling_process(CSock, Pid),
-        %loop(CSock),
-        %case gen_server:start_link(ti_handler_man, [CSock], []) of
-        %    {ok, Pid}  ->
-        %        case gen_tcp:controlling_process(CSock, Pid) of
-        %           ok ->
-        %                ok;
-        %            {error, Reason1} ->
-        %                ti_common:logerror("Management server gen_server:controlling_process fails when inet_async : ~p~n", Reason1)
-        %        end;
-        %    {error, Reason2} ->
-        %        ti_common:logerror("Management server gen_server:start_link(ti_handler_vdr,...) fails when inet_async : ~p~n", Reason2);
-        %    ignore ->
-        %        ti_common:logerror("Management server gen_server:start_link(ti_handler_vdr,...) fails when inet_async : ignore~n")
-        %end,
         %% Signal the network driver that we are ready to accept another connection        
 		case prim_inet:async_accept(LSock, -1) of	        
 			{ok, NewRef} -> 
@@ -158,21 +147,6 @@ set_sockopt(LSock, CSock) ->
 			gen_tcp:close(CSock)
 	end.
 
-%%%
-%%% Test only
-%%%
-%loop(Socket) ->
-%    receive
-%        {tcp, Socket, Bin} ->
-%            %inet:setopts(Socket, [{active, true}]),
-%            io:format("Server received binary = ~p~n", [Bin]),
-%            gen_tcp:send(Socket, Bin),
-%            loop(Socket);
-%        {tcp_closed, Socket} ->
-%            io:format("Server socket closed~n");
-%        Msg ->
-%            Msg
-%    end.
 
 
 								
