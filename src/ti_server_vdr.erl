@@ -64,7 +64,7 @@ handle_cast(_Msg, State) ->
 handle_info({inet_async, LSock, Ref, {ok, CSock}}, #serverstate{lsock=LSock, acceptor=Ref}=State) ->
     ti_common:printsocketinfo(CSock, "Accepted VDR"),
     try        
-		case set_sockopt(LSock, CSock) of	        
+		case ti_common:set_sockopt(LSock, CSock, "VDR Server") of	        
 			ok -> 
 				ok;	        
 			{error, Reason} -> 
@@ -131,7 +131,7 @@ handle_info({inet_async, LSock, Ref, {ok, CSock}}, #serverstate{lsock=LSock, acc
 %%% Data should not be received here because it is a listening socket process
 %%%
 handle_info({tcp, Socket, Data}, State) ->  
-    ti_common:printsocketinfo(Socket, "Data source"),
+    ti_common:printsocketinfo(Socket, "VDR server data source"),
     ti_common:logerror("ERROR : VDR server receives data : ~p~n", [Data]),
     inet:setopts(Socket, [{active, once}]),
     {noreply, State}; 
@@ -149,24 +149,5 @@ terminate(Reason, State) ->
 code_change(_OldVsn, State, _Extra) ->    
 	{ok, State}. 
     
-%%%
-%%% Taken from prim_inet.  We are merely copying some socket options from the
-%%% listening socket to the new client socket.
-%%%
-set_sockopt(LSock, CSock) ->    
-	true = inet_db:register_socket(CSock, inet_tcp),    
-	case prim_inet:getopts(LSock, [active, nodelay, keepalive, delay_send, priority, tos]) of	    
-		{ok, Opts} ->	        
-			case prim_inet:setopts(CSock, Opts) of		        
-				ok -> 
-					ok;		        
-				Error -> 
-					ti_common:logerror("VDR server prim_inet:setopts fails : ~p~n", Error),    
-                    gen_tcp:close(CSock)
-			end;	   
-		Error ->	       
-            ti_common:logerror("VDR server prim_inet:getopts fails : ~p~n", Error),
-			gen_tcp:close(CSock)
-	end.
 
 								

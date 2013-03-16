@@ -1,5 +1,5 @@
 %%%
-%%% Need considering how management server sends message to VDR
+%%% Need considering how management server sends message to Management
 %%%
 
 -module(ti_server_mon).
@@ -14,165 +14,140 @@
 -include("ti_header.hrl").
 
 %%%
-%%% In fact, we can get PortMon from msgservertable.
+%%% In fact, we can get PortVDR from msgservertable.
 %%% Here, the reason that we use parameter is for efficiency.
 %%%
-start_link(PortMon) ->    
-	gen_server:start_link({local, ?MODULE}, ?MODULE, [PortMon], []). 
+%%% Result = {ok,Pid} | ignore | {error,Error}
+%%%    Pid = pid()
+%%%  Error = {already_started,Pid} | term()
+%%%
+start_link(PortMon) ->  
+    case gen_server:start_link({local, ?MODULE}, ?MODULE, [PortMon], []) of
+        {ok, Pid} ->
+            {ok, Pid};
+        ignore ->
+            ti_common:logerror("ti_sup:start_child_mon(~p) fails : ignore~n", [PortMon]),
+            ignore;
+        {already_started, Pid} ->
+            ti_common:logerror("ti_sup:start_child_mon(~p) fails : already_started : ~p~n", [PortMon, Pid]),
+            {already_started, Pid}
+    end.
 
 %%%
 %%% {backlog, 30} specifies the length of the OS accept queue. 
 %%%
 init([PortMon]) ->    
-	process_flag(trap_exit, true),    
-	Opts = [binary, {packet, 0}, {reuseaddr, true}, {keepalive, true}, {active, once}],    
-	% VDR server start listening
-    case gen_tcp:listen(PortMon, Opts) of	    
-		{ok, LSock} -> 
-            % Create first accepting process	        
-			case prim_inet:async_accept(LSock, -1) of
+    process_flag(trap_exit, true),    
+    Opts = [binary, {packet, 0}, {reuseaddr, true}, {keepalive, true}, {active, once}],    
+    % Management server start listening
+    case gen_tcp:listen(PortMon, Opts) of       
+        {ok, LSock} -> 
+            % Create first accepting process            
+            case prim_inet:async_accept(LSock, -1) of
                 {ok, Ref} ->
                     {ok, #serverstate{lsock=LSock, acceptor=Ref}};
                 Error ->
-                    ti_common:logerror("Monitor server async accept fails : ~p~n", Error),
+                    ti_common:logerror("Management server prim_inet:async_accept accept fails : ~p~n", [Error]),
                     {stop, Error}
             end;
-		{error, Reason} ->	        
-            ti_common:logerror("Monitor server listen fails : ~p~n", Reason),
-			{stop, Reason}    
-	end. 
+        {error, Reason} ->          
+            ti_common:logerror("Monitor server gen_tcp:listen fails : ~p~n", [Reason]),
+            {stop, Reason}    
+    end. 
 
 handle_call(Request, _From, State) ->    
-	{stop, {unknown_call, Request}, State}.
+    {stop, {unknown_call, Request}, State}.
 
 handle_cast(_Msg, State) ->    
-	{noreply, State}. 
+    {noreply, State}. 
 
-handle_info({inet_async, LSock, Ref, {ok, CSock}}, #serverstate{lsock=LSock, acceptor=Ref}=State) ->    
-    case ti_common:safepeername(CSock) of
-        {ok, {Address, _Port}} ->
-            ti_common:loginfo("Accepted monitor IP : ~p~n", Address);
-        {error, Explain} ->
-           ti_common:loginfo("Unknown accepted monitor : ~p~n", Explain)
-    end,
-	try        
-		case set_sockopt(LSock, CSock) of	        
-			ok -> 
-				ok;	        
-			{error, Reason} -> 
-                ti_common:logerror("Monitor server set_sockopt fails when inet_async : ~p~n", Reason),
-  				exit({set_sockopt, Reason})       
-		end,
-		% New client connected
+handle_info({inet_async, LSock, Ref, {ok, CSock}}, #serverstate{lsock=LSock, acceptor=Ref}=State) ->
+    ti_common:printsocketinfo(CSock, "Accepted monitor"),
+    try        
+        case ti_common:set_sockopt(LSock, CSock, "Monitor Server") of            
+            ok -> 
+                ok;         
+            {error, Reason} -> 
+                ti_common:logerror("Monitor server set_sockopt fails : ~p~n", [Reason]),
+                % Why use exit here?
+                % {stop, set_sockpt, Reason}
+                % Please consider it in the future
+                exit({set_sockopt, Reason})       
+        end,
+        % New client connected
         % Spawn a new process using the simple_one_for_one supervisor.
         % Why it is "the simple_one_for_one supervisor"?
         case ti_sup:start_child_mon(CSock) of
             {ok, Pid} ->
                 case gen_tcp:controlling_process(CSock, Pid) of
-                   ok ->
-                        ok;
+                    ok ->
+                        ets:insert(montable, #monitem{socket=CSock, pid=Pid});
                     {error, Reason1} ->
-                        ti_common:logerror("Monitor server gen_server:controlling_process fails when inet_async : ~p~n", Reason1)
+                        ti_common:logerror("Management server gen_server:controlling_process(Socket, PID : ~p) fails : ~p~n", [Pid, Reason1]),
+                        case ti_sup:stop_child_monr(Pid) of
+                            ok ->
+                                ok;
+                            {error, Reason2} ->
+                                ti_common:logerror("Management server ti_sup:stop_child_mon(PID : ~p) fails : ~p~n", [Pid, Reason2])
+                        end
                 end;
             {ok, Pid, _Info} ->
                 case gen_tcp:controlling_process(CSock, Pid) of
-                   ok ->
-                        ok;
+                    ok ->
+                        ets:insert(montable, #monitem{socket=CSock, pid=Pid});
                     {error, Reason1} ->
-                        ti_common:logerror("Monitor server gen_server:controlling_process fails when inet_async : ~p~n", Reason1)
+                        ti_common:logerror("Monitor server gen_server:controlling_process(Socket, PID : ~p) fails: ~p~n", [Pid, Reason1]),
+                         case ti_sup:stop_child_mon(Pid) of
+                            ok ->
+                                ok;
+                            {error, Reason2} ->
+                                ti_common:logerror("Monitor server ti_sup:stop_child_mon(PID : ~p) fails : ~p~n", [Pid, Reason2])
+                        end
                 end;
             {error, already_present} ->
-                ti_common:logerror("Monitor server ti_sup:start_child_vdr fails when inet_async : already_present~n");
+                ti_common:logerror("Monitor server ti_sup:start_child_man fails : already_present~n");
             {error, {already_started, Pid}} ->
-                ti_common:logerror("Monitor server ti_sup:start_child_vdr fails when inet_async : already_started PID : ~p~n", Pid);
+                ti_common:logerror("Monitor server ti_sup:start_child_man fails : already_started PID : ~p~n", [Pid]);
             {error, Msg} ->
-                ti_common:logerror("Monitor server ti_sup:start_child_vdr fails when inet_async : ~p~n", Msg)
+                ti_common:logerror("Monitor server ti_sup:start_child_man fails : ~p~n", [Msg])
         end,
-		% {ok, Pid} = ti_app:start_client_vdr(CSock),        
-	    %Pid = spawn(fun() -> loop(CSock) end),
-        %gen_tcp:controlling_process(CSock, Pid),
-        %loop(CSock),
-        %case gen_server:start_link(ti_handler_mon, [CSock], []) of
-        %    {ok, Pid}  ->
-        %        case gen_tcp:controlling_process(CSock, Pid) of
-        %           ok ->
-        %                ok;
-        %            {error, Reason1} ->
-        %                ti_common:logerror("Monitor server gen_server:controlling_process fails when inet_async : ~p~n", Reason1)
-        %        end;
-        %    {error, Reason2} ->
-        %        ti_common:logerror("Monitor server gen_server:start_link(ti_handler_vdr,...) fails when inet_async : ~p~n", Reason2);
-        %    ignore ->
-        %        ti_common:logerror("Monitor server gen_server:start_link(ti_handler_vdr,...) fails when inet_async : ignore~n")
-        %end,
         %% Signal the network driver that we are ready to accept another connection        
-		case prim_inet:async_accept(LSock, -1) of	        
-			{ok, NewRef} -> 
+        case prim_inet:async_accept(LSock, -1) of           
+            {ok, NewRef} -> 
                 {noreply, State#serverstate{acceptor=NewRef}};
-			Error ->
-                ti_common:logerror("Monitor server prim_inet:async_accept fails when inet_async : ~p~n", inet:format_error(Error)),
-                {stop, Error, State}
-                %exit({async_accept, inet:format_error(Error)})        
-		end
-	catch 
-		exit:Why ->        
-            ti_common:logerror("Monitor server error in async accept : ~p~n", Why),			
+            Error ->
+                ti_common:logerror("Monitor server prim_inet:async_accept fails : ~p~n", [inet:format_error(Error)]),
+                % Why use exit here?
+                % {stop, Error, State}
+                % Please consider it in the future
+                exit({async_accept, inet:format_error(Error)})        
+        end
+    catch 
+        exit:Why ->        
+            ti_common:logerror("Monitor server error in async accept : ~p~n", [Why]),            
             {stop, Why, State}    
-	end;
-handle_info({tcp, Socket, Data}, State) ->    
+    end;
+%%%
+%%% Data should not be received here because it is a listening socket process
+%%%
+handle_info({tcp, Socket, Data}, State) ->  
+    ti_common:printsocketinfo(Socket, "Monitor server data source"),
+    ti_common:logerror("ERROR : Monitor server receives data : ~p~n", [Data]),
     inet:setopts(Socket, [{active, once}]),
-    % Should be modified in the future
-    ok = gen_tcp:send(Socket, <<"Monitor server : ", Data/binary>>),    
     {noreply, State}; 
-handle_info({inet_async, LSock, Ref, Error}, #serverstate{lsock=LSock, acceptor=Ref} = State) ->    
-    ti_common:logerror("Monitor server error in socket acceptor : ~p~n", Error),
+handle_info({inet_async, LSock, Ref, Error}, #serverstate{lsock=LSock, acceptor=Ref}=State) ->    
+    ti_common:logerror("Monitor server error in socket acceptor : ~p~n", [Error]),
     {stop, Error, State}; 
 handle_info(_Info, State) ->    
     {noreply, State}. 
 
 terminate(Reason, State) ->    
-    ti_common:logerror("Monitor server is terminated~n", Reason),
+    ti_common:logerror("Monitor server is terminated~n", [Reason]),
     gen_tcp:close(State#serverstate.lsock),    
     ok. 
 
 code_change(_OldVsn, State, _Extra) ->    
-	{ok, State}. 
+    {ok, State}. 
     
-%%%
-%%% Taken from prim_inet.  We are merely copying some socket options from the
-%%% listening socket to the new client socket.
-%%%
-set_sockopt(LSock, CSock) ->    
-	true = inet_db:register_socket(CSock, inet_tcp),    
-	case prim_inet:getopts(LSock, [active, nodelay, keepalive, delay_send, priority, tos]) of	    
-		{ok, Opts} ->	        
-			case prim_inet:setopts(CSock, Opts) of		        
-				ok -> 
-					ok;		        
-				Error -> 
-					ti_common:logerror("Monitor server prim_inet:setopts fails : ~p~n", Error),    
-                    gen_tcp:close(CSock)
-			end;	   
-		Error ->	       
-            ti_common:logerror("Monitor server prim_inet:getopts fails : ~p~n", Error),
-			gen_tcp:close(CSock)
-	end.
 
-%%%
-%%% Test only
-%%%
-%loop(Socket) ->
-%    receive
-%        {tcp, Socket, Bin} ->
-%            %inet:setopts(Socket, [{active, true}]),
-%            io:format("Server received binary = ~p~n", [Bin]),
-%            gen_tcp:send(Socket, Bin),
-%            loop(Socket);
-%        {tcp_closed, Socket} ->
-%            io:format("Server socket closed~n");
-%        Msg ->
-%            Msg
-%    end.
-
-
-								
+                                

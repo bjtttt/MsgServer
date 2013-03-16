@@ -4,9 +4,27 @@
 
 -module(ti_common).
 
+-export([set_sockopt/3]).
+
 -export([safepeername/1, printsocketinfo/2]).
 
 -export([logerror/1, logerror/2, loginfo/1, loginfo/2]).
+
+set_sockopt(LSock, CSock, Msg) ->    
+    true = inet_db:register_socket(CSock, inet_tcp),    
+    case prim_inet:getopts(LSock, [active, nodelay, keepalive, delay_send, priority, tos]) of       
+        {ok, Opts} ->           
+            case prim_inet:setopts(CSock, Opts) of              
+                ok -> 
+                    ok;             
+                Error -> 
+                    ti_common:logerror(string:concat(Msg, " prim_inet:setopts fails : ~p~n"), Error),    
+                    gen_tcp:close(CSock)
+            end;       
+        Error ->           
+            ti_common:logerror(string:concat(Msg, " prim_inet:getopts fails : ~p~n"), Error),
+            gen_tcp:close(CSock)
+    end.
 
 %%%
 %%% {ok {Address, Port}}
