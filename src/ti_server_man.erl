@@ -11,13 +11,7 @@
 -export([init/1, handle_call/3, handle_cast/2, 
          handle_info/2, terminate/2, code_change/3]). 
 
-%%%
-%%% lsock       : Listening socket
-%%% acceptor    : Asynchronous acceptor's internal reference
-%%%
--record(state, {lsock, acceptor}).
-
-
+-include("ti_header.hrl").
 
 %%%
 %%% In fact, we can get PortMan from msgservertable.
@@ -38,7 +32,7 @@ init([PortMan]) ->
             % Create first accepting process	        
 			case prim_inet:async_accept(LSock, -1) of
                 {ok, Ref} ->
-                    {ok, #state{lsock = LSock, acceptor = Ref}};
+                    {ok, #serverstate{lsock=LSock, acceptor=Ref}};
                 Error ->
                     ti_common:logerror("Management server async accept fails : ~p~n", Error),
                     {stop, Error}
@@ -54,7 +48,7 @@ handle_call(Request, _From, State) ->
 handle_cast(_Msg, State) ->    
 	{noreply, State}. 
 
-handle_info({inet_async, LSock, Ref, {ok, CSock}}, #state{lsock=LSock, acceptor=Ref}=State) ->    
+handle_info({inet_async, LSock, Ref, {ok, CSock}}, #serverstate{lsock=LSock, acceptor=Ref}=State) ->    
     case ti_common:safepeername(CSock) of
         {ok, {Address, _Port}} ->
             ti_common:loginfo("Accepted management IP : ~p~n", Address);
@@ -64,40 +58,39 @@ handle_info({inet_async, LSock, Ref, {ok, CSock}}, #state{lsock=LSock, acceptor=
 	try        
 		case set_sockopt(LSock, CSock) of	        
 			ok -> 
-				ok;	        
+                % New client connected
+                % Spawn a new process using the simple_one_for_one supervisor.
+                % Why it is "the simple_one_for_one supervisor"?
+                case ti_sup:start_child_man(CSock) of
+                    {ok, Pid} ->
+                        case gen_tcp:controlling_process(CSock, Pid) of
+                           ok ->
+                                ok;
+                            {error, Reason1} ->
+                                ti_common:logerror("Management server gen_server:controlling_process fails when inet_async : ~p~n", Reason1)
+                        end;
+                    {ok, Pid, _Info} ->
+                        case gen_tcp:controlling_process(CSock, Pid) of
+                           ok ->
+                                ok;
+                            {error, Reason1} ->
+                                ti_common:logerror("Management server gen_server:controlling_process fails when inet_async : ~p~n", Reason1)
+                        end;
+                    {error, already_present} ->
+                        ti_common:logerror("Management server ti_sup:start_child_vdr fails when inet_async : already_present~n");
+                    {error, {already_started, Pid}} ->
+                        ti_common:logerror("Management server ti_sup:start_child_vdr fails when inet_async : already_started PID : ~p~n", Pid);
+                    {error, Msg} ->
+                        ti_common:logerror("Management server ti_sup:start_child_vdr fails when inet_async : ~p~n", Msg)
+                end;
 			{error, Reason} -> 
-                ti_common:logerror("Management server set_sockopt fails when inet_async : ~p~n", Reason),
-  				exit({set_sockopt, Reason})       
+                ti_common:logerror("Management server set_sockopt fails when inet_async : ~p~n", Reason)%,
+  				%exit({set_sockopt, Reason})       
 		end,
-		% New client connected
-        % Spawn a new process using the simple_one_for_one supervisor.
-        % Why it is "the simple_one_for_one supervisor"?
-        case ti_sup:start_child_man(CSock) of
-            {ok, Pid} ->
-                case gen_tcp:controlling_process(CSock, Pid) of
-                   ok ->
-                        ok;
-                    {error, Reason1} ->
-                        ti_common:logerror("Management server gen_server:controlling_process fails when inet_async : ~p~n", Reason1)
-                end;
-            {ok, Pid, _Info} ->
-                case gen_tcp:controlling_process(CSock, Pid) of
-                   ok ->
-                        ok;
-                    {error, Reason1} ->
-                        ti_common:logerror("Management server gen_server:controlling_process fails when inet_async : ~p~n", Reason1)
-                end;
-            {error, already_present} ->
-                ti_common:logerror("Management server ti_sup:start_child_vdr fails when inet_async : already_present~n");
-            {error, {already_started, Pid}} ->
-                ti_common:logerror("Management server ti_sup:start_child_vdr fails when inet_async : already_started PID : ~p~n", Pid);
-            {error, Msg} ->
-                ti_common:logerror("Management server ti_sup:start_child_vdr fails when inet_async : ~p~n", Msg)
-        end,
         %% Signal the network driver that we are ready to accept another connection        
 		case prim_inet:async_accept(LSock, -1) of	        
 			{ok, NewRef} -> 
-                {noreply, State#state{acceptor=NewRef}};
+                {noreply, State#serverstate{acceptor=NewRef}};
 			Error ->
                 ti_common:logerror("Management server prim_inet:async_accept fails when inet_async : ~p~n", inet:format_error(Error)),
                 {stop, Error, State}
@@ -113,7 +106,7 @@ handle_info({tcp, Socket, Data}, State) ->
     % Should be modified in the future
     ok = gen_tcp:send(Socket, <<"Management server : ", Data/binary>>),    
     {noreply, State}; 
-handle_info({inet_async, LSock, Ref, Error}, #state{lsock=LSock, acceptor=Ref} = State) ->    
+handle_info({inet_async, LSock, Ref, Error}, #serverstate{lsock=LSock, acceptor=Ref} = State) ->    
     ti_common:logerror("Management server error in socket acceptor : ~p~n", Error),
     {stop, Error, State}; 
 handle_info(_Info, State) ->    
@@ -121,7 +114,7 @@ handle_info(_Info, State) ->
 
 terminate(Reason, State) ->    
     ti_common:logerror("Management server is terminated~n", Reason),
-    gen_tcp:close(State#state.lsock),    
+    gen_tcp:close(State#serverstate.lsock),    
     ok. 
 
 code_change(_OldVsn, State, _Extra) ->    

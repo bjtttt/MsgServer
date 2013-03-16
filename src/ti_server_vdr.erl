@@ -11,20 +11,27 @@
 -export([init/1, handle_call/3, handle_cast/2, 
          handle_info/2, terminate/2, code_change/3]). 
 
-%%%
-%%% lsock       : Listening socket
-%%% acceptor    : Asynchronous acceptor's internal reference
-%%%
--record(state, {lsock, acceptor}).
-
-
+-include("ti_header.hrl").
 
 %%%
 %%% In fact, we can get PortVDR from msgservertable.
 %%% Here, the reason that we use parameter is for efficiency.
 %%%
-start_link(PortVDR) ->    
-	gen_server:start_link({local, ?MODULE}, ?MODULE, [PortVDR], []). 
+%%% Result = {ok,Pid} | ignore | {error,Error}
+%%%    Pid = pid()
+%%%  Error = {already_started,Pid} | term()
+%%%
+start_link(PortVDR) ->  
+	case gen_server:start_link({local, ?MODULE}, ?MODULE, [PortVDR], []) of
+        {ok, Pid} ->
+            {ok, Pid};
+        ignore ->
+            ti_common:logerror("ti_sup:start_child_vdr(~p) fails : ignore~n", [PortVDR]),
+            ignore;
+        {already_started, Pid} ->
+            ti_common:logerror("ti_sup:start_child_vdr(~p) fails : already_started : ~p~n", [PortVDR, Pid]),
+            {already_started, Pid}
+    end.
 
 %%%
 %%% {backlog, 30} specifies the length of the OS accept queue. 
@@ -38,13 +45,13 @@ init([PortVDR]) ->
             % Create first accepting process	        
 			case prim_inet:async_accept(LSock, -1) of
                 {ok, Ref} ->
-                    {ok, #state{lsock = LSock, acceptor = Ref}};
+                    {ok, #serverstate{lsock=LSock, acceptor=Ref}};
                 Error ->
-                    ti_common:logerror("VDR server async accept fails : ~p~n", Error),
+                    ti_common:logerror("VDR server prim_inet:async_accept accept fails : ~p~n", [Error]),
                     {stop, Error}
             end;
 		{error, Reason} ->	        
-            ti_common:logerror("VDR server listen fails : ~p~n", Reason),
+            ti_common:logerror("VDR server gen_tcp:listen fails : ~p~n", [Reason]),
 			{stop, Reason}    
 	end. 
 
@@ -54,20 +61,18 @@ handle_call(Request, _From, State) ->
 handle_cast(_Msg, State) ->    
 	{noreply, State}. 
 
-handle_info({inet_async, LSock, Ref, {ok, CSock}}, #state{lsock=LSock, acceptor=Ref}=State) ->
-    case ti_common:safepeername(CSock) of
-        {ok, {Address, _Port}} ->
-            ti_common:loginfo("Accepted VDR IP : ~p~n", Address);
-        {error, Explain} ->
-           ti_common:loginfo("Unknown accepted VDR : ~p~n", Explain)
-    end,
+handle_info({inet_async, LSock, Ref, {ok, CSock}}, #serverstate{lsock=LSock, acceptor=Ref}=State) ->
+    ti_common:printsocketinfo(CSock, "Accepted VDR"),
     try        
 		case set_sockopt(LSock, CSock) of	        
 			ok -> 
 				ok;	        
 			{error, Reason} -> 
-                ti_common:logerror("VDR server set_sockopt fails when inet_async : ~p~n", Reason),
-  				exit({set_sockopt, Reason})       
+                ti_common:logerror("VDR server set_sockopt fails : ~p~n", [Reason]),
+  				% Why use exit here?
+                % {stop, set_sockpt, Reason}
+                % Please consider it in the future
+                exit({set_sockopt, Reason})       
 		end,
 		% New client connected
         % Spawn a new process using the simple_one_for_one supervisor.
@@ -75,55 +80,70 @@ handle_info({inet_async, LSock, Ref, {ok, CSock}}, #state{lsock=LSock, acceptor=
         case ti_sup:start_child_vdr(CSock) of
             {ok, Pid} ->
                 case gen_tcp:controlling_process(CSock, Pid) of
-                   ok ->
-                        ok;
+                    ok ->
+                        ets:insert(vdrtable, #vdritem{socket=CSock, pid=Pid});
                     {error, Reason1} ->
-                        ti_common:logerror("VDR server gen_server:controlling_process fails when inet_async : ~p~n", Reason1)
+                        ti_common:logerror("VDR server gen_server:controlling_process(Socket, PID : ~p) fails : ~p~n", [Pid, Reason1]),
+                        case ti_sup:stop_child_vdr(Pid) of
+                            ok ->
+                                ok;
+                            {error, Reason2} ->
+                                ti_common:logerror("VDR server ti_sup:stop_child_vdr(PID : ~p) fails : ~p~n", [Pid, Reason2])
+                        end
                 end;
             {ok, Pid, _Info} ->
                 case gen_tcp:controlling_process(CSock, Pid) of
-                   ok ->
-                        ok;
+                    ok ->
+                        ets:insert(vdrtable, #vdritem{socket=CSock, pid=Pid});
                     {error, Reason1} ->
-                        ti_common:logerror("VDR server gen_server:controlling_process fails when inet_async : ~p~n", Reason1)
+                        ti_common:logerror("VDR server gen_server:controlling_process(Socket, PID : ~p) fails: ~p~n", [Pid, Reason1]),
+                         case ti_sup:stop_child_vdr(Pid) of
+                            ok ->
+                                ok;
+                            {error, Reason2} ->
+                                ti_common:logerror("VDR server ti_sup:stop_child_vdr(PID : ~p) fails : ~p~n", [Pid, Reason2])
+                        end
                 end;
             {error, already_present} ->
-                ti_common:logerror("VDR server ti_sup:start_child_vdr fails when inet_async : already_present~n");
+                ti_common:logerror("VDR server ti_sup:start_child_vdr fails : already_present~n");
             {error, {already_started, Pid}} ->
-                ti_common:logerror("VDR server ti_sup:start_child_vdr fails when inet_async : already_started PID : ~p~n", Pid);
+                ti_common:logerror("VDR server ti_sup:start_child_vdr fails : already_started PID : ~p~n", [Pid]);
             {error, Msg} ->
-                ti_common:logerror("VDR server ti_sup:start_child_vdr fails when inet_async : ~p~n", Msg)
+                ti_common:logerror("VDR server ti_sup:start_child_vdr fails : ~p~n", [Msg])
         end,
         %% Signal the network driver that we are ready to accept another connection        
 		case prim_inet:async_accept(LSock, -1) of	        
 			{ok, NewRef} -> 
-                {noreply, State#state{acceptor=NewRef}};
+                {noreply, State#serverstate{acceptor=NewRef}};
 			Error ->
-                ti_common:logerror("VDR server prim_inet:async_accept fails when inet_async : ~p~n", inet:format_error(Error)),
-                {stop, Error, State}
-                %exit({async_accept, inet:format_error(Error)})        
+                ti_common:logerror("VDR server prim_inet:async_accept fails : ~p~n", [inet:format_error(Error)]),
+                % Why use exit here?
+                % {stop, Error, State}
+                % Please consider it in the future
+                exit({async_accept, inet:format_error(Error)})        
 		end
 	catch 
 		exit:Why ->        
-            ti_common:logerror("VDR server error in async accept : ~p~n", Why),			
+            ti_common:logerror("VDR server error in async accept : ~p~n", [Why]),			
             {stop, Why, State}    
 	end;
+%%%
+%%% Data should not be received here because it is a listening socket process
+%%%
 handle_info({tcp, Socket, Data}, State) ->  
-    %inet:setopts(Socket, [{active, once}]),
-    % Should be modified in the future
-    %ok = gen_tcp:send(Socket, <<"VDR server : ", Data/binary>>),
-    process_vdr_data(Socket, Data),
+    ti_common:printsocketinfo(Socket, "Data source"),
+    ti_common:logerror("ERROR : VDR server receives data : ~p~n", [Data]),
     inet:setopts(Socket, [{active, once}]),
     {noreply, State}; 
-handle_info({inet_async, LSock, Ref, Error}, #state{lsock=LSock, acceptor=Ref} = State) ->    
-    ti_common:logerror("VDR server error in socket acceptor : ~p~n", Error),
+handle_info({inet_async, LSock, Ref, Error}, #serverstate{lsock=LSock, acceptor=Ref}=State) ->    
+    ti_common:logerror("VDR server error in socket acceptor : ~p~n", [Error]),
 	{stop, Error, State}; 
 handle_info(_Info, State) ->    
 	{noreply, State}. 
 
 terminate(Reason, State) ->    
-    ti_common:logerror("VDR server is terminated~n", Reason),
-	gen_tcp:close(State#state.lsock),    
+    ti_common:logerror("VDR server is terminated~n", [Reason]),
+	gen_tcp:close(State#serverstate.lsock),    
 	ok. 
 
 code_change(_OldVsn, State, _Extra) ->    
@@ -148,30 +168,5 @@ set_sockopt(LSock, CSock) ->
             ti_common:logerror("VDR server prim_inet:getopts fails : ~p~n", Error),
 			gen_tcp:close(CSock)
 	end.
-
-%%%
-%%% This function should refer to the document on the mechanism
-%%%
-process_vdr_data(Socket, Data) ->
-    Bin = ti_vdr_data_parser:parse_data(Data),
-    [{dbconnpid, Pid}] = ets:lookup(msgservertable, dbconnpid),
-    case Pid of
-        -1 ->
-            ti_common:logerror("DB Client is not available~n");
-        _ ->
-            Pid!Bin,
-            receive
-                {From, Resp} ->
-                    if
-                        From == Pid ->
-                            Back = ti_vdr_data_parser:compose_data(Resp),
-                            gen_tcp:send(Socket, Back);
-                        From =/= Pid ->
-                            ti_common:logerror("Unknown VDR response from ~p~n", From)
-                    end;
-                _ ->
-                    ti_common:logerror("Unknown VDR response from DB~n")
-            end
-    end.
 
 								

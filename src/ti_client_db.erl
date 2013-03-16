@@ -13,9 +13,6 @@
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2,
          terminate/2, code_change/3]).
 
-% Need consideration here
--record(state, {db, dbport, dbsock}).
-
 %%%
 %%% In fact, we can get DB & PortDB from msgservertable.
 %%% Here, the reason that we use parameter is for efficiency.
@@ -24,7 +21,7 @@ start_link(DB, PortDB) ->
     gen_server:start_link(?MODULE, [DB, PortDB], []).
 
 init([DB, PortDB]) ->
-	{ok, #state{db=DB, dbport=PortDB, dbsock=undefined}, 0}.
+	{ok, #dbstate{db=DB, dbport=PortDB, dbsock=undefined}, 0}.
 
 handle_call(Msg, _From, State) ->
     {reply, {ok, Msg}, State}.
@@ -38,16 +35,16 @@ handle_info({tcp, Socket, RawData}, State) ->
 handle_info({tcp_closed, _Socket}, State) ->
     {stop, normal, State};
 handle_info(timeout, State) ->
-    ti_common:loginfo("DB : ~p~n", State#state.db),
-    ti_common:loginfo("DB Port : ~p~n", State#state.dbport),
+    ti_common:loginfo("DB : ~p~n", State#dbstate.db),
+    ti_common:loginfo("DB Port : ~p~n", State#dbstate.dbport),
     ti_common:loginfo("Try to connect DB...~n"),
-	case gen_tcp:connect(State#state.db, State#state.dbport, [{active, true}]) of
+	case gen_tcp:connect(State#dbstate.db, State#dbstate.dbport, [{active, true}]) of
 		{ok, CSock} ->
 			ti_common:loginfo("DB is connected.~n"),
 			Pid = spawn(fun() -> db_message_processor(CSock) end),
             gen_tcp:controlling_process(CSock, Pid),
 			ets:insert(msgservertable, {dbconnpid, Pid}),
-			{noreply, State#state{dbsock=CSock}};
+			{noreply, State#dbstate{dbsock=CSock}};
 		{error, Reason} ->
 			ti_common:logerror("Connection fails : ~p~n", Reason),
             ets:insert(msgservertable, {dbconnpid, -1}),

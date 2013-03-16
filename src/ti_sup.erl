@@ -6,7 +6,11 @@
 
 -behaviour(supervisor).
 
--export([start_link/0, start_child_vdr/1, start_child_man/1, start_child_mon/1, start_child_db/2]).
+-export([start_link/0]).
+
+-export([start_child_vdr/1, start_child_man/1, start_child_mon/1, start_child_db/2]).
+
+-export([stop_child_vdr/1, stop_child_man/1, stop_child_mon/1, stop_child_db/1]).
 
 -export([init/1]).
 
@@ -20,17 +24,174 @@
 %%%                  | {already_started, Child :: child()}
 %%%                  | term()
 %%% 
-start_child_vdr(CSock) ->
-    supervisor:start_child(ti_sup_handler_vdr, [CSock]).
-start_child_man(CSock) ->
-    supervisor:start_child(ti_sup_handler_man, [CSock]).
-start_child_mon(CSock) ->
-    supervisor:start_child(ti_sup_handler_mon, [CSock]).
+start_child_vdr(Socket) ->
+    case supervisor:start_child(ti_sup_handler_vdr, [Socket]) of
+        {ok, Pid} ->
+            {ok, Pid};
+        {ok, Pid, Info} ->
+            {ok, Pid, Info};
+        {error, Reason} ->
+            case Reason of
+                already_present ->
+                    ti_common:logerror("ti_sup:start_child_vdr fails : already_present~n");
+                {already_strated, CPid} ->
+                    ti_common:logerror("ti_sup:start_child_vdr fails : already_started PID : ~p~n", [CPid]);
+                Msg ->
+                    ti_common:logerror("ti_sup:start_child_vdr fails : ~p~n", [Msg])
+            end,
+            {error, Reason}
+    end.                    
+%%% 
+%%% startchild_ret() = {ok, Child :: child()}
+%%%                  | {ok, Child :: child(), Info :: term()}
+%%%                  | {error, startchild_err()}
+%%% startchild_err() = already_present
+%%%                  | {already_started, Child :: child()}
+%%%                  | term()
+%%% 
+start_child_man(Socket) ->
+    case supervisor:start_child(ti_sup_handler_man, [Socket]) of
+        {ok, Pid} ->
+            {ok, Pid};
+        {ok, Pid, Info} ->
+            {ok, Pid, Info};
+        {error, Reason} ->
+            case Reason of
+                already_present ->
+                    ti_common:logerror("ti_sup:start_child_man fails : already_present~n");
+                {already_strated, CPid} ->
+                    ti_common:logerror("ti_sup:start_child_man fails : already_started PID : ~p~n", [CPid]);
+                Msg ->
+                    ti_common:logerror("ti_sup:start_child_man fails : ~p~n", [Msg])
+            end,
+            {error, Reason}
+    end.                    
+%%% 
+%%% startchild_ret() = {ok, Child :: child()}
+%%%                  | {ok, Child :: child(), Info :: term()}
+%%%                  | {error, startchild_err()}
+%%% startchild_err() = already_present
+%%%                  | {already_started, Child :: child()}
+%%%                  | term()
+%%% 
+start_child_mon(Socket) ->
+    case supervisor:start_child(ti_sup_handler_mon, [Socket]) of
+        {ok, Pid} ->
+            {ok, Pid};
+        {ok, Pid, Info} ->
+            {ok, Pid, Info};
+        {error, Reason} ->
+            case Reason of
+                already_present ->
+                    ti_common:logerror("ti_sup:start_child_mon fails : already_present~n");
+                {already_strated, CPid} ->
+                    ti_common:logerror("ti_sup:start_child_mon fails : already_started PID : ~p~n", [CPid]);
+                Msg ->
+                    ti_common:logerror("ti_sup:start_child_mon fails : ~p~n", [Msg])
+            end,
+            {error, Reason}
+    end.                    
+%%% 
+%%% startchild_ret() = {ok, Child :: child()}
+%%%                  | {ok, Child :: child(), Info :: term()}
+%%%                  | {error, startchild_err()}
+%%% startchild_err() = already_present
+%%%                  | {already_started, Child :: child()}
+%%%                  | term()
+%%% 
 start_child_db(DB, PortDB) ->
-    supervisor:start_child(ti_client_db, [DB, PortDB]).
-    
+    case supervisor:start_child(ti_client_db, [DB, PortDB]) of
+        {ok, Pid} ->
+            {ok, Pid};
+        {ok, Pid, Info} ->
+            {ok, Pid, Info};
+        {error, Reason} ->
+            case Reason of
+                already_present ->
+                    ti_common:logerror("ti_sup:start_child_db(~p:~p) fails : already_present~n", [DB, PortDB]);
+                {already_strated, CPid} ->
+                    ti_common:logerror("ti_sup:start_child_db(~p:~p) fails : already_started PID : ~p~n", [CPid, DB, PortDB]);
+                Msg ->
+                    ti_common:logerror("ti_sup:start_child_db(~p:~p) fails : ~p~n", [Msg, DB, PortDB])
+            end,
+            {error, Reason}
+    end.                    
+
+%%%
+%%% ok
+%%% {error, Error} : Error = not_found | simple_one_for_one
+%%%
+stop_child_vdr(Pid) ->
+    case supervisor:terminate_child(ti_sup_handler_vdr, Pid) of
+        ok ->
+            ok;
+        {error, Reason} ->
+            ti_common:logerror("ti_sup:stop_child_vdr(PID : ~p) fails : ~p~n", [Reason, Pid]),
+            {error, Reason}
+    end.
+%%%
+%%% ok
+%%% {error, Error} : Error = not_found | simple_one_for_one
+%%%
+stop_child_man(Pid) ->
+    case supervisor:terminate_child(ti_sup_handler_man, Pid) of
+        ok ->
+            ok;
+        {error, Reason} ->
+            ti_common:logerror("ti_sup:stop_child_man(PID : ~p) fails : ~p~n", [Reason, Pid]),
+            {error, Reason}
+    end.
+%%%
+%%% ok
+%%% {error, Error} : Error = not_found | simple_one_for_one
+%%%
+stop_child_mon(Pid) ->
+    case supervisor:terminate_child(ti_sup_handler_mon, Pid) of
+        ok ->
+            ok;
+        {error, Reason} ->
+            ti_common:logerror("ti_sup:stop_child_mon fails(PID : ~p) : ~p~n", [Reason, Pid]),
+            {error, Reason}
+    end.
+%%%
+%%% ok
+%%% {error, Error} : Error = not_found | simple_one_for_one
+%%%
+stop_child_db(Pid) ->
+    case supervisor:terminate_child(ti_client_db, Pid) of
+        ok ->
+            ok;
+        {error, Reason} ->
+            ti_common:logerror("ti_sup:stop_child_db fails(PID : ~p) : ~p~n", [Reason, Pid]),
+            {error, Reason}
+    end.
+
+%%%
+%%% startlink_ret() = {ok, pid()}
+%%%                 | ignore
+%%%                 | {error, startlink_err()}
+%%% startlink_err() = {already_started, pid()}
+%%%                 | {shutdown, term()}
+%%%                 | term()
+%%%
 start_link() ->
-    supervisor:start_link({local, ?SERVER}, ?MODULE, []).
+    case supervisor:start_link({local, ?SERVER}, ?MODULE, []) of
+        {ok, Pid} ->
+            {ok, Pid};
+        ignore ->
+            ti_common:logerror("ti_sup:start_link : ignore~n"),
+            ignore;
+        {error, Reason} ->
+            case Reason of
+                {shutdown, Info} ->
+                    ti_common:logerror("ti_sup:start_link fails : shutdown : ~p~n", [Info]);
+                {already_strated, CPid} ->
+                    ti_common:logerror("ti_sup:start_link fails : already_started PID : ~p~n", [CPid]);
+                Msg ->
+                    ti_common:logerror("ti_sup:start_link fails : ~p~n", [Msg])
+            end,
+            {error, Reason}
+    end.
 
 init([]) ->
     % VDR

@@ -21,4 +21,19 @@
 %%%
 %%% There is only one super user, name is super, password is super.
 %%% 
--record(user, {name, level, ip, time}).
+-record(user, {id, name, level, ip, time}).
+
+-record(vdritem, {socket, id, pid, acttime, timeout}).
+
+-record(manitem, {socket, pid, timeout}).
+
+-record(monitem, {socket, pid, timeout}).
+
+-record(dbstate, {db, dbport, dbsock}).
+
+%%%
+%%% lsock       : Listening socket
+%%% acceptor    : Asynchronous acceptor's internal reference
+%%%
+-record(serverstate, {lsock, acceptor}).
+

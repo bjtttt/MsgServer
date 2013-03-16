@@ -11,13 +11,7 @@
 -export([init/1, handle_call/3, handle_cast/2, 
          handle_info/2, terminate/2, code_change/3]). 
 
-%%%
-%%% lsock       : Listening socket
-%%% acceptor    : Asynchronous acceptor's internal reference
-%%%
--record(state, {lsock, acceptor}).
-
-
+-include("ti_header.hrl").
 
 %%%
 %%% In fact, we can get PortMon from msgservertable.
@@ -38,7 +32,7 @@ init([PortMon]) ->
             % Create first accepting process	        
 			case prim_inet:async_accept(LSock, -1) of
                 {ok, Ref} ->
-                    {ok, #state{lsock = LSock, acceptor = Ref}};
+                    {ok, #serverstate{lsock=LSock, acceptor=Ref}};
                 Error ->
                     ti_common:logerror("Monitor server async accept fails : ~p~n", Error),
                     {stop, Error}
@@ -54,7 +48,7 @@ handle_call(Request, _From, State) ->
 handle_cast(_Msg, State) ->    
 	{noreply, State}. 
 
-handle_info({inet_async, LSock, Ref, {ok, CSock}}, #state{lsock=LSock, acceptor=Ref}=State) ->    
+handle_info({inet_async, LSock, Ref, {ok, CSock}}, #serverstate{lsock=LSock, acceptor=Ref}=State) ->    
     case ti_common:safepeername(CSock) of
         {ok, {Address, _Port}} ->
             ti_common:loginfo("Accepted monitor IP : ~p~n", Address);
@@ -114,7 +108,7 @@ handle_info({inet_async, LSock, Ref, {ok, CSock}}, #state{lsock=LSock, acceptor=
         %% Signal the network driver that we are ready to accept another connection        
 		case prim_inet:async_accept(LSock, -1) of	        
 			{ok, NewRef} -> 
-                {noreply, State#state{acceptor=NewRef}};
+                {noreply, State#serverstate{acceptor=NewRef}};
 			Error ->
                 ti_common:logerror("Monitor server prim_inet:async_accept fails when inet_async : ~p~n", inet:format_error(Error)),
                 {stop, Error, State}
@@ -130,7 +124,7 @@ handle_info({tcp, Socket, Data}, State) ->
     % Should be modified in the future
     ok = gen_tcp:send(Socket, <<"Monitor server : ", Data/binary>>),    
     {noreply, State}; 
-handle_info({inet_async, LSock, Ref, Error}, #state{lsock=LSock, acceptor=Ref} = State) ->    
+handle_info({inet_async, LSock, Ref, Error}, #serverstate{lsock=LSock, acceptor=Ref} = State) ->    
     ti_common:logerror("Monitor server error in socket acceptor : ~p~n", Error),
     {stop, Error, State}; 
 handle_info(_Info, State) ->    
@@ -138,7 +132,7 @@ handle_info(_Info, State) ->
 
 terminate(Reason, State) ->    
     ti_common:logerror("Monitor server is terminated~n", Reason),
-    gen_tcp:close(State#state.lsock),    
+    gen_tcp:close(State#serverstate.lsock),    
     ok. 
 
 code_change(_OldVsn, State, _Extra) ->    

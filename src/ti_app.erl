@@ -16,28 +16,27 @@
 -export([start/1]).
 
 start(StartType, StartArgs) ->
-    error_logger:info_msg("~p~n", [calendar:now_to_local_time(erlang:now())]),
-    error_logger:info_msg("Initialize tables.~n"),
-    error_logger:info_msg("StartType : ~p~n", [StartType]),
-    error_logger:info_msg("StartArgs : ~p~n", [StartArgs]),
     ets:new(msgservertable,[set,public,named_table,{keypos,1},{read_concurrency,true},{write_concurrency,true}]),
-	ets:insert(msgservertable,{dbconnpid,-1}),
-    [PortVDR, PortMan, PortMon, DB, PortDB] = StartArgs,
+    [PortVDR, PortMan, PortMon, DB, PortDB, RawDisplay] = StartArgs,
     ets:insert(msgservertable, {portvdr, PortVDR}),
     ets:insert(msgservertable, {portman, PortMan}),
     ets:insert(msgservertable, {portmon, PortMon}),
     ets:insert(msgservertable, {db, DB}),
     ets:insert(msgservertable, {portdb, PortDB}),
     ets:insert(msgservertable, {dbconnpid, -1}),
-    ets:new(vdrinittable,[set,public,named_table,{keypos,1},{read_concurrency,true},{write_concurrency,true}]),
-    ets:new(vdrtable,[set,public,named_table,{keypos,1},{read_concurrency,true},{write_concurrency,true}]),
-    ets:new(mantable,[set,public,named_table,{keypos,1},{read_concurrency,true},{write_concurrency,true}]),
-    ets:new(usertable,[set,public,named_table,{keypos,1},{read_concurrency,true},{write_concurrency,true}]),
-    ets:new(montable,[set,public,named_table,{keypos,1},{read_concurrency,true},{write_concurrency,true}]),
+    ets:insert(msgservertable, {rawdisplay, RawDisplay}),
+    ti_common:loginfo("StartType : ~p~n", [StartType]),
+    ti_common:loginfo("StartArgs : ~p~n", [StartArgs]),
+    ets:new(vdrtable,[set,public,named_table,{keypos,#vdritem.socket},{read_concurrency,true},{write_concurrency,true}]),
+    ets:new(mantable,[set,public,named_table,{keypos,#manitem.socket},{read_concurrency,true},{write_concurrency,true}]),
+    ets:new(usertable,[set,public,named_table,{keypos,#user.id},{read_concurrency,true},{write_concurrency,true}]),
+    ets:new(montable,[set,public,named_table,{keypos,#monitem.socket},{read_concurrency,true},{write_concurrency,true}]),
+    ti_common:loginfo("Tables are initialized.~n"),
     case supervisor:start_link(ti_sup, []) of
         {ok, Pid} ->
+            APid = self(),
             error_logger:info_msg("Message server starts~n"),
-            error_logger:info_msg("Application PID is ~p~n", [self()]),
+            error_logger:info_msg("Application PID is ~p~n", [APid]),
             error_logger:info_msg("Supervisor PID : ~p~n", [Pid]),
             {ok, Pid};
         ignore ->
