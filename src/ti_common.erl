@@ -50,91 +50,131 @@ printsocketinfo(Socket, Msg) ->
     end.
 
 logerror(Format) ->
-    [{rawdisplay, RawDisplay}] = ets:lookup(msgservertable, rawdisplay),
-    TimeStamp = calendar:now_to_local_time(erlang:now()),
-    try
-        case RawDisplay of
-            1 ->
-                io:format(string:concat("~p : ", Format), [TimeStamp]);
-            _ ->
-                error_logger:error_msg(string:concat("~p : ", Format), [TimeStamp])
-        end
-    catch
-        _:Why ->
-            case RawDisplay of
-                1 ->
-                    io:format("~p : logerror fails : ~p~n", [TimeStamp, Why]);
-                _ ->
-                    error_logger:error_msg("~p : logerror fails : ~p~n", [TimeStamp, Why])
-            end
+    [{display, Display}] = ets:lookup(msgservertable, display),
+    case Display of
+        1 ->
+            [{rawdisplay, RawDisplay}] = ets:lookup(msgservertable, rawdisplay),
+            TimeStamp = calendar:now_to_local_time(erlang:now()),
+            try
+                case RawDisplay of
+                    1 ->
+                        io:format(string:concat("~p : ", Format), [TimeStamp]);
+                    0 ->
+                        error_logger:error_msg(string:concat("~p : ", Format), [TimeStamp]);
+                    _ ->
+                        ok
+                end
+            catch
+                _:Why ->
+                    case RawDisplay of
+                        1 ->
+                            io:format("~p : logerror fails : ~p~n", [TimeStamp, Why]);
+                        0 ->
+                            error_logger:error_msg("~p : logerror fails : ~p~n", [TimeStamp, Why]);
+                        _ ->
+                            ok
+                    end
+            end;
+        _ ->
+            ok
     end.
 
 %%%
 %%% Data is a list, for example : [], [Msg] or [Msg1, Msg2]
 %%%
 logerror(Format, Data) ->
-    [{rawdisplay, RawDisplay}] = ets:lookup(msgservertable, rawdisplay),
-    TimeStamp = calendar:now_to_local_time(erlang:now()),
-    try
-        TimeStamp = calendar:now_to_local_time(erlang:now()),
-        case RawDisplay of
-            1 ->
-                io:format(string:concat("~p : ", Format), [TimeStamp | Data]);
-            _ ->
-                error_logger:error_msg(string:concat("~p : ", Format), [TimeStamp | Data])
-        end
-    catch
-        _:Why ->
-            case RawDisplay of
-                1 ->
-                    io:format("~p : logerror fails : ~p~n", [TimeStamp, Why]);
-                _ ->
-                error_logger:error_msg("~p : logerror fails : ~p~n", [TimeStamp, Why])
-            end
+    [{display, Display}] = ets:lookup(msgservertable, display),
+    case Display of
+        1 ->
+            [{rawdisplay, RawDisplay}] = ets:lookup(msgservertable, rawdisplay),
+            TimeStamp = calendar:now_to_local_time(erlang:now()),
+            try
+                TimeStamp = calendar:now_to_local_time(erlang:now()),
+                case RawDisplay of
+                    1 ->
+                        io:format(string:concat("~p : ", Format), [TimeStamp | Data]);
+                    0 ->
+                        error_logger:error_msg(string:concat("~p : ", Format), [TimeStamp | Data]);
+                    _ ->
+                        ok
+                end
+            catch
+                _:Why ->
+                    case RawDisplay of
+                        1 ->
+                            io:format("~p : logerror fails : ~p~n", [TimeStamp, Why]);
+                        0 ->
+                            error_logger:error_msg("~p : logerror fails : ~p~n", [TimeStamp, Why]);
+                        _ ->
+                            ok
+                    end
+            end;
+        _ ->
+            ok
     end.
 
 loginfo(Format) ->
-    [{rawdisplay, RawDisplay}] = ets:lookup(msgservertable, rawdisplay),
-    TimeStamp = calendar:now_to_local_time(erlang:now()),
-    try
-        TimeStamp = calendar:now_to_local_time(erlang:now()),
-        case RawDisplay of
-            1 ->
-                io:format(string:concat("~p : ", Format), [TimeStamp]);
-            _ ->
-                error_logger:info_msg(string:concat("~p : ", Format), [TimeStamp])
-        end
-    catch
-        _:Why ->
-            case RawDisplay of
-                1 ->
-                    io:format("~p : loginfo fails : ~p~n", [TimeStamp, Why]);
-                _ ->
-                    error_logger:error_msg("~p : loginfo fails : ~p~n", [TimeStamp, Why])
-            end
+    [{display, Display}] = ets:lookup(msgservertable, display),
+    case Display of
+        1 ->
+            [{rawdisplay, RawDisplay}] = ets:lookup(msgservertable, rawdisplay),
+            TimeStamp = calendar:now_to_local_time(erlang:now()),
+            try
+                TimeStamp = calendar:now_to_local_time(erlang:now()),
+                case RawDisplay of
+                    1 ->
+                        io:format(string:concat("~p : ", Format), [TimeStamp]);
+                    0 ->
+                        error_logger:info_msg(string:concat("~p : ", Format), [TimeStamp]);
+                    _ ->
+                        ok
+                end
+            catch
+                _:Why ->
+                    case RawDisplay of
+                        1 ->
+                            io:format("~p : loginfo fails : ~p~n", [TimeStamp, Why]);
+                        0 ->
+                            error_logger:error_msg("~p : loginfo fails : ~p~n", [TimeStamp, Why]);
+                        _ ->
+                            ok
+                    end
+            end;
+        _ ->
+            ok
     end.
 
 %%%
 %%% Data is a list, for example : [], [Msg] or [Msg1, Msg2]
 %%%
 loginfo(Format, Data) ->
-    [{rawdisplay, RawDisplay}] = ets:lookup(msgservertable, rawdisplay),
-    TimeStamp = calendar:now_to_local_time(erlang:now()),
-    try
-        case RawDisplay of
-            1 ->
-                io:format(string:concat("~p : ", Format), [TimeStamp | Data]);
-            _ ->
-                error_logger:info_msg(string:concat("~p : ", Format), [TimeStamp | Data])
-        end
-    catch
-        _:Why ->
-            case RawDisplay of
-                1 ->
-                    io:format("~p : loginfo fails : ~p~n", [TimeStamp, Why]);
-                _ ->
-                    error_logger:error_msg("~p : loginfo fails : ~p~n", [TimeStamp, Why])
-            end
+    [{display, Display}] = ets:lookup(msgservertable, display),
+    case Display of
+        1 ->
+            [{rawdisplay, RawDisplay}] = ets:lookup(msgservertable, rawdisplay),
+            TimeStamp = calendar:now_to_local_time(erlang:now()),
+            try
+                case RawDisplay of
+                    1 ->
+                        io:format(string:concat("~p : ", Format), [TimeStamp | Data]);
+                    0 ->
+                        error_logger:info_msg(string:concat("~p : ", Format), [TimeStamp | Data]);
+                    _ ->
+                        ok
+                end
+            catch
+                _:Why ->
+                    case RawDisplay of
+                        1 ->
+                            io:format("~p : loginfo fails : ~p~n", [TimeStamp, Why]);
+                        0 ->
+                            error_logger:error_msg("~p : loginfo fails : ~p~n", [TimeStamp, Why]);
+                        _ ->
+                            ok
+                    end
+            end;
+        _ ->
+            ok
     end.
 
 

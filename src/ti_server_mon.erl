@@ -81,7 +81,8 @@ handle_info({inet_async, LSock, Ref, {ok, CSock}}, #serverstate{lsock=LSock, acc
             {ok, Pid} ->
                 case gen_tcp:controlling_process(CSock, Pid) of
                     ok ->
-                        ets:insert(montable, #monitem{socket=CSock, pid=Pid});
+                        %ets:insert(montable, #monitem{socket=CSock, pid=Pid});
+                        ok;
                     {error, Reason1} ->
                         ti_common:logerror("Management server gen_server:controlling_process(Socket, PID : ~p) fails : ~p~n", [Pid, Reason1]),
                         case ti_sup:stop_child_monr(Pid) of
@@ -94,7 +95,8 @@ handle_info({inet_async, LSock, Ref, {ok, CSock}}, #serverstate{lsock=LSock, acc
             {ok, Pid, _Info} ->
                 case gen_tcp:controlling_process(CSock, Pid) of
                     ok ->
-                        ets:insert(montable, #monitem{socket=CSock, pid=Pid});
+                        %ets:insert(montable, #monitem{socket=CSock, pid=Pid});
+                        ok;
                     {error, Reason1} ->
                         ti_common:logerror("Monitor server gen_server:controlling_process(Socket, PID : ~p) fails: ~p~n", [Pid, Reason1]),
                          case ti_sup:stop_child_mon(Pid) of

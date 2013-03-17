@@ -18,16 +18,22 @@
 %-define(LOG_INFO_ERR, 1).
 %-define(LOG_ERR, 0).
 
+-define(TIMEOUT_VDR, 60000). 
+-define(TIMEOUT_MAN, 30000). 
+-define(TIMEOUT_MON, 3000). 
+-define(TIMEOUT_DB, 30000). 
+
+
 %%%
 %%% There is only one super user, name is super, password is super.
 %%% 
 -record(user, {id, name, level, ip, time}).
 
--record(vdritem, {socket, id, pid, acttime, timeout}).
+-record(vdritem, {socket, id, pid, addr, acttime, timeout}).
 
--record(manitem, {socket, pid, timeout}).
+-record(manitem, {socket, pid, addr, timeout}).
 
--record(monitem, {socket, pid, timeout}).
+-record(monitem, {socket, pid, addr, timeout}).
 
 -record(dbstate, {db, dbport, dbsock}).
 

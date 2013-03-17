@@ -15,9 +15,15 @@
 %%% start/1 is useless and will be removed in the future
 -export([start/1]).
 
+%%%
+%%% rawdisplay  : 0 -> error_logger
+%%%               1 -> terminal
+%%% display     : 1 -> no log
+%%%               1 -> log
+%%%
 start(StartType, StartArgs) ->
     ets:new(msgservertable,[set,public,named_table,{keypos,1},{read_concurrency,true},{write_concurrency,true}]),
-    [PortVDR, PortMan, PortMon, DB, PortDB, RawDisplay] = StartArgs,
+    [PortVDR, PortMan, PortMon, DB, PortDB, RawDisplay, Display] = StartArgs,
     ets:insert(msgservertable, {portvdr, PortVDR}),
     ets:insert(msgservertable, {portman, PortMan}),
     ets:insert(msgservertable, {portmon, PortMon}),
@@ -25,6 +31,7 @@ start(StartType, StartArgs) ->
     ets:insert(msgservertable, {portdb, PortDB}),
     ets:insert(msgservertable, {dbconnpid, -1}),
     ets:insert(msgservertable, {rawdisplay, RawDisplay}),
+    ets:insert(msgservertable, {display, Display}),
     ti_common:loginfo("StartType : ~p~n", [StartType]),
     ti_common:loginfo("StartArgs : ~p~n", [StartArgs]),
     ets:new(vdrtable,[set,public,named_table,{keypos,#vdritem.socket},{read_concurrency,true},{write_concurrency,true}]),

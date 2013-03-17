@@ -8,14 +8,22 @@
 
 -include("ti_header.hrl").
 
--define(TIMEOUT, 120000). 
-
 start_link(Socket) ->	
 	gen_server:start_link(?MODULE, [Socket], []). 
 
-init([Socket]) ->	
-    inet:setopts(Socket, [{active, once}]), 
-	{ok, #vdritem{socket=Socket}}. 
+init([Socket]) ->
+    case ti_common:safepeername(Socket) of
+        {ok, {Address, _Port}} ->
+            State=#vdritem{socket=Socket, pid=self(), addr=Address},
+            ets:insert(vdrtable, State), 
+            inet:setopts(Socket, [{active, once}]),
+        	{ok, State};
+        {error, _Reason} ->
+            State=#vdritem{socket=Socket, pid=self(), addr="0.0.0.0"},
+            ets:insert(vdrtable, State), 
+            inet:setopts(Socket, [{active, once}]),
+            {ok, State}
+    end.            
 
 handle_call(_Request, _From, State) ->
 	{noreply, ok, State}.
@@ -24,31 +32,29 @@ handle_cast(_Msg, State) ->
 	{noreply, State}. 
 
 handle_info({tcp, Socket, Data}, State) ->    
-	inet:setopts(Socket, [{active, once}]),
     case ti_vdr_data_parser:parse_data(Socket, Data) of
         {ok, Decoded} ->
             process_vdr_data(Socket, Decoded);
         _ ->
             ok
     end,
+	inet:setopts(Socket, [{active, once}]),
     % Should be modified in the future
 	%ok = gen_tcp:send(Socket, <<"VDR : ", Resp/binary>>),    
 	{noreply, State}; 
-handle_info({tcp_closed, Socket}, State) ->    
-    case ti_common:safepeername(Socket) of
-        {ok, {Address, _Port}} ->
-            ti_common:loginfo("VDR IP : ~p~n", Address);
-        {error, Explain} ->
-            ti_common:loginfo("Unknown VDR : ~p~n", Explain)
-    end,
-    ti_common:loginfo("VDR is disconnected~n"),
-    ti_common:loginfo("VDR Pid ~p stops~n", self()),
+handle_info({tcp_closed, _Socket}, State) ->    
+    ti_common:loginfo("VDR ~p is disconnected and VDR PID ~p stops~n", [State#vdritem.addr, State#vdritem.pid]),
 	{stop, normal, State}; 
 handle_info(_Info, State) ->    
 	{noreply, State}. 
 
-terminate(_Reason, #state{socket=Socket}) ->    
-    ti_common:loginfo("VDR Pid ~p is terminated~n", self()),
+terminate(Reason, #vdritem{socket=Socket}) ->    
+    case ti_common:safepeername(Socket) of
+        {ok, {Address, _Port}} ->
+            ti_common:loginfo("VDR ~p Pid ~p is terminated : ~p~n", [Address, self(), Reason]);
+        {error, _Reason} ->
+            ti_common:loginfo("VDR Pid ~p is terminated : ~p~n", [self(), Reason])
+    end,
 	(catch gen_tcp:close(Socket)),    
 	ok.
 
