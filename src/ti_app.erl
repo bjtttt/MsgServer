@@ -31,7 +31,7 @@ start(StartType, StartArgs) ->
     ets:insert(msgservertable, {portdb, PortDB}),
     ets:insert(msgservertable, {dbdsn, DBDSN}),
     ets:insert(msgservertable, {dbconnpid, -1}),
-    %ets:insert(msgservertable, {dbref, -1}),
+    ets:insert(msgservertable, {dbref, -1}),
     ets:insert(msgservertable, {rawdisplay, RawDisplay}),
     ets:insert(msgservertable, {display, Display}),
     ti_common:loginfo("StartType : ~p~n", [StartType]),

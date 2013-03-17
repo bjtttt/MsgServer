@@ -46,7 +46,10 @@ handle_info(timeout, State) ->
             Connection = string:concat(string:concat("DSN=", DBDSN), "UID=aladdin;PWD=sesame"),
             case odbc:connect(Connection, []) of
                 {ok, Ref} ->
-                    {noreply, #dbstate{dbref=Ref}=State};
+                    ets:insert(msgservertable, {dbref, Ref}),
+                    Pid = spawn(fun() -> db_message_processor(Ref) end),
+                    ets:insert(msgservertable, {dbconnpid, Pid}),
+                    {noreply, #dbstate{dbref=Ref, dbconnpid=Pid}=State};
                 {error, Reason} ->
                     ti_common:logerror("ODBC cannot connect ~p : ~p~n", [Connection, Reason]),
                     {stop, error, Reason}
@@ -76,18 +79,20 @@ handle_data(Socket, RawData, State) ->
 %%%
 %%% Socket : connection between DB
 %%%
-db_message_processor(Socket) ->
+db_message_processor(Ref) ->
 	receive
-		{From, Msg} ->
+		{FromPid, Msg} ->
 			% Communicate with DB here
 			From,
-			do_process_message(Socket, Msg),
-			db_message_processor(Socket);
+			process_message(Ref, Msg),
+			db_message_processor(Ref);
 		stop ->
 			true
-	end.
+	after ?TIMEOUT_DB
+        process_message(Ref, Msg)
+    end.
 
-do_process_message(Socket, Msg) ->
-	Socket,
+process_message(Ref, Msg) ->
+	Ref,
 	Msg.
 
