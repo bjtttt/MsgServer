@@ -35,19 +35,20 @@ handle_info({tcp, Socket, RawData}, State) ->
 handle_info({tcp_closed, _Socket}, State) ->
     {stop, normal, State};
 handle_info(timeout, State) ->
-    ti_common:loginfo("Trying to connect DB ~p:~p ...~n", [State#dbstate.db, State#dbstate.dbport]),
-	case gen_tcp:connect(State#dbstate.db, State#dbstate.dbport, [{active, true}]) of
-		{ok, CSock} ->
-			ti_common:loginfo("DB is connected.~n"),
-			Pid = spawn(fun() -> db_message_processor(CSock) end),
-            gen_tcp:controlling_process(CSock, Pid),
-			ets:insert(msgservertable, {dbconnpid, Pid}),
-			{noreply, State#dbstate{dbsock=CSock}};
-		{error, Reason} ->
-			ti_common:logerror("Cannot connect DB : ~p~n", [Reason]),
-            ets:insert(msgservertable, {dbconnpid, -1}),
-			{stop, error, State}
-	end.
+    {noreply, State}.
+    %ti_common:loginfo("Trying to connect DB ~p:~p ...~n", [State#dbstate.db, State#dbstate.dbport]),
+	%case gen_tcp:connect(State#dbstate.db, State#dbstate.dbport, [{active, true}]) of
+	%	{ok, CSock} ->
+	%		ti_common:loginfo("DB is connected.~n"),
+	%		Pid = spawn(fun() -> db_message_processor(CSock) end),
+    %        gen_tcp:controlling_process(CSock, Pid),
+	%		ets:insert(msgservertable, {dbconnpid, Pid}),
+	%		{noreply, State#dbstate{dbsock=CSock}};
+	%	{error, Reason} ->
+	%		ti_common:logerror("Cannot connect DB : ~p~n", [Reason]),
+    %        ets:insert(msgservertable, {dbconnpid, -1}),
+	%		{stop, error, State}
+	%end.
 
 terminate(_Reason, _State) ->
     ok.
