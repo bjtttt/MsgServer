@@ -81,18 +81,23 @@ handle_data(Socket, RawData, State) ->
 %%%
 db_message_processor(Ref) ->
 	receive
-		{FromPid, Msg} ->
+        {FromPid, {msg, Msg}} ->
 			% Communicate with DB here
-			From,
-			process_message(Ref, Msg),
+			FromPid,
+			process_message(FromPid, Ref, Msg),
 			db_message_processor(Ref);
+		{FromPid, Msg} ->
+            ti_common:logerror("DB connection process : unknown message from PID ~p : ~p~n", [FromPid, Msg]),
+            db_message_processor(Ref);
 		stop ->
 			true
-	after ?TIMEOUT_DB
-        process_message(Ref, Msg)
+	after ?TIMEOUT_DB ->
+        ti_common:loginfo("DB connection process : receiving PID message timeout after ~p~n", [?TIMEOUT_DB]),
+        db_message_processor(Ref)
     end.
 
-process_message(Ref, Msg) ->
-	Ref,
+process_message(FromPid, Ref, Msg) ->
+	FromPid,
+    Ref,
 	Msg.
 
