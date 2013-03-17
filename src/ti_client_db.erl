@@ -20,8 +20,13 @@
 start_link(DB, PortDB) ->
     gen_server:start_link(?MODULE, [DB, PortDB], []).
 
+%%%
+%%% If a permanent application terminates, all other applications and the entire Erlang node are also terminated.
+%%% If a transient application terminates with Reason == normal, this is reported but no other applications are terminated. If a transient application terminates abnormally, all other applications and the entire Erlang node are also terminated.
+%%% If a temporary application terminates, this is reported but no other applications are terminated.
+%%%
 init([DB, PortDB]) ->
-	{ok, #dbstate{db=DB, dbport=PortDB}, 0}.
+    {ok, #dbstate{db=DB, dbport=PortDB}, 0}.
 
 handle_call(Msg, _From, State) ->
     {reply, {ok, Msg}, State}.
@@ -35,20 +40,21 @@ handle_info({tcp, Socket, RawData}, State) ->
 handle_info({tcp_closed, _Socket}, State) ->
     {stop, normal, State};
 handle_info(timeout, State) ->
-    {noreply, State}.
-    %ti_common:loginfo("Trying to connect DB ~p:~p ...~n", [State#dbstate.db, State#dbstate.dbport]),
-	%case gen_tcp:connect(State#dbstate.db, State#dbstate.dbport, [{active, true}]) of
-	%	{ok, CSock} ->
-	%		ti_common:loginfo("DB is connected.~n"),
-	%		Pid = spawn(fun() -> db_message_processor(CSock) end),
-    %        gen_tcp:controlling_process(CSock, Pid),
-	%		ets:insert(msgservertable, {dbconnpid, Pid}),
-	%		{noreply, State#dbstate{dbsock=CSock}};
-	%	{error, Reason} ->
-	%		ti_common:logerror("Cannot connect DB : ~p~n", [Reason]),
-    %        ets:insert(msgservertable, {dbconnpid, -1}),
-	%		{stop, error, State}
-	%end.
+    case odbc:start(permanent) of
+        ok ->
+            [{dbdsn, DBDSN}] = ets:lookup(msgservertable, dbdsn),
+            Connection = string:concat(string:concat("DSN=", DBDSN), "UID=aladdin;PWD=sesame"),
+            case odbc:connect(Connection, []) of
+                {ok, Ref} ->
+                    {noreply, #dbstate{dbref=Ref}=State};
+                {error, Reason} ->
+                    ti_common:logerror("ODBC cannot connect ~p : ~p~n", [Connection, Reason]),
+                    {stop, error, Reason}
+            end;
+        {error, Reason} ->
+            ti_common:logerror("ODBC cannot start : ~p~n", [Reason]),
+            {stop, error, Reason}
+    end.
 
 terminate(_Reason, _State) ->
     ok.

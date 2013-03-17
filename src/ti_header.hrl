@@ -35,7 +35,7 @@
 
 -record(monitem, {socket=undefined, pid=undefined, addr=undefined, timeout=undefined}).
 
--record(dbstate, {db=undefined, dbport=undefined, dbsock=undefined}).
+-record(dbstate, {db=undefined, dbport=undefined, dbref=undefined}).
 
 %%%
 %%% lsock       : Listening socket
