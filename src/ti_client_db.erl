@@ -59,7 +59,7 @@ handle_info(timeout, State) ->
             {stop, error, Reason}
     end.
 
-terminate(_Reason, _State) ->
+terminate(_Reason, State) ->
     ok.
 
 code_change(_OldVsn, State, _Extra) ->
@@ -77,7 +77,6 @@ handle_data(Socket, RawData, State) ->
 %%% At the same time, it will check whether the message from VDR should also be sent to the manage server or not.
 %%% If so, this process will send the message to the process which is responsible for the talk to the management server.
 %%%
-%%% Socket : connection between DB
 %%%
 db_message_processor(Ref) ->
 	receive
