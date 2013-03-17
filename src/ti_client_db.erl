@@ -35,6 +35,7 @@ handle_info({tcp, Socket, RawData}, State) ->
 handle_info({tcp_closed, _Socket}, State) ->
     {stop, normal, State};
 handle_info(timeout, State) ->
+    odbc:
     ti_common:loginfo("Trying to connect DB ~p:~p ...~n", [State#dbstate.db, State#dbstate.dbport]),
 	case gen_tcp:connect(State#dbstate.db, State#dbstate.dbport, [{active, true}]) of
 		{ok, CSock} ->
