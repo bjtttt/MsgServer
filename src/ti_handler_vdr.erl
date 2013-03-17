@@ -49,14 +49,13 @@ handle_info(_Info, State) ->
 	{noreply, State}. 
 
 terminate(Reason, #vdritem{socket=Socket}) ->    
+	(catch gen_tcp:close(Socket)),    
     case ti_common:safepeername(Socket) of
         {ok, {Address, _Port}} ->
-            ti_common:loginfo("VDR ~p Pid ~p is terminated : ~p~n", [Address, self(), Reason]);
+            ti_common:loginfo("VDR ~p socket is closed and VDR PID ~p is terminated : ~p~n", [Address, self(), Reason]);
         {error, _Reason} ->
-            ti_common:loginfo("VDR Pid ~p is terminated : ~p~n", [self(), Reason])
-    end,
-	(catch gen_tcp:close(Socket)),    
-	ok.
+            ti_common:loginfo("VDR socket is closed and VDR PID ~p is terminated : ~p~n", [self(), Reason])
+    end.
 
 code_change(_OldVsn, State, _Extra) ->    
 	{ok, State}.

@@ -49,14 +49,13 @@ handle_info(_Info, State) ->
     {noreply, State}. 
 
 terminate(Reason, #monitem{socket=Socket}) ->    
+    (catch gen_tcp:close(Socket)),    
     case ti_common:safepeername(Socket) of
         {ok, {Address, _Port}} ->
-            ti_common:loginfo("Monitor ~p Pid ~p is terminated : ~p~n", [Address, self(), Reason]);
+            ti_common:loginfo("Monitor ~p socket is closed and monitor PID ~p is terminated : ~p~n", [Address, self(), Reason]);
         {error, _Reason} ->
-            ti_common:loginfo("Monitor Pid ~p is terminated : ~p~n", [self(), Reason])
-    end,
-    (catch gen_tcp:close(Socket)),    
-    ok.
+            ti_common:loginfo("Monitor socket is closed and monitor PID ~p is terminated : ~p~n", [self(), Reason])
+    end.
 
 code_change(_OldVsn, State, _Extra) ->    
     {ok, State}.
@@ -66,24 +65,9 @@ code_change(_OldVsn, State, _Extra) ->
 %%%
 process_mon_data(Socket, Data) ->
     Bin = ti_mon_data_parser:parse_data(Data),
-    [{dbconnpid, Pid}] = ets:lookup(msgservertable, dbconnpid),
-    case Pid of
-        -1 ->
-            ti_common:logerror("DB Client is not available~n");
-        _ ->
-            Pid!Bin,
-            receive
-                {From, Resp} ->
-                    if
-                        From == Pid ->
-                            Back = ti_mon_data_parser:compose_data(Resp),
-                            gen_tcp:send(Socket, Back);
-                        From =/= Pid ->
-                            ti_common:logerror("Unknown monitor response from ~p~n", From)
-                    end;
-                _ ->
-                    ti_common:logerror("Unknown monitor response from DB~n")
-            end
-    end.
+    gen_tcp:send(Socket, Bin).
+
+
+
 
 

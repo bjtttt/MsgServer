@@ -48,15 +48,14 @@ handle_info({tcp_closed, _Socket}, State) ->
 handle_info(_Info, State) ->    
     {noreply, State}. 
 
-terminate(Reason, #manitem{socket=Socket}) ->    
+terminate(Reason, #manitem{socket=Socket}) ->
+    (catch gen_tcp:close(Socket)),    
     case ti_common:safepeername(Socket) of
         {ok, {Address, _Port}} ->
-            ti_common:loginfo("Management ~p Pid ~p is terminated : ~p~n", [Address, self(), Reason]);
+            ti_common:loginfo("Management socket ~p is closed and management PID ~p is terminated : ~p~n", [Address, self(), Reason]);
         {error, _Reason} ->
-            ti_common:loginfo("Management Pid ~p is terminated : ~p~n", [self(), Reason])
-    end,
-    (catch gen_tcp:close(Socket)),    
-    ok.
+            ti_common:loginfo("Management socket is closed and management PID ~p is terminated : ~p~n", [self(), Reason])
+    end.
 
 code_change(_OldVsn, State, _Extra) ->    
     {ok, State}.
@@ -65,25 +64,8 @@ code_change(_OldVsn, State, _Extra) ->
 %%% This function should refer to the document on the mechanism
 %%%
 process_man_data(Socket, Data) ->
+    Socket,
     Bin = ti_man_data_parser:parse_data(Data),
-    [{dbconnpid, Pid}] = ets:lookup(msgservertable, dbconnpid),
-    case Pid of
-        -1 ->
-            ti_common:logerror("DB Client is not available~n");
-        _ ->
-            Pid!Bin,
-            receive
-                {From, Resp} ->
-                    if
-                        From == Pid ->
-                            Back = ti_man_data_parser:compose_data(Resp),
-                            gen_tcp:send(Socket, Back);
-                        From =/= Pid ->
-                            ti_common:logerror("Unknown management response from ~p~n", From)
-                    end;
-                _ ->
-                    ti_common:logerror("Unknown management response from DB~n")
-            end
-    end.
+    Bin.
 
 

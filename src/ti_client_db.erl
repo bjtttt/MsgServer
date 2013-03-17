@@ -21,7 +21,7 @@ start_link(DB, PortDB) ->
     gen_server:start_link(?MODULE, [DB, PortDB], []).
 
 init([DB, PortDB]) ->
-	{ok, #dbstate{db=DB, dbport=PortDB, dbsock=undefined}, 0}.
+	{ok, #dbstate{db=DB, dbport=PortDB}, 0}.
 
 handle_call(Msg, _From, State) ->
     {reply, {ok, Msg}, State}.
@@ -35,9 +35,7 @@ handle_info({tcp, Socket, RawData}, State) ->
 handle_info({tcp_closed, _Socket}, State) ->
     {stop, normal, State};
 handle_info(timeout, State) ->
-    ti_common:loginfo("DB : ~p~n", State#dbstate.db),
-    ti_common:loginfo("DB Port : ~p~n", State#dbstate.dbport),
-    ti_common:loginfo("Try to connect DB...~n"),
+    ti_common:loginfo("Trying to connect DB ~p:~p ...~n", [State#dbstate.db, State#dbstate.dbport]),
 	case gen_tcp:connect(State#dbstate.db, State#dbstate.dbport, [{active, true}]) of
 		{ok, CSock} ->
 			ti_common:loginfo("DB is connected.~n"),
@@ -46,7 +44,7 @@ handle_info(timeout, State) ->
 			ets:insert(msgservertable, {dbconnpid, Pid}),
 			{noreply, State#dbstate{dbsock=CSock}};
 		{error, Reason} ->
-			ti_common:logerror("Connection fails : ~p~n", Reason),
+			ti_common:logerror("Cannot connect DB : ~p~n", [Reason]),
             ets:insert(msgservertable, {dbconnpid, -1}),
 			{stop, error, State}
 	end.

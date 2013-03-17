@@ -27,15 +27,15 @@
 %%%
 %%% There is only one super user, name is super, password is super.
 %%% 
--record(user, {id, name, level, ip, time}).
+-record(user, {id=undefined, name=undefined, level=undefined, ip=undefined, time=undefined}).
 
--record(vdritem, {socket, id, pid, addr, acttime, timeout}).
+-record(vdritem, {socket=undefined, id=undefined, pid=undefined, addr=undefined, acttime=undefined, timeout=undefined}).
 
--record(manitem, {socket, pid, addr, timeout}).
+-record(manitem, {socket=undefined, pid=undefined, addr=undefined, timeout=undefined}).
 
--record(monitem, {socket, pid, addr, timeout}).
+-record(monitem, {socket=undefined, pid=undefined, addr=undefined, timeout=undefined}).
 
--record(dbstate, {db, dbport, dbsock}).
+-record(dbstate, {db=undefined, dbport=undefined, dbsock=undefined}).
 
 %%%
 %%% lsock       : Listening socket
