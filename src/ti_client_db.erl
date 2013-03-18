@@ -59,8 +59,8 @@ handle_info(timeout, State) ->
             {stop, error, Reason}
     end.
 
-terminate(_Reason, State) ->
-    ok.
+terminate(_Reason, _State) ->
+    stop_db().
 
 code_change(_OldVsn, State, _Extra) ->
     {ok, State}.
@@ -100,3 +100,26 @@ process_message(FromPid, Ref, Msg) ->
     Ref,
 	Msg.
 
+stop_db() ->
+    [{dbconnpid, DBConnPid}] = ets:lookup(msgservertable, dbconnpid),
+    case DBConnPid of
+        undefined ->
+            ok;
+        _ ->
+            ets:insert(msgservertable, {dbconnpid, undefined}),
+            DBConnPid!stop
+    end,
+    [{dbref, DBRef}] = ets:lookup(msgservertable, dbref),
+    case DBRef of
+        undefined ->
+            ok;
+        _ ->
+             ets:insert(msgservertable, {dbref, undefined}),
+             case odbc:disconnect(DBRef) of
+                 ok ->
+                     ok;
+                 {error, Reason} ->
+                     ti_common:logerror("Ignore when ODBC cannot disconnect correctly : ~p~n", [Reason])
+             end,
+             odbc:stop()
+    end.
