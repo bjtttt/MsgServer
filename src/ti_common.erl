@@ -6,7 +6,7 @@
 
 -export([set_sockopt/3]).
 
--export([safepeername/1, printsocketinfo/2]).
+-export([safepeername/1, forcesafepeername/1, printsocketinfo/2, forceprintsocketinfo/2]).
 
 -export([logerror/1, logerror/2, loginfo/1, loginfo/2]).
 
@@ -34,20 +34,39 @@ safepeername(Socket) ->
 	try inet:peername(Socket) of
 		{ok, {Address, Port}} ->
 			{ok, {inet_parse:ntoa(Address), Port}};
-		{error, Reason} ->
-			{error, Reason}
+		{error, Error} ->
+			{error, Error}
 	catch
-		_:Why ->
-			{error, Why}
+		_:Reason ->
+			{error, Reason}
+	end.
+
+%%%
+%%% {ok, {Address, Port}}
+%%% {ok, {"0.0.0.0", 0}}
+%%%
+forcesafepeername(Socket) ->
+	try inet:peername(Socket) of
+		{ok, {Address, Port}} ->
+			{ok, {inet_parse:ntoa(Address), Port}};
+		{error, _Error} ->
+			{ok, {"0.0.0.0", 0}}
+	catch
+		_:_Reason ->
+			{ok, {"0.0.0.0", 0}}
 	end.
 
 printsocketinfo(Socket, Msg) ->
     case ti_common:safepeername(Socket) of
         {ok, {Address, _Port}} ->
-            ti_common:loginfo(string:concat(Msg, " IP : ~p~n"), Address);
-        {error, Explain} ->
-            ti_common:loginfo(string:concat(Msg, " is unkown : ~p~n"), Explain)
+            ti_common:loginfo(string:concat(Msg, " IP : ~p~n"), [Address]);
+        {error, Error} ->
+            ti_common:loginfo(string:concat(Msg, " unknown IP : ~p~n"), [Error])
     end.
+
+forceprintsocketinfo(Socket, Msg) ->
+    {ok, {Address, _Port}} = ti_common:forcesafepeername(Socket),
+    ti_common:loginfo(string:concat(Msg, " IP : ~p~n"), [Address]).
 
 logerror(Format) ->
     [{display, Display}] = ets:lookup(msgservertable, display),

@@ -62,7 +62,7 @@ handle_cast(_Msg, State) ->
     {noreply, State}. 
 
 handle_info({inet_async, LSock, Ref, {ok, CSock}}, #serverstate{lsock=LSock, acceptor=Ref}=State) ->
-    ti_common:printsocketinfo(CSock, "Accepted monitor"),
+    ti_common:printsocketinfo(CSock, "Accepted a monitor from"),
     try        
         case ti_common:set_sockopt(LSock, CSock, "Monitor Server") of            
             ok -> 
@@ -133,7 +133,7 @@ handle_info({inet_async, LSock, Ref, {ok, CSock}}, #serverstate{lsock=LSock, acc
 %%% Data should not be received here because it is a listening socket process
 %%%
 handle_info({tcp, Socket, Data}, State) ->  
-    ti_common:printsocketinfo(Socket, "Monitor server data source"),
+    ti_common:printsocketinfo(Socket, "Monitor server receives data from"),
     ti_common:logerror("ERROR : Monitor server receives data : ~p~n", [Data]),
     inet:setopts(Socket, [{active, once}]),
     {noreply, State}; 

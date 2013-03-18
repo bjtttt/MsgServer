@@ -133,7 +133,7 @@ handle_info({inet_async, LSock, Ref, {ok, CSock}}, #serverstate{lsock=LSock, acc
 %%% Data should not be received here because it is a listening socket process
 %%%
 handle_info({tcp, Socket, Data}, State) ->  
-    ti_common:printsocketinfo(Socket, "VDR server data source"),
+    ti_common:printsocketinfo(Socket, "VDR server receives data from"),
     ti_common:logerror("ERROR : VDR server receives data : ~p~n", [Data]),
     inet:setopts(Socket, [{active, once}]),
     {noreply, State}; 

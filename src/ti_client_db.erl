@@ -34,10 +34,15 @@ handle_call(Msg, _From, State) ->
 handle_cast(stop, State) ->
     {stop, normal, State}.
 
-handle_info({tcp, Socket, RawData}, State) ->
-    NewState = handle_data(Socket, RawData, State),
-    {noreply, NewState};
-handle_info({tcp_closed, _Socket}, State) ->
+handle_info({tcp, Socket, Data}, State) ->
+    ti_common:printsocketinfo(Socket, "ERROR : DB Client receives data from"),
+    ti_common:logerror("ERROR : DB Client receives data : ~p~n", [Data]),
+    %NewState = handle_data(Socket, Data, State),
+    %{noreply, NewState};
+    {noreply, State};
+handle_info({tcp_closed, Socket}, State) ->
+    ti_common:printsocketinfo(Socket, "DB Client receives tcp_closed from"),
+    stop_db(),
     {stop, normal, State};
 handle_info(timeout, State) ->
     case odbc:start(permanent) of
@@ -66,10 +71,10 @@ code_change(_OldVsn, State, _Extra) ->
     {ok, State}.
 
 %% Internal functions
-handle_data(Socket, RawData, State) ->
-	Socket,
-	RawData,
-    State.
+%handle_data(Socket, RawData, State) ->
+%	Socket,
+%	RawData,
+%    State.
 
 %%%
 %%% VDR process will send message to this process. 
