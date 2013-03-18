@@ -23,15 +23,27 @@
 -define(TIMEOUT_MON, 3000). 
 -define(TIMEOUT_DB, 30000). 
 
+-define(TIMEOUT_DATA_MAN, 5). 
+-define(TIMEOUT_DATA_VDR, 5). 
+-define(TIMEOUT_DATA_DB, 1). 
+
 
 %%%
 %%% There is only one super user, name is super, password is super.
 %%% 
 -record(user, {id=undefined, name=undefined, level=undefined, ip=undefined, time=undefined}).
 
--record(vdritem, {socket=undefined, id=undefined, pid=undefined, addr=undefined, acttime=undefined, timeout=undefined}).
+%%%
+%%% pid     : management handler process id
+%%% datapid : management handler send data to management process id
+%%%
+-record(vdritem, {socket=undefined, id=undefined, pid=undefined, datapid=undefined, addr=undefined, acttime=undefined, timeout=undefined}).
 
--record(manitem, {socket=undefined, pid=undefined, addr=undefined, timeout=undefined}).
+%%%
+%%% pid     : VDR handler process id
+%%% datapid : VDR handler send data to VDR process id
+%%%
+-record(manitem, {socket=undefined, pid=undefined, datapid=undefined, addr=undefined, timeout=undefined}).
 
 -record(monitem, {socket=undefined, pid=undefined, addr=undefined, timeout=undefined}).
 

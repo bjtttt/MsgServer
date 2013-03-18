@@ -12,14 +12,15 @@ start_link(Socket) ->
     gen_server:start_link(?MODULE, [Socket], []). 
 
 init([Socket]) ->
+    Pid = spawn(fun() -> send_data_to_management_process(Socket) end),
     case ti_common:safepeername(Socket) of
         {ok, {Address, _Port}} ->
-            State=#manitem{socket=Socket, pid=self(), addr=Address},
+            State=#manitem{socket=Socket, pid=self(), datapid=Pid, addr=Address},
             ets:insert(mantable, State), 
             inet:setopts(Socket, [{active, once}]),
             {ok, State};
         {error, _Reason} ->
-            State=#manitem{socket=Socket, pid=self(), addr="0.0.0.0"},
+            State=#manitem{socket=Socket, pid=self(), datapid=Pid, addr="0.0.0.0"},
             ets:insert(mantable, State), 
             inet:setopts(Socket, [{active, once}]),
             {ok, State}
@@ -43,19 +44,16 @@ handle_info({tcp, Socket, Data}, State) ->
     %ok = gen_tcp:send(Socket, <<"Management : ", Resp/binary>>),    
     {noreply, State}; 
 handle_info({tcp_closed, _Socket}, State) ->    
-    ti_common:loginfo("Management ~p is disconnected and management PID ~p stops~n", [State#manitem.addr, State#manitem.pid]),
+    ti_common:loginfo("Management ~p is disconnected, management PID ~p stops and management data PID ~p stops~n", [State#manitem.addr, State#manitem.pid, State#manitem.datapid]),
+    State#manitem.datapid!stop,
     {stop, normal, State}; 
 handle_info(_Info, State) ->    
     {noreply, State}. 
 
-terminate(Reason, #manitem{socket=Socket}) ->
-    (catch gen_tcp:close(Socket)),    
-    case ti_common:safepeername(Socket) of
-        {ok, {Address, _Port}} ->
-            ti_common:loginfo("Management socket ~p is closed and management PID ~p is terminated : ~p~n", [Address, self(), Reason]);
-        {error, _Reason} ->
-            ti_common:loginfo("Management socket is closed and management PID ~p is terminated : ~p~n", [self(), Reason])
-    end.
+terminate(Reason, State) ->
+    State#manitem.datapid!stop,
+    (catch gen_tcp:close(State#vdritem.socket)),    
+    ti_common:loginfo("Management PID ~p is terminated, management data PID ~p stops and management ~p socket is closed : ~p~n", [State#manitem.pid, State#manitem.datapid, State#manitem.addr, Reason]).
 
 code_change(_OldVsn, State, _Extra) ->    
     {ok, State}.
@@ -68,4 +66,17 @@ process_man_data(Socket, Data) ->
     Bin = ti_man_data_parser:parse_data(Data),
     Bin.
 
-
+send_data_to_management_process(Socket) ->
+    receive
+        {_FromPid, {data, Data}} ->
+            gen_tcp:send(Socket, Data),
+            send_data_to_management_process(Socket);
+        {FromPid, Data} ->
+            ti_common:logerror("Management server send data to management process : unknown message from PID ~p : ~p~n", [FromPid, Data]),
+            send_data_to_management_process(Socket);
+        stop ->
+            true
+    after ?TIMEOUT_DATA_VDR ->
+        %ti_common:loginfo("Management server send data to management process process : receiving PID message timeout after ~p~n", [?TIMEOUT_DB]),
+        send_data_to_management_process(Socket)
+    end.

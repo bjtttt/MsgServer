@@ -85,17 +85,17 @@ code_change(_OldVsn, State, _Extra) ->
 %%%
 db_message_processor(Ref) ->
 	receive
-        {FromPid, {msg, Msg}} ->
+        {FromPid, {data, Data}} ->
 			% Communicate with DB here
 			FromPid,
-			process_message(FromPid, Ref, Msg),
+			process_message(FromPid, Ref, Data),
 			db_message_processor(Ref);
-		{FromPid, Msg} ->
-            ti_common:logerror("DB connection process : unknown message from PID ~p : ~p~n", [FromPid, Msg]),
+		{FromPid, Data} ->
+            ti_common:logerror("DB connection process : unknown message from PID ~p : ~p~n", [FromPid, Data]),
             db_message_processor(Ref);
 		stop ->
 			true
-	after ?TIMEOUT_DB ->
+	after ?TIMEOUT_DATA_DB ->
         ti_common:loginfo("DB connection process : receiving PID message timeout after ~p~n", [?TIMEOUT_DB]),
         db_message_processor(Ref)
     end.
