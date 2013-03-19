@@ -6,7 +6,13 @@
 
 -module(ti_vdr_data_parser).
 
--export([parse_data/2, compose_data/1]).
+-export([restore_data/1, parse_data/2, compose_data/1]).
+
+%%%
+%%% check 0x7d
+%%%
+restore_data(Data) ->
+    Data.
 
 %%%
 %%% Parse the data from VDR

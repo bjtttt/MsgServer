@@ -37,7 +37,7 @@
 %%% pid     : management handler process id
 %%% datapid : management handler send data to management process id
 %%%
--record(vdritem, {socket=undefined, id=undefined, pid=undefined, datapid=undefined, addr=undefined, acttime=undefined, timeout=undefined}).
+-record(vdritem, {socket=undefined, id=undefined, pid=undefined, datapid=undefined, addr=undefined, acttime=undefined, timeout=undefined, msg=undefined}).
 
 %%%
 %%% pid     : VDR handler process id

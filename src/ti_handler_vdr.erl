@@ -32,12 +32,24 @@ handle_call(_Request, _From, State) ->
 handle_cast(_Msg, State) ->    
 	{noreply, State}. 
 
+%%%
+%%% Steps :
+%%%     1. Check whether multi-package message
+%%%
 handle_info({tcp, Socket, Data}, State) ->    
-    case ti_vdr_data_parser:parse_data(Socket, Data) of
-        {ok, Decoded} ->
-            process_vdr_data(Socket, Decoded);
+    case State#vdritem.msg of
+        undefined ->
+            ok;
         _ ->
-            ok
+            Bin = list_to_binary([State#vdritem.msg, Data]),
+            case ti_vdr_data_parser:parse_data(Socket, Bin) of
+                {ok, Decoded} ->
+                    process_vdr_data(Socket, Decoded);
+                {error, uncomplete} ->
+                    ok;
+                {error, fail} ->
+                    ok
+            end
     end,
 	inet:setopts(Socket, [{active, once}]),
     % Should be modified in the future
