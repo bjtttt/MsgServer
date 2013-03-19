@@ -8,5 +8,5 @@
 
 -export([parse_data/1]).
 
-parse_data(RawData) ->
-    RawData.
+parse_data(Data) ->
+    Data.

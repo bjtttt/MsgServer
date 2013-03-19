@@ -75,8 +75,19 @@ send_data_to_management_process(Socket) ->
             ti_common:logerror("Management server send data to management process : unknown message from PID ~p : ~p~n", [FromPid, Data]),
             send_data_to_management_process(Socket);
         stop ->
+            ti_common:logerror("Management server send data to management process stops~n"),
             true
-    after ?TIMEOUT_DATA_VDR ->
-        %ti_common:loginfo("Management server send data to management process process : receiving PID message timeout after ~p~n", [?TIMEOUT_DB]),
-        send_data_to_management_process(Socket)
+    %after ?TIMEOUT_DATA_VDR ->
+    %    %ti_common:loginfo("Management server send data to management process process : receiving PID message timeout after ~p~n", [?TIMEOUT_DB]),
+    %    send_data_to_management_process(Socket)
     end.
+
+
+
+
+
+
+
+
+
+

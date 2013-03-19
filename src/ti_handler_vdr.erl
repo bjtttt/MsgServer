@@ -93,7 +93,7 @@ send_data_to_vdr_process(Socket) ->
             send_data_to_vdr_process(Socket);
         stop ->
             true
-    after ?TIMEOUT_DATA_VDR ->
-        %ti_common:loginfo("VDR server send data to VDR process process : receiving PID message timeout after ~p~n", [?TIMEOUT_DB]),
-        send_data_to_vdr_process(Socket)
+    %after ?TIMEOUT_DATA_VDR ->
+    %    %ti_common:loginfo("VDR server send data to VDR process process : receiving PID message timeout after ~p~n", [?TIMEOUT_DB]),
+    %    send_data_to_vdr_process(Socket)
     end.
