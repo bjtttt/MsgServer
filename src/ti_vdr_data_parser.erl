@@ -90,9 +90,9 @@ dorestore0x7eand0x7d(Data) ->
                             {BinLastFirst, BinLastLast} = split_binary(BinLast, 1),
                             case BinLastFirst of
                                 <<1>> ->
-                                    <<125>>;
+                                    list_to_binary([<<125>>, dorestore0x7eand0x7d(BinLastLast)]);
                                 <<2>> ->
-                                    <<126>>;
+                                    list_to_binary([<<126>>, dorestore0x7eand0x7d(BinLastLast)]);
                                 _ ->
                                     list_to_binary([list_to_binary([BinFirst, BinLastFirst]), dorestore0x7eand0x7d(BinLastLast)])
                             end
