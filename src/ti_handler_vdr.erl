@@ -41,7 +41,7 @@ handle_info({tcp, Socket, Data}, State) ->
         undefined ->
             ok;
         _ ->
-            case ti_vdr_data_parser:parse_data(Socket, State#vdritem.msg, Data) of
+            case ti_vdr_data_parser:parse_data(Socket, State, Data) of
                 {ok, Decoded} ->
                     process_vdr_data(Socket, Decoded),
                     inet:setopts(Socket, [{active, once}]),
