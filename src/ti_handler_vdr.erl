@@ -51,6 +51,7 @@ handle_info({tcp, Socket, Data}, State) ->
                     inet:setopts(Socket, [{active, once}]),
                     {noreply, State#vdritem{msg=Bin}};
                 {error, fail} ->
+                    inet:setopts(Socket, [{active, once}]),
                     {noreply, State#vdritem{msg=undefined}}
             end
     end;
