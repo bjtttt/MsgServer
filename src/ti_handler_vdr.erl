@@ -44,17 +44,20 @@ handle_info({tcp, Socket, Data}, State) ->
             Bin = list_to_binary([State#vdritem.msg, Data]),
             case ti_vdr_data_parser:parse_data(Socket, Bin) of
                 {ok, Decoded} ->
-                    process_vdr_data(Socket, Decoded);
+                    process_vdr_data(Socket, Decoded),
+                    inet:setopts(Socket, [{active, once}]),
+                    {noreply, State#vdritem{msg=undefined}};
                 {error, uncomplete} ->
-                    ok;
+                    inet:setopts(Socket, [{active, once}]),
+                    {noreply, State#vdritem{msg=Bin}};
                 {error, fail} ->
-                    ok
+                    {noreply, State#vdritem{msg=undefined}}
             end
-    end,
-	inet:setopts(Socket, [{active, once}]),
+    end;
+	%inet:setopts(Socket, [{active, once}]),
     % Should be modified in the future
 	%ok = gen_tcp:send(Socket, <<"VDR : ", Resp/binary>>),    
-	{noreply, State}; 
+	%{noreply, State}; 
 handle_info({tcp_closed, _Socket}, State) ->    
     ti_common:loginfo("VDR ~p is disconnected, VDR PID ~p stops and VDR data PID ~p stops~n", [State#vdritem.addr, State#vdritem.pid, State#vdritem.datapid]),
     State#vdritem.datapid!stop,
