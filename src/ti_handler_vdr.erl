@@ -41,18 +41,25 @@ handle_info({tcp, Socket, Data}, State) ->
         undefined ->
             ok;
         _ ->
-            Bin = list_to_binary([State#vdritem.msg, Data]),
-            case ti_vdr_data_parser:parse_data(Socket, Bin) of
+            case ti_vdr_data_parser:parse_data(Socket, State#vdritem.msg, Data) of
                 {ok, Decoded} ->
                     process_vdr_data(Socket, Decoded),
                     inet:setopts(Socket, [{active, once}]),
                     {noreply, State#vdritem{msg=undefined}};
-                {error, uncomplete} ->
+                {ok, Decoded, Remain} ->
+                    process_vdr_data(Socket, Decoded),
                     inet:setopts(Socket, [{active, once}]),
-                    {noreply, State#vdritem{msg=Bin}};
-                {error, fail} ->
+                    {noreply, State#vdritem{msg=Remain}};
+                {ok, Decoded, Remain, _VDRRequest} ->
+                    process_vdr_data(Socket, Decoded),
                     inet:setopts(Socket, [{active, once}]),
-                    {noreply, State#vdritem{msg=undefined}}
+                    {noreply, State#vdritem{msg=Remain}};
+                {error, fail, _Reason, Remain} ->
+                    inet:setopts(Socket, [{active, once}]),
+                    {noreply, State#vdritem{msg=Remain}};
+                {error, fail, _Reason, Remain, _VDRRequest} ->
+                    inet:setopts(Socket, [{active, once}]),
+                    {noreply, State#vdritem{msg=Remain}}
             end
     end;
 	%inet:setopts(Socket, [{active, once}]),
