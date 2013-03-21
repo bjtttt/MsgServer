@@ -38,14 +38,14 @@ handle_cast(_Msg, State) ->
 %%%
 handle_info({tcp, Socket, Data}, State) ->    
     case State#vdritem.msg of
-        undefined ->
+        [] ->
             ok;
         _ ->
             case ti_vdr_data_parser:parse_data(Socket, State, Data) of
                 {ok, Decoded} ->
                     process_vdr_data(Socket, Decoded),
                     inet:setopts(Socket, [{active, once}]),
-                    {noreply, State#vdritem{msg=undefined}};
+                    {noreply, State#vdritem{msg=[]}};
                 {ok, Decoded, Remain} ->
                     process_vdr_data(Socket, Decoded),
                     inet:setopts(Socket, [{active, once}]),
