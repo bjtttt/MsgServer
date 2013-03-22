@@ -24,7 +24,7 @@ parse_data(Socket, State, Data) ->
         {ok, {Address, _Port}} ->
             ti_common:loginfo("Data is from VDR IP : ~p~n", Address);
         {error, Explain} ->
-           ti_common:loginfo("Data is from unknown VDR : ~p~n", Explain)
+            ti_common:loginfo("Data is from unknown VDR : ~p~n", Explain)
     end,
     RestoredData = restore0x7eand0x7d(State, Data),
     VDRItem = ets:lookup(vdrtable, Socket),
@@ -59,6 +59,12 @@ restore0x7eand0x7d(State, Data) ->
             ti_common:logerror("Wrong data header (~p) from ~p~n",[BinHeader, State#vdritem.addr]),
             error
     end.
+
+%%%
+%%% Check whether it is a sub-package
+%%%
+checksubpackage(State, Data) ->
+    ok.
 
 %%%
 %%%
