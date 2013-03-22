@@ -26,16 +26,59 @@ parse_data(Socket, State, Data) ->
         {error, Explain} ->
             ti_common:loginfo("Data is from unknown VDR : ~p~n", Explain)
     end,
-    RestoredData = restore0x7eand0x7d(State, Data),
-    VDRItem = ets:lookup(vdrtable, Socket),
-    Length = length(VDRItem),
-    case Length of
-        1 ->
-            % do concrete parse job here
-            {ok, RestoredData};
-        _ ->
-            ti_common:logerror("vdrtable doesn't contain the vdritem.~n"),
+    ByteLength = byte_size(Data)-1,
+    <<HeaderBody:ByteLength,Charity/binary>>=Data,
+    case checkheaderbodycharity(HeaderBody, Charity) of
+        ok ->
+            RestoredData = restore0x7eand0x7d(State, Data),
+            <<ID:16,BodyProperty:16,Remain/binary>>=RestoredData,
+            <<Reserved:2,Package:1,CryptoType:3,BodyLength:10>> = BodyProperty,
+            case Package of
+                <<0>> ->
+                    ok;
+                <<1>> ->
+                    <<CPNumber:48,FlowNumber:16,PackageInfo:32,Body/binary>>=Remain,
+                    ok
+            end;
+        error ->
+            ti_common:logerror("ERROR : data charity error~n")
+    end.%,
+    %VDRItem = ets:lookup(vdrtable, Socket),
+    %Length = length(VDRItem),
+    %case Length of
+    %    1 ->
+    %        % do concrete parse job here
+    %        {ok, RestoredData};
+    %    _ ->
+    %        ti_common:logerror("vdrtable doesn't contain the vdritem.~n"),
+    %        error
+    %end.
+
+%%%
+%%%
+%%%
+checkheaderbodycharity(Data, Charity) ->
+    XORResult = bxorbyte(Data),
+    if
+        XORResult == Charity ->
+            ok;
+        XORResult =/= Charity ->
             error
+    end.
+
+bxorbyte(Data) ->
+    ByteLength = byte_size(Data),
+    case ByteLength of
+        0 ->
+            0;
+        1 ->
+            Data;
+        _ ->
+            <<Header:8, Remain/binary>> = Data,
+            <<IntHeader:8>> = Header,
+            <<IntRemain:8>> = bxorbyte(Remain),
+            Int = IntHeader bxor IntRemain,
+            <<Int:8>>
     end.
 
 %%%
@@ -50,13 +93,15 @@ restore0x7eand0x7d(State, Data) ->
             % 126 is 0x7e
             case BinTail of
                 <<126>> ->
-                    {ok, dorestore0x7eand0x7d(BinBody)};
+                    Result = binary:replace(BinBody, <<125,1>>, <<125>>),
+                    FinalResult = binary:replace(Result, <<125,2>>, <<126>>),
+                    {ok, FinalResult};%dorestore0x7eand0x7d(BinBody)};
                 _ ->
-                    ti_common:logerror("Wrong data tail (~p) from ~p~n",[BinTail, State#vdritem.addr]),
+                    ti_common:logerror("ERROR : wrong data tail (~p) from ~p~n",[BinTail, State#vdritem.addr]),
                     error
             end;
         _ ->
-            ti_common:logerror("Wrong data header (~p) from ~p~n",[BinHeader, State#vdritem.addr]),
+            ti_common:logerror("ERROR: wWrong data header (~p) from ~p~n",[BinHeader, State#vdritem.addr]),
             error
     end.
 
@@ -69,44 +114,44 @@ checksubpackage(State, Data) ->
 %%%
 %%%
 %%%
-dorestore0x7eand0x7d(Data) ->
-    BinLength = length(Data),
-    case BinLength of
-        0 ->
-            <<>>;
-        1 ->
-            Data;
-        _ ->
-            {BinFirst, BinLast} = split_binary(Data, 1),
-            case BinFirst of
-                <<125>> ->
-                    % 125 is 0x7d
-                    BinLastLength = length(BinLast),
-                    case BinLastLength of 
-                        1 ->
-                            case BinLast of
-                                <<1>> ->
-                                    <<125>>;
-                                <<2>> ->
-                                    <<126>>;
-                                _ ->
-                                    Data
-                            end;
-                        _ ->
-                            {BinLastFirst, BinLastLast} = split_binary(BinLast, 1),
-                            case BinLastFirst of
-                                <<1>> ->
-                                    list_to_binary([<<125>>, dorestore0x7eand0x7d(BinLastLast)]);
-                                <<2>> ->
-                                    list_to_binary([<<126>>, dorestore0x7eand0x7d(BinLastLast)]);
-                                _ ->
-                                    list_to_binary([list_to_binary([BinFirst, BinLastFirst]), dorestore0x7eand0x7d(BinLastLast)])
-                            end
-                    end;
-                _ ->
-                    list_to_binary([BinFirst, dorestore0x7eand0x7d(BinLast)])
-            end
-    end.
+%dorestore0x7eand0x7d(Data) ->
+%    BinLength = length(Data),
+%    case BinLength of
+%        0 ->
+%            <<>>;
+%        1 ->
+%            Data;
+%        _ ->
+%            {BinFirst, BinLast} = split_binary(Data, 1),
+%            case BinFirst of
+%                <<125>> ->
+%                    % 125 is 0x7d
+%                    BinLastLength = length(BinLast),
+%                    case BinLastLength of 
+%                        1 ->
+%                            case BinLast of
+%                                <<1>> ->
+%                                    <<125>>;
+%                                <<2>> ->
+%                                    <<126>>;
+%                                _ ->
+%                                    Data
+%                            end;
+%                        _ ->
+%                            {BinLastFirst, BinLastLast} = split_binary(BinLast, 1),
+%                            case BinLastFirst of
+%                                <<1>> ->
+%                                    list_to_binary([<<125>>, dorestore0x7eand0x7d(BinLastLast)]);
+%                                <<2>> ->
+%                                    list_to_binary([<<126>>, dorestore0x7eand0x7d(BinLastLast)]);
+%                                _ ->
+%                                    list_to_binary([list_to_binary([BinFirst, BinLastFirst]), dorestore0x7eand0x7d(BinLastLast)])
+%                            end
+%                    end;
+%                _ ->
+%                    list_to_binary([BinFirst, dorestore0x7eand0x7d(BinLast)])
+%            end
+%    end.
 
 
 %%%
