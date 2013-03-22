@@ -31,14 +31,29 @@ parse_data(Socket, State, Data) ->
     case checkheaderbodycharity(HeaderBody, Charity) of
         ok ->
             RestoredData = restore0x7eand0x7d(State, Data),
-            <<ID:16,BodyProperty:16,Remain/binary>>=RestoredData,
-            <<Reserved:2,Package:1,CryptoType:3,BodyLength:10>> = BodyProperty,
+            <<_ID:16,BodyProperty:16,_CPNumber:48,_FlowNumber:16,Remain/binary>>=RestoredData,
+            <<_Reserved:2,Package:1,_CryptoType:3,BodyLength:10>> = BodyProperty,
             case Package of
                 <<0>> ->
-                    ok;
+                    RemainLength = byte_size(Remain),
+                    <<IntBodyLength:10>> = BodyLength,
+                    if
+                        IntBodyLength == RemainLength ->
+                            ok;
+                        IntBodyLength =/= RemainLength ->
+                            error
+                    end;
                 <<1>> ->
-                    <<CPNumber:48,FlowNumber:16,PackageInfo:32,Body/binary>>=Remain,
-                    ok
+                    <<PackageInfo:32,Body/binary>> = Remain,
+                    RemainLength = byte_size(Body),
+                    <<IntBodyLength:10>> = BodyLength,
+                    if
+                        IntBodyLength == RemainLength ->
+                            <<TotalPackage:
+                            ok;
+                        IntBodyLength =/= RemainLength ->
+                            error
+                    end
             end;
         error ->
             ti_common:logerror("ERROR : data charity error~n")
