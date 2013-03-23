@@ -22,42 +22,58 @@ restore_data(Data) ->
 parse_data(Socket, State, Data) ->
     case ti_common:safepeername(Socket) of
         {ok, {Address, _Port}} ->
-            ti_common:loginfo("Data is from VDR IP : ~p~n", Address);
+            ti_common:loginfo("Paring data from VDR IP : ~p~n", [Address]);
         {error, Explain} ->
-            ti_common:loginfo("Data is from unknown VDR : ~p~n", Explain)
+            ti_common:loginfo("Parsing data from unknown VDR : ~p~n", [Explain])
     end,
-    ByteLength = byte_size(Data)-1,
-    <<HeaderBody:ByteLength,Charity/binary>>=Data,
-    case checkheaderbodycharity(HeaderBody, Charity) of
+    try do_parse_data(Socket, State, Data) of
+        ok ->
+            ok;
+        error ->
+            error
+    catch
+        error:Error ->
+            ti_common:loginfo("ERROR : parsing data error : ~p~n", [Error]);
+        throw:Throw ->
+            ti_common:loginfo("ERROR : parsing data throw : ~p~n", [Throw]);
+        exit:Exit ->
+            ti_common:loginfo("ERROR : parsing data exit : ~p~n", [Exit])
+    end.
+
+do_parse_data(_Socket, State, Data) ->
+    NoCharityLength = byte_size(Data)-1,
+    <<HeaderBody:NoCharityLength,Charity/binary>>=Data,
+    case checkheaderbodyparity(HeaderBody, Charity) of
         ok ->
             RestoredData = restore0x7eand0x7d(State, Data),
-            <<_ID:16,BodyProperty:16,_CPNumber:48,_FlowNumber:16,Remain/binary>>=RestoredData,
-            <<_Reserved:2,Package:1,_CryptoType:3,BodyLength:10>> = BodyProperty,
-            case Package of
+            <<_IDField:16,BodyPropField:16,_TelNumberField:48,_FlowNumberField:16,RemainField/binary>>=RestoredData,
+            <<_ReservedField:2,PackageField:1,_CryptoTypeField:3,BodyLengthField:10>> = BodyPropField,
+            case PackageField of
                 <<0>> ->
-                    RemainLength = byte_size(Remain),
-                    <<IntBodyLength:10>> = BodyLength,
+                    Body = RemainField,
+                    ActBodyLength = byte_size(Body),
+                    <<BodyLength:10>> = BodyLengthField,
                     if
-                        IntBodyLength == RemainLength ->
+                        BodyLength == ActBodyLength ->
                             ok;
-                        IntBodyLength =/= RemainLength ->
+                        BodyLength =/= ActBodyLength ->
                             error
                     end;
                 <<1>> ->
-                    <<PackageInfo:32,Body/binary>> = Remain,
-                    RemainLength = byte_size(Body),
-                    <<IntBodyLength:10>> = BodyLength,
+                    <<PackageInfoField:32,Body/binary>> = RemainField,
+                    ActBodyLength = byte_size(Body),
+                    <<PackageTotal:16,PackageIndex:16>> = PackageInfoField,
+                    <<BodyLength:10>> = BodyLengthField,
                     if
-                        IntBodyLength == RemainLength ->
-                            <<TotalPackage:
+                        BodyLength == ActBodyLength ->
                             ok;
-                        IntBodyLength =/= RemainLength ->
+                        BodyLength =/= ActBodyLength ->
                             error
                     end
             end;
         error ->
             ti_common:logerror("ERROR : data charity error~n")
-    end.%,
+    end.
     %VDRItem = ets:lookup(vdrtable, Socket),
     %Length = length(VDRItem),
     %case Length of
@@ -69,31 +85,65 @@ parse_data(Socket, State, Data) ->
     %        error
     %end.
 
+combinepackagemsg(State, Data) ->
+    Msg = State#vdritem.msg,
+    case getpackagetotalandindex(Data) of
+        error ->
+            {error, ""}
+    {ok, State, VDRMsg}.
+
+%searchinsertextractmsg(State, Data) ->
+%    
+
+getpackagetotalandindex(Data) ->
+    try dogetpackagetotalandindex(Data) of
+        {ok, PackageTotal, PackageIndex} ->
+            {ok, PackageTotal, PackageIndex}
+    catch
+        error:Error ->
+            ti_common:loginfo("ERROR : get data package total & index error : ~p~n", [Error]),
+            error;
+        throw:Throw ->
+            ti_common:loginfo("ERROR : get data package total & index throw : ~p~n", [Throw]),
+            error;
+        exit:Exit ->
+            ti_common:loginfo("ERROR : get data package total & index exit : ~p~n", [Exit]),
+            error
+    end.
+    
+dogetpackagetotalandindex(Data) ->
+    <<_IDField:16,_BodyPropField:16,_TelNumberField:48,_FlowNumberField:16,PackageInfoField:32,Body/binary>>=Data,
+    <<PackageTotal:16,PackageIndex:16>> = PackageInfoField,
+    {ok, PackageTotal, PackageIndex}.
+    
+
 %%%
 %%%
 %%%
-checkheaderbodycharity(Data, Charity) ->
-    XORResult = bxorbyte(Data),
+checkheaderbodyparity(Data, Parity) ->
+    Result = bxorbyte(Data),
     if
-        XORResult == Charity ->
+        Result == Parity ->
             ok;
-        XORResult =/= Charity ->
+        Result =/= Parity ->
             error
     end.
 
+%%%
+%%%
+%%%
 bxorbyte(Data) ->
     ByteLength = byte_size(Data),
     case ByteLength of
         0 ->
-            0;
+            <<0>>;
         1 ->
-            Data;
+            <<Data:8>>;
         _ ->
-            <<Header:8, Remain/binary>> = Data,
-            <<IntHeader:8>> = Header,
-            <<IntRemain:8>> = bxorbyte(Remain),
-            Int = IntHeader bxor IntRemain,
-            <<Int:8>>
+            <<Header:8, BinRemain/binary>> = Data,
+            <<Remain:8>> = bxorbyte(BinRemain),
+            Result = Header bxor Remain,
+            <<Result:8>>
     end.
 
 %%%
