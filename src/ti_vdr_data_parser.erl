@@ -108,6 +108,9 @@ combinemsgpackages(State, ID, FlowIndex, Data) ->
             {error, ""}
     end.
 
+%%%
+%%%
+%%%
 delmsgpackreqbyid(Reqs, ID) ->
     case Reqs of
         [] ->
@@ -127,11 +130,15 @@ delmsgpackreqbyid(Reqs, ID) ->
 %%% Get the unreceived package indexes for vdritem.req
 %%%
 getnotexistindexlist(Msg, ID, PackageTotal) ->
-    AllNumberList = getnumberlist(PackageTotal),
+    AllNumberList = numberlist(PackageTotal),
     ExistNumberList = getexistnumberlist(Msg, []),
     NotExistNumberList = removenumberfromlist(AllNumberList, ExistNumberList),
     composemsgpackagereq(ID, NotExistNumberList).
 
+
+%%%
+%%%
+%%%
 composemsgpackagereq(ID, NumberList) ->
     case NumberList of
         [] ->
@@ -147,10 +154,10 @@ composemsgpackagereq(ID, NumberList) ->
 %%%     If Number == 3, returns [3,2,1],
 %%%     If Number == 6, returns [6,5,4,3,2,1],
 %%%
-getnumberlist(Number) ->
+numberlist(Number) ->
     if
         Number > 0 ->
-            [Number|getnumberlist(Number-1)];
+            [Number|numberlist(Number-1)];
         Number =< 0 ->
             []
     end.
@@ -190,6 +197,7 @@ removenumberfromlist(NumberList, RemoveNumberList) ->
             [_ID,_FlowIndex,PackageIndex] = Header,
             removenumberfromlist([E || E <- NumberList, E =/= PackageIndex], Tail)
     end.
+
 
 %%%
 %%% Remove msg package with the same ID and Index from the msg packages
