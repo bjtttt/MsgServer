@@ -46,7 +46,7 @@ do_parse_data(_Socket, State, Data) ->
     case checkheaderbodyparity(HeaderBody, Charity) of
         ok ->
             RestoredData = restore0x7eand0x7d(State, Data),
-            <<_IDField:16,BodyPropField:16,_TelNumberField:48,_FlowNumberField:16,RemainField/binary>>=RestoredData,
+            <<IDField:16,BodyPropField:16,_TelNumberField:48,_FlowNumberField:16,RemainField/binary>>=RestoredData,
             <<_ReservedField:2,PackageField:1,_CryptoTypeField:3,BodyLengthField:10>> = BodyPropField,
             case PackageField of
                 <<0>> ->
@@ -85,19 +85,116 @@ do_parse_data(_Socket, State, Data) ->
     %        error
     %end.
 
-combinepackagemsg(State, Data) ->
-    Msg = State#vdritem.msg,
+combinemsgpackages(State, ID, Data) ->
+    CurAllMsg = State#vdritem.msg,
+    CurAllMsgByID = extractallmsgbyid(CurAllMsg, ID),
     case getpackagetotalandindex(Data) of
         {ok, PackageTotal, PackageIndex} ->
+            NewAllMsgByID = [[ID,Data]|CurAllMsgByID],
+            RemainPackage = removeexistnumberfromlist(getnumberlist(PackageTotal), NewAllMsgByID),
             ok;
         error ->
             {error, ""}
     end,
     {ok, State, Msg}.
 
+%%%
+%%% For example,
+%%%     If Number == 3, returns [3,2,1],
+%%%     If Number == 6, returns [6,5,4,3,2,1],
+%%%
+getnumberlist(Number) ->
+    if
+        Number > 0 ->
+            [Number|getnumberlist(Number-1)];
+        Number =< 0 ->
+            []
+    end.
+
+%%%
+%%% Check whether the index already exists in the msg packages or not.
+%%% If so, replace the old msg package.
+%%% If not, insert the new msg package.
+%%%
+replaceorinsertmsgpackage(Msg, ID, Data) ->
+    case getpackagetotalandindex(Data) of
+        error ->
+            Msg;
+        {ok, _PackageTotal, PackageIndex} ->
+            ExistNumberList = getexistnumberlist(Msg, []),
+            MatchNumberList = [E || E <- ExistNumberList, E == PackageIndex],
+            case MatchNumberList of
+                [] ->
+                    [[ID,Data]|Msg];
+                _ ->
+                    
+            end
+    end.
+
+%%%
+%%% Each msg package has a index, compose a list with all indexes from current msg packages
+%%%
+getexistnumberlist(Msg, NumberList) ->
+    case Msg of
+        [] ->
+            NumberList;
+        _ ->
+            [[_ID,Data]|Tail] = Msg,
+            case getpackagetotalandindex(Data) of
+                error ->
+                    getexistnumberlist(Tail, NumberList);
+                {ok, _PackageTotal, PackageIndex} ->
+                    [PackageIndex|getexistnumberlist(Tail, NumberList)]
+            end
+    end.
+
+%%%
+%%% For example,
+%%%     NumberList = [6,5,4,3,2,1]
+%%%     Msg : [[ID0,Data0],[ID1,Data1],[ID2,Data2],[ID3,Data3],...
+%%% Get packagetotal and packageindex from Datan,
+%%% Remove packageindex from NumberList
+%%%
+removeexistnumberfromlist(NumberList, Msg) ->
+    case Msg of
+        [] ->
+            NumberList;
+        _ ->
+            [[_ID,Data]|Tail] = Msg,
+            case getpackagetotalandindex(Data) of
+                error ->
+                    removeexistnumberfromlist(NumberList, Tail);
+                {ok, _PackageTotal, PackageIndex} ->
+                    NewNumberList = [E || E <- NumberList, E =/= PackageIndex],
+                    removeexistnumberfromlist(NewNumberList, Tail)
+            end
+    end.
+
+%%%
+%%% Msg : [[ID0,Data0],[ID1,Data1],[ID2,Data2],[ID3,Data3],...
+%%% This function is to created a new list with the ones whose IDn is the same as ID.
+%%%
+extractallmsgbyid(Msg, ID) ->
+    case Msg of
+        [] ->
+            Msg;
+        _ ->
+            [Header|Tail] = Msg,
+            [HeaderID,_HeaderData] = Header,
+            if
+                HeaderID == ID ->
+                    [Header|extractallmsgbyid(Tail, ID)];
+                HeaderID =/= ID ->
+                    [extractallmsgbyid(Tail, ID)]
+            end
+    end.
+    
 %searchinsertextractmsg(State, Data) ->
 %    
 
+%%%
+%%%
+%%%
 getpackagetotalandindex(Data) ->
     try dogetpackagetotalandindex(Data) of
         {ok, PackageTotal, PackageIndex} ->
@@ -113,7 +210,10 @@ getpackagetotalandindex(Data) ->
             ti_common:loginfo("ERROR : get data package total & index exit : ~p~n", [Exit]),
             error
     end.
-    
+
+%%%
+%%%
+%%%
 dogetpackagetotalandindex(Data) ->
     <<_IDField:16,_BodyPropField:16,_TelNumberField:48,_FlowNumberField:16,PackageInfoField:32,Body/binary>>=Data,
     <<PackageTotal:16,PackageIndex:16>> = PackageInfoField,
@@ -163,7 +263,7 @@ restore0x7eand0x7d(State, Data) ->
                 <<126>> ->
                     Result = binary:replace(BinBody, <<125,1>>, <<125>>),
                     FinalResult = binary:replace(Result, <<125,2>>, <<126>>),
-                    {ok, FinalResult};%dorestore0x7eand0x7d(BinBody)};
+                    {ok, FinalResult};
                 _ ->
                     ti_common:logerror("ERROR : wrong data tail (~p) from ~p~n",[BinTail, State#vdritem.addr]),
                     error
