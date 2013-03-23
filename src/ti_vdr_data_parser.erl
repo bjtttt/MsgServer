@@ -96,20 +96,32 @@ combinemsgpackages(State, ID, FlowIndex, Data) ->
             NewAllMsgByID = [[ID, FlowIndex, Data]|removemsgpackagebyindex(CurAllMsgByID, ID, PackageIndex)],
             case getnotexistindexlist(NewAllMsgByID, ID, PackageTotal) of
                 [] ->
-                    % Remove the related requests from State#vdiitem.req
+                    % Remove the related requests from State#vdritem.req & the related msg packages from State#vdritem.msg
+                    NewState = State#vdritem{msg=CurAllMsgByNotID, req=delmsgpackreqbyid(State#vdritem.req, ID)},
                     % Compose the msg here
                     % Call ASN.1 parser here
-                    ok;
+                    {ok, NewState};
                 _ ->
                     ok
             end;
         error ->
             {error, ""}
-    end,
-    {ok, State}.
+    end.
 
-removemsgpackagereqbyid(Reqs, ID) ->
-    {ok, Reqs}.
+delmsgpackreqbyid(Reqs, ID) ->
+    case Reqs of
+        [] ->
+            [];
+        _ ->
+            [H|T] = Reqs,
+            [HID,_HIdx] = H,
+            if
+                HID == ID ->
+                    delmsgpackreqbyid(T, ID);
+                HID =/= ID ->
+                    [H|delmsgpackreqbyid(T, ID)]
+            end
+    end.
 
 %%%
 %%% Get the unreceived package indexes for vdritem.req
