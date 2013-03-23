@@ -88,9 +88,12 @@ do_parse_data(_Socket, State, Data) ->
 combinepackagemsg(State, Data) ->
     Msg = State#vdritem.msg,
     case getpackagetotalandindex(Data) of
+        {ok, PackageTotal, PackageIndex} ->
+            ok;
         error ->
             {error, ""}
-    {ok, State, VDRMsg}.
+    end,
+    {ok, State, Msg}.
 
 %searchinsertextractmsg(State, Data) ->
 %    
