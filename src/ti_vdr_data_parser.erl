@@ -108,8 +108,8 @@ combinemsgpackages(State, ID, FlowIndex, Data) ->
     end,
     {ok, State}.
 
-removemsgpackagereqbyid(State, ID) ->
-    ok.
+removemsgpackagereqbyid(Reqs, ID) ->
+    {ok, Reqs}.
 
 %%%
 %%% Get the unreceived package indexes for vdritem.req
@@ -178,26 +178,6 @@ removenumberfromlist(NumberList, RemoveNumberList) ->
             [_ID,_FlowIndex,PackageIndex] = Header,
             removenumberfromlist([E || E <- NumberList, E =/= PackageIndex], Tail)
     end.
-
-%%%
-%%% Check whether the index already exists in the msg packages or not.
-%%% If so, replace the old msg package.
-%%% If not, insert the new msg package.
-%%%
-%replaceorinsertmsgpackage(Msg, ID, Data) ->
-%    case getpackagetotalandindex(Data) of
-%        error ->
-%            Msg;
-%        {ok, _PackageTotal, PackageIndex} ->
-%            ExistNumberList = getexistnumberlist(Msg, []),
-%            MatchNumberList = [E || E <- ExistNumberList, E == PackageIndex],
-%            case MatchNumberList of
-%                [] ->
-%                    [[ID,Data]|Msg];
-%                _ ->
-%                    ok
-%            end
-%    end.
 
 %%%
 %%% Remove msg package with the same ID and Index from the msg packages
@@ -287,9 +267,6 @@ extractallmsgbynotid(Msg, ID) ->
                     [Header|extractallmsgbyid(Tail, ID)]
             end
     end.
-
-%searchinsertextractmsg(State, Data) ->
-%    
 
 %%%
 %%% Return :
