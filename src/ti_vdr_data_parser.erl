@@ -85,20 +85,52 @@ do_parse_data(_Socket, State, Data) ->
     %        error
     %end.
 
-combinemsgpackages(State, ID, Data) ->
+combinemsgpackages(State, ID, FlowIndex, Data) ->
     CurAllMsg = State#vdritem.msg,
+    % Get all msg packages with ID
     CurAllMsgByID = extractallmsgbyid(CurAllMsg, ID),
+    % Get all msg packages without ID
+    CurAllMsgByNotID = extractallmsgbynotid(CurAllMsg, ID),
     case getpackagetotalandindex(Data) of
         {ok, PackageTotal, PackageIndex} ->
-            NewAllMsgByID = [[ID,Data]|CurAllMsgByID],
-            RemainPackage = removeexistnumberfromlist(getnumberlist(PackageTotal), NewAllMsgByID),
-            ok;
+            NewAllMsgByID = [[ID, FlowIndex, Data]|removemsgpackagebyindex(CurAllMsgByID, ID, PackageIndex)],
+            case getnotexistindexlist(NewAllMsgByID, ID, PackageTotal) of
+                [] ->
+                    % Remove the related requests from State#vdiitem.req
+                    % Compose the msg here
+                    % Call ASN.1 parser here
+                    ok;
+                _ ->
+                    ok
+            end;
         error ->
             {error, ""}
     end,
-    {ok, State, Msg}.
+    {ok, State}.
+
+removemsgpackagereqbyid(State, ID) ->
+    ok.
 
 %%%
+%%% Get the unreceived package indexes for vdritem.req
+%%%
+getnotexistindexlist(Msg, ID, PackageTotal) ->
+    AllNumberList = getnumberlist(PackageTotal),
+    ExistNumberList = getexistnumberlist(Msg, []),
+    NotExistNumberList = removenumberfromlist(AllNumberList, ExistNumberList),
+    composemsgpackagereq(ID, NotExistNumberList).
+
+composemsgpackagereq(ID, NumberList) ->
+    case NumberList of
+        [] ->
+            [];
+        _ ->
+            [Header|Tail] = NumberList,
+            [[ID, Header]|composemsgpackagereq(ID, Tail)]
+    end.
+
+%%%
+%%% Internal usage,
 %%% For example,
 %%%     If Number == 3, returns [3,2,1],
 %%%     If Number == 6, returns [6,5,4,3,2,1],
@@ -112,55 +144,103 @@ getnumberlist(Number) ->
     end.
 
 %%%
-%%% Check whether the index already exists in the msg packages or not.
-%%% If so, replace the old msg package.
-%%% If not, insert the new msg package.
-%%%
-replaceorinsertmsgpackage(Msg, ID, Data) ->
-    case getpackagetotalandindex(Data) of
-        error ->
-            Msg;
-        {ok, _PackageTotal, PackageIndex} ->
-            ExistNumberList = getexistnumberlist(Msg, []),
-            MatchNumberList = [E || E <- ExistNumberList, E == PackageIndex],
-            case MatchNumberList of
-                [] ->
-                    [[ID,Data]|Msg];
-                _ ->
-                    
-            end
-    end.
-
-%%%
+%%% Internal usage
 %%% Each msg package has a index, compose a list with all indexes from current msg packages
+%%% Return [[ID0,FlowIndex0,PackageIndex0],[ID1,FlowIndex1,PackageIndex1],[ID2,FlowIndex2,PackageIndex2],...]
 %%%
 getexistnumberlist(Msg, NumberList) ->
     case Msg of
         [] ->
             NumberList;
         _ ->
-            [[_ID,Data]|Tail] = Msg,
+            [[ID,FlowIndex,Data]|Tail] = Msg,
             case getpackagetotalandindex(Data) of
                 error ->
                     getexistnumberlist(Tail, NumberList);
                 {ok, _PackageTotal, PackageIndex} ->
-                    [PackageIndex|getexistnumberlist(Tail, NumberList)]
+                    [[ID,FlowIndex,PackageIndex]|getexistnumberlist(Tail, NumberList)]
+            end
+    end.
+
+%%%
+%%% Internal usage
+%%% Remove the specific number from the number list
+%%% Return
+%%%     if packagetotal == 6 and [[ID0,FlowIndex0,1],[ID1,FlowIndex1,3],[ID2,FlowIndex2,4]]
+%%%     [6,5,2]
+%%%
+removenumberfromlist(NumberList, RemoveNumberList) ->
+    case RemoveNumberList of
+        [] ->
+            NumberList;
+        _ ->
+            [Header|Tail] = RemoveNumberList,
+            [_ID,_FlowIndex,PackageIndex] = Header,
+            removenumberfromlist([E || E <- NumberList, E =/= PackageIndex], Tail)
+    end.
+
+%%%
+%%% Check whether the index already exists in the msg packages or not.
+%%% If so, replace the old msg package.
+%%% If not, insert the new msg package.
+%%%
+%replaceorinsertmsgpackage(Msg, ID, Data) ->
+%    case getpackagetotalandindex(Data) of
+%        error ->
+%            Msg;
+%        {ok, _PackageTotal, PackageIndex} ->
+%            ExistNumberList = getexistnumberlist(Msg, []),
+%            MatchNumberList = [E || E <- ExistNumberList, E == PackageIndex],
+%            case MatchNumberList of
+%                [] ->
+%                    [[ID,Data]|Msg];
+%                _ ->
+%                    ok
+%            end
+%    end.
+
+%%%
+%%% Remove msg package with the same ID and Index from the msg packages
+%%%
+removemsgpackagebyindex(Msg, ID, Index) ->
+    case Msg of
+        [] ->
+            [];
+        _ ->
+            [Header|Tail] = Msg,
+            [HeaderID,_HeaderFlowIndex,_HeaderBody] = Header,
+            if
+                HeaderID == ID ->
+                    case getpackagetotalandindex(Header) of
+                        error ->
+                            [Header,removemsgpackagebyindex(Tail,ID,Index)];
+                        {ok,_PackageTotal,PackageIndex} ->
+                            if
+                                PackageIndex == Index ->
+                                    removemsgpackagebyindex(Tail,ID,Index);
+                                PackageIndex =/= Index ->
+                                    [Header,removemsgpackagebyindex(Tail,ID,Index)]
+                            end
+                    end;
+                HeaderID =/= ID ->
+                    [Header,removemsgpackagebyindex(Tail,ID,Index)]
             end
     end.
 
 %%%
 %%% For example,
 %%%     NumberList = [6,5,4,3,2,1]
-%%%     Msg : [[ID0,Data0],[ID1,Data1],[ID2,Data2],[ID3,Data3],...
+%%%     Msg : [[ID0,FlowIndex0,Data0],[ID1,FlowIndex1,Data1],[ID2,FlowIndex2,Data2],[ID3,FlowIndex3,Data3],...
 %%% Get packagetotal and packageindex from Datan,
-%%% Remove packageindex from NumberList
+%%% Remove packageindex from NumberList.
+%%% This function is to get the NOT existed msg package indexes.
 %%%
 removeexistnumberfromlist(NumberList, Msg) ->
     case Msg of
         [] ->
             NumberList;
         _ ->
-            [[_ID,Data]|Tail] = Msg,
+            [[_ID,_FlowIndex,Data]|Tail] = Msg,
             case getpackagetotalandindex(Data) of
                 error ->
                     removeexistnumberfromlist(NumberList, Tail);
@@ -180,20 +260,41 @@ extractallmsgbyid(Msg, ID) ->
             Msg;
         _ ->
             [Header|Tail] = Msg,
-            [HeaderID,_HeaderData] = Header,
+            [HeaderID,_HeaderFlowIndex,_HeaderData] = Header,
             if
                 HeaderID == ID ->
                     [Header|extractallmsgbyid(Tail, ID)];
                 HeaderID =/= ID ->
-                    [extractallmsgbyid(Tail, ID)]
+                    extractallmsgbyid(Tail, ID)
             end
     end.
-    
+
+%%%
+%%% Msg : [[ID0,Data0],[ID1,Data1],[ID2,Data2],[ID3,Data3],...
+%%% This function is to created a new list with the ones whose IDn is NOT the same as ID.
+%%%
+extractallmsgbynotid(Msg, ID) ->
+    case Msg of
+        [] ->
+            Msg;
+        _ ->
+            [Header|Tail] = Msg,
+            [HeaderID,_HeaderFlowIndex,_HeaderData] = Header,
+            if
+                HeaderID == ID ->
+                    extractallmsgbyid(Tail, ID);
+                HeaderID =/= ID ->
+                    [Header|extractallmsgbyid(Tail, ID)]
+            end
+    end.
+
 %searchinsertextractmsg(State, Data) ->
 %    
 
 %%%
-%%%
+%%% Return :
+%%%     {ok, PackageTotal, PackageIndex}
+%%%     error
 %%%
 getpackagetotalandindex(Data) ->
     try dogetpackagetotalandindex(Data) of
@@ -212,13 +313,13 @@ getpackagetotalandindex(Data) ->
     end.
 
 %%%
-%%%
+%%% internal usage
+%%% {ok, PackageTotal, PackageIndex}
 %%%
 dogetpackagetotalandindex(Data) ->
-    <<_IDField:16,_BodyPropField:16,_TelNumberField:48,_FlowNumberField:16,PackageInfoField:32,Body/binary>>=Data,
+    <<_IDField:16,_BodyPropField:16,_TelNumberField:48,_FlowNumberField:16,PackageInfoField:32,_Body/binary>>=Data,
     <<PackageTotal:16,PackageIndex:16>> = PackageInfoField,
     {ok, PackageTotal, PackageIndex}.
-    
 
 %%%
 %%%
