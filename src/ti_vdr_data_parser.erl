@@ -302,7 +302,7 @@ checkmsg(Packages, Total) ->
     Len = length(Packages),
     if
         Len == Total ->
-            case delnumfromnumlist(numberlist(Total), Packages) of
+            case delnumfromnumlist([E || E <- lists:seq(1, Total)], Packages) of
                 [] ->
                     ok;
                 _ ->
@@ -418,13 +418,13 @@ composerealmsg(Msg) ->
 %%%     If Number == 3, returns [3,2,1],
 %%%     If Number == 6, returns [6,5,4,3,2,1],
 %%%
-numberlist(Number) ->
-    if
-        Number > 0 ->
-            [Number|numberlist(Number-1)];
-        Number =< 0 ->
-            []
-    end.
+%numberlist(Number) ->
+%    if
+%        Number > 0 ->
+%            [Number|numberlist(Number-1)];
+%        Number =< 0 ->
+%            []
+%    end.
 
 %%%
 %%% Internal usage
