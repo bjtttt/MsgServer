@@ -20,59 +20,84 @@ restore_data(Data) ->
 %%% Parse the data from VDR
 %%%
 parse_data(Socket, State, Data) ->
+    % Display the data source IP
     case ti_common:safepeername(Socket) of
         {ok, {Address, _Port}} ->
             ti_common:loginfo("Paring data from VDR IP : ~p~n", [Address]);
         {error, Explain} ->
             ti_common:loginfo("Parsing data from unknown VDR : ~p~n", [Explain])
     end,
+    % Concrete jobs here
     try do_parse_data(Socket, State, Data) of
         ok ->
             ok;
-        error ->
-            error
+        Error ->
+            Error
     catch
         error:Error ->
-            ti_common:loginfo("ERROR : parsing data error : ~p~n", [Error]);
+            ti_common:loginfo("ERROR : parsing data error : ~p~n", [Error]),
+            error;
         throw:Throw ->
-            ti_common:loginfo("ERROR : parsing data throw : ~p~n", [Throw]);
+            ti_common:loginfo("ERROR : parsing data throw : ~p~n", [Throw]),
+            error;
         exit:Exit ->
-            ti_common:loginfo("ERROR : parsing data exit : ~p~n", [Exit])
+            ti_common:loginfo("ERROR : parsing data exit : ~p~n", [Exit]),
+            error
     end.
 
+%%%
+%%% Return :
+%%%     ok
+%%%     {error, }
+%%%
 do_parse_data(_Socket, State, Data) ->
-    NoCharityLength = byte_size(Data)-1,
-    <<HeaderBody:NoCharityLength,Charity/binary>>=Data,
-    case checkheaderbodyparity(HeaderBody, Charity) of
-        ok ->
-            RestoredData = restore0x7eand0x7d(State, Data),
-            <<IDField:16,BodyPropField:16,_TelNumberField:48,_FlowNumberField:16,RemainField/binary>>=RestoredData,
-            <<_ReservedField:2,PackageField:1,_CryptoTypeField:3,BodyLengthField:10>> = BodyPropField,
+    NoParityLen = byte_size(Data) - 1,
+    <<HeaderBody:NoParityLen,Parity/binary>>=Data,
+    CalcParity = bxorbytelist(HeaderBody),
+    if
+        CalcParity == Parity ->
+            RestoredData = restoremsg(State, Data),
+            <<IDField:16,BodyPropField:16,_TelNumberField:48,FlowNumberField:16,TailField/binary>>=RestoredData,
+            <<_ReservedField:2,PackageField:1,_CryptoTypeField:3,BodyLenField:10>> = BodyPropField,
             case PackageField of
-                <<0>> ->
-                    Body = RemainField,
-                    ActBodyLength = byte_size(Body),
-                    <<BodyLength:10>> = BodyLengthField,
+                0 ->
+                    Body = TailField,
+                    ActBodyLen = byte_size(Body),
+                    <<BodyLen:10>> = BodyLenField,
                     if
-                        BodyLength == ActBodyLength ->
+                        BodyLen == ActBodyLen ->
+                            % Call ASN.1 parser here
                             ok;
-                        BodyLength =/= ActBodyLength ->
-                            error
+                        BodyLen =/= ActBodyLen ->
+                            % Ask VDR resend this msg
+                            {error, [FlowNumberField]}
                     end;
-                <<1>> ->
-                    <<PackageInfoField:32,Body/binary>> = RemainField,
-                    ActBodyLength = byte_size(Body),
-                    <<PackageTotal:16,PackageIndex:16>> = PackageInfoField,
-                    <<BodyLength:10>> = BodyLengthField,
+                1 ->
+                    <<PackageInfoField:32,Body/binary>> = TailField,
+                    ActBodyLen = byte_size(Body),
+                    <<Total:16,Index:16>> = PackageInfoField,
                     if
-                        BodyLength == ActBodyLength ->
-                            ok;
-                        BodyLength =/= ActBodyLength ->
-                            error
+                        Total =< 1 ->
+                            {error, [FlowNumberField]};
+                        Total > 1 ->
+                            if
+                                Index > Total ->
+                                    {error, [FlowNumberField]};
+                                Index =< Total ->
+                                    <<BodyLen:10>> = BodyLenField,
+                                    if
+                                        BodyLen == ActBodyLen ->
+                                            combinemsgpacks(State, IDField, FlowNumberField, Total, Index, Body),
+                                            ok;
+                                        BodyLen =/= ActBodyLen ->
+                                            % Ask VDR resend this msg
+                                            {error, [FlowNumberField]}
+                                    end
+                            end
                     end
             end;
-        error ->
-            ti_common:logerror("ERROR : data charity error~n")
+        CalcParity =/= Parity ->
+            ti_common:logerror("ERROR : calculated parity (~p) =/= data parity (~p)~n", [CalcParity, Parity])
     end.
     %VDRItem = ets:lookup(vdrtable, Socket),
     %Length = length(VDRItem),
@@ -85,12 +110,63 @@ do_parse_data(_Socket, State, Data) ->
     %        error
     %end.
 
-combinemsgpackages(State, ID, FlowIndex, Data) ->
+%%%
+%%% XOR a binary list
+%%% The caller must make sure of the length of data must be larger than or equal to 1
+%%% Input : Data is a binary list
+%%%
+bxorbytelist(Data) ->
+    Len = byte_size(Data),
+    case Len of
+        1 ->
+            Data;
+        2 ->
+            <<HInt:8,TInt:8>> = Data,
+            Res = HInt bxor TInt,
+            <<Res>>;
+        _ ->
+            <<HInt:8, T/binary>> = Data,
+            <<TInt:8>> = bxorbytelist(T),
+            Res = HInt bxor TInt,
+            <<Res>>
+    end.
+
+%%%
+%%% 0x7d0x1 -> ox7d & 0x7d0x2 -> 0x7e
+%%%
+restoremsg(State, Data) ->
+    BinLength = length(Data),
+    {BinHeader, BinRemain} = split_binary(Data, 1),
+    {BinBody, BinTail} = split_binary(BinRemain, BinLength-2),
+    case BinHeader of
+        <<126>> ->
+            % 126 is 0x7e
+            case BinTail of
+                <<126>> ->
+                    Result = binary:replace(BinBody, <<125,1>>, <<125>>),
+                    FinalResult = binary:replace(Result, <<125,2>>, <<126>>),
+                    {ok, FinalResult};
+                _ ->
+                    ti_common:logerror("ERROR : wrong data tail (~p) from ~p~n",[BinTail, State#vdritem.addr]),
+                    error
+            end;
+        _ ->
+            ti_common:logerror("ERROR: wWrong data header (~p) from ~p~n",[BinHeader, State#vdritem.addr]),
+            error
+    end.
+
+%%%
+%%% Check whether received a complete msg packages
+%%%
+combinemsgpacks(State, ID, FlowIndex, Total, Index, Body) ->
     CurAllMsg = State#vdritem.msg,
-    % Get all msg packages with ID
-    CurAllMsgByID = extractallmsgbyid(CurAllMsg, ID),
-    % Get all msg packages without ID
-    CurAllMsgByNotID = extractallmsgbynotid(CurAllMsg, ID),
+    % Get all msg packages with the same ID
+    CurAllMsgWithID = extractallmsgbyid(CurAllMsg, ID),
+    % Get all msg packages without the same ID
+    CurAllMsgWithoutID = extractallmsgbynotid(CurAllMsg, ID),
+    case CurAllMsgWithID of
+        [] ->
+            
     case getpackagetotalandindex(Data) of
         {ok, PackageTotal, PackageIndex} ->
             NewAllMsgByID = [[ID, FlowIndex, Data]|removemsgpackagebyindex(CurAllMsgByID, ID, PackageIndex)],
@@ -107,6 +183,7 @@ combinemsgpackages(State, ID, FlowIndex, Data) ->
         error ->
             {error, ""}
     end.
+
 
 %%%
 %%%
@@ -318,58 +395,6 @@ dogetpackagetotalandindex(Data) ->
     <<PackageTotal:16,PackageIndex:16>> = PackageInfoField,
     {ok, PackageTotal, PackageIndex}.
 
-%%%
-%%%
-%%%
-checkheaderbodyparity(Data, Parity) ->
-    Result = bxorbyte(Data),
-    if
-        Result == Parity ->
-            ok;
-        Result =/= Parity ->
-            error
-    end.
-
-%%%
-%%%
-%%%
-bxorbyte(Data) ->
-    ByteLength = byte_size(Data),
-    case ByteLength of
-        0 ->
-            <<0>>;
-        1 ->
-            <<Data:8>>;
-        _ ->
-            <<Header:8, BinRemain/binary>> = Data,
-            <<Remain:8>> = bxorbyte(BinRemain),
-            Result = Header bxor Remain,
-            <<Result:8>>
-    end.
-
-%%%
-%%% Process 0x7e & 0x7d
-%%%
-restore0x7eand0x7d(State, Data) ->
-    BinLength = length(Data),
-    {BinHeader, BinRemain} = split_binary(Data, 1),
-    {BinBody, BinTail} = split_binary(BinRemain, BinLength-2),
-    case BinHeader of
-        <<126>> ->
-            % 126 is 0x7e
-            case BinTail of
-                <<126>> ->
-                    Result = binary:replace(BinBody, <<125,1>>, <<125>>),
-                    FinalResult = binary:replace(Result, <<125,2>>, <<126>>),
-                    {ok, FinalResult};
-                _ ->
-                    ti_common:logerror("ERROR : wrong data tail (~p) from ~p~n",[BinTail, State#vdritem.addr]),
-                    error
-            end;
-        _ ->
-            ti_common:logerror("ERROR: wWrong data header (~p) from ~p~n",[BinHeader, State#vdritem.addr]),
-            error
-    end.
 
 %%%
 %%% Check whether it is a sub-package
