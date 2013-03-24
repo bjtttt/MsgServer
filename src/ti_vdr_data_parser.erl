@@ -18,6 +18,10 @@ restore_data(Data) ->
 
 %%%
 %%% Parse the data from VDR
+%%% Return :
+%%%     ok
+%%%     {fail, [Resend FlowIndex List]}
+%%%     error
 %%%
 parse_data(Socket, State, Data) ->
     % Display the data source IP
@@ -48,7 +52,7 @@ parse_data(Socket, State, Data) ->
 %%%
 %%% Return :
 %%%     ok
-%%%     {error, }
+%%%     {fail, [Resend FlowIndex List]}
 %%%
 do_parse_data(_Socket, State, Data) ->
     NoParityLen = byte_size(Data) - 1,
@@ -70,7 +74,7 @@ do_parse_data(_Socket, State, Data) ->
                             ok;
                         BodyLen =/= ActBodyLen ->
                             % Ask VDR resend this msg
-                            {error, [FlowNumberField]}
+                            {fail, [FlowNumberField]}
                     end;
                 1 ->
                     <<PackageInfoField:32,Body/binary>> = TailField,
@@ -78,11 +82,11 @@ do_parse_data(_Socket, State, Data) ->
                     <<Total:16,Index:16>> = PackageInfoField,
                     if
                         Total =< 1 ->
-                            {error, [FlowNumberField]};
+                            {fail, [FlowNumberField]};
                         Total > 1 ->
                             if
                                 Index > Total ->
-                                    {error, [FlowNumberField]};
+                                    {fail, [FlowNumberField]};
                                 Index =< Total ->
                                     <<BodyLen:10>> = BodyLenField,
                                     if
@@ -91,7 +95,7 @@ do_parse_data(_Socket, State, Data) ->
                                             ok;
                                         BodyLen =/= ActBodyLen ->
                                             % Ask VDR resend this msg
-                                            {error, [FlowNumberField]}
+                                            {fail, [FlowNumberField]}
                                     end
                             end
                     end
