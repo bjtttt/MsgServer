@@ -42,24 +42,16 @@ handle_info({tcp, Socket, Data}, State) ->
             ok;
         _ ->
             case ti_vdr_data_parser:parse_data(Socket, State, Data) of
-                {ok, Decoded} ->
+                {ok, Decoded, NewState} ->
                     process_vdr_data(Socket, Decoded),
                     inet:setopts(Socket, [{active, once}]),
-                    {noreply, State#vdritem{msg=[]}};
-                {ok, Decoded, Remain} ->
-                    process_vdr_data(Socket, Decoded),
+                    {noreply, NewState};
+                {fail, _ResendList} ->
                     inet:setopts(Socket, [{active, once}]),
-                    {noreply, State#vdritem{msg=Remain}};
-                {ok, Decoded, Remain, _VDRRequest} ->
-                    process_vdr_data(Socket, Decoded),
+                    {noreply, State};
+                error ->
                     inet:setopts(Socket, [{active, once}]),
-                    {noreply, State#vdritem{msg=Remain}};
-                {error, fail, _Reason, Remain} ->
-                    inet:setopts(Socket, [{active, once}]),
-                    {noreply, State#vdritem{msg=Remain}};
-                {error, fail, _Reason, Remain, _VDRRequest} ->
-                    inet:setopts(Socket, [{active, once}]),
-                    {noreply, State#vdritem{msg=Remain}}
+                    {noreply, State}
             end
     end;
 	%inet:setopts(Socket, [{active, once}]),

@@ -8,18 +8,18 @@
 
 -include("ti_header.hrl").
 
--export([restore_data/1, parse_data/3, compose_data/1]).
+-export([parse_data/3]).
 
 %%%
 %%% check 0x7d
 %%%
-restore_data(Data) ->
-    Data.
+%restore_data(Data) ->
+%    Data.
 
 %%%
 %%% Parse the data from VDR
 %%% Return :
-%%%     ok
+%%%     {ok, Decoed, State}
 %%%     {fail, [Resend FlowIndex List]}
 %%%     error
 %%%
@@ -33,10 +33,12 @@ parse_data(Socket, State, Data) ->
     end,
     % Concrete jobs here
     try do_parse_data(Socket, State, Data) of
-        ok ->
-            ok;
-        Error ->
-            Error
+        {ok, Decoed, State} ->
+            {ok, Decoed, State};
+        {fail, [FlowNumber]} ->
+            {fail, [FlowNumber]};
+        error ->
+            error
     catch
         error:Error ->
             ti_common:loginfo("ERROR : parsing data error : ~p~n", [Error]),
@@ -50,9 +52,11 @@ parse_data(Socket, State, Data) ->
     end.
 
 %%%
+%%% Internal usage for parse_data(Socket, State, Data)
 %%% Return :
-%%%     ok
+%%%     {ok, Decoded, State}
 %%%     {fail, [Resend FlowIndex List]}
+%%%     error
 %%%
 do_parse_data(_Socket, State, Data) ->
     NoParityLen = byte_size(Data) - 1,
@@ -71,7 +75,8 @@ do_parse_data(_Socket, State, Data) ->
                     if
                         BodyLen == ActBodyLen ->
                             % Call ASN.1 parser here
-                            ok;
+                            Decoded = [],
+                            {ok, Decoded, State};
                         BodyLen =/= ActBodyLen ->
                             % Ask VDR resend this msg
                             {fail, [FlowNumberField]}
@@ -91,8 +96,14 @@ do_parse_data(_Socket, State, Data) ->
                                     <<BodyLen:10>> = BodyLenField,
                                     if
                                         BodyLen == ActBodyLen ->
-                                            combinemsgpacks(State, IDField, FlowNumberField, Total, Index, Body),
-                                            ok;
+                                            case combinemsgpacks(State, IDField, FlowNumberField, Total, Index, Body) of
+                                                {complete, _BinMsg, NewState} ->
+                                                    % Call ASN.1 parser here
+                                                    Decoded = [],
+                                                    {ok, Decoded, NewState};
+                                                {notcomplete, NewState} ->
+                                                    {ok, NewState}
+                                            end;
                                         BodyLen =/= ActBodyLen ->
                                             % Ask VDR resend this msg
                                             {fail, [FlowNumberField]}
@@ -101,7 +112,8 @@ do_parse_data(_Socket, State, Data) ->
                     end
             end;
         CalcParity =/= Parity ->
-            ti_common:logerror("ERROR : calculated parity (~p) =/= data parity (~p)~n", [CalcParity, Parity])
+            ti_common:logerror("ERROR : calculated parity (~p) =/= data parity (~p) from ~p~n", [CalcParity, Parity, State#vdritem.addr]),
+            error
     end.
     %VDRItem = ets:lookup(vdrtable, Socket),
     %Length = length(VDRItem),
@@ -161,73 +173,244 @@ restoremsg(State, Data) ->
 
 %%%
 %%% Check whether received a complete msg packages
+%%% State#vdritem.msg : [[ID0,FlowNum0,Total0,Index0,Data0],[ID1,FlowNum1,Total1,Index1,Data1],[ID2,FlowNum2,Total2,Index2,Data2],..
 %%%
-combinemsgpacks(State, ID, FlowIndex, Total, Index, Body) ->
-    CurAllMsg = State#vdritem.msg,
+combinemsgpacks(State, ID, FlowNum, Total, Idx, Body) ->
     % Get all msg packages with the same ID
-    CurAllMsgWithID = extractallmsgbyid(CurAllMsg, ID),
+    MsgWithID = getmsgwithid(State#vdritem.msg,ID),        % [E || E <- State#vdritem.msg, [HID,_HFlowNum,_HTotal,_HIdx,_HBody] = E, HID == ID ]
     % Get all msg packages without the same ID
-    CurAllMsgWithoutID = extractallmsgbynotid(CurAllMsg, ID),
-    case CurAllMsgWithID of
+    MsgWithoutID = getmsgwithoutid(State#vdritem.msg,ID),  % [E || E <- State#vdritem.msg, [HID,_HFlowNum,_HTotal,_HIdx,_HBody] = E, HID =/= ID ]
+    case MsgWithID of
         [] ->
-            
-    case getpackagetotalandindex(Data) of
-        {ok, PackageTotal, PackageIndex} ->
-            NewAllMsgByID = [[ID, FlowIndex, Data]|removemsgpackagebyindex(CurAllMsgByID, ID, PackageIndex)],
-            case getnotexistindexlist(NewAllMsgByID, ID, PackageTotal) of
-                [] ->
-                    % Remove the related requests from State#vdritem.req & the related msg packages from State#vdritem.msg
-                    NewState = State#vdritem{msg=CurAllMsgByNotID, req=delmsgpackreqbyid(State#vdritem.req, ID)},
-                    % Compose the msg here
-                    % Call ASN.1 parser here
-                    {ok, NewState};
-                _ ->
-                    ok
-            end;
-        error ->
-            {error, ""}
+            NewState = State#vdritem{msg=[[ID,FlowNum,Total,Idx,Body]|State#vdritem.msg]},
+            {notcomplete,NewState};
+        _ ->
+            NewMsgWithID = [[ID,FlowNum,Total,Idx,Body]|delpackwithidx(MsgWithID,FlowNum,Total,Idx)],
+            case checkmsg(NewMsgWithID, Total) of
+                ok ->
+                    Msg = composemsg(NewMsgWithID, Total),
+                    [H|_T] = Msg,
+                    [_ID,FlowNum,_Total,_Idx,_Body] = H,
+                    case checkmsgflownum(Msg, FlowNum) of
+                        ok ->
+                            NewState = State#vdritem{msg=MsgWithoutID},
+                            BinMsg = composerealmsg(Msg),
+                            {complete, BinMsg, NewState};
+                        error ->
+                            NewState = State#vdritem{msg=[NewMsgWithID|MsgWithoutID]},
+                            {notcomplete, NewState}
+                    end;
+                error ->
+                    NewState = State#vdritem{msg=[NewMsgWithID|MsgWithoutID]},
+                    {notcomplete, NewState}
+            end
     end.
 
+%%%
+%%% Msg : [[ID0,FlowNum0,Total0,Index0,Data0],[ID1,FlowNum1,Total1,Index1,Data1],[ID2,FlowNum2,Total2,Index2,Data2],...
+%%% This function is to created a new list with the ones whose IDn is the same as ID.
+%%%
+getmsgwithid(Msg, ID) ->
+    case Msg of
+        [] ->
+            Msg;
+        _ ->
+            [H|T] = Msg,
+            [HID,_HFlowNum,_HTotal,_HIdx,_HBody] = H,
+            if
+                HID == ID ->
+                    [H|getmsgwithid(T, ID)];
+                HID =/= ID ->
+                    getmsgwithid(T, ID)
+            end
+    end.
+
+%%%
+%%% Msg : [[ID0,FlowNum0,Total0,Index0,Data0],[ID1,FlowNum1,Total1,Index1,Data1],[ID2,FlowNum2,Total2,Index2,Data2],...
+%%% This function is to created a new list with the ones whose IDn is NOT the same as ID.
+%%%
+getmsgwithoutid(Msg, ID) ->
+    case Msg of
+        [] ->
+            Msg;
+        _ ->
+            [H|T] = Msg,
+            [HID,_HFlowNum,_HTotal,_HIdx,_HBody] = H,
+            if
+                HID == ID ->
+                    getmsgwithoutid(T, ID);
+                HID =/= ID ->
+                    [H|getmsgwithoutid(T, ID)]
+            end
+    end.
 
 %%%
 %%%
 %%%
-delmsgpackreqbyid(Reqs, ID) ->
-    case Reqs of
+%delmsgpackreqbyid(Reqs, ID) ->
+%    case Reqs of
+%        [] ->
+%            [];
+%        _ ->
+%            [H|T] = Reqs,
+%            [HID,_HIdx] = H,
+%            if
+%                HID == ID ->
+%                    delmsgpackreqbyid(T, ID);
+%                HID =/= ID ->
+%                    [H|delmsgpackreqbyid(T, ID)]
+%            end
+%    end.
+
+%%%
+%%% Remove msg package with the same Index from the msg packages
+%%% Before calling this method, please first call getmsgwithid(Msg, ID) to get the msg packages with the ID.
+%%%
+delpackwithidx(Msg, FlowNum, Total, Idx) ->
+    case Msg of
         [] ->
             [];
         _ ->
-            [H|T] = Reqs,
-            [HID,_HIdx] = H,
+            [H|T] = Msg,
+            [_HID,HFlowNum,HTotal,HIdx,_HBody] = H,
             if
-                HID == ID ->
-                    delmsgpackreqbyid(T, ID);
-                HID =/= ID ->
-                    [H|delmsgpackreqbyid(T, ID)]
+                HFlowNum + (HTotal - HIdx) < FlowNum ->
+                    % This is the 2nd msg and dicard the 1st one
+                    delpackwithidx(T,FlowNum,Total,Idx);
+                HFlowNum + (HTotal - HIdx) >= FlowNum ->
+                    DiffTotal = HTotal - Total,
+                    if
+                        DiffTotal == 0 ->
+                            if
+                                Idx == HIdx ->
+                                    delpackwithidx(T,FlowNum,Total,Idx);
+                                Idx =/= HIdx ->
+                                    [H,delpackwithidx(T,FlowNum,Total,Idx)]
+                            end;
+                        DiffTotal =/= 0 ->
+                            % Take the new msg package as the standard
+                            delpackwithidx(T,FlowNum,Total,Idx)
+                    end
             end
+    end.
+
+%%%
+%%% Internal usage for combinemsgpacks(State, ID, FlowNum, Total, Idx, Body)
+%%% Check whether Packages includes all packages by checking the package index
+%%%
+checkmsg(Packages, Total) ->
+    Len = length(Packages),
+    if
+        Len == Total ->
+            case delnumfromnumlist(numberlist(Total), Packages) of
+                [] ->
+                    ok;
+                _ ->
+                    error
+            end;
+        Len =/= Total ->
+            error
+    end.
+
+%%%
+%%% Internal usage for checkmsg(Packages, Total)
+%%% Remove the package index from the complete package index list
+%%% Return the missing package index list
+%%%
+delnumfromnumlist(NumList, Packages) ->
+    case Packages of
+        [] ->
+            NumList;
+        _ ->
+            [H|T] = Packages,
+            [_ID,_FlowNum,_Total,Idx,_Body] = H,
+            NewNumList = [E || E <- NumList, E =/= Idx],
+            delnumfromnumlist(NewNumList, T)
+    end.
+
+%%%
+%%% Internal usage for combinemsgpacks(State, ID, FlowNum, Total, Idx, Body)
+%%% The caller will check the length of Packages first
+%%%
+composemsg(Packages, Total) ->
+    if
+        Total < 1 ->
+            [];
+        Total >= 1 ->
+            [getpackbyidx(Packages, Total)|composemsg(Packages, Total-1)]
+    end.
+
+%%%
+%%% Internal usag for composemsg(Packages, Total)
+%%%
+getpackbyidx(Packages, Idx) ->
+    case Packages of
+        [] ->
+            [];
+        _ ->
+            [H|T] = Packages,
+            [_ID,_FlowNum,_Total,HIdx,_Body] = H,
+            if
+                HIdx == Idx ->
+                    {ok, H};
+                HIdx =/= Idx ->
+                    getpackbyidx(T, Idx)
+            end
+    end.
+
+%%%
+%%% Internal usage for combinemsgpacks(State, ID, FlowNum, Total, Idx, Body)
+%%% Caller has make sure that Msg is not []
+%%%
+checkmsgflownum(Msg, FlowNum) ->
+    case Msg of
+        [] ->
+            ok;
+        _ ->
+            [H|T] = Msg,
+            [_ID,HFlowNum,_Total,_HIdx,_Body] = H,
+            DiffFlowNum = HFlowNum - FlowNum,
+            if
+                DiffFlowNum == 1 ->
+                    checkmsgflownum(T, FlowNum+1);
+                DiffFlowNum =/= 1 ->
+                    error
+            end
+    end.
+
+%%%
+%%%
+%%%
+composerealmsg(Msg) ->
+    case Msg of
+        [] ->
+            [];
+        _ ->
+            [H|T] = Msg,
+            [_ID,_FlowNum,_Total,_HIdx,Body] = H,
+            [composerealmsg(T)|Body]
     end.
 
 %%%
 %%% Get the unreceived package indexes for vdritem.req
 %%%
-getnotexistindexlist(Msg, ID, PackageTotal) ->
-    AllNumberList = numberlist(PackageTotal),
-    ExistNumberList = getexistnumberlist(Msg, []),
-    NotExistNumberList = removenumberfromlist(AllNumberList, ExistNumberList),
-    composemsgpackagereq(ID, NotExistNumberList).
-
-
+%getnotexistindexlist(Msg, ID, PackageTotal) ->
+%    AllNumberList = numberlist(PackageTotal),
+%    ExistNumberList = getexistnumberlist(Msg, []),
+%    NotExistNumberList = removenumberfromlist(AllNumberList, ExistNumberList),
+%    composemsgpackagereq(ID, NotExistNumberList).
+%
 %%%
 %%%
 %%%
-composemsgpackagereq(ID, NumberList) ->
-    case NumberList of
-        [] ->
-            [];
-        _ ->
-            [Header|Tail] = NumberList,
-            [[ID, Header]|composemsgpackagereq(ID, Tail)]
-    end.
+%composemsgpackagereq(ID, NumberList) ->
+%    case NumberList of
+%        [] ->
+%            [];
+%        _ ->
+%            [Header|Tail] = NumberList,
+%            [[ID, Header]|composemsgpackagereq(ID, Tail)]
+%    end.
 
 %%%
 %%% Internal usage,
@@ -248,20 +431,20 @@ numberlist(Number) ->
 %%% Each msg package has a index, compose a list with all indexes from current msg packages
 %%% Return [[ID0,FlowIndex0,PackageIndex0],[ID1,FlowIndex1,PackageIndex1],[ID2,FlowIndex2,PackageIndex2],...]
 %%%
-getexistnumberlist(Msg, NumberList) ->
-    case Msg of
-        [] ->
-            NumberList;
-        _ ->
-            [[ID,FlowIndex,Data]|Tail] = Msg,
-            case getpackagetotalandindex(Data) of
-                error ->
-                    getexistnumberlist(Tail, NumberList);
-                {ok, _PackageTotal, PackageIndex} ->
-                    [[ID,FlowIndex,PackageIndex]|getexistnumberlist(Tail, NumberList)]
-            end
-    end.
-
+%getexistnumberlist(Msg, NumberList) ->
+%    case Msg of
+%        [] ->
+%            NumberList;
+%        _ ->
+%            [[ID,FlowIndex,Data]|Tail] = Msg,
+%            case getpackagetotalandindex(Data) of
+%                error ->
+%                    getexistnumberlist(Tail, NumberList);
+%                {ok, _PackageTotal, PackageIndex} ->
+%                    [[ID,FlowIndex,PackageIndex]|getexistnumberlist(Tail, NumberList)]
+%            end
+%    end.
+%
 %%%
 %%% Internal usage
 %%% Remove the specific number from the number list
@@ -269,45 +452,16 @@ getexistnumberlist(Msg, NumberList) ->
 %%%     if packagetotal == 6 and [[ID0,FlowIndex0,1],[ID1,FlowIndex1,3],[ID2,FlowIndex2,4]]
 %%%     [6,5,2]
 %%%
-removenumberfromlist(NumberList, RemoveNumberList) ->
-    case RemoveNumberList of
-        [] ->
-            NumberList;
-        _ ->
-            [Header|Tail] = RemoveNumberList,
-            [_ID,_FlowIndex,PackageIndex] = Header,
-            removenumberfromlist([E || E <- NumberList, E =/= PackageIndex], Tail)
-    end.
-
-
-%%%
-%%% Remove msg package with the same ID and Index from the msg packages
-%%%
-removemsgpackagebyindex(Msg, ID, Index) ->
-    case Msg of
-        [] ->
-            [];
-        _ ->
-            [Header|Tail] = Msg,
-            [HeaderID,_HeaderFlowIndex,_HeaderBody] = Header,
-            if
-                HeaderID == ID ->
-                    case getpackagetotalandindex(Header) of
-                        error ->
-                            [Header,removemsgpackagebyindex(Tail,ID,Index)];
-                        {ok,_PackageTotal,PackageIndex} ->
-                            if
-                                PackageIndex == Index ->
-                                    removemsgpackagebyindex(Tail,ID,Index);
-                                PackageIndex =/= Index ->
-                                    [Header,removemsgpackagebyindex(Tail,ID,Index)]
-                            end
-                    end;
-                HeaderID =/= ID ->
-                    [Header,removemsgpackagebyindex(Tail,ID,Index)]
-            end
-    end.
-
+%removenumberfromlist(NumberList, RemoveNumberList) ->
+%    case RemoveNumberList of
+%        [] ->
+%            NumberList;
+%        _ ->
+%            [Header|Tail] = RemoveNumberList,
+%            [_ID,_FlowIndex,PackageIndex] = Header,
+%            removenumberfromlist([E || E <- NumberList, E =/= PackageIndex], Tail)
+%    end.
+%
 %%%
 %%% For example,
 %%%     NumberList = [6,5,4,3,2,1]
@@ -316,96 +470,51 @@ removemsgpackagebyindex(Msg, ID, Index) ->
 %%% Remove packageindex from NumberList.
 %%% This function is to get the NOT existed msg package indexes.
 %%%
-removeexistnumberfromlist(NumberList, Msg) ->
-    case Msg of
-        [] ->
-            NumberList;
-        _ ->
-            [[_ID,_FlowIndex,Data]|Tail] = Msg,
-            case getpackagetotalandindex(Data) of
-                error ->
-                    removeexistnumberfromlist(NumberList, Tail);
-                {ok, _PackageTotal, PackageIndex} ->
-                    NewNumberList = [E || E <- NumberList, E =/= PackageIndex],
-                    removeexistnumberfromlist(NewNumberList, Tail)
-            end
-    end.
-
-%%%
-%%% Msg : [[ID0,Data0],[ID1,Data1],[ID2,Data2],[ID3,Data3],...
-%%% This function is to created a new list with the ones whose IDn is the same as ID.
-%%%
-extractallmsgbyid(Msg, ID) ->
-    case Msg of
-        [] ->
-            Msg;
-        _ ->
-            [Header|Tail] = Msg,
-            [HeaderID,_HeaderFlowIndex,_HeaderData] = Header,
-            if
-                HeaderID == ID ->
-                    [Header|extractallmsgbyid(Tail, ID)];
-                HeaderID =/= ID ->
-                    extractallmsgbyid(Tail, ID)
-            end
-    end.
-
-%%%
-%%% Msg : [[ID0,Data0],[ID1,Data1],[ID2,Data2],[ID3,Data3],...
-%%% This function is to created a new list with the ones whose IDn is NOT the same as ID.
-%%%
-extractallmsgbynotid(Msg, ID) ->
-    case Msg of
-        [] ->
-            Msg;
-        _ ->
-            [Header|Tail] = Msg,
-            [HeaderID,_HeaderFlowIndex,_HeaderData] = Header,
-            if
-                HeaderID == ID ->
-                    extractallmsgbyid(Tail, ID);
-                HeaderID =/= ID ->
-                    [Header|extractallmsgbyid(Tail, ID)]
-            end
-    end.
-
+%removeexistnumberfromlist(NumberList, Msg) ->
+%    case Msg of
+%        [] ->
+%            NumberList;
+%        _ ->
+%            [[_ID,_FlowIndex,Data]|Tail] = Msg,
+%            case getpackagetotalandindex(Data) of
+%                error ->
+%                    removeexistnumberfromlist(NumberList, Tail);
+%                {ok, _PackageTotal, PackageIndex} ->
+%                    NewNumberList = [E || E <- NumberList, E =/= PackageIndex],
+%                    removeexistnumberfromlist(NewNumberList, Tail)
+%            end
+%    end.
+%
 %%%
 %%% Return :
-%%%     {ok, PackageTotal, PackageIndex}
+%%%     {ok, Total, Index}
 %%%     error
 %%%
-getpackagetotalandindex(Data) ->
-    try dogetpackagetotalandindex(Data) of
-        {ok, PackageTotal, PackageIndex} ->
-            {ok, PackageTotal, PackageIndex}
-    catch
-        error:Error ->
-            ti_common:loginfo("ERROR : get data package total & index error : ~p~n", [Error]),
-            error;
-        throw:Throw ->
-            ti_common:loginfo("ERROR : get data package total & index throw : ~p~n", [Throw]),
-            error;
-        exit:Exit ->
-            ti_common:loginfo("ERROR : get data package total & index exit : ~p~n", [Exit]),
-            error
-    end.
-
+%getpacktotalidx(Data) ->
+%    try dogetpacktotalidx(Data) of
+%        {ok, Total, Index} ->
+%            {ok, Total, Index}
+%    catch
+%        error:Error ->
+%            ti_common:loginfo("ERROR : get data package total & index error : ~p~n", [Error]),
+%            error;
+%        throw:Throw ->
+%            ti_common:loginfo("ERROR : get data package total & index throw : ~p~n", [Throw]),
+%            error;
+%        exit:Exit ->
+%            ti_common:loginfo("ERROR : get data package total & index exit : ~p~n", [Exit]),
+%            error
+%    end.
+%
 %%%
 %%% internal usage
-%%% {ok, PackageTotal, PackageIndex}
+%%% {ok, Total, Index}
 %%%
-dogetpackagetotalandindex(Data) ->
-    <<_IDField:16,_BodyPropField:16,_TelNumberField:48,_FlowNumberField:16,PackageInfoField:32,_Body/binary>>=Data,
-    <<PackageTotal:16,PackageIndex:16>> = PackageInfoField,
-    {ok, PackageTotal, PackageIndex}.
-
-
-%%%
-%%% Check whether it is a sub-package
-%%%
-checksubpackage(State, Data) ->
-    ok.
-
+%dogetpacktotalidx(Data) ->
+%    <<_ID:16,_BodyProp:16,_TelNum:48,_FlowNum:16,PackageInfo:32,_Body/binary>>=Data,
+%    <<Total:16,Index:16>> = PackageInfo,
+%    {ok, Total, Index}.
+%
 %%%
 %%%
 %%%
@@ -447,14 +556,13 @@ checksubpackage(State, Data) ->
 %                    list_to_binary([BinFirst, dorestore0x7eand0x7d(BinLast)])
 %            end
 %    end.
-
-
+%
 %%%
 %%% Compose the data to VDR
 %%%
-compose_data(Data) ->
-    Data.
-
+%compose_data(Data) ->
+%    Data.
+%
 %%%
 %%%
 %%%
