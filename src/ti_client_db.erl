@@ -45,24 +45,26 @@ handle_info({tcp_closed, Socket}, State) ->
     stop_db(),
     {stop, normal, State};
 handle_info(timeout, State) ->
-    case odbc:start(permanent) of
-        ok ->
-            [{dbdsn, DBDSN}] = ets:lookup(msgservertable, dbdsn),
-            Connection = string:concat(string:concat("DSN=", DBDSN), "UID=aladdin;PWD=sesame"),
-            case odbc:connect(Connection, []) of
-                {ok, Ref} ->
-                    ets:insert(msgservertable, {dbref, Ref}),
-                    Pid = spawn(fun() -> db_message_processor(Ref) end),
-                    ets:insert(msgservertable, {dbconnpid, Pid}),
-                    {noreply, #dbstate{dbref=Ref, dbconnpid=Pid}=State};
-                {error, Reason} ->
-                    ti_common:logerror("ODBC cannot connect ~p : ~p~n", [Connection, Reason]),
-                    {stop, error, Reason}
-            end;
-        {error, Reason} ->
-            ti_common:logerror("ODBC cannot start : ~p~n", [Reason]),
-            {stop, error, Reason}
-    end.
+    {noreply, State}.
+    % comment for debug.    
+    %case odbc:start(permanent) of
+    %    ok ->
+    %        [{dbdsn, DBDSN}] = ets:lookup(msgservertable, dbdsn),
+    %        Connection = string:concat(string:concat("DSN=", DBDSN), "UID=aladdin;PWD=sesame"),
+    %        case odbc:connect(Connection, []) of
+    %            {ok, Ref} ->
+    %                ets:insert(msgservertable, {dbref, Ref}),
+    %                Pid = spawn(fun() -> db_message_processor(Ref) end),
+    %                ets:insert(msgservertable, {dbconnpid, Pid}),
+    %                {noreply, #dbstate{dbref=Ref, dbconnpid=Pid}=State};
+    %            {error, Reason} ->
+    %                ti_common:logerror("ODBC cannot connect ~p : ~p~n", [Connection, Reason]),
+    %                {stop, error, Reason}
+    %        end;
+    %    {error, Reason} ->
+    %        ti_common:logerror("ODBC cannot start : ~p~n", [Reason]),
+    %        {stop, error, Reason}
+    %end.
 
 terminate(_Reason, _State) ->
     stop_db().

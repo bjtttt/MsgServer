@@ -33,26 +33,20 @@ handle_cast(_Msg, State) ->
 	{noreply, State}. 
 
 %%%
-%%% Steps :
-%%%     1. Check whether multi-package message
+%%% 
 %%%
 handle_info({tcp, Socket, Data}, State) ->    
-    case State#vdritem.msg of
-        [] ->
-            ok;
-        _ ->
-            case ti_vdr_data_parser:parse_data(Socket, State, Data) of
-                {ok, Decoded, NewState} ->
-                    process_vdr_data(Socket, Decoded),
-                    inet:setopts(Socket, [{active, once}]),
-                    {noreply, NewState};
-                {fail, _ResendList} ->
-                    inet:setopts(Socket, [{active, once}]),
-                    {noreply, State};
-                error ->
-                    inet:setopts(Socket, [{active, once}]),
-                    {noreply, State}
-            end
+    case ti_vdr_data_parser:parse_data(Socket, State, Data) of
+        {ok, Decoded, NewState} ->
+            process_vdr_data(Socket, Decoded),
+            inet:setopts(Socket, [{active, once}]),
+            {noreply, NewState};
+        {fail, _ResendList} ->
+            inet:setopts(Socket, [{active, once}]),
+            {noreply, State};
+        error ->
+            inet:setopts(Socket, [{active, once}]),
+            {noreply, State}
     end;
 	%inet:setopts(Socket, [{active, once}]),
     % Should be modified in the future
