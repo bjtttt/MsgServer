@@ -46,7 +46,10 @@ handle_cast(_Msg, State) ->
 %%%                     a. Discard the data
 %%%                     b. Request ID reporting message (REALLY NEEDED?)
 %%%
-handle_info({tcp, Socket, Data}, State) ->    
+%%% Still in design
+%%%
+handle_info({tcp, Socket, Data}, State) ->
+    %process_vdr_data(Socket, Data, State).
     case ti_vdr_data_parser:process_data(Socket, State, Data) of
         {ok, Decoded, NewState} ->
             process_vdr_data(Socket, Decoded),
@@ -94,6 +97,8 @@ code_change(_OldVsn, State, _Extra) ->
 %%%
 %%% This function should refer to the document on the mechanism
 %%%
+%%% Still in design
+%%%
 process_vdr_data(Socket, Data) ->
     Bin = ti_vdr_data_parser:parse_data(Data),
     [{dbconnpid, Pid}] = ets:lookup(msgservertable, dbconnpid),
@@ -122,6 +127,8 @@ process_vdr_data(Socket, Data) ->
 %%% If the ack from the VDR is received in handle_info({tcp,Socket,Data},State), this flag will be cleared.
 %%% After the defined TIMEOUT is achived, it means VDR cannot response and the TIMEOUT should be adjusted and this msg will be sent again.
 %%% (Please refer to the specification for this mechanism.)
+%%%
+%%% Still in design
 %%%
 data2vdr_process(Socket) ->
     receive
