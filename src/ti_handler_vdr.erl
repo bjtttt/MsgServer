@@ -12,6 +12,7 @@ start_link(Socket) ->
 	gen_server:start_link(?MODULE, [Socket], []). 
 
 init([Socket]) ->
+    process_flag(trap_exit, true),
     case ti_common:safepeername(Socket) of
         {ok, {Address, _Port}} ->
             Pid = spawn(fun() -> data2vdr_process(Socket) end),
