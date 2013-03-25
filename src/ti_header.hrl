@@ -27,6 +27,10 @@
 -define(TIMEOUT_DATA_VDR, 5). 
 -define(TIMEOUT_DATA_DB, 1). 
 
+-define(TIME_TERMINATE_VDR, 10000).
+-define(TIME_TERMINATE_MAN, 5000).
+-define(TIME_TERMINATE_MON, 5000).
+-define(TIME_TERMINATE_DB, 5000).
 
 %%%
 %%% There is only one super user, name is super, password is super.

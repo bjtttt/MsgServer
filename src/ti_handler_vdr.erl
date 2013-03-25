@@ -2,29 +2,23 @@
 
 -behaviour(gen_server).
 
--export([start_link/1]).
+-export([start_link/2]).
 
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2, code_change/3]).
 
 -include("ti_header.hrl").
 
-start_link(Socket) ->	
-	gen_server:start_link(?MODULE, [Socket], []). 
+start_link(Socket, Addr) ->	
+	gen_server:start_link(?MODULE, [Socket, Addr], []). 
 
-init([Socket]) ->
-    process_flag(trap_exit, true),
-    case ti_common:safepeername(Socket) of
-        {ok, {Address, _Port}} ->
-            Pid = spawn(fun() -> data2vdr_process(Socket) end),
-            State=#vdritem{socket=Socket, pid=self(), vdrpid=Pid, addr=Address},
-            ets:insert(vdrtable, State), 
-            inet:setopts(Socket, [{active, once}]),
-        	{ok, State};
-        {error, Reason} ->
-            ti_common:logerror("VDR handler process stops because VDR socket cannot be pasred : ~p~n", [Reason]),
-            State=#vdritem{socket=Socket},
-            {stop, normal, State}
-    end.            
+init([Socket, Addr]) ->
+    %process_flag(trap_exit, true),
+    VDRPid = spawn(fun() -> data2vdr_process(Socket) end),
+    Pid = self(),
+    State=#vdritem{socket=Socket, pid=Pid, vdrpid=VDRPid, addr=Addr},
+    ets:insert(vdrtable, State), 
+    inet:setopts(Socket, [{active, once}]),
+	{ok, State}.
 
 handle_call(_Request, _From, State) ->
 	{noreply, ok, State}.
@@ -67,7 +61,9 @@ handle_info({tcp, Socket, Data}, State) ->
     end;
 handle_info({tcp_closed, _Socket}, State) ->    
     ti_common:loginfo("VDR (~p) TCP is closed~n"),
-	{stop, normal, State}; 
+    % return stop will invoke terminate(Reason,State)
+    % tcp_closed will be transfered as Reason
+	{stop, tcp_closed, State}; 
 handle_info(_Info, State) ->    
 	{noreply, State}. 
 
@@ -120,6 +116,13 @@ process_vdr_data(Socket, Data) ->
             end
     end.
 
+%%%
+%%% This process is send msg from the management to the VDR.
+%%% Each time when sending msg from the management to the VDR, a flag should be set in vdritem.
+%%% If the ack from the VDR is received in handle_info({tcp,Socket,Data},State), this flag will be cleared.
+%%% After the defined TIMEOUT is achived, it means VDR cannot response and the TIMEOUT should be adjusted and this msg will be sent again.
+%%% (Please refer to the specification for this mechanism.)
+%%%
 data2vdr_process(Socket) ->
     receive
         {_FromPid, {data, Data}} ->
@@ -130,7 +133,7 @@ data2vdr_process(Socket) ->
             data2vdr_process(Socket);
         stop ->
             ok
-    %after ?TIMEOUT_DATA_VDR ->
-    %    %ti_common:loginfo("VDR server send data to VDR process process : receiving PID message timeout after ~p~n", [?TIMEOUT_DB]),
-    %    send_data_to_vdr_process(Socket)
+    after ?TIMEOUT_DATA_VDR ->
+        %ti_common:loginfo("VDR server send data to VDR process process : receiving PID message timeout after ~p~n", [?TIMEOUT_DB]),
+        data2vdr_process(Socket)
     end.

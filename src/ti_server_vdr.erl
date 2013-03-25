@@ -77,41 +77,46 @@ handle_info({inet_async, LSock, Ref, {ok, CSock}}, #serverstate{lsock=LSock, acc
 		% New client connected
         % Spawn a new process using the simple_one_for_one supervisor.
         % Why it is "the simple_one_for_one supervisor"?
-        case ti_sup:start_child_vdr(CSock) of
-            {ok, Pid} ->
-                case gen_tcp:controlling_process(CSock, Pid) of
-                    ok ->
-                        %ets:insert(vdrtable, #vdritem{socket=CSock, pid=Pid});
-                        ok;
-                    {error, Reason1} ->
-                        ti_common:logerror("VDR server gen_server:controlling_process(Socket, PID : ~p) fails : ~p~n", [Pid, Reason1]),
-                        case ti_sup:stop_child_vdr(Pid) of
+        case ti_common:safepeername(CSock) of
+            {ok, {Addr, _Port}} ->
+                case ti_sup:start_child_vdr(CSock, Addr) of
+                    {ok, Pid} ->
+                        case gen_tcp:controlling_process(CSock, Pid) of
                             ok ->
+                                %ets:insert(vdrtable, #vdritem{socket=CSock, pid=Pid});
                                 ok;
-                            {error, Reason2} ->
-                                ti_common:logerror("VDR server ti_sup:stop_child_vdr(PID : ~p) fails : ~p~n", [Pid, Reason2])
-                        end
-                end;
-            {ok, Pid, _Info} ->
-                case gen_tcp:controlling_process(CSock, Pid) of
-                    ok ->
-                        %ets:insert(vdrtable, #vdritem{socket=CSock, pid=Pid});
-                        ok;
-                    {error, Reason1} ->
-                        ti_common:logerror("VDR server gen_server:controlling_process(Socket, PID : ~p) fails: ~p~n", [Pid, Reason1]),
-                         case ti_sup:stop_child_vdr(Pid) of
+                            {error, Reason1} ->
+                                ti_common:logerror("VDR server gen_server:controlling_process(Socket, PID : ~p) fails : ~p~n", [Pid, Reason1]),
+                                case ti_sup:stop_child_vdr(Pid) of
+                                    ok ->
+                                        ok;
+                                    {error, Reason2} ->
+                                        ti_common:logerror("VDR server ti_sup:stop_child_vdr(PID : ~p) fails : ~p~n", [Pid, Reason2])
+                                end
+                        end;
+                    {ok, Pid, _Info} ->
+                        case gen_tcp:controlling_process(CSock, Pid) of
                             ok ->
+                                %ets:insert(vdrtable, #vdritem{socket=CSock, pid=Pid});
                                 ok;
-                            {error, Reason2} ->
-                                ti_common:logerror("VDR server ti_sup:stop_child_vdr(PID : ~p) fails : ~p~n", [Pid, Reason2])
-                        end
+                            {error, Reason1} ->
+                                ti_common:logerror("VDR server gen_server:controlling_process(Socket, PID : ~p) fails: ~p~n", [Pid, Reason1]),
+                                 case ti_sup:stop_child_vdr(Pid) of
+                                    ok ->
+                                        ok;
+                                    {error, Reason2} ->
+                                        ti_common:logerror("VDR server ti_sup:stop_child_vdr(PID : ~p) fails : ~p~n", [Pid, Reason2])
+                                end
+                        end;
+                    {error, already_present} ->
+                        ti_common:logerror("VDR server ti_sup:start_child_vdr fails : already_present~n");
+                    {error, {already_started, Pid}} ->
+                        ti_common:logerror("VDR server ti_sup:start_child_vdr fails : already_started PID : ~p~n", [Pid]);
+                    {error, Msg} ->
+                        ti_common:logerror("VDR server ti_sup:start_child_vdr fails : ~p~n", [Msg])
                 end;
-            {error, already_present} ->
-                ti_common:logerror("VDR server ti_sup:start_child_vdr fails : already_present~n");
-            {error, {already_started, Pid}} ->
-                ti_common:logerror("VDR server ti_sup:start_child_vdr fails : already_started PID : ~p~n", [Pid]);
-            {error, Msg} ->
-                ti_common:logerror("VDR server ti_sup:start_child_vdr fails : ~p~n", [Msg])
+            {error, Err} ->
+                ti_common:logerror("Stop ti_sup:start_child_vdr because cannot parse VDR socket : ~p~n", [Err])
         end,
         %% Signal the network driver that we are ready to accept another connection        
 		case prim_inet:async_accept(LSock, -1) of	        
