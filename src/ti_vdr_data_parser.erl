@@ -8,7 +8,7 @@
 
 -include("ti_header.hrl").
 
--export([parse_data/3]).
+-export([process_data/3]).
 
 %%%
 %%% check 0x7d
@@ -23,16 +23,16 @@
 %%%     {fail, [Resend FlowIndex List]}
 %%%     error
 %%%
-parse_data(Socket, State, Data) ->
+process_data(Socket, State, Data) ->
     % Display the data source IP
-    case ti_common:safepeername(Socket) of
-        {ok, {Address, _Port}} ->
-            ti_common:loginfo("Paring data from VDR IP : ~p~n", [Address]);
-        {error, Explain} ->
-            ti_common:loginfo("Parsing data from unknown VDR : ~p~n", [Explain])
-    end,
+    %case ti_common:safepeername(Socket) of
+    %    {ok, {Address, _Port}} ->
+    %        ti_common:loginfo("Paring data from VDR IP : ~p~n", [Address]);
+    %    {error, Explain} ->
+    %        ti_common:loginfo("Parsing data from unknown VDR : ~p~n", [Explain])
+    %end,
     % Concrete jobs here
-    try do_parse_data(Socket, State, Data) of
+    try do_process_data(Socket, State, Data) of
         {ok, Decoed, State} ->
             {ok, Decoed, State};
         {fail, [FlowNumber]} ->
@@ -58,7 +58,7 @@ parse_data(Socket, State, Data) ->
 %%%     {fail, [Resend FlowIndex List]}
 %%%     error
 %%%
-do_parse_data(_Socket, State, Data) ->
+do_process_data(_Socket, State, Data) ->
     NoParityLen = byte_size(Data) - 1,
     <<HeaderBody:NoParityLen,Parity/binary>>=Data,
     CalcParity = bxorbytelist(HeaderBody),

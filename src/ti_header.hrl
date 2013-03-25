@@ -34,10 +34,19 @@
 -record(user, {id=undefined, name=undefined, level=undefined, ip=undefined, time=undefined}).
 
 %%%
-%%% pid     : management handler process id
-%%% datapid : management handler send data to management process id
+%%% pid     : VDR handler PID
+%%% vdrpid  : VDR handler send data to VDR PID
 %%%
--record(vdritem, {socket=undefined, id=undefined, pid=undefined, datapid=undefined, addr=undefined, acttime=undefined, timeout=undefined, msg=[], req=[]}).
+-record(vdritem, {  socket=undefined, 
+                    id=undefined, 
+                    pid=undefined, 
+                    vdrpid=undefined,
+                    addr=undefined, 
+                    acttime=undefined, 
+                    timeout=undefined, 
+                    msg=[], 
+                    req=[]
+                 }).
 
 %%%
 %%% pid     : VDR handler process id

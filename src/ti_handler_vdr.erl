@@ -12,18 +12,17 @@ start_link(Socket) ->
 	gen_server:start_link(?MODULE, [Socket], []). 
 
 init([Socket]) ->
-    Pid = spawn(fun() -> send_data_to_vdr_process(Socket) end),
     case ti_common:safepeername(Socket) of
         {ok, {Address, _Port}} ->
-            State=#vdritem{socket=Socket, pid=self(), datapid=Pid, addr=Address},
+            Pid = spawn(fun() -> data2vdr_process(Socket) end),
+            State=#vdritem{socket=Socket, pid=self(), vdrpid=Pid, addr=Address},
             ets:insert(vdrtable, State), 
             inet:setopts(Socket, [{active, once}]),
         	{ok, State};
-        {error, _Reason} ->
-            State=#vdritem{socket=Socket, pid=self(), datapid=Pid, addr="0.0.0.0"},
-            ets:insert(vdrtable, State), 
-            inet:setopts(Socket, [{active, once}]),
-            {ok, State}
+        {error, Reason} ->
+            ti_common:logerror("VDR handler process stops because VDR socket cannot be pasred : ~p~n", [Reason]),
+            State=#vdritem{socket=Socket},
+            {stop, normal, State}
     end.            
 
 handle_call(_Request, _From, State) ->
@@ -33,10 +32,27 @@ handle_cast(_Msg, State) ->
 	{noreply, State}. 
 
 %%%
-%%% 
+%%% VDR handler receives date from VDR
+%%% Steps :
+%%%     1. Parse the data
+%%%     2. Check whether it is ID reporting message
+%%%         YES -> 
+%%%             Update the vdritem record
+%%%         NO ->
+%%%             A. Check whether the VDR has reported ID or not
+%%%                 YES ->
+%%%                     a. Send it to the DB
+%%%                     b. Check whether it is a management reporting message
+%%%                         YES ->
+%%%                             Report the data to the management platform
+%%%                         NO ->
+%%%                             Do nothing
+%%%                 NO ->
+%%%                     a. Discard the data
+%%%                     b. Request ID reporting message (REALLY NEEDED?)
 %%%
 handle_info({tcp, Socket, Data}, State) ->    
-    case ti_vdr_data_parser:parse_data(Socket, State, Data) of
+    case ti_vdr_data_parser:process_data(Socket, State, Data) of
         {ok, Decoded, NewState} ->
             process_vdr_data(Socket, Decoded),
             inet:setopts(Socket, [{active, once}]),
@@ -48,21 +64,32 @@ handle_info({tcp, Socket, Data}, State) ->
             inet:setopts(Socket, [{active, once}]),
             {noreply, State}
     end;
-	%inet:setopts(Socket, [{active, once}]),
-    % Should be modified in the future
-	%ok = gen_tcp:send(Socket, <<"VDR : ", Resp/binary>>),    
-	%{noreply, State}; 
 handle_info({tcp_closed, _Socket}, State) ->    
-    ti_common:loginfo("VDR ~p is disconnected, VDR PID ~p stops and VDR data PID ~p stops~n", [State#vdritem.addr, State#vdritem.pid, State#vdritem.datapid]),
-    State#vdritem.datapid!stop,
+    ti_common:loginfo("VDR (~p) TCP is closed~n"),
 	{stop, normal, State}; 
 handle_info(_Info, State) ->    
 	{noreply, State}. 
 
+%%%
+%%% When VDR handler process is terminated, do the clean jobs here
+%%%
 terminate(Reason, State) ->
-    State#vdritem.datapid!stop,
-	(catch gen_tcp:close(State#vdritem.socket)),    
-    ti_common:loginfo("VDR PID ~p is terminated, VDR data PID ~p stops and VDR ~p socket is closed : ~p~n", [State#vdritem.pid, State#vdritem.datapid, State#vdritem.addr, Reason]).
+    VDRPid = State#vdritem.vdrpid,
+    case VDRPid of
+        undefined ->
+            ok;
+        _ ->
+            VDRPid!stop
+    end,
+	try gen_tcp:close(State#vdritem.socket) of
+        ok ->
+            ok
+    catch
+        _:Exception ->
+            ti_common:logerror("Exception when closing VDR (~p) TCP : ~p~n", [State#vdritem.addr, Exception])
+    end,
+    ti_common:loginfo("VDR handler process (~p) is terminated : ~p~n", [State#vdritem.pid, Reason]).
+
 
 code_change(_OldVsn, State, _Extra) ->    
 	{ok, State}.
@@ -92,16 +119,16 @@ process_vdr_data(Socket, Data) ->
             end
     end.
 
-send_data_to_vdr_process(Socket) ->
+data2vdr_process(Socket) ->
     receive
         {_FromPid, {data, Data}} ->
             gen_tcp:send(Socket, Data),
-            send_data_to_vdr_process(Socket);
+            data2vdr_process(Socket);
         {FromPid, Data} ->
             ti_common:logerror("VDR server send data to VDR process : unknown message from PID ~p : ~p~n", [FromPid, Data]),
-            send_data_to_vdr_process(Socket);
+            data2vdr_process(Socket);
         stop ->
-            true
+            ok
     %after ?TIMEOUT_DATA_VDR ->
     %    %ti_common:loginfo("VDR server send data to VDR process process : receiving PID message timeout after ~p~n", [?TIMEOUT_DB]),
     %    send_data_to_vdr_process(Socket)
