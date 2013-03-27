@@ -23,15 +23,9 @@
 %%%     {fail, [Resend FlowIndex List]}
 %%%     error
 %%%
+%%% Still in design
+%%%
 process_data(Socket, State, Data) ->
-    % Display the data source IP
-    %case ti_common:safepeername(Socket) of
-    %    {ok, {Address, _Port}} ->
-    %        ti_common:loginfo("Paring data from VDR IP : ~p~n", [Address]);
-    %    {error, Explain} ->
-    %        ti_common:loginfo("Parsing data from unknown VDR : ~p~n", [Explain])
-    %end,
-    % Concrete jobs here
     try do_process_data(Socket, State, Data) of
         {ok, Decoed, State} ->
             {ok, Decoed, State};
