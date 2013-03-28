@@ -57,78 +57,76 @@ process_data(Socket, State, Data) ->
 do_process_data(_Socket, State, Data) ->
     RawData = restoremsg(State, Data),
     NoParityLen = byte_size(RawData) - 1,
-    <<HeaderBody:NoParityLen,Parity/binary>>=RawData,
+    <<HeaderBody:NoParityLen,Parity/binary>> = RawData,
     CalcParity = bxorbytelist(HeaderBody),
     if
         CalcParity == Parity ->
-            <<IDField:16,BodyPropField:16,TelNumberField:48,FlowNumberField:16,TailField/binary>>=HeaderBody,
-            <<_ReservedField:2,PackageField:1,CryptoTypeField:3,BodyLenField:10>> = BodyPropField,
-            case PackageField of
+            <<ID:16,BodyProp:16,TelNum:48,FlowNum:16,Tail/binary>>=HeaderBody,
+            <<_Reserved:2,Pack:1,CryptoType:3,BodyLen:10>> = BodyProp,
+            case Pack of
                 0 ->
                     % Single package message
-                    Body = TailField,
+                    Body = Tail,
                     ActBodyLen = byte_size(Body),
-                    <<BodyLen:10>> = BodyLenField,
                     if
                         BodyLen == ActBodyLen ->
                             % Call ASN.1 parser here
                             case 'Msg':decode("", Body) of
                                 {ok, Result} ->
-                                    {ok, createresp(IDField, CryptoTypeField, TelNumberField, FlowNumberField, 0, State), Result};
+                                    {ok, createresp(ID, CryptoType, TelNum, FlowNum, 0, State), Result};
                                 {error, {asn1, Reason}} ->
-                                    ti_common:logerror("ERROR : cannot parse single package msg (~p) from (~p) : ~p~n", [FlowNumberField, State#vdritem.addr, Reason]),
-                                    {fail, createresp(IDField, CryptoTypeField, TelNumberField, FlowNumberField, 2, State)};
+                                    ti_common:logerror("Cannot parse msg (~p) from (~p) : ~p~n", [FlowNum, State#vdritem.addr, Reason]),
+                                    {fail, createresp(ID, CryptoType, TelNum, FlowNum, 2, State)};
                                 {error, Reason} ->
-                                    ti_common:logerror("ERROR : cannot parse single package msg (~p) from (~p) : ~p~n", [FlowNumberField, State#vdritem.addr, Reason]),
-                                    {fail, createresp(IDField, CryptoTypeField, TelNumberField, FlowNumberField, 2, State)}
+                                    ti_common:logerror("Cannot parse msg (~p) from (~p) : ~p~n", [FlowNum, State#vdritem.addr, Reason]),
+                                    {fail, createresp(ID, CryptoType, TelNum, FlowNum, 2, State)}
                             end;                            
                         BodyLen =/= ActBodyLen ->
-                            ti_common:logerror("ERROR : length error for single package msg (~p) from (~p) : (Field)~p:(Actual)~p~n", [FlowNumberField, State#vdritem.addr, BodyLen, ActBodyLen]),
-                            {fail, createresp(IDField, CryptoTypeField, TelNumberField, FlowNumberField, 2, State)}
+                            ti_common:logerror("Length error for msg (~p) from (~p) : (Field)~p:(Actual)~p~n", [FlowNum, State#vdritem.addr, BodyLen, ActBodyLen]),
+                            {fail, createresp(ID, CryptoType, TelNum, FlowNum, 2, State)}
                     end;
                 1 ->
                     % Multi package message
-                    <<PackageInfoField:32,Body/binary>> = TailField,
+                    <<PackInfo:32,Body/binary>> = Tail,
                     ActBodyLen = byte_size(Body),
-                    <<Total:16,Index:16>> = PackageInfoField,
+                    <<Total:16,Index:16>> = PackInfo,
                     if
                         Total =< 1 ->
-                            ti_common:logerror("ERROR : total error for sub package msg (~p) from (~p) : ~p~n", [FlowNumberField, State#vdritem.addr, Total]),
-                            {fail, createresp(IDField, CryptoTypeField, TelNumberField, FlowNumberField, 2, State)};
+                            ti_common:logerror("Total error for msg (~p) from (~p) : ~p~n", [FlowNum, State#vdritem.addr, Total]),
+                            {fail, createresp(ID, CryptoType, TelNum, FlowNum, 2, State)};
                         Total > 1 ->
                             if
                                 Index > Total ->
-                                    ti_common:logerror("ERROR : index error for sub package msg (~p) from (~p) : (Total)~p:(Index)~p~n", [FlowNumberField, State#vdritem.addr, Total, Index]),
-                                    {fail, createresp(IDField, CryptoTypeField, TelNumberField, FlowNumberField, 2, State)};
+                                    ti_common:logerror("Index error for msg (~p) from (~p) : (Total)~p:(Index)~p~n", [FlowNum, State#vdritem.addr, Total, Index]),
+                                    {fail, createresp(ID, CryptoType, TelNum, FlowNum, 2, State)};
                                Index =< Total ->
-                                    <<BodyLen:10>> = BodyLenField,
                                     if
                                         BodyLen == ActBodyLen ->
-                                            case combinemsgpacks(State, IDField, FlowNumberField, Total, Index, Body) of
-                                                {complete, BinMsg, NewState} ->
+                                            case combinemsgpacks(State, ID, FlowNum, Total, Index, Body) of
+                                                {complete, Msg, NewState} ->
                                                     % Call ASN.1 parser here
-                                                    case 'Msg':decode("", BinMsg) of
+                                                    case 'Msg':decode("", Msg) of
                                                         {ok, _Result} ->
-                                                            {ok, createresp(IDField, CryptoTypeField, TelNumberField, FlowNumberField, 0, NewState)};
+                                                            {ok, createresp(ID, CryptoType, TelNum, FlowNum, 0, NewState)};
                                                         {error, {asn1, Reason}} ->
-                                                            ti_common:logerror("ERROR : cannot parse single package msg (~p) from (~p) : ~p~n", [FlowNumberField, State#vdritem.addr, Reason]),
-                                                            {fail, createresp(IDField, CryptoTypeField, TelNumberField, FlowNumberField, 2, NewState)};
+                                                            ti_common:logerror("Cannot parse msg (~p) from (~p) : ~p~n", [FlowNum, State#vdritem.addr, Reason]),
+                                                            {fail, createresp(ID, CryptoType, TelNum, FlowNum, 2, NewState)};
                                                         {error, Reason} ->
-                                                            ti_common:logerror("ERROR : cannot parse single package msg (~p) from (~p) : ~p~n", [FlowNumberField, State#vdritem.addr, Reason]),
-                                                            {fail, createresp(IDField, CryptoTypeField, TelNumberField, FlowNumberField, 2, NewState)}
+                                                            ti_common:logerror("Cannot parse msg (~p) from (~p) : ~p~n", [FlowNum, State#vdritem.addr, Reason]),
+                                                            {fail, createresp(ID, CryptoType, TelNum, FlowNum, 2, NewState)}
                                                     end;                            
                                                  {notcomplete, NewState} ->
-                                                    {ok, createresp(IDField, CryptoTypeField, TelNumberField, FlowNumberField, 0, NewState)}
+                                                    {ok, createresp(ID, CryptoType, TelNum, FlowNum, 0, NewState)}
                                             end;
                                         BodyLen =/= ActBodyLen ->
-                                            ti_common:logerror("ERROR : length error for sub package msg (~p) from (~p) : (Field)~p:(Actual)~p~n", [FlowNumberField, State#vdritem.addr, BodyLen, ActBodyLen]),
-                                            {fail, createresp(IDField, CryptoTypeField, TelNumberField, FlowNumberField, 2, State)}
+                                            ti_common:logerror("Length error for msg (~p) from (~p) : (Field)~p:(Actual)~p~n", [FlowNum, State#vdritem.addr, BodyLen, ActBodyLen]),
+                                            {fail, createresp(ID, CryptoType, TelNum, FlowNum, 2, State)}
                                     end
                             end
                     end
             end;
         CalcParity =/= Parity ->
-            ti_common:logerror("ERROR : calculated parity (~p) =/= data parity (~p) from ~p~n", [CalcParity, Parity, State#vdritem.addr]),
+            ti_common:logerror("Parity error (calculated)~p:(data)~p from ~p~n", [CalcParity, Parity, State#vdritem.addr]),
             {error, State}
     end.
     %VDRItem = ets:lookup(vdrtable, Socket),
@@ -179,11 +177,11 @@ restoremsg(State, Data) ->
                     FinalResult = binary:replace(Result, <<125,2>>, <<126>>, [global]),
                     {ok, FinalResult};
                 _ ->
-                    ti_common:logerror("ERROR : wrong data tail (~p) from ~p~n",[BinTail, State#vdritem.addr]),
+                    ti_common:logerror("Wrong data tail (~p) from ~p~n",[BinTail, State#vdritem.addr]),
                     error
             end;
         _ ->
-            ti_common:logerror("ERROR: wrong data header (~p) from ~p~n",[BinHeader, State#vdritem.addr]),
+            ti_common:logerror("Wrong data header (~p) from ~p~n",[BinHeader, State#vdritem.addr]),
             error
     end.
 
@@ -204,8 +202,7 @@ createresp(ID, CryptoType, TelNum, FlowNum, Result, State) ->
     XOR = bxorbytelist(HeaderBody),
     RawData = binary:replace(<<HeaderBody, XOR>>, <<125>>, <<125,1>>, [global]),
     RawDataNew = binary:replace(RawData, <<126>>, <<125,2>>, [global]),
-    NewState = State#vdritem{respflownum=State#vdritem.respflownum+1},
-    {<<126, RawDataNew, 126>>, NewState}.
+    {<<126, RawDataNew, 126>>, State#vdritem{respflownum=RespFlowNum+1}}.
 
 %%%
 %%% Check whether received a complete msg packages
@@ -447,7 +444,7 @@ composerealmsg(Msg) ->
 %            [Header|Tail] = NumberList,
 %            [[ID, Header]|composemsgpackagereq(ID, Tail)]
 %    end.
-
+%
 %%%
 %%% Internal usage,
 %%% For example,
@@ -461,7 +458,7 @@ composerealmsg(Msg) ->
 %        Number =< 0 ->
 %            []
 %    end.
-
+%
 %%%
 %%% Internal usage
 %%% Each msg package has a index, compose a list with all indexes from current msg packages

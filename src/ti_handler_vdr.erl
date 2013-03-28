@@ -83,12 +83,15 @@ terminate(Reason, State) ->
     end,
     ti_common:loginfo("VDR handler process (~p) is terminated : ~p~n", [State#vdritem.pid, Reason]).
 
-
 code_change(_OldVsn, State, _Extra) ->    
 	{ok, State}.
 
 %%%
 %%% This function should refer to the document on the mechanism
+%%%
+%%% Return :
+%%%     {fail, dberror, State}          when DB connection process is not available
+%%%     
 %%%
 %%% Still in design
 %%%
@@ -97,8 +100,7 @@ process_vdr_data(Socket, Data, State) ->
     case DBProcessPid of
         undefined ->
             ti_common:logerror("DB Client is not available~n"),
-            NewState = State#vdritem{dbfailcount=0},
-            {fail, dberror, NewState};
+            {fail, dberror, State#vdritem{dbfailcount=0}};
         _ ->
             case ti_vdr_data_parser:process_data(Socket, State, Data) of
                 {ok, {Resp, State}, Result} ->
