@@ -15,7 +15,7 @@ init([Socket, Addr]) ->
     %process_flag(trap_exit, true),
     VDRPid = spawn(fun() -> data2vdr_process(Socket) end),
     Pid = self(),
-    State=#vdritem{socket=Socket, pid=Pid, vdrpid=VDRPid, addr=Addr},
+    State=#vdritem{socket=Socket, pid=Pid, vdrpid=VDRPid, addr=Addr, respflownum=0},
     ets:insert(vdrtable, State), 
     inet:setopts(Socket, [{active, once}]),
 	{ok, State}.
@@ -49,18 +49,11 @@ handle_cast(_Msg, State) ->
 %%% Still in design
 %%%
 handle_info({tcp, Socket, Data}, State) ->
-    %process_vdr_data(Socket, Data, State).
-    case ti_vdr_data_parser:process_data(Socket, State, Data) of
-        {ok, Decoded, NewState} ->
-            process_vdr_data(Socket, Decoded),
-            inet:setopts(Socket, [{active, once}]),
-            {noreply, NewState};
-        {fail, _ResendList} ->
-            inet:setopts(Socket, [{active, once}]),
-            {noreply, State};
-        error ->
-            inet:setopts(Socket, [{active, once}]),
-            {noreply, State}
+    case process_vdr_data(Socket, Data, State) of
+        {ok} ->
+            ok;
+        {fail, dberror} ->
+            {stop, dberror, State}
     end;
 handle_info({tcp_closed, _Socket}, State) ->    
     ti_common:loginfo("VDR (~p) TCP is closed~n"),
@@ -99,25 +92,46 @@ code_change(_OldVsn, State, _Extra) ->
 %%%
 %%% Still in design
 %%%
-process_vdr_data(Socket, Data) ->
-    Bin = ti_vdr_data_parser:parse_data(Data),
-    [{dbconnpid, Pid}] = ets:lookup(msgservertable, dbconnpid),
-    case Pid of
-        -1 ->
-            ti_common:logerror("DB Client is not available~n");
+process_vdr_data(Socket, Data, State) ->
+    [{dbconnpid, DBProcessPid}] = ets:lookup(msgservertable, dbconnpid),
+    case DBProcessPid of
+        undefined ->
+            ti_common:logerror("DB Client is not available~n"),
+            NewState = State#vdritem{dbfailcount=0},
+            {fail, dberror, NewState};
         _ ->
-            Pid!Bin,
-            receive
-                {From, Resp} ->
-                    if
-                        From == Pid ->
-                            Back = ti_vdr_data_parser:compose_data(Resp),
-                            gen_tcp:send(Socket, Back);
-                        From =/= Pid ->
-                            ti_common:logerror("Unknown VDR response from ~p~n", From)
+            case ti_vdr_data_parser:process_data(Socket, State, Data) of
+                {ok, {Resp, State}, Result} ->
+                    % convert to database messages
+                    DBMsg = Result,
+                    DBProcessPid!DBMsg,
+                    receive
+                        {From, Resp} ->
+                            if
+                                From == DBProcessPid ->
+                                    Back = ti_vdr_data_parser:compose_data(Resp),
+                                    gen_tcp:send(Socket, Resp);
+                                From =/= DBProcessPid ->
+                                    ti_common:logerror("Unknown VDR response from ~p~n", From)
+                            end;
+                        _ ->
+                            ti_common:logerror("Unknown VDR response from DB~n")
+                    after ?TIMEOUT_DATA_DB ->
+                          ti_common:logerror("VDR response from DB is timeout~n"),
+                          FailureCount = State#vdritem.dbfailcount,
+                          if
+                              FailureCount >= ?DB_PROCESS_FAILURE_MAX ->
+                                  NewState = State#vdritem{dbfailcount=0},
+                                  {fail, dberror, NewState};
+                              FailureCount < ?DB_PROCESS_FAILURE_MAX ->
+                                  NewState = State#vdritem{dbfailcount=FailureCount+1},
+                                  {fail, dbfailure, NewState}
+                          end
                     end;
-                _ ->
-                    ti_common:logerror("Unknown VDR response from DB~n")
+                {fail, {Resp, State}} ->
+                    gen_tcp:send(Socket, Resp);
+                {error, State} ->
+                    error
             end
     end.
 

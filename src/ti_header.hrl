@@ -23,6 +23,9 @@
 -define(TIMEOUT_MON, 3000). 
 -define(TIMEOUT_DB, 30000). 
 
+-define(TIMEOUT_DB_PROCESS, 5000). 
+-define(DB_PROCESS_FAILURE_MAX, 10). 
+
 -define(TIMEOUT_DATA_MAN, 5). 
 -define(TIMEOUT_DATA_VDR, 5). 
 -define(TIMEOUT_DATA_DB, 1). 
@@ -47,7 +50,9 @@
                     vdrpid=undefined,
                     addr=undefined, 
                     acttime=undefined, 
-                    timeout=undefined, 
+                    timeout=undefined,
+                    respflownum=undefined,
+                    dbfailcount=0,
                     msg=[], 
                     req=[]
                  }).
