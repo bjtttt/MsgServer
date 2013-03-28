@@ -23,7 +23,8 @@
 -define(TIMEOUT_MON, 3000). 
 -define(TIMEOUT_DB, 30000). 
 
--define(TIMEOUT_DB_PROCESS, 5000). 
+-define(TIMEOUT_DB_PROCESS, 1000). 
+-define(DB_PROCESS_TRIAL_MAX, 10). 
 -define(DB_PROCESS_FAILURE_MAX, 10). 
 
 -define(TIMEOUT_DATA_MAN, 5). 
@@ -52,7 +53,6 @@
                     acttime=undefined, 
                     timeout=undefined,
                     respflownum=undefined,
-                    dbfailcount=0,
                     msg=[], 
                     req=[]
                  }).

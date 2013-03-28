@@ -52,7 +52,7 @@ handle_info({tcp, Socket, Data}, State) ->
     case process_vdr_data(Socket, Data, State) of
         {ok} ->
             ok;
-        {fail, dberror} ->
+        {fail, dberror, State} ->
             {stop, dberror, State}
     end;
 handle_info({tcp_closed, _Socket}, State) ->    
@@ -90,6 +90,7 @@ code_change(_OldVsn, State, _Extra) ->
 %%% This function should refer to the document on the mechanism
 %%%
 %%% Return :
+%%%     ok
 %%%     {fail, dberror, State}          when DB connection process is not available
 %%%     
 %%%
@@ -101,42 +102,59 @@ process_vdr_data(Socket, Data, State) ->
         undefined ->
             ti_common:logerror("DB Client is not available~n"),
             % In fact, State has no effect because it will trigger stop
-            {fail, dberror, State#vdritem{dbfailcount=0}};
+            {fail, dberror, State};
         _ ->
             case ti_vdr_data_parser:process_data(Socket, State, Data) of
                 {ok, {Resp, State}, Result} ->
                     % convert to database messages
-                    DBMsg = Result,
+                    DBMsg = composedbmsg(Result),
                     DBProcessPid!DBMsg,
-                    receive
-                        {From, Resp} ->
-                            if
-                                From == DBProcessPid ->
-                                    Back = ti_vdr_data_parser:compose_data(Resp),
-                                    gen_tcp:send(Socket, Resp);
-                                From =/= DBProcessPid ->
-                                    ti_common:logerror("Unknown VDR response from ~p~n", From)
-                            end;
-                        _ ->
-                            ti_common:logerror("Unknown VDR response from DB~n")
-                    after ?TIMEOUT_DATA_DB ->
-                          ti_common:logerror("VDR response from DB is timeout~n"),
-                          FailureCount = State#vdritem.dbfailcount,
-                          if
-                              FailureCount >= ?DB_PROCESS_FAILURE_MAX ->
-                                  NewState = State#vdritem{dbfailcount=0},
-                                  {fail, dberror, NewState};
-                              FailureCount < ?DB_PROCESS_FAILURE_MAX ->
-                                  NewState = State#vdritem{dbfailcount=FailureCount+1},
-                                  {fail, dbfailure, NewState}
-                          end
+                    case receivedbprocessmsg(DBProcessPid, 0) of
+                        ok ->
+                            VDRPid = State#vdritem.vdrpid,
+                            VDRPid!Resp,
+                            ok;
+                        error ->
+                            % In fact, State has no effect because it will trigger stop
+                            {fail, dberror, State}
                     end;
                 {fail, {Resp, State}} ->
-                    gen_tcp:send(Socket, Resp);
+                    VDRPid = State#vdritem.vdrpid,
+                    VDRPid!Resp,
+                    ok;
                 {error, State} ->
-                    error
+                    {fail, dberror, State}
             end
     end.
+
+%%%
+%%%
+%%%
+receivedbprocessmsg(DBProcessPid, ErrorCount) ->
+    if
+        ErrorCount < ?DB_PROCESS_TRIAL_MAX ->
+            receive
+                {From, _Resp} ->
+                    if
+                        From == DBProcessPid ->
+                            ok;
+                        From =/= DBProcessPid ->
+                            receivedbprocessmsg(DBProcessPid, ErrorCount+1)
+                    end;
+                _ ->
+                    receivedbprocessmsg(DBProcessPid, ErrorCount+1)
+            after ?TIMEOUT_DATA_DB ->
+                    receivedbprocessmsg(DBProcessPid, ErrorCount+1)
+            end;
+        ErrorCount >= ?DB_PROCESS_TRIAL_MAX ->
+            error
+    end.
+            
+%%%         
+%%%
+%%%
+composedbmsg(Msg) ->
+    Msg.
 
 %%%
 %%% This process is send msg from the management to the VDR.
