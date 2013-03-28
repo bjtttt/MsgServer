@@ -100,6 +100,7 @@ process_vdr_data(Socket, Data, State) ->
     case DBProcessPid of
         undefined ->
             ti_common:logerror("DB Client is not available~n"),
+            % In fact, State has no effect because it will trigger stop
             {fail, dberror, State#vdritem{dbfailcount=0}};
         _ ->
             case ti_vdr_data_parser:process_data(Socket, State, Data) of
