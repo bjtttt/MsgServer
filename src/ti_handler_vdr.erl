@@ -50,10 +50,10 @@ handle_cast(_Msg, State) ->
 %%%
 handle_info({tcp, Socket, Data}, State) ->
     case process_vdr_data(Socket, Data, State) of
-        error ->
-            {stop, dbprocerror, State};
-        _ ->
-            {noreply, State}
+        {error, NewState} ->
+            {stop, dbprocerror, NewState};
+        {ok, NewState} ->
+            {noreply, NewState}
     end;
 handle_info({tcp_closed, _Socket}, State) ->    
     ti_common:loginfo("VDR (~p) TCP is closed~n"),
@@ -90,8 +90,8 @@ code_change(_OldVsn, State, _Extra) ->
 %%% This function should refer to the document on the mechanism
 %%%
 %%% Return :
-%%%     ok
-%%%     error          when DB connection process is not available
+%%%     {ok, State}
+%%%     {error, State}          when DB connection process is not available
 %%%     
 %%%
 %%% Still in design
@@ -101,25 +101,27 @@ process_vdr_data(Socket, Data, State) ->
     case DBProcessPid of
         undefined ->
             ti_common:logerror("DB Client is not available~n"),
-            error;
+            {error, State};
         _ ->
             case ti_vdr_data_parser:process_data(Socket, State, Data) of
-                {ok, {Resp, State}, Result} ->
+                {ok, {Resp, NewState}, Result} ->
                     % convert to database messages
                     DBMsg = composedbmsg(Result),
                     DBProcessPid!DBMsg,
                     case receivedbprocessmsg(DBProcessPid, 0) of
                         ok ->
-                            VDRPid = State#vdritem.vdrpid,
-                            VDRPid!Resp;
+                            VDRPid = NewState#vdritem.vdrpid,
+                            VDRPid!Resp,
+                            {ok, NewState};
                         error ->
-                            error
+                            {error, NewState}
                     end;
-                {fail, {Resp, State}} ->
-                    VDRPid = State#vdritem.vdrpid,
-                    VDRPid!Resp;
-                {error, State} ->
-                    error
+                {fail, {Resp, NewState}} ->
+                    VDRPid = NewState#vdritem.vdrpid,
+                    VDRPid!Resp,
+                    {ok, NewState};
+                {error, NewState} ->
+                    {error, NewState}
             end
     end.
 
