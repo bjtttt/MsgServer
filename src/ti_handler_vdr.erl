@@ -13,8 +13,8 @@ start_link(Socket, Addr) ->
 
 init([Socket, Addr]) ->
     %process_flag(trap_exit, true),
-    VDRPid = spawn(fun() -> data2vdr_process(Socket) end),
     Pid = self(),
+    VDRPid = spawn(fun() -> data2vdr_process(Pid, Socket) end),
     State=#vdritem{socket=Socket, pid=Pid, vdrpid=VDRPid, addr=Addr, respflownum=0},
     ets:insert(vdrtable, State), 
     inet:setopts(Socket, [{active, once}]),
@@ -50,10 +50,10 @@ handle_cast(_Msg, State) ->
 %%%
 handle_info({tcp, Socket, Data}, State) ->
     case process_vdr_data(Socket, Data, State) of
-        {ok} ->
-            ok;
-        {fail, dberror, State} ->
-            {stop, dberror, State}
+        error ->
+            {stop, dbprocerror, State};
+        _ ->
+            {noreply, State}
     end;
 handle_info({tcp_closed, _Socket}, State) ->    
     ti_common:loginfo("VDR (~p) TCP is closed~n"),
@@ -91,7 +91,7 @@ code_change(_OldVsn, State, _Extra) ->
 %%%
 %%% Return :
 %%%     ok
-%%%     {fail, dberror, State}          when DB connection process is not available
+%%%     error          when DB connection process is not available
 %%%     
 %%%
 %%% Still in design
@@ -101,8 +101,7 @@ process_vdr_data(Socket, Data, State) ->
     case DBProcessPid of
         undefined ->
             ti_common:logerror("DB Client is not available~n"),
-            % In fact, State has no effect because it will trigger stop
-            {fail, dberror, State};
+            error;
         _ ->
             case ti_vdr_data_parser:process_data(Socket, State, Data) of
                 {ok, {Resp, State}, Result} ->
@@ -112,23 +111,22 @@ process_vdr_data(Socket, Data, State) ->
                     case receivedbprocessmsg(DBProcessPid, 0) of
                         ok ->
                             VDRPid = State#vdritem.vdrpid,
-                            VDRPid!Resp,
-                            ok;
+                            VDRPid!Resp;
                         error ->
-                            % In fact, State has no effect because it will trigger stop
-                            {fail, dberror, State}
+                            error
                     end;
                 {fail, {Resp, State}} ->
                     VDRPid = State#vdritem.vdrpid,
-                    VDRPid!Resp,
-                    ok;
+                    VDRPid!Resp;
                 {error, State} ->
-                    {fail, dberror, State}
+                    error
             end
     end.
 
 %%%
-%%%
+%%% Try to receive response from the DB connection process at most 10 times.
+%%% Do we need _Resp from the DB connection process?
+%%% Return : ok | error
 %%%
 receivedbprocessmsg(DBProcessPid, ErrorCount) ->
     if
@@ -165,17 +163,22 @@ composedbmsg(Msg) ->
 %%%
 %%% Still in design
 %%%
-data2vdr_process(Socket) ->
+data2vdr_process(Pid, Socket) ->
     receive
-        {_FromPid, {data, Data}} ->
-            gen_tcp:send(Socket, Data),
-            data2vdr_process(Socket);
+        {FromPid, {data, Data}} ->
+            if 
+                FromPid == Pid ->
+                    gen_tcp:send(Socket, Data);
+                FromPid =/= Pid ->
+                    ti_common:logerror("VDR server send data to VDR process : message from unknown PID ~p : ~p~n", [FromPid, Data])
+            end,        
+            data2vdr_process(Pid, Socket);
         {FromPid, Data} ->
             ti_common:logerror("VDR server send data to VDR process : unknown message from PID ~p : ~p~n", [FromPid, Data]),
-            data2vdr_process(Socket);
+            data2vdr_process(Pid, Socket);
         stop ->
             ok
     after ?TIMEOUT_DATA_VDR ->
         %ti_common:loginfo("VDR server send data to VDR process process : receiving PID message timeout after ~p~n", [?TIMEOUT_DB]),
-        data2vdr_process(Socket)
+        data2vdr_process(Pid, Socket)
     end.
