@@ -1,364 +1,427 @@
 Msg DEFINITIONS IMPLICIT TAGS ::=
+
 BEGIN
+
 T-generalReply ::= SEQUENCE {
-  replyNum INTEGER,
-  id INTEGER,
-  result INTEGER{affirm(0),fail(1),err(2),noSupport(3)}
+    replyNum INTEGER,
+    id INTEGER,
+    result INTEGER{affirm(0),fail(1),err(2),noSupport(3)}
 }
 
 P-generalReply ::= SEQUENCE {
-  replyNum INTEGER,
-  id INTEGER,
-  result INTEGER{affirm(0),fail(1),err(2),noSupport(3),alarmAffirm(4)}
+    replyNum INTEGER,
+    id INTEGER,
+    result INTEGER{affirm(0),fail(1),err(2),noSupport(3),alarmAffirm(4)}
 }
 
 T-heartbeat ::= SEQUENCE {
-  none NULL
+    none NULL
 }
+
 P-dividePackageRequest ::= SEQUENCE {
-  originalityMsgNum INTEGER,
-  packageCount INTEGER,
-  packageId BIT STRING
+    originalityMsgNum INTEGER,
+    packageCount INTEGER,
+    packageId BIT STRING
 }
+
 T-register ::= SEQUENCE {
-  provinceId INTEGER,
-  cityId INTEGER,
-  proId INTEGER,
-  terminalType IA5String,
-  terminalId INTEGER,
-  plateColor INTEGER,
-  carMark IA5String
+    provinceId INTEGER,
+    cityId INTEGER,
+    proId INTEGER,
+    terminalType IA5String,
+    terminalId INTEGER,
+    plateColor INTEGER,
+    carMark IA5String
 }
+
 P-regReply ::= SEQUENCE {
-  replyNum INTEGER,
-  result INTEGER{success(0),carRegistered(1),noCar(2),terRegistered(3),dataBaseNoTer(4)},
-  authentication IA5String
+    replyNum INTEGER,
+    result INTEGER{success(0),carRegistered(1),noCar(2),terRegistered(3),dataBaseNoTer(4)},
+    authentication IA5String
 }
+
 T-cancel ::= SEQUENCE {
-  none NULL
+    none NULL
 }
+
 T-checkCode ::= SEQUENCE {
-  authentication IA5String
+    authentication IA5String
 }
+
 P-SetArgs ::= SEQUENCE {
-  argsCount INTEGER,
-  argsList SEQUENCE {
-    id INTEGER,
-    len INTEGER,
-    value BIT STRING
-  }
+    argsCount INTEGER,
+    argsList SEQUENCE {
+        id INTEGER,
+        len INTEGER,
+        value BIT STRING
+    }
 }
+
 P-queryArgs ::= SEQUENCE {
-  none NULL
+    none NULL
 }
+
 P-querySpecifyArgs ::= SEQUENCE {
-  argsCount INTEGER,
-  argsIdLists BIT STRING
+    argsCount INTEGER,
+    argsIdLists BIT STRING
 }
+
 T-queryArgsReply ::= SEQUENCE {
-  replyNum INTEGER,
-  replyCount INTEGER,
-  argsLists BIT STRING
+    replyNum INTEGER,
+    replyCount INTEGER,
+    argsLists BIT STRING
 }
+
 P-control ::= SEQUENCE {
-  orderWord INTEGER(1..7),
-  orderARgs IA5String
+    orderWord INTEGER(1..7),
+    orderARgs IA5String
 }
+
 P-queryArr ::= SEQUENCE {
-  none NULL
+    none NULL
 }
+
 T-queryArrReply ::= SEQUENCE {
-  terType INTEGER,
-  proId BIT STRING(SIZE(5)),
-  terModel BIT STRING(SIZE(20)),
-  terId BIT STRING(SIZE(7)),
-  iCCID BIT STRING,
-  hardwareVersion IA5String,
-  firmware IA5String,
-  gNSSArr BIT STRING(SIZE(4)),
-  communicateArr INTEGER
+    terType INTEGER,
+    proId BIT STRING(SIZE(5)),
+    terModel BIT STRING(SIZE(20)),
+    terId BIT STRING(SIZE(7)),
+    iCCID BIT STRING,
+    hardwareVersion IA5String,
+    firmware IA5String,
+    gNSSArr BIT STRING(SIZE(4)),
+    communicateArr INTEGER
 }
+
 P-updatePackage ::= SEQUENCE {
-  updateType INTEGER,
-  proId BIT STRING(SIZE(5)),
-  versionLen INTEGER,
-  version IA5String,
-  updatePacLen INTEGER,
-  updatePacket BIT STRING
+    updateType INTEGER,
+    proId BIT STRING(SIZE(5)),
+    versionLen INTEGER,
+    version IA5String,
+    updatePacLen INTEGER,
+    updatePacket BIT STRING
 }
+
 T-updateResult ::= SEQUENCE {
-  updateType INTEGER,
-  updateResult INTEGER
+    updateType INTEGER,
+    updateResult INTEGER
 }
+
 T-positionReport ::= SEQUENCE {
-  positionBaseMsg SEQUENCE {
-    alarmSymbol INTEGER,
-    state INTEGER,
-    latitude INTEGER,
-    longitude INTEGER,
-    hight INTEGER,
-    speed INTEGER,
-    direction INTEGER,
-    time BIT STRING(SIZE(48))
-  },
-  positionAppMsg SEQUENCE {
-    id INTEGER(SIZE(8)),
-    len INTEGER,
-    appendMsg BIT STRING
-  }  
+    positionBaseMsg SEQUENCE {
+        alarmSymbol INTEGER,
+        state INTEGER,
+        latitude INTEGER,
+        longitude INTEGER,
+        hight INTEGER,
+        speed INTEGER,
+        direction INTEGER,
+        time BIT STRING(SIZE(48))
+    },
+    positionAppMsg SEQUENCE {
+        id INTEGER(SIZE(8)),
+        len INTEGER,
+        appendMsg BIT STRING
+    }    
 }
 
 P-queryPositoin ::= SEQUENCE {
-  none NULL
+    none NULL
 }
-T-queryPosReply  ::= SEQUENCE {
-  replyNum INTEGER,
-  positionMsgReply BIT STRING
+
+T-queryPosReply    ::= SEQUENCE {
+    replyNum INTEGER,
+    positionMsgReply BIT STRING
 }
+
 P-tmpPosTrackControl ::= SEQUENCE {
-  interval INTEGER,
-  posTracksValidity INTEGER
+    interval INTEGER,
+    posTracksValidity INTEGER
 }
+
 T-manConfirmAlarm ::= SEQUENCE {
-  number INTEGER,
-  type INTEGER
+    number INTEGER,
+    type INTEGER
 }
+
 P-txtSend ::= SEQUENCE {
-  symbol INTEGER,
-  textMsg IA5String
+    symbol INTEGER,
+    textMsg IA5String
 }
+
 P-eventSet ::= SEQUENCE {
-  setType INTEGER,
-  setCount INTEGER,
-  eventsList SEQUENCE {
-    id INTEGER,
-    contentLen INTEGER,
-    content IA5String
-  }
+    setType INTEGER,
+    setCount INTEGER,
+    eventsList SEQUENCE {
+        id INTEGER,
+        contentLen INTEGER,
+        content IA5String
+    }
 }
+
 T-eventReport ::= SEQUENCE {
-  id INTEGER
+    id INTEGER
 }
+
 T-questionSend ::= SEQUENCE {
-  symbol INTEGER,
-  queConLen INTEGER,
-  question IA5String,
-  ansLists INTEGER
+    symbol INTEGER,
+    queConLen INTEGER,
+    question IA5String,
+    ansLists INTEGER
 }
+
 T-questionReply ::= SEQUENCE {
-  number INTEGER,
-  answerId INTEGER
+    number INTEGER,
+    answerId INTEGER
 }
+
 P-msgMenuSet ::= SEQUENCE {
-  setType INTEGER,
-  msgItemCount INTEGER,
-  msgItemList SEQUENCE {
-    msgType INTEGER,
-    msgNameLen INTEGER,
-    msgName IA5String
-  }
+    setType INTEGER,
+    msgItemCount INTEGER,
+    msgItemList SEQUENCE {
+        msgType INTEGER,
+        msgNameLen INTEGER,
+        msgName IA5String
+    }
 }
+
 T-msgProOrCancel ::= SEQUENCE {
-  msgType INTEGER,
-  playOrCancelSymbol INTEGER (0..1)
+    msgType INTEGER,
+    playOrCancelSymbol INTEGER (0..1)
 }
+
 P-msgService ::= SEQUENCE {
-  type INTEGER,
-  len INTEGER,
-  content IA5String
+    type INTEGER,
+    len INTEGER,
+    content IA5String
 }
+
 T-telAnswer ::= SEQUENCE {
-  symbol INTEGER,
-  number BIT STRING
+    symbol INTEGER,
+    number BIT STRING
 }
+
 P-setTelNote ::= SEQUENCE {
-  settype INTEGER,
-  conCount INTEGER,
-  conItem BIT STRING
+    settype INTEGER,
+    conCount INTEGER,
+    conItem BIT STRING
 }
+
 P-carControl ::= SEQUENCE {
-  symbol INTEGER
+    symbol INTEGER
 }
+
 T-carConReply ::= SEQUENCE {
-  number INTEGER,
-  msgBody BIT STRING
+    number INTEGER,
+    msgBody BIT STRING
 }
+
 P-setRotundityArea ::= SEQUENCE {
-  setArr INTEGER,
-  areaCount INTEGER,
-  areaItems INTEGER
+    setArr INTEGER,
+    areaCount INTEGER,
+    areaItems INTEGER
 }
+
 P-delRotundityArea ::= SEQUENCE {
-  areaCount INTEGER,
-  areaId BIT STRING
+    areaCount INTEGER,
+    areaId BIT STRING
 }
+
 P-setRectangleArea ::= SEQUENCE {
-  setArr INTEGER,
-  areaCount INTEGER,
-  areaItem INTEGER
+    setArr INTEGER,
+    areaCount INTEGER,
+    areaItem INTEGER
 }
+
 P-delRectangleArea ::= SEQUENCE {
-  areaCount INTEGER,
-  areaId BIT STRING
+    areaCount INTEGER,
+    areaId BIT STRING
 }
+
 P-setPolygonArea ::= SEQUENCE {
-  id INTEGER,
-  attribute INTEGER,
-  startTime BIT STRING,
-  endTime BIT STRING,
-  highSpeed INTEGER,
-  overspeedTime INTEGER,
-  overallCount INTEGER,
-  overallItem BIT STRING
+    id INTEGER,
+    attribute INTEGER,
+    startTime BIT STRING,
+    endTime BIT STRING,
+    highSpeed INTEGER,
+    overspeedTime INTEGER,
+    overallCount INTEGER,
+    overallItem BIT STRING
 }
+
 P-delPolygonArea ::= SEQUENCE {
-  areaCount INTEGER,
-  areaId BIT STRING
+    areaCount INTEGER,
+    areaId BIT STRING
 }
+
 P-setLine ::= SEQUENCE {
-  id INTEGER,
-  attribute INTEGER,
-  startTime BIT STRING,
-  endTime BIT STRING,
-  yieldingPointCount INTEGER
+    id INTEGER,
+    attribute INTEGER,
+    startTime BIT STRING,
+    endTime BIT STRING,
+    yieldingPointCount INTEGER
 }
+
 P-delLine ::= SEQUENCE {
-  pathLineCount INTEGER,
-  pathId BIT STRING
+    pathLineCount INTEGER,
+    pathId BIT STRING
 }
+
 P-recordCollectionOrder ::= SEQUENCE {
-  orderWord INTEGER,
-  dataBlock BIT STRING
+    orderWord INTEGER,
+    dataBlock BIT STRING
 }
+
 T-recordUpdate ::= SEQUENCE {
-  number INTEGER,
-  orderWord INTEGER,
-  dataBlock BIT STRING
+    number INTEGER,
+    orderWord INTEGER,
+    dataBlock BIT STRING
 }
+
 P-recordArgsSend ::= SEQUENCE {
-  orderWord INTEGER,
-  dataBlock BIT STRING
+    orderWord INTEGER,
+    dataBlock BIT STRING
 }
+
 T-electronInvoiceReport ::= SEQUENCE {
-  length INTEGER,
-  content BIT STRING
+    length INTEGER,
+    content BIT STRING
 }
+
 T-repIdeRequest ::= SEQUENCE {
-  none NULL
+    none NULL
 }
+
 T-ideColReport ::= SEQUENCE {
-  state INTEGER,
-  time BIT STRING,
-  idReadResult BIT STRING,
-  nameLen BIT STRING,
-  name IA5String,
-  certificateNumber IA5String,
-  organizationLen INTEGER,
-  organization IA5String,
-  validity BIT STRING
+    state INTEGER,
+    time BIT STRING,
+    idReadResult BIT STRING,
+    nameLen BIT STRING,
+    name IA5String,
+    certificateNumber IA5String,
+    organizationLen INTEGER,
+    organization IA5String,
+    validity BIT STRING
 }
+
 T-siteDataUpdate ::= SEQUENCE {
-  dataItemCount INTEGER,
-  positionDadaType INTEGER,
-  positionItem BIT STRING
+    dataItemCount INTEGER,
+    positionDadaType INTEGER,
+    positionItem BIT STRING
 }
+
 T-CANDataUpdate ::= SEQUENCE {
-  dataItemCount INTEGER,
-  canRecTime BIT STRING,
-  canDataItem BIT STRING
+    dataItemCount INTEGER,
+    canRecTime BIT STRING,
+    canDataItem BIT STRING
 }
+
 T-multimediaEventUpdate ::= SEQUENCE {
-  id INTEGER,
-  type INTEGER,
-  code INTEGER,
-  eventItemCode INTEGER,
-  pipeId INTEGER
+    id INTEGER,
+    type INTEGER,
+    code INTEGER,
+    eventItemCode INTEGER,
+    pipeId INTEGER
 }
+
 T-multimediaDataUpdate ::= SEQUENCE {
-  id INTEGER,
-  type INTEGER,
-  code INTEGER,
-  eventCode INTEGER,
-  pipeId INTEGER,
-  msgBody BIT STRING,
-  dataPackage BIT STRING
+    id INTEGER,
+    type INTEGER,
+    code INTEGER,
+    eventCode INTEGER,
+    pipeId INTEGER,
+    msgBody BIT STRING,
+    dataPackage BIT STRING
 }
+
 P-multimediaDataReply ::= SEQUENCE {
-  id INTEGER,
-  pacCount INTEGER,
-  idItems BIT STRING
+    id INTEGER,
+    pacCount INTEGER,
+    idItems BIT STRING
 }
+
 P-shootOrder ::= SEQUENCE {
-  pipeId INTEGER,
-  order INTEGER,
-  time INTEGER,
-  saveSymbol INTEGER,
-  distinguishRate INTEGER,
-  quality INTEGER,
-  brightness INTEGER,
-  contrast INTEGER,
-  sat INTEGER,
-  chroma INTEGER
+    pipeId INTEGER,
+    order INTEGER,
+    time INTEGER,
+    saveSymbol INTEGER,
+    distinguishRate INTEGER,
+    quality INTEGER,
+    brightness INTEGER,
+    contrast INTEGER,
+    sat INTEGER,
+    chroma INTEGER
 }
+
 T-shootOrderReply ::= SEQUENCE {
-  replyNum INTEGER,
-  result INTEGER,
-  mediaIdCount INTEGER,
-  mediaIdLists BIT STRING 
+    replyNum INTEGER,
+    result INTEGER,
+    mediaIdCount INTEGER,
+    mediaIdLists BIT STRING 
 }
+
 P-stoMulDataSearch ::= SEQUENCE {
-  mediaType INTEGER,
-  pipeId INTEGER,
-  eventCode INTEGER,
-  startTime BIT STRING,
-  endTime BIT STRING
+    mediaType INTEGER,
+    pipeId INTEGER,
+    eventCode INTEGER,
+    startTime BIT STRING,
+    endTime BIT STRING
 }
+
 T-stoMulDataReply ::= SEQUENCE {
-  replyNum INTEGER,
-  mediaItemCount INTEGER,
-  mediaId INTEGER,
-  mediaType INTEGER,
-  pipeId INTEGER,
-  eventCode INTEGER,
-  positionMsgReply BIT STRING
+    replyNum INTEGER,
+    mediaItemCount INTEGER,
+    mediaId INTEGER,
+    mediaType INTEGER,
+    pipeId INTEGER,
+    eventCode INTEGER,
+    positionMsgReply BIT STRING
 }
+
 T-stoMulDataUpdate ::= SEQUENCE {
-  mediaType INTEGER,
-  pipeId INTEGER,
-  eventCode INTEGER,
-  startTime BIT STRING,
-  endTime BIT STRING,
-  delSymbol INTEGER
+    mediaType INTEGER,
+    pipeId INTEGER,
+    eventCode INTEGER,
+    startTime BIT STRING,
+    endTime BIT STRING,
+    delSymbol INTEGER
 }
+
 P-recordStartOrder ::= SEQUENCE {
-  recordCode INTEGER,
-  recordTime INTEGER,
-  saveSymbol INTEGER,
-  voiceSamplingRate INTEGER
+    recordCode INTEGER,
+    recordTime INTEGER,
+    saveSymbol INTEGER,
+    voiceSamplingRate INTEGER
 }
+
 T-singlestoMulDataSeaUpdOrder ::= SEQUENCE {
-  mediaId INTEGER,
-  delSymbol INTEGER
+    mediaId INTEGER,
+    delSymbol INTEGER
 }
+
 P-dataSend ::= SEQUENCE {
-  msgType INTEGER,
-  msgContent BIT STRING
+    msgType INTEGER,
+    msgContent BIT STRING
 }
+
 T-dataUpdate ::= SEQUENCE {
-  msgType INTEGER,
-  msgContent BIT STRING
+    msgType INTEGER,
+    msgContent BIT STRING
 }
+
 T-compressUpdtae ::= SEQUENCE {
-  compressMsgLen INTEGER,
-  compressMsgBody BIT STRING
+    compressMsgLen INTEGER,
+    compressMsgBody BIT STRING
 }
+
 P-RSA ::= SEQUENCE {
-  e INTEGER,
-  n BIT STRING
+    e INTEGER,
+    n BIT STRING
 }
-T-RSA  ::= SEQUENCE {
-  e INTEGER,
-  n BIT STRING
+
+T-RSA    ::= SEQUENCE {
+    e INTEGER,
+    n BIT STRING
 }
 
 END
