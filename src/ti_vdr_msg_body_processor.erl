@@ -39,11 +39,14 @@ create_p_genresp(FlowNum, ID, Res) ->
 
 %%%
 %%% Parse terminal message body
+%%% Return :
+%%%     {ok, Res}
+%%%     error
 %%%
 parse_msg_body(ID, Body) ->
     try do_parse_msg_body(ID, Body) of
-        ok ->
-            ok
+        {ok, Res} ->
+            {ok, Res}
     catch
         _:Exception ->
             ti_common:logerror("Exception when parsing message (ID:~p) body : ~p~n", [ID, Exception]),

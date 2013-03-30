@@ -70,6 +70,12 @@ do_process_data(_Socket, State, Data) ->
                     ActBodyLen = byte_size(Body),
                     if
                         BodyLen == ActBodyLen ->
+                            case ti_vdr_msg_body_processor:parse_msg_body(ID, Body) of
+                                {ok, Res} ->
+                                    {ok, Res};
+                                error ->
+                                    error
+                            end,
                             % Call ASN.1 parser here
                             case 'Msg':decode("", Body) of
                                 {ok, Result} ->
@@ -99,11 +105,17 @@ do_process_data(_Socket, State, Data) ->
                                 Index > Total ->
                                     ti_common:logerror("Index error for msg (~p) from (~p) : (Total)~p:(Index)~p~n", [FlowNum, State#vdritem.addr, Total, Index]),
                                     {fail, createresp(ID, CryptoType, TelNum, FlowNum, 2, State)};
-                               Index =< Total ->
+                                Index =< Total ->
                                     if
                                         BodyLen == ActBodyLen ->
                                             case combinemsgpacks(State, ID, FlowNum, Total, Index, Body) of
                                                 {complete, Msg, NewState} ->
+                                                    case ti_vdr_msg_body_processor:parse_msg_body(ID, Body) of
+                                                        {ok, Res} ->
+                                                            {ok, Res};
+                                                        error ->
+                                                            error
+                                                    end,
                                                     % Call ASN.1 parser here
                                                     case 'Msg':decode("", Msg) of
                                                         {ok, _Result} ->
