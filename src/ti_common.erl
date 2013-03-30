@@ -4,11 +4,28 @@
 
 -module(ti_common).
 
+-export([number_list_to_binary/2]).
+
 -export([set_sockopt/3]).
 
 -export([safepeername/1, forcesafepeername/1, printsocketinfo/2, forceprintsocketinfo/2]).
 
 -export([logerror/1, logerror/2, loginfo/1, loginfo/2]).
+
+%%%
+%%% Convert number list to binary.
+%%% List    : [Num0, Num1, Num2, ...]
+%%% NumLen  : Number length
+%%% Return  : [<<Num0:NumLen>>, <<Num1:NumLen>>, <<Num2:NumLen>>, ...]
+%%%
+number_list_to_binary(List, NumLen) ->
+    [H|T] = List,
+    case T of
+        [] ->
+            <<H:NumLen>>;
+        _ ->
+            [<<H:NumLen>>|number_list_to_binary(T, NumLen)]
+    end.
 
 set_sockopt(LSock, CSock, Msg) ->    
     true = inet_db:register_socket(CSock, inet_tcp),    
