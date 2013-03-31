@@ -19,20 +19,13 @@
 %%%
 %%% Parse the data from VDR
 %%% Return :
-%%%     {ok, {Resp, State}, Result}
-%%%     {fail, {Resp, State}}
+%%%     {ok, HeaderInfo, Res, State}
+%%%     {ignore, HeaderInfo, State}
+%%%     {error, HeaderInfo, ErrorType, State}
 %%%     {error, State}
 %%%
-%%% Still in design
-%%%
 process_data(Socket, State, Data) ->
-    try do_process_data(Socket, State, Data) of
-        {ok, {Resp, State}, Result} ->
-            {ok, {Resp, State}, Result};
-        {fail, {Resp, State}} ->
-            {fail, {Resp, State}};
-        {error, State} ->
-            {error, State}
+    try do_process_data(Socket, State, Data)
     catch
         error:Error ->
             ti_common:loginfo("ERROR : parsing data error : ~p~n", [Error]),
