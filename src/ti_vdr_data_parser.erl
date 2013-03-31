@@ -83,6 +83,8 @@ do_process_data(_Socket, State, Data) ->
                                         2 ->            % 0x0002
                                             Resp = ti_vdr_msg_body_processor:create_p_genresp(FlowNum, ID, ?P_GENRESP_OK),
                                             {ok, Resp, State};
+                                        256 ->          % 0x0100
+                                            {Province, City, Producer, Model, ID, CertColor, CertID} = Res;
                                         _ ->
                                             {ok, State}
                                     end;

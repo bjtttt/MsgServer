@@ -15,6 +15,7 @@
          create_t_reg_resp/3]).
 
 %%%
+%%% 0x0801
 %%% Platform general response
 %%% Res :
 %%%     0 - SUCCESS/ACK
@@ -73,6 +74,7 @@ do_parse_msg_body(ID, Body) ->
     end.
 
 %%%
+%%% 0x0001
 %%% Terminal general response
 %%%
 parse_t_genresp(Bin) ->
@@ -80,12 +82,14 @@ parse_t_genresp(Bin) ->
     {ok, {RespFlowNum, ID, Res}}.
 
 %%%
+%%% 0x0002
 %%% Terminal pulse
 %%% 
 parse_t_pulse(Bin) ->
     {ok, {Bin}}.
 
 %%%
+%%% 0x0803
 %%% Platform resend sub-package request
 %%% Body : [ID0, ID1, ID2, ID3, ...]
 %%%
@@ -94,6 +98,7 @@ create_p_resend_subpack_req(FlowNum, ID, Body) ->
     <<FlowNum:16, ID:16, Bin/binary>>.
 
 %%%
+%%% 0x0100
 %%% Terminal registration
 %%%
 parse_t_reg(Bin) ->
@@ -102,6 +107,7 @@ parse_t_reg(Bin) ->
     {ok, {Province, City, Producer, Model, ID, CertColor, CertID}}.
 
 %%%
+%%% 0x8100
 %%% AccCode : string
 %%%
 create_t_reg_resp(FlowNum, ID, AccCode) ->
@@ -109,13 +115,14 @@ create_t_reg_resp(FlowNum, ID, AccCode) ->
     <<FlowNum:16, ID:16, Bin>>.
 
 %%%
+%%% 0x0003
 %%% unreg or logout?
 %%%
 parse_t_unreg(Bin) ->
     {ok, {Bin}}.
 
 %%%
-%%%
+%%% 0x0102
 %%%
 parse_t_checkacc(Bin) ->
     Str = binary_to_term(Bin),
