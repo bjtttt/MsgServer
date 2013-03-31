@@ -15,7 +15,7 @@ init([Socket, Addr]) ->
     %process_flag(trap_exit, true),
     Pid = self(),
     VDRPid = spawn(fun() -> data2vdr_process(Pid, Socket) end),
-    State=#vdritem{socket=Socket, pid=Pid, vdrpid=VDRPid, addr=Addr, respflownum=0},
+    State=#vdritem{socket=Socket, pid=Pid, vdrpid=VDRPid, addr=Addr, msgflownum=0},
     ets:insert(vdrtable, State), 
     inet:setopts(Socket, [{active, once}]),
 	{ok, State}.
@@ -56,7 +56,7 @@ handle_info({tcp, Socket, Data}, State) ->
             {noreply, NewState}
     end;
 handle_info({tcp_closed, _Socket}, State) ->    
-    ti_common:loginfo("VDR (~p) TCP is closed~n"),
+    ti_common:loginfo("VDR (~p) : TCP is closed~n"),
     % return stop will invoke terminate(Reason,State)
     % tcp_closed will be transfered as Reason
 	{stop, tcp_closed, State}; 
@@ -79,9 +79,9 @@ terminate(Reason, State) ->
             ok
     catch
         _:Exception ->
-            ti_common:logerror("Exception when closing VDR (~p) TCP : ~p~n", [State#vdritem.addr, Exception])
+            ti_common:logerror("VDR (~p) : Exception when closing TCP : ~p~n", [State#vdritem.addr, Exception])
     end,
-    ti_common:loginfo("VDR handler process (~p) is terminated : ~p~n", [State#vdritem.pid, Reason]).
+    ti_common:loginfo("VDR (~p) : VDR handler process (~p) is terminated : ~p~n", [State#vdritem.addr, State#vdritem.pid, Reason]).
 
 code_change(_OldVsn, State, _Extra) ->    
 	{ok, State}.

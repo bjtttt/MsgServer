@@ -48,8 +48,10 @@ process_data(Socket, State, Data) ->
 %%%
 %%% Internal usage for parse_data(Socket, State, Data)
 %%% Return :
-%%%     {ok, {Resp, State}, Result}
-%%%     {fail, {Resp, State}}
+%%%     {ok, State}                 % No response to VDR
+%%%     {ok, Resp, State}           % Response to VDR
+%%%     {fail, Resp}                % Failure response to VDR
+%%%     {ignore, Resp, State}       % Keep current package with response to VDR
 %%%     {error, State}
 %%%
 %%% What is Decoded, still in design
@@ -72,21 +74,21 @@ do_process_data(_Socket, State, Data) ->
                         BodyLen == ActBodyLen ->
                             case ti_vdr_msg_body_processor:parse_msg_body(ID, Body) of
                                 {ok, Res} ->
-                                    {ok, Res};
+                                    case ID of
+                                        1 ->            % 0x0001
+                                            {ResFlowNum, _PlatformID, _Result} = Res,
+                                            Msg2VDR = State#vdritem.msg2vdr,
+                                            NewMsg2VDR = ti_common:removemsgfromlistbyflownum(ResFlowNum, Msg2VDR),
+                                            {ok, State#vdritem{msg2vdr=NewMsg2VDR}};
+                                        2 ->            % 0x0002
+                                            Resp = ti_vdr_msg_body_processor:create_p_genresp(FlowNum, ID, ?P_GENRESP_OK),
+                                            {ok, Resp, State};
+                                        _ ->
+                                            {ok, State}
+                                    end;
                                 error ->
                                     error
-                            end,
-                            % Call ASN.1 parser here
-                            case 'Msg':decode("", Body) of
-                                {ok, Result} ->
-                                    {ok, createresp(ID, CryptoType, TelNum, FlowNum, 0, State), Result};
-                                {error, {asn1, Reason}} ->
-                                    ti_common:logerror("Cannot parse msg (~p) from (~p) : ~p~n", [FlowNum, State#vdritem.addr, Reason]),
-                                    {fail, createresp(ID, CryptoType, TelNum, FlowNum, 2, State)};
-                                {error, Reason} ->
-                                    ti_common:logerror("Cannot parse msg (~p) from (~p) : ~p~n", [FlowNum, State#vdritem.addr, Reason]),
-                                    {fail, createresp(ID, CryptoType, TelNum, FlowNum, 2, State)}
-                            end;                            
+                            end;
                         BodyLen =/= ActBodyLen ->
                             ti_common:logerror("Length error for msg (~p) from (~p) : (Field)~p:(Actual)~p~n", [FlowNum, State#vdritem.addr, BodyLen, ActBodyLen]),
                             {fail, createresp(ID, CryptoType, TelNum, FlowNum, 2, State)}
@@ -115,19 +117,8 @@ do_process_data(_Socket, State, Data) ->
                                                             {ok, Res};
                                                         error ->
                                                             error
-                                                    end,
-                                                    % Call ASN.1 parser here
-                                                    case 'Msg':decode("", Msg) of
-                                                        {ok, _Result} ->
-                                                            {ok, createresp(ID, CryptoType, TelNum, FlowNum, 0, NewState)};
-                                                        {error, {asn1, Reason}} ->
-                                                            ti_common:logerror("Cannot parse msg (~p) from (~p) : ~p~n", [FlowNum, State#vdritem.addr, Reason]),
-                                                            {fail, createresp(ID, CryptoType, TelNum, FlowNum, 2, NewState)};
-                                                        {error, Reason} ->
-                                                            ti_common:logerror("Cannot parse msg (~p) from (~p) : ~p~n", [FlowNum, State#vdritem.addr, Reason]),
-                                                            {fail, createresp(ID, CryptoType, TelNum, FlowNum, 2, NewState)}
-                                                    end;                            
-                                                 {notcomplete, NewState} ->
+                                                    end;
+                                                {notcomplete, NewState} ->
                                                     {ok, createresp(ID, CryptoType, TelNum, FlowNum, 0, NewState)}
                                             end;
                                         BodyLen =/= ActBodyLen ->
@@ -205,7 +196,7 @@ restoremsg(State, Data) ->
 %%% return {Response, NewState}
 %%%
 createresp(ID, CryptoType, TelNum, FlowNum, Result, State) ->
-    RespFlowNum = State#vdritem.respflownum,
+    RespFlowNum = State#vdritem.msgflownum,
     Body = <<FlowNum:16, ID:16, Result:8>>,
     BodyLen = bit_size(Body),
     BodyProp = <<0:2, 0:1, CryptoType:3, BodyLen:10>>,
@@ -214,7 +205,7 @@ createresp(ID, CryptoType, TelNum, FlowNum, Result, State) ->
     XOR = bxorbytelist(HeaderBody),
     RawData = binary:replace(<<HeaderBody, XOR>>, <<125>>, <<125,1>>, [global]),
     RawDataNew = binary:replace(RawData, <<126>>, <<125,2>>, [global]),
-    {<<126, RawDataNew, 126>>, State#vdritem{respflownum=RespFlowNum+1}}.
+    {<<126, RawDataNew, 126>>, State#vdritem{msgflownum=RespFlowNum+1}}.
 
 %%%
 %%% Check whether received a complete msg packages
@@ -288,24 +279,6 @@ getmsgwithoutid(Msg, ID) ->
                     [H|getmsgwithoutid(T, ID)]
             end
     end.
-
-%%%
-%%%
-%%%
-%delmsgpackreqbyid(Reqs, ID) ->
-%    case Reqs of
-%        [] ->
-%            [];
-%        _ ->
-%            [H|T] = Reqs,
-%            [HID,_HIdx] = H,
-%            if
-%                HID == ID ->
-%                    delmsgpackreqbyid(T, ID);
-%                HID =/= ID ->
-%                    [H|delmsgpackreqbyid(T, ID)]
-%            end
-%    end.
 
 %%%
 %%% Remove msg package with the same Index from the msg packages
@@ -435,182 +408,5 @@ composerealmsg(Msg) ->
             [_ID,_FlowNum,_Total,_HIdx,Body] = H,
             [composerealmsg(T)|Body]
     end.
-
-%%%
-%%% Get the unreceived package indexes for vdritem.req
-%%%
-%getnotexistindexlist(Msg, ID, PackageTotal) ->
-%    AllNumberList = numberlist(PackageTotal),
-%    ExistNumberList = getexistnumberlist(Msg, []),
-%    NotExistNumberList = removenumberfromlist(AllNumberList, ExistNumberList),
-%    composemsgpackagereq(ID, NotExistNumberList).
-%
-%%%
-%%%
-%%%
-%composemsgpackagereq(ID, NumberList) ->
-%    case NumberList of
-%        [] ->
-%            [];
-%        _ ->
-%            [Header|Tail] = NumberList,
-%            [[ID, Header]|composemsgpackagereq(ID, Tail)]
-%    end.
-%
-%%%
-%%% Internal usage,
-%%% For example,
-%%%     If Number == 3, returns [3,2,1],
-%%%     If Number == 6, returns [6,5,4,3,2,1],
-%%%
-%numberlist(Number) ->
-%    if
-%        Number > 0 ->
-%            [Number|numberlist(Number-1)];
-%        Number =< 0 ->
-%            []
-%    end.
-%
-%%%
-%%% Internal usage
-%%% Each msg package has a index, compose a list with all indexes from current msg packages
-%%% Return [[ID0,FlowIndex0,PackageIndex0],[ID1,FlowIndex1,PackageIndex1],[ID2,FlowIndex2,PackageIndex2],...]
-%%%
-%getexistnumberlist(Msg, NumberList) ->
-%    case Msg of
-%        [] ->
-%            NumberList;
-%        _ ->
-%            [[ID,FlowIndex,Data]|Tail] = Msg,
-%            case getpackagetotalandindex(Data) of
-%                error ->
-%                    getexistnumberlist(Tail, NumberList);
-%                {ok, _PackageTotal, PackageIndex} ->
-%                    [[ID,FlowIndex,PackageIndex]|getexistnumberlist(Tail, NumberList)]
-%            end
-%    end.
-%
-%%%
-%%% Internal usage
-%%% Remove the specific number from the number list
-%%% Return
-%%%     if packagetotal == 6 and [[ID0,FlowIndex0,1],[ID1,FlowIndex1,3],[ID2,FlowIndex2,4]]
-%%%     [6,5,2]
-%%%
-%removenumberfromlist(NumberList, RemoveNumberList) ->
-%    case RemoveNumberList of
-%        [] ->
-%            NumberList;
-%        _ ->
-%            [Header|Tail] = RemoveNumberList,
-%            [_ID,_FlowIndex,PackageIndex] = Header,
-%            removenumberfromlist([E || E <- NumberList, E =/= PackageIndex], Tail)
-%    end.
-%
-%%%
-%%% For example,
-%%%     NumberList = [6,5,4,3,2,1]
-%%%     Msg : [[ID0,FlowIndex0,Data0],[ID1,FlowIndex1,Data1],[ID2,FlowIndex2,Data2],[ID3,FlowIndex3,Data3],...
-%%% Get packagetotal and packageindex from Datan,
-%%% Remove packageindex from NumberList.
-%%% This function is to get the NOT existed msg package indexes.
-%%%
-%removeexistnumberfromlist(NumberList, Msg) ->
-%    case Msg of
-%        [] ->
-%            NumberList;
-%        _ ->
-%            [[_ID,_FlowIndex,Data]|Tail] = Msg,
-%            case getpackagetotalandindex(Data) of
-%                error ->
-%                    removeexistnumberfromlist(NumberList, Tail);
-%                {ok, _PackageTotal, PackageIndex} ->
-%                    NewNumberList = [E || E <- NumberList, E =/= PackageIndex],
-%                    removeexistnumberfromlist(NewNumberList, Tail)
-%            end
-%    end.
-%
-%%%
-%%% Return :
-%%%     {ok, Total, Index}
-%%%     error
-%%%
-%getpacktotalidx(Data) ->
-%    try dogetpacktotalidx(Data) of
-%        {ok, Total, Index} ->
-%            {ok, Total, Index}
-%    catch
-%        error:Error ->
-%            ti_common:loginfo("ERROR : get data package total & index error : ~p~n", [Error]),
-%            error;
-%        throw:Throw ->
-%            ti_common:loginfo("ERROR : get data package total & index throw : ~p~n", [Throw]),
-%            error;
-%        exit:Exit ->
-%            ti_common:loginfo("ERROR : get data package total & index exit : ~p~n", [Exit]),
-%            error
-%    end.
-%
-%%%
-%%% internal usage
-%%% {ok, Total, Index}
-%%%
-%dogetpacktotalidx(Data) ->
-%    <<_ID:16,_BodyProp:16,_TelNum:48,_FlowNum:16,PackageInfo:32,_Body/binary>>=Data,
-%    <<Total:16,Index:16>> = PackageInfo,
-%    {ok, Total, Index}.
-%
-%%%
-%%%
-%%%
-%dorestore0x7eand0x7d(Data) ->
-%    BinLength = length(Data),
-%    case BinLength of
-%        0 ->
-%            <<>>;
-%        1 ->
-%            Data;
-%        _ ->
-%            {BinFirst, BinLast} = split_binary(Data, 1),
-%            case BinFirst of
-%                <<125>> ->
-%                    % 125 is 0x7d
-%                    BinLastLength = length(BinLast),
-%                    case BinLastLength of 
-%                        1 ->
-%                            case BinLast of
-%                                <<1>> ->
-%                                    <<125>>;
-%                                <<2>> ->
-%                                    <<126>>;
-%                                _ ->
-%                                    Data
-%                            end;
-%                        _ ->
-%                            {BinLastFirst, BinLastLast} = split_binary(BinLast, 1),
-%                            case BinLastFirst of
-%                                <<1>> ->
-%                                    list_to_binary([<<125>>, dorestore0x7eand0x7d(BinLastLast)]);
-%                                <<2>> ->
-%                                    list_to_binary([<<126>>, dorestore0x7eand0x7d(BinLastLast)]);
-%                                _ ->
-%                                    list_to_binary([list_to_binary([BinFirst, BinLastFirst]), dorestore0x7eand0x7d(BinLastLast)])
-%                            end
-%                    end;
-%                _ ->
-%                    list_to_binary([BinFirst, dorestore0x7eand0x7d(BinLast)])
-%            end
-%    end.
-%
-%%%
-%%% Compose the data to VDR
-%%%
-%compose_data(Data) ->
-%    Data.
-%
-%%%
-%%%
-%%%
-
 
 

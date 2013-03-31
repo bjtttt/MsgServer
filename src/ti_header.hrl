@@ -36,6 +36,17 @@
 -define(TIME_TERMINATE_MON, 5000).
 -define(TIME_TERMINATE_DB, 5000).
 
+-define(T_GEN_RESP_OK, 0).
+-define(T_GEN_RESP_FAIL, 1).
+-define(T_GEN_RESP_ERRMSG, 2).
+-define(T_GEN_RESP_NOTSUPPORT, 3).
+
+-define(P_GENRESP_OK, 0).
+-define(P_GENRESP_FAIL, 1).
+-define(P_GENRESP_ERRMSG, 2).
+-define(P_GENRESP_NOTSUPPORT, 3).
+-define(P_GENRESP_WARNACK, 4).
+
 %%%
 %%% There is only one super user, name is super, password is super.
 %%% 
@@ -52,7 +63,8 @@
                     addr=undefined, 
                     acttime=undefined, 
                     timeout=undefined,
-                    respflownum=undefined,
+                    msgflownum=undefined,
+                    msg2vdr=[],
                     msg=[], 
                     req=[]
                  }).

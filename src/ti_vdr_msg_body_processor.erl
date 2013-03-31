@@ -58,13 +58,13 @@ parse_msg_body(ID, Body) ->
 %%%
 do_parse_msg_body(ID, Body) ->
     case ID of
-        1 ->
+        1 ->                        % 0x0001
             parse_t_genresp(Body);
-        2 ->
+        2 ->                        % 0x0002
             parse_t_pulse(Body);
         256 ->                      % 0x0100
             parse_t_reg(Body);
-        3 ->
+        3 ->                        % 0x0003
             parse_t_unreg(Body);
         258 ->                      % 0x0102
             parse_t_checkacc(Body);
@@ -76,8 +76,8 @@ do_parse_msg_body(ID, Body) ->
 %%% Terminal general response
 %%%
 parse_t_genresp(Bin) ->
-    <<AnsFlowNum:16, ID:16, Res:8>> = Bin, 
-    {ok, {AnsFlowNum, ID, Res}}.
+    <<RespFlowNum:16, ID:16, Res:8>> = Bin, 
+    {ok, {RespFlowNum, ID, Res}}.
 
 %%%
 %%% Terminal pulse

@@ -4,7 +4,8 @@
 
 -module(ti_common).
 
--export([number_list_to_binary/2]).
+-export([number_list_to_binary/2,
+        removemsgfromlistbyflownum/2]).
 
 -export([set_sockopt/3]).
 
@@ -25,6 +26,25 @@ number_list_to_binary(List, NumLen) ->
             <<H:NumLen>>;
         _ ->
             [<<H:NumLen>>|number_list_to_binary(T, NumLen)]
+    end.
+
+%%%
+%%% Remove [FlowNumN, MsgN] according to FlowNum
+%%% Msg : [[FlowNum0, Msg0], [FlowNum1, Msg1], [FlowNum2, Msg2], ...]
+%%%
+removemsgfromlistbyflownum(FlowNum, Msg) ->
+    case Msg of
+        [] ->
+            [];
+        _ ->
+            [H|T] = Msg,
+            [FN, _M] = H,
+            if
+                FN == FlowNum ->
+                    removemsgfromlistbyflownum(FlowNum, T);
+                FN =/= FlowNum ->
+                    [H|removemsgfromlistbyflownum(FlowNum, T)]
+            end
     end.
 
 set_sockopt(LSock, CSock, Msg) ->    
