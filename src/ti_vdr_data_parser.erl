@@ -48,10 +48,9 @@ process_data(Socket, State, Data) ->
 %%%
 %%% Internal usage for parse_data(Socket, State, Data)
 %%% Return :
-%%%     {ok, State}                 % No response to VDR
-%%%     {ok, Resp, State}           % Response to VDR
-%%%     {fail, Resp}                % Failure response to VDR
-%%%     {ignore, Resp, State}       % Keep current package with response to VDR
+%%%     {ok, HeaderInfo, Res, State}
+%%%     {ignore, HeaderInfo, State}
+%%%     {error, HeaderInfo, ErrorType, State}
 %%%     {error, State}
 %%%
 %%% What is Decoded, still in design
@@ -65,6 +64,7 @@ do_process_data(_Socket, State, Data) ->
         CalcParity == Parity ->
             <<ID:16,BodyProp:16,TelNum:48,FlowNum:16,Tail/binary>>=HeaderBody,
             <<_Reserved:2,Pack:1,CryptoType:3,BodyLen:10>> = BodyProp,
+            HeaderInfo = {ID, FlowNum, TelNum, CryptoType},
             case Pack of
                 0 ->
                     % Single package message
@@ -73,27 +73,30 @@ do_process_data(_Socket, State, Data) ->
                     if
                         BodyLen == ActBodyLen ->
                             case ti_vdr_msg_body_processor:parse_msg_body(ID, Body) of
-                                {ok, Res} ->
-                                    case ID of
-                                        1 ->            % 0x0001
-                                            {ResFlowNum, _PlatformID, _Result} = Res,
-                                            Msg2VDR = State#vdritem.msg2vdr,
-                                            NewMsg2VDR = ti_common:removemsgfromlistbyflownum(ResFlowNum, Msg2VDR),
-                                            {ok, State#vdritem{msg2vdr=NewMsg2VDR}};
-                                        2 ->            % 0x0002
-                                            Resp = ti_vdr_msg_body_processor:create_p_genresp(FlowNum, ID, ?P_GENRESP_OK),
-                                            {ok, Resp, State};
-                                        256 ->          % 0x0100
-                                            {Province, City, Producer, Model, ID, CertColor, CertID} = Res;
-                                        _ ->
-                                            {ok, State}
-                                    end;
-                                error ->
-                                    error
+                                {ok, Result} ->
+                                    {ok, HeaderInfo, Result, State};
+                                    %case ID of
+                                    %    1 ->            % 0x0001
+                                    %        {ResFlowNum, _PlatformID, _Result} = Res,
+                                    %        Msg2VDR = State#vdritem.msg2vdr,
+                                    %        NewMsg2VDR = ti_common:removemsgfromlistbyflownum(ResFlowNum, Msg2VDR),
+                                    %        {ok, State#vdritem{msg2vdr=NewMsg2VDR}};
+                                    %    2 ->            % 0x0002
+                                    %        Resp = ti_vdr_msg_body_processor:create_p_genresp(FlowNum, ID, ?P_GENRESP_OK),
+                                    %        {ok, Resp, State};
+                                    %    256 ->          % 0x0100
+                                    %        {Province, City, Producer, Model, ID, CertColor, CertID} = Res;
+                                    %    _ ->
+                                    %        {ok, State}
+                                    %end;
+                                {error, msgerror} ->
+                                    {error, HeaderInfo, ?P_GENRESP_ERRMSG, State};
+                                {error, unsupported} ->
+                                    {error, HeaderInfo, ?P_GENRESP_NOTSUPPORT, State}
                             end;
                         BodyLen =/= ActBodyLen ->
                             ti_common:logerror("Length error for msg (~p) from (~p) : (Field)~p:(Actual)~p~n", [FlowNum, State#vdritem.addr, BodyLen, ActBodyLen]),
-                            {fail, createresp(ID, CryptoType, TelNum, FlowNum, 2, State)}
+                            {error, HeaderInfo, ?P_GENRESP_ERRMSG, State}
                     end;
                 1 ->
                     % Multi package message
@@ -103,29 +106,31 @@ do_process_data(_Socket, State, Data) ->
                     if
                         Total =< 1 ->
                             ti_common:logerror("Total error for msg (~p) from (~p) : ~p~n", [FlowNum, State#vdritem.addr, Total]),
-                            {fail, createresp(ID, CryptoType, TelNum, FlowNum, 2, State)};
+                            {error, HeaderInfo, ?P_GENRESP_ERRMSG, State};
                         Total > 1 ->
                             if
                                 Index > Total ->
                                     ti_common:logerror("Index error for msg (~p) from (~p) : (Total)~p:(Index)~p~n", [FlowNum, State#vdritem.addr, Total, Index]),
-                                    {fail, createresp(ID, CryptoType, TelNum, FlowNum, 2, State)};
+                                    {error, HeaderInfo, ?P_GENRESP_ERRMSG, State};
                                 Index =< Total ->
                                     if
                                         BodyLen == ActBodyLen ->
                                             case combinemsgpacks(State, ID, FlowNum, Total, Index, Body) of
                                                 {complete, Msg, NewState} ->
-                                                    case ti_vdr_msg_body_processor:parse_msg_body(ID, Body) of
-                                                        {ok, Res} ->
-                                                            {ok, Res};
-                                                        error ->
-                                                            error
+                                                    case ti_vdr_msg_body_processor:parse_msg_body(ID, Msg) of
+                                                        {ok, Result} ->
+                                                            {ok, ID, FlowNum, Result, NewState};
+                                                        {error, msgerror} ->
+                                                            {error, HeaderInfo, ?P_GENRESP_ERRMSG, NewState};
+                                                        {error, unsupported} ->
+                                                            {error, HeaderInfo, ?P_GENRESP_NOTSUPPORT, NewState}
                                                     end;
                                                 {notcomplete, NewState} ->
-                                                    {ok, createresp(ID, CryptoType, TelNum, FlowNum, 0, NewState)}
+                                                    {ignore, HeaderInfo, NewState}
                                             end;
                                         BodyLen =/= ActBodyLen ->
                                             ti_common:logerror("Length error for msg (~p) from (~p) : (Field)~p:(Actual)~p~n", [FlowNum, State#vdritem.addr, BodyLen, ActBodyLen]),
-                                            {fail, createresp(ID, CryptoType, TelNum, FlowNum, 2, State)}
+                                            {error, HeaderInfo, ?P_GENRESP_ERRMSG, State}
                                     end
                             end
                     end
