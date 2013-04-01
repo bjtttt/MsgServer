@@ -192,7 +192,8 @@ data2vdr_process(Pid, Socket) ->
 %%%
 %%% return {Response, NewState}
 %%%
-createresp(ID, CryptoType, TelNum, FlowNum, Result, State) ->
+createresp(HeaderInfo, Result, State) ->
+    {ID, FlowNum, TelNum, CryptoType} = HeaderInfo,
     RespFlowNum = State#vdritem.msgflownum,
     Body = <<FlowNum:16, ID:16, Result:8>>,
     BodyLen = bit_size(Body),

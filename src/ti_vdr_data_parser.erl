@@ -45,6 +45,7 @@ process_data(Socket, State, Data) ->
 %%%     {ignore, HeaderInfo, State}
 %%%     {error, HeaderInfo, ErrorType, State}
 %%%     {error, State}
+%%% HeaderInfo = {ID, FlowNum, TelNum, CryptoType}
 %%%
 %%% What is Decoded, still in design
 %%%
