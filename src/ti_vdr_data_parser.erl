@@ -8,7 +8,7 @@
 
 -include("ti_header.hrl").
 
--export([process_data/3]).
+-export([process_data/3, bxorbytelist/1]).
 
 %%%
 %%% check 0x7d
@@ -187,25 +187,6 @@ restoremsg(State, Data) ->
             ti_common:logerror("Wrong data header (~p) from ~p~n",[BinHeader, State#vdritem.addr]),
             error
     end.
-
-%%%
-%%% Compose body, header and parity
-%%% Calculate XOR value
-%%% 0x7d -> 0x7d0x1 & 0x7e -> 0x7d0x2
-%%%
-%%% return {Response, NewState}
-%%%
-createresp(ID, CryptoType, TelNum, FlowNum, Result, State) ->
-    RespFlowNum = State#vdritem.msgflownum,
-    Body = <<FlowNum:16, ID:16, Result:8>>,
-    BodyLen = bit_size(Body),
-    BodyProp = <<0:2, 0:1, CryptoType:3, BodyLen:10>>,
-    Header = <<128, 1, BodyProp:16, TelNum:48, RespFlowNum:16>>,
-    HeaderBody = <<Header, Body>>,
-    XOR = bxorbytelist(HeaderBody),
-    RawData = binary:replace(<<HeaderBody, XOR>>, <<125>>, <<125,1>>, [global]),
-    RawDataNew = binary:replace(RawData, <<126>>, <<125,2>>, [global]),
-    {<<126, RawDataNew, 126>>, State#vdritem{msgflownum=RespFlowNum+1}}.
 
 %%%
 %%% Check whether received a complete msg packages
