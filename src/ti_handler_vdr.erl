@@ -104,7 +104,7 @@ process_vdr_data(Socket, Data, State) ->
             {error, State};
         _ ->
             case ti_vdr_data_parser:process_data(Socket, State, Data) of
-                {ok, {Resp, NewState}, Result} ->
+                {ok, HeaderInfo, Resp, NewState} ->
                     % convert to database messages
                     DBMsg = composedbmsg(Result),
                     DBProcessPid!DBMsg,
@@ -116,10 +116,10 @@ process_vdr_data(Socket, Data, State) ->
                         error ->
                             {error, NewState}
                     end;
-                {fail, {Resp, NewState}} ->
-                    VDRPid = NewState#vdritem.vdrpid,
-                    VDRPid!Resp,
+                {ignore, HeaderInfo, NewState} ->
                     {ok, NewState};
+                {error, HeaderInfo, ErrorType, NewState} ->
+                    {error, NewState};
                 {error, NewState} ->
                     {error, NewState}
             end
