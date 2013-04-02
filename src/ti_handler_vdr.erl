@@ -106,7 +106,7 @@ process_vdr_data(Socket, Data, State) ->
             case ti_vdr_data_parser:process_data(Socket, State, Data) of
                 {ok, HeaderInfo, Resp, NewState} ->
                     % convert to database messages
-                    DBMsg = composedbmsg(Result),
+                    DBMsg = composedbmsg(HeaderInfo, Resp),
                     DBProcessPid!DBMsg,
                     case receivedbprocessmsg(DBProcessPid, 0) of
                         ok ->
@@ -153,8 +153,16 @@ receivedbprocessmsg(DBProcessPid, ErrorCount) ->
 %%%         
 %%%
 %%%
-composedbmsg(Msg) ->
-    Msg.
+composedbmsg(HeaderInfo, Resp) ->
+    {ID, _FlowNum, _TelNum, _CryptoType} = HeaderInfo,
+    case ID of
+        1 ->
+            ok;
+        2 ->
+            ok;
+        _ ->
+            error
+    end.
 
 %%%
 %%% This process is send msg from the management to the VDR.
