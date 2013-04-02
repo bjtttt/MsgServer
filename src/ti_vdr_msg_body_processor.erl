@@ -17,30 +17,6 @@
 	]).
 
 %%%
-%%% 0x0801
-%%% Platform general response
-%%% Res :
-%%%     0 - SUCCESS/ACK
-%%%     1 - FAIL
-%%%     2 - MSG ERROR
-%%%     3 - NOT SUPPORTED
-%%%     4 - WARNING ACK
-%%%
-create_p_genresp(FlowNum, ID, Res) ->
-    Fail = 1,
-    if
-        Res < 0 ->
-            <<FlowNum:16, ID:16, Fail:8>>;
-        Res >= 0 ->
-            if
-                Res > 4 ->
-                    <<FlowNum:16, ID:16, Fail:8>>;
-                Res =< 4 ->
-                    <<FlowNum:16, ID:16, Res:8>>
-            end
-    end.
-
-%%%
 %%% Parse terminal message body
 %%% Return :
 %%%     {ok, Result}
@@ -83,8 +59,33 @@ parse_t_genresp(Bin) ->
     {ok, {RespFlowNum, ID, Res}}.
 
 %%%
+%%% 0x0801
+%%% Platform general response
+%%% Res :
+%%%     0 - SUCCESS/ACK
+%%%     1 - FAIL
+%%%     2 - MSG ERROR
+%%%     3 - NOT SUPPORTED
+%%%     4 - WARNING ACK
+%%%
+create_p_genresp(FlowNum, ID, Res) ->
+    Fail = 1,
+    if
+        Res < 0 ->
+            <<FlowNum:16, ID:16, Fail:8>>;
+        Res >= 0 ->
+            if
+                Res > 4 ->
+                    <<FlowNum:16, ID:16, Fail:8>>;
+                Res =< 4 ->
+                    <<FlowNum:16, ID:16, Res:8>>
+            end
+    end.
+
+%%%
 %%% 0x0002
 %%% Terminal pulse
+%%% Bin should be empty
 %%% 
 parse_t_pulse(Bin) ->
     {ok, {Bin}}.
