@@ -119,6 +119,7 @@ create_t_reg_resp(FlowNum, ID, AccCode) ->
 %%%
 %%% 0x0003
 %%% unreg or logout?
+%%% Bin should be empty
 %%%
 parse_t_unreg(Bin) ->
     {ok, {Bin}}.
@@ -132,8 +133,9 @@ parse_t_checkacc(Bin) ->
 
 %%%
 %%% 0x8103
+%%% Body : [[Id0, Len0, Value0], [Id1, Len1, Value1], [Id2, Len2, Value2], ...]
 %%%
-create_p_set_terminal_args(Count,Id,Len,Value) ->    
+create_p_set_terminal_args(Count, Body) ->    
     Val = term_to_binary(Value),
     <<Count:8,Id:32,Len:8,Val/binary>>.
 
