@@ -13,8 +13,33 @@
 -export([create_p_genresp/3, 
          create_p_resend_subpack_req/3,
          create_t_reg_resp/3,
-	 create_p_set_terminal_args/4%?this function have problem.
+	     create_p_set_terminal_args/2,
+         create_p_search_terminal_args/0
 	]).
+
+%%%
+%%% 0x0801
+%%% Platform general response
+%%% Res :
+%%%     0 - SUCCESS/ACK
+%%%     1 - FAIL
+%%%     2 - MSG ERROR
+%%%     3 - NOT SUPPORTED
+%%%     4 - WARNING ACK
+%%%
+create_p_genresp(FlowNum, ID, Res) ->
+    Fail = 1,
+    if
+        Res < 0 ->
+            <<FlowNum:16, ID:16, Fail:8>>;
+        Res >= 0 ->
+            if
+                Res > 4 ->
+                    <<FlowNum:16, ID:16, Fail:8>>;
+                Res =< 4 ->
+                    <<FlowNum:16, ID:16, Res:8>>
+            end
+    end.
 
 %%%
 %%% Parse terminal message body
@@ -59,33 +84,8 @@ parse_t_genresp(Bin) ->
     {ok, {RespFlowNum, ID, Res}}.
 
 %%%
-%%% 0x0801
-%%% Platform general response
-%%% Res :
-%%%     0 - SUCCESS/ACK
-%%%     1 - FAIL
-%%%     2 - MSG ERROR
-%%%     3 - NOT SUPPORTED
-%%%     4 - WARNING ACK
-%%%
-create_p_genresp(FlowNum, ID, Res) ->
-    Fail = 1,
-    if
-        Res < 0 ->
-            <<FlowNum:16, ID:16, Fail:8>>;
-        Res >= 0 ->
-            if
-                Res > 4 ->
-                    <<FlowNum:16, ID:16, Fail:8>>;
-                Res =< 4 ->
-                    <<FlowNum:16, ID:16, Res:8>>
-            end
-    end.
-
-%%%
 %%% 0x0002
 %%% Terminal pulse
-%%% Bin should be empty
 %%% 
 parse_t_pulse(Bin) ->
     {ok, {Bin}}.
@@ -96,7 +96,7 @@ parse_t_pulse(Bin) ->
 %%% Body : [ID0, ID1, ID2, ID3, ...]
 %%%
 create_p_resend_subpack_req(FlowNum, ID, Body) ->
-    Bin = ti_common:number_list_to_binary(Body, 16),
+    Bin = list_to_binary([<<X:16>> || X <- Body]),
     <<FlowNum:16, ID:16, Bin/binary>>.
 
 %%%
@@ -105,7 +105,7 @@ create_p_resend_subpack_req(FlowNum, ID, Body) ->
 %%%
 parse_t_reg(Bin) ->
     <<Province:16, City:16, Producer:40, Model:160, ID:56, CertColor:8, Tail/binary>> = Bin,
-    CertID = binary_to_term(Tail),
+    CertID = binary_to_list(Tail),
     {ok, {Province, City, Producer, Model, ID, CertColor, CertID}}.
 
 %%%
@@ -114,12 +114,11 @@ parse_t_reg(Bin) ->
 %%%
 create_t_reg_resp(FlowNum, ID, AccCode) ->
     Bin = list_to_binary(AccCode),
-    <<FlowNum:16, ID:16, Bin>>.
+    <<FlowNum:16, ID:16, Bin/binary>>.
 
 %%%
 %%% 0x0003
 %%% unreg or logout?
-%%% Bin should be empty
 %%%
 parse_t_unreg(Bin) ->
     {ok, {Bin}}.
@@ -128,28 +127,45 @@ parse_t_unreg(Bin) ->
 %%% 0x0102
 %%%
 parse_t_checkacc(Bin) ->
-    Str = binary_to_term(Bin),
+    Str = binary_to_list(Bin),
     {ok, {Str}}.
 
 %%%
 %%% 0x8103
-%%% Body : [[Id0, Len0, Value0], [Id1, Len1, Value1], [Id2, Len2, Value2], ...]
+%%% Lists:[[id,value],...,[id,value]]
 %%%
-create_p_set_terminal_args(Count, Body) ->    
-    Val = term_to_binary(Value),
-    <<Count:8,Id:32,Len:8,Val/binary>>.
+create_p_set_terminal_args(Count, Lists) ->
+    Len = length(Lists),
+    if
+        Len == Count ->
+            L = list_to_binary([make_to_binary(Id, Value) || [Id, Value] <- Lists]),
+            <<Count:8,L/binary>>;
+        Len =/= Count ->
+            L = list_to_binary([make_to_binary(Id, Value) || [Id, Value] <- Lists]),
+            <<Len:8,L/binary>>
+     end.
+
+make_to_binary(Id, Value) ->
+    V = list_to_binary(Value),
+    Len = byte_size(V),
+    <<Id:32,Len:8,V:Len>>.
 
 %%%
-%%%0x8104
+%%% 0x8104
 %%%
 create_p_search_terminal_args() ->
     <<>>.
 
 %%%
-%%%0x8106
+%%% 0x8106
+%%% IDs : [ID0, ID1, ID2, ...]
 %%%
-create_p_search_specify_terminal_args(Count,Idlist) ->
-    Il = term_to_binary(Idlist),
+create_p_search_specify_terminal_args(Count, IDs) ->
+    Len = length(IDs),
+    if
+        Len == Count ->
+            IDsBin = term_to_binary(IDs),
+    
     <<Count:8,Il/binary>>.
 
 %%%
@@ -158,7 +174,6 @@ create_p_search_specify_terminal_args(Count,Idlist) ->
 create_p_search_terminal_args_reply(Number,ArgsCount,ArgsLists) -> 
     AL = term_to_binary(ArgsLists),
     <<Number:16,ArgsCount:8,AL/binary>>.
-
 %%%
 %%%0x8105
 %%%
@@ -166,13 +181,11 @@ create_p_terminal_control(OrderWord,OrderArgs) ->
     OW = term_to_binary(OrderWord),
     OA = term_to_binary(OrderArgs),
     <<OW/binary,OA/binary>>.
-
 %%%
 %%%0x8107
 %%%
 create_p_search_terminal_arr() ->
     <<>>.
-
 %%%
 %%%0x0107
 %%%
@@ -460,21 +473,18 @@ parse_t_data_update(Bin) ->
     <<MsgType:8,MsgCon/binary>> = Bin,
     MC = binary_to_term(MsgCon),
     {ok,{MsgType,MC}}.
-
 %%%
 %%%0x0901
 %%%
 parse_t_compress_update(Bin) ->
     <<ComLen:32,ComBody/binary>> = Bin,CB = binary_to_term(ComBody),
     {ok,{ComLen,CB}}.
-
 %%%
 %%%0x8A00
 %%%
 create_p_rsa(E,N) ->
     NB = term_to_binary(N),
     <<E:32,NB/binary>>.
-
 %%%
 %%%0x0A00
 %%%
