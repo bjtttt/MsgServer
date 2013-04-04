@@ -21,7 +21,8 @@
          create_p_update_packet/6,
          create_p_position_search/0,
          create_p_tmp_position_track_control/2,
-         create_p_man_confirm_alarm/2
+         create_p_man_confirm_alarm/2,
+         create_p_txt_send/2
 	]).
 
 %%%
@@ -307,18 +308,20 @@ create_p_man_confirm_alarm(Number,Type) ->
     <<Number:16,Type:32>>.
 
 %%%
-%%%0x8300
+%%% 0x8300
 %%%
 create_p_txt_send(Symbol,TextMsg) ->
     TM = list_to_binary(TextMsg),
     <<Symbol:8,TM/binary>>.
 
 %%%
-%%%0x8301
+%%% 0x8301
+%%% Events : [[ID0, Len0, Con0], [ID1, Len1, Con1], [ID2, Len2, Con2], ...]
 %%%
-create_p_event_set(Type,Count,ID,Len,Con) ->
+create_p_event_set(Type,Count,Events) ->
     C = list_to_binary(Con),
     <<Type:8,Count:8,ID:8,Len:8,Con/binary>>.
+
 %%%
 %%%0x0301
 %%%
