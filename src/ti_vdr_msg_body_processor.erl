@@ -14,7 +14,8 @@
          create_p_resend_subpack_req/3,
          create_t_reg_resp/3,
 	     create_p_set_terminal_args/2,
-         create_p_search_terminal_args/0
+         create_p_query_terminal_args/0,
+         create_p_query_specify_terminal_args/2
 	]).
 
 %%%
@@ -71,6 +72,8 @@ do_parse_msg_body(ID, Body) ->
             parse_t_unreg(Body);
         258 ->                      % 0x0102
             parse_t_checkacc(Body);
+        260 ->                      % 0x0104
+            parse_t_query_terminal_args_reponse(Body);
         _ ->
             {error, unsupported}
     end.
@@ -153,34 +156,63 @@ make_to_binary(Id, Value) ->
 %%%
 %%% 0x8104
 %%%
-create_p_search_terminal_args() ->
+create_p_query_terminal_args() ->
     <<>>.
 
 %%%
 %%% 0x8106
 %%% IDs : [ID0, ID1, ID2, ...]
 %%%
-create_p_search_specify_terminal_args(Count, IDs) ->
+create_p_query_specify_terminal_args(Count, IDs) ->
     Len = length(IDs),
     if
         Len == Count ->
             IDsBin = term_to_binary(IDs),
-    
-    <<Count:8,Il/binary>>.
+            <<Count:8,IDsBin/binary>>;
+        Len =/= Count ->
+            IDsBin = term_to_binary(IDs),
+            <<Len:8,IDsBin/binary>>
+    end.
 
 %%%
-%%%0x0104
+%%% 0x0104
 %%%
-create_p_search_terminal_args_reply(Number,ArgsCount,ArgsLists) -> 
-    AL = term_to_binary(ArgsLists),
-    <<Number:16,ArgsCount:8,AL/binary>>.
+parse_t_query_terminal_args_reponse(Bin) ->
+    <<FlowNum:16, Count:8, Tail/binary>> = Bin,
+    List = extracttermargsresp(Tail),
+    Len = length(List),
+    if
+        Len == Count ->
+            {ok, {FlowNum, Count, List}};
+        Len =/= Count ->
+            {ok, {FlowNum, Len, List}}
+    end.
+
+extracttermargsresp(Bin) ->
+    Len = bit_size(Bin),
+    if
+        Len < 40 ->
+            [];
+        Len >= 40 ->
+            <<ID:32, Len:8, Tail/binary>> = Bin,
+            TailLen = bit_size(Tail),
+            if
+                Len > TailLen ->
+                    [];
+                Len =< TailLen ->
+                    <<Value:Len, Body/binary>> = Tail,
+                    [[ID, Len, Value]|extracttermargsresp(Body)]
+            end
+    end.
+
 %%%
-%%%0x8105
+%%% 0x8105
 %%%
-create_p_terminal_control(OrderWord,OrderArgs) ->
+create_p_terminal_control(OrderWord, OrderArgs) ->
     OW = term_to_binary(OrderWord),
     OA = term_to_binary(OrderArgs),
     <<OW/binary,OA/binary>>.
+
 %%%
 %%%0x8107
 %%%
