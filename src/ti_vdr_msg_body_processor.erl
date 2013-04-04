@@ -264,9 +264,9 @@ parse_t_update_result_notice(Bin) ->
 parse_t_position_report(Bin) ->  
     <<AlarmSymbol:32,State:32,Latitude:32,Longitude:32,Hight:16,Speed:16,Direction:16,Time:48,Tail/binary>> = Bin,
     H = [AlarmSymbol,State,Latitude,Longitude,Hight,Speed,Direction,Time],
-    L=byte_size(Tail),
+    Len = byte_size(Tail),
     if
-	L>0 ->
+	    Len > 0 ->
 	   <<AppId:8,AppLen:8,AppMsg/binary>> = Tail,
 	    Rtn = lists:append(H,[AppId,AppLen,AppMsg]);
         L==0 ->
