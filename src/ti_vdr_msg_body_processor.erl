@@ -18,7 +18,10 @@
          create_p_query_specify_terminal_args/2,
          create_p_terminal_control/2,
          create_p_search_terminal_arr/0,
-         create_p_update_packet/6
+         create_p_update_packet/6,
+         create_p_position_search/0,
+         create_p_tmp_position_track_control/2,
+         create_p_man_confirm_alarm/2
 	]).
 
 %%%
@@ -81,6 +84,10 @@ do_parse_msg_body(ID, Body) ->
             parse_t_search_terminal_arr_response(Body);
         264 ->                      % 0x0108
             parse_t_update_result_notice(Body);
+        512 ->                      % 0x0200
+            parse_t_position_report(Body);
+        513 ->                      % 0x0201
+            parse_t_query_position_response(Body);
         _ ->
             {error, unsupported}
     end.
@@ -259,49 +266,53 @@ parse_t_update_result_notice(Bin) ->
     {ok,{UpType,UpResult}}.
 
 %%%
-%%%0x0200
+%%% 0x0200
 %%%
 parse_t_position_report(Bin) ->  
     <<AlarmSymbol:32,State:32,Latitude:32,Longitude:32,Hight:16,Speed:16,Direction:16,Time:48,Tail/binary>> = Bin,
     H = [AlarmSymbol,State,Latitude,Longitude,Hight,Speed,Direction,Time],
-    Len = byte_size(Tail),
+    Len = bit_size(Tail),
     if
 	    Len > 0 ->
-	   <<AppId:8,AppLen:8,AppMsg/binary>> = Tail,
-	    Rtn = lists:append(H,[AppId,AppLen,AppMsg]);
-        L==0 ->
-	    Rtn = H
-    end,
-    R=list_to_tuple(Rtn),
-    {ok,R}.
+            <<AppId:8,AppLen:8,AppMsg/binary>> = Tail,
+            {ok, {[H|[AppId,AppLen,AppMsg]]}};
+        Len == 0 ->
+            {ok, {H}}
+    end.
 
 %%%
-%%%0x8201
+%%% 0x8201
 %%%
 create_p_position_search() ->
     <<>>.
+
 %%%
-%%%0x0201
+%%% 0x0201
 %%%
-parse_t_search_reply(Bin) ->       
-    <<ReplyNum:16,PosMsgReply/binary>> = Bin,
-    {ok,{ReplyNum,PosMsgReply}}.
+parse_t_query_position_response(Bin) ->       
+    <<RespNum:16,PosMsgResp/binary>> = Bin,
+    {ok, {PosMsg}} = parse_t_position_report(PosMsgResp),
+    {ok, {RespNum, PosMsg}}.
+
 %%%
-%%%0x8202
+%%% 0x8202
 %%%
-create_p_tmp_position_track_control(Interval,PosTraValidity) ->
+create_p_tmp_position_track_control(Interval, PosTraValidity) ->
     <<Interval:16,PosTraValidity:32>>.
+
 %%%
-%%%0x8203
+%%% 0x8203
 %%%
 create_p_man_confirm_alarm(Number,Type) ->
     <<Number:16,Type:32>>.
+
 %%%
 %%%0x8300
 %%%
 create_p_txt_send(Symbol,TextMsg) ->
     TM = list_to_binary(TextMsg),
     <<Symbol:8,TM/binary>>.
+
 %%%
 %%%0x8301
 %%%
