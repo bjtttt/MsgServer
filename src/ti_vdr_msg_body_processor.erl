@@ -15,7 +15,10 @@
          create_t_reg_resp/3,
 	     create_p_set_terminal_args/2,
          create_p_query_terminal_args/0,
-         create_p_query_specify_terminal_args/2
+         create_p_query_specify_terminal_args/2,
+         create_p_terminal_control/2,
+         create_p_search_terminal_arr/0,
+         create_p_update_packet/6
 	]).
 
 %%%
@@ -74,6 +77,10 @@ do_parse_msg_body(ID, Body) ->
             parse_t_checkacc(Body);
         260 ->                      % 0x0104
             parse_t_query_terminal_args_reponse(Body);
+        263 ->                      % 0x0107
+            parse_t_search_terminal_arr_response(Body);
+        264 ->                      % 0x0108
+            parse_t_update_result_notice(Body);
         _ ->
             {error, unsupported}
     end.
@@ -208,36 +215,49 @@ extracttermargsresp(Bin) ->
 %%%
 %%% 0x8105
 %%%
-create_p_terminal_control(OrderWord, OrderArgs) ->
-    OW = term_to_binary(OrderWord),
-    OA = term_to_binary(OrderArgs),
-    <<OW/binary,OA/binary>>.
+create_p_terminal_control(Type, Args) ->
+    case Type of
+        1 ->
+            List = re:split(Args, ";", [{return, list}]),
+            Bin = list_to_binary(List),
+            <<Type:8,Bin/binary>>;
+        2 ->
+            List = re:split(Args, ";", [{return, list}]),
+            Bin = list_to_binary(List),
+            <<Type:8,Bin/binary>>;
+        _ ->
+            <<Type:8>>
+    end.
 
 %%%
-%%%0x8107
+%%% 0x8107
 %%%
 create_p_search_terminal_arr() ->
     <<>>.
+
 %%%
-%%%0x0107
+%%% 0x0107
 %%%
-parse_t_search_terminal_arr_reply(Bin) ->
+parse_t_search_terminal_arr_response(Bin) ->
     <<Type:16,ProId:40,Model:160,TerId:56,ICCID:80,HaltVlen:8,HaltV:HaltVlen/binary,FwVLen:8,FwV:FwVLen/binary,GNSS:8,Arr:8>> = Bin,
     {ok,{Type,ProId,Model,TerId,ICCID,HaltVlen,HaltV,FwVLen,FwV,GNSS,Arr}}.
+
 %%%
-%%%0x8108
+%%% 0x8108
 %%%
 create_p_update_packet(Type,ProId,Vlen,Ver,UpLen,UpPacket) ->    
     PI = list_to_binary(ProId),
     V = list_to_binary(Ver),
     UP = term_to_binary(UpPacket),
     <<Type:8,PI:40/binary,Vlen:8,V:Vlen/binary,UpLen:32,UP/binary>>.
+
 %%%
-%%%0x0108
+%%% 0x0108
 %%%
 parse_t_update_result_notice(Bin) ->
     <<UpType:8,UpResult:8>> = Bin,
     {ok,{UpType,UpResult}}.
+
 %%%
 %%%0x0200
 %%%
@@ -254,6 +274,7 @@ parse_t_position_report(Bin) ->
     end,
     R=list_to_tuple(Rtn),
     {ok,R}.
+
 %%%
 %%%0x8201
 %%%
