@@ -26,7 +26,23 @@
          create_p_set_event/3,
          create_p_send_question/4,
          create_p_msgmenu_settings/3,
-         create_p_msg_service/3
+         create_p_msg_service/3,
+         create_p_tel_callback/2,
+         create_p_tel_note/3,
+         create_p_car_con/1,
+         create_p_set_circle_area/11,
+         create_p_del_circle_area/2,
+         create_p_set_rect_area/3,
+         create_p_del_rect_area/2,
+         create_p_set_polygon_area/8,
+         create_p_del_polygon_area/2,
+         create_p_set_lines/6,
+         create_p_del_lines/2,
+         create_p_record_collect_cmd/2,
+         create_p_record_args_send/2,
+         create_p_report_driver_id_request/0,
+         create_p_multimedia_data_reply/3,
+         create_p_shoot_order/10
 	]).
 
 %%%
@@ -99,6 +115,22 @@ do_parse_msg_body(ID, Body) ->
             parse_t_question_resp(Body);
         771 ->                      % 0x0303
             parse_t_msg_proorcancel(Body);
+        1280 ->                     % 0x0500
+            parse_t_car_con_response(Body);
+        1792 ->                     % 0x0700
+            parse_t_record_upload(Body);
+        1793 ->                     % 0x0701
+            parse_t_electron_invoice_report(Body);
+        1794 ->                     % 0x0702
+            parse_t_driver_id_report(Body);
+        1796 ->                     % 0x0704
+            parse_t_position_data_batch_update(Body);
+        1797 ->                     % 0x0705
+            parse_t_CAN_data_update(Body);
+        2048 ->                     % 0x0800
+            parse_t_multi_media_event_update(Body);
+        2049 ->                     % 0x0809
+            parse_t_multi_media_data_update(Body);
         _ ->
             {error, unsupported}
     end.
@@ -170,7 +202,7 @@ create_p_set_terminal_args(_Count, Lists) ->
 make_to_binary(Id, Value) ->
     V = list_to_binary(Value),
     Len = byte_size(V),
-    <<Id:32,Len:8,V:Len>>.
+    <<Id:32,Len:8,V/binary>>.
 
 %%%
 %%% 0x8104
@@ -240,8 +272,12 @@ create_p_search_terminal_arr() ->
 %%% 0x0107
 %%%
 parse_t_search_terminal_arr_response(Bin) ->
-    <<Type:16,ProId:40,Model:160,TerId:56,ICCID:80,HaltVlen:8,HaltV:HaltVlen/binary,FwVLen:8,FwV:FwVLen/binary,GNSS:8,Arr:8>> = Bin,
-    {ok,{Type,ProId,Model,TerId,ICCID,HaltVlen,HaltV,FwVLen,FwV,GNSS,Arr}}.
+    <<Type:16,ProId:40,Model:160,TerId:56,ICCID:80,HaltVLen:8,Tail0/binary>> = Bin,
+    HaltVBinLen = HaltVLen * 8,
+    <<HaltV:HaltVBinLen,FwVLen:8,Tail1/binary>> = Tail0,
+    FwVBinLen = FwVLen * 8,
+    <<FwV:FwVBinLen,GNSS:8,Arr:8>> = Tail1,
+    {ok,{Type,ProId,Model,TerId,ICCID,HaltVLen,HaltV,FwVLen,FwV,GNSS,Arr}}.
 
 %%%
 %%% 0x8108
@@ -325,9 +361,9 @@ get_event_binary(Events, IDLen, LenLen) ->
             {ID,Len,Con} = H,
             case T of
                 [] ->
-                    <<ID:IDLen,Len:LenLen,Con:Len>>;
+                    <<ID:IDLen,Len:LenLen,Con/binary>>;
                 _ ->
-                    [<<ID:IDLen,Len:LenLen,Con:Len>>|get_event_binary(T, IDLen, LenLen)]
+                    [<<ID:IDLen,Len:LenLen,Con/binary>>|get_event_binary(T, IDLen, LenLen)]
             end
     end.
 
@@ -342,9 +378,10 @@ parse_t_event_report(Bin) ->
 %%% 0x8302
 %%% Answers : [[ID0, Len0, Con0], [ID1, Len1, Con1], [ID2, Len2, Con2], ...]
 %%%
-create_p_send_question(Symbol,QueLen,Que,Answers) ->    
+create_p_send_question(Symbol,QueLen,Que,Answers) -> 
+    Q = term_to_binary(Que),
     Ans = get_event_binary(Answers, 8, 16),
-    <<Symbol:8,QueLen:8,Que:QueLen,Ans/binary>>.
+    <<Symbol:8,QueLen:8,Q/binary,Ans/binary>>.
 
 %%%
 %%% 0x0302
@@ -374,145 +411,351 @@ parse_t_msg_proorcancel(Bin) ->
 %%%
 create_p_msg_service(Type,Len,Con) ->
     ConBin = term_to_binary(Con),
-    <<Type:8,Len:16,ConBin:Len>>.
+    <<Type:8,Len:16,ConBin/binary>>.
 
 %%%
-%%%0x8400
+%%% 0x8400
 %%%
-create_p_tel_answer(Symbol,Number) ->
-    N = list_to_binary(Number),
-    <<Symbol:8,N/binary>>.
+create_p_tel_callback(Symbol,Number) ->
+    Len = length(Number),
+    if
+        Len > 20 ->
+            {Num0, _Num1} = lists:split(20, Number),
+            N = list_to_binary(Num0),
+            <<Symbol:8,N/binary>>;
+        Len =< 20 ->
+            N = list_to_binary(Number),
+            <<Symbol:8,N/binary>>
+    end.
+
 %%%
-%%%0x8401
+%%% 0x8401
 %%%
-create_p_tel_note(SetType,ConCount,ConItem) ->
-    <<"">>.
+create_p_tel_note(Type,_Count,Items) ->
+    Len = length(Items),
+    ItemsBin = get_tel_book_entries(Items),
+    <<Type:8,Len:8,ItemsBin/binary>>.
+
+get_tel_book_entries(Items) ->
+    case Items of
+        [] ->
+            <<>>;
+        _ ->
+            [H|T] = Items,
+            {Flag,NumLen,Num,NameLen,Name} = H,
+            case T of
+                [] ->
+                    <<Flag:8,NumLen:8,Num/binary,NameLen:8,Name/binary>>;
+                _ ->
+                    [<<Flag:8,NumLen:8,Num/binary,NameLen:8,Name/binary>>|get_tel_book_entries(T)]
+            end
+    end.
+    
 %%%
-%%%0x8500
+%%% 0x8500
 %%%
 create_p_car_con(Symbol) ->
     <<Symbol:8>>.
+
 %%%
-%%%0x0500
+%%% 0x0500
+%%% Definition is not complete in document.
 %%%
-parse_t_car_con_reply(Number,MsgBody) ->
-    MB = term_to_binary(MsgBody),
-    <<Number:16,MB/binary>>.
+parse_t_car_con_response(Msg) ->
+    <<FlowNum:16,M/binary>> = Msg,
+    {ok, Resp} = parse_t_position_report(M),
+    {ok,{FlowNum, Resp}}.
+
 %%%
-%%%0x8600
+%%% 0x8600
 %%%
-create_p_set_rotundity_area(SetArr,AreaCount,AreaId,AreaArr,Latitude,Longitude,Radius,Stime,Etime,Hspeed,OSTime) ->
+create_p_set_circle_area(SetArr,AreaCount,AreaId,AreaArr,Latitude,Longitude,Radius,Stime,Etime,Hspeed,OSTime) ->
     St = list_to_binary(Stime),
     Et = list_to_binary(Etime),
-    <<SetArr:8,AreaCount:8,AreaId:32,AreaArr:16,Latitude:32,Longitude:32,Radius:32,Stime:48/binary,Etime:48/binary,Hspeed:16,OSTime:8>>.
+    <<SetArr:8,AreaCount:8,AreaId:32,AreaArr:16,Latitude:32,Longitude:32,Radius:32,St:48,Et:48,Hspeed:16,OSTime:8>>.
+
 %%%
-%%%0x8601
+%%% 0x8601
+%%% IDs : [ID0, Id1, Id2, ...]
 %%%
-create_p_del_rotundity_area(Count,IDlists) ->
-    IDl=term_to_binary(IDlists),
-    <<Count:8,IDl/binary>>.
+create_p_del_circle_area(Count,IDs) ->
+    if
+        Count == 0 ->
+            <<Count:8>>;
+        Count =/= 0 ->
+            Len = length(IDs),
+            if
+                Len > 125 ->
+                    {IDs1, _IDs2} = lists:split(125, IDs),
+                    IDsBin = list_to_binary(IDs1),
+                    <<Len:8,IDsBin/binary>>;
+                Len =< 125 ->
+                    IDsBin = list_to_binary(IDs),
+                    <<Len:8,IDsBin/binary>>
+            end
+    end.
+
 %%%
-%%%0x8602
+%%% 0x8602
 %%%
-%create_p_set_rectangle_area
+create_p_set_rect_area(Type,_Count,Items) ->
+    Len = length(Items),
+    ItemsBin = get_rect_area_entries(Items),
+    <<Type:8,Len:8,ItemsBin/binary>>.
+    
+get_rect_area_entries(Items) ->
+    case Items of
+        [] ->
+            <<>>;
+        _ ->
+            [H|T] = Items,
+            {ID,Property,LeftTopLat,LeftTopLon,RightBotLat,RightBotLon,StartTime,StopTime,MaxSpeed,ExceedTime} = H,
+            case T of
+                [] ->
+                    <<ID:32,Property:16,LeftTopLat:32,LeftTopLon:32,RightBotLat:32,RightBotLon:32,StartTime:48,StopTime:48,MaxSpeed:32,ExceedTime:8>>;
+                _ ->
+                    [<<ID:32,Property:16,LeftTopLat:32,LeftTopLon:32,RightBotLat:32,RightBotLon:32,StartTime:48,StopTime:48,MaxSpeed:32,ExceedTime:8>>|get_rect_area_entries(T)]
+            end
+    end.
+    
 
 %%%
 %%%0x8603
+%%% IDs : [ID0, Id1, Id2, ...]
 %%%
-%create_p_del_rectangle_area
+create_p_del_rect_area(Count, IDs) ->
+    if
+        Count == 0 ->
+            <<Count:8>>;
+        Count =/= 0 ->
+            Len = length(IDs),
+            if
+                Len > 125 ->
+                    {IDs1, _IDs2} = lists:split(125, IDs),
+                    IDsBin = list_to_binary(IDs1),
+                    <<Len:8,IDsBin/binary>>;
+                Len =< 125 ->
+                    IDsBin = list_to_binary(IDs),
+                    <<Len:8,IDsBin/binary>>
+            end
+    end.
 
 %%%
-%%%0x8604
+%%% 0x8604
+%%% Points : [[Lat0, Lon0], [Lat1, Lon1], [Lat2, Lon2], ...]
 %%%
-%create_p_set_polygon_area(Id,Arr,StartTime,EndTime,HighSpeed,OSTime,)
+create_p_set_polygon_area(Id,Prop,StartTime,StopTime,MaxSpeed,OSTime,_PointsCount,Points) ->
+    Len = length(Points),
+    PointsBin = get_polygon_area_point_entries(Points),
+    <<Id:32,Prop:16,StartTime:48,StopTime:48,MaxSpeed:16,OSTime:8,Len:16,PointsBin/binary>>.
+
+get_polygon_area_point_entries(Items) ->
+    case Items of
+        [] ->
+            <<>>;
+        _ ->
+            [H|T] = Items,
+            {Lat,Lon} = H,
+            case T of
+                [] ->
+                    <<Lat:32,Lon:32>>;
+                _ ->
+                    [<<Lat:32,Lon:32>>|get_polygon_area_point_entries(T)]
+            end
+    end.                                   
+    
+%%%
+%%% 0x8605
+%%% IDs : [ID0, Id1, Id2, ...]
+%%%
+create_p_del_polygon_area(Count, IDs) ->
+    if
+        Count == 0 ->
+            <<Count:8>>;
+        Count =/= 0 ->
+            Len = length(IDs),
+            if
+                Len > 125 ->
+                    {IDs1, _IDs2} = lists:split(125, IDs),
+                    IDsBin = list_to_binary(IDs1),
+                    <<Len:8,IDsBin/binary>>;
+                Len =< 125 ->
+                    IDsBin = list_to_binary(IDs),
+                    <<Len:8,IDsBin/binary>>
+            end
+    end.
 
 %%%
-%%%0x8605
+%%% 0x8606
 %%%
-%create_p_del_polygon_area
+create_p_set_lines(ID, Prop, StartTime, StopTime, _PointsCount, Points) ->
+    Len = length(Points),
+    PointsBin = get_lines_point_entries(Points),
+    <<ID:32,Prop:16,StartTime:48,StopTime:48,Len:16,PointsBin/binary>>.
+
+get_lines_point_entries(Items) ->
+    case Items of
+        [] ->
+            <<>>;
+        _ ->
+            [H|T] = Items,
+            {PointID,LineID,PointLat,PointLon,LineWidth,LineLength,LargerThr,SmallerThr,MaxSpeed,ExceedTime} = H,
+            case T of
+                [] ->
+                    <<PointID:32,LineID:32,PointLat:32,PointLon:32,LineWidth:8,LineLength:8,LargerThr:16,SmallerThr:16,MaxSpeed:16,ExceedTime:6>>;
+                _ ->
+                    [<<PointID:32,LineID:32,PointLat:32,PointLon:32,LineWidth:8,LineLength:8,LargerThr:16,SmallerThr:16,MaxSpeed:16,ExceedTime:6>>|get_lines_point_entries(T)]
+            end
+    end.                                   
+    
+%%%
+%%% 0x8607
+%%% IDs : [ID0, Id1, Id2, ...]
+%%%
+create_p_del_lines(Count, IDs) ->
+    if
+        Count == 0 ->
+            <<Count:8>>;
+        Count =/= 0 ->
+            Len = length(IDs),
+            if
+                Len > 125 ->
+                    {IDs1, _IDs2} = lists:split(125, IDs),
+                    IDsBin = list_to_binary(IDs1),
+                    <<Len:8,IDsBin/binary>>;
+                Len =< 125 ->
+                    IDsBin = list_to_binary(IDs),
+                    <<Len:8,IDsBin/binary>>
+            end
+    end.
 
 %%%
-%%%0x8606
+%%% 0x8700
 %%%
-%create_p_set_line()
-
-%%%
-%%%0x8607
-%%%
-%create_p_del_line()
-
-%%%
-%%%0x8700
-%%%
-create_p_record_collection_order(OrderWord,DataBlock) ->
+create_p_record_collect_cmd(OrderWord,DataBlock) ->
     DB = term_to_binary(DataBlock),
     <<OrderWord:8,DB/binary>>.
 
 %%%
-%%%0x0700
+%%% 0x0700
 %%%
-parse_t_record_update(Bin) ->
+parse_t_record_upload(Bin) ->
     <<Number:16,OrderWord:8,DataBlock/binary>>=Bin,
     DB = binary_to_list(DataBlock),
     {ok,{Number,OrderWord,DB}}.
+
 %%%
-%%%0x8701
+%%% 0x8701
 %%%
 create_p_record_args_send(OrderWord,DataBlock) ->
     DB = list_to_binary(DataBlock),
     <<OrderWord:8,DB/binary>>.
+
 %%%
-%%%0x0701
+%%% 0x0701
 %%%
 parse_t_electron_invoice_report(Bin) ->
     <<Length:32,Content/binary>> = Bin,
     {ok,{Length,Content}}.
+
 %%%
-%%%0x8702
+%%% 0x8702
 %%%
-parse_t_report_idemsg_request(Bin) ->
-    <<_/binary>> = Bin,
-    {ok,{}}.
+create_p_report_driver_id_request() ->
+    <<>>.
+
 %%%
-%%%0x0702
+%%% 0x0702
 %%%
-parse_t_ide_col_report(Bin) ->
-    <<State:8,Time:48,IcReadResult:8,NameLen:8,Name:NameLen,CerNum:20,OrgLen:8,Org:OrgLen,Validity:32>> = Bin,
-    N=binary_to_list(Name),O=binary_to_list(Org),
+parse_t_driver_id_report(Bin) ->
+    <<State:8,Time:48,IcReadResult:8,NameLen:8,Tail0/binary>> = Bin,
+    NameBinLen = NameLen * 8,
+    <<Name:NameBinLen,CerNum:20,OrgLen:8,Tail1/binary>> = Tail0,
+    OrgBinLen = OrgLen * 8,
+    <<Org:OrgBinLen,Validity:32>> = Tail1,
+    N=binary_to_list(Name),
+    O=binary_to_list(Org),
     {ok,{State,Time,IcReadResult,NameLen,N,CerNum,OrgLen,O,Validity}}.
-%%%
-%%%0704
-%%%
-%parse_t_site_data_update
 
 %%%
-%%%0705
+%%% 0x0704
 %%%
-%parse_t_CAN_Data_update
+parse_t_position_data_batch_update(Bin) ->
+    <<Count:32, Type:8, Tail/binary>> = Bin,
+    Positions = get_position_data_entries(Tail),
+    {ok, {Count,Type,Positions}}.
+
+get_position_data_entries(Bin) ->
+    Len = bit_size(Bin),
+    if
+        Len < 16 ->
+            [];
+        Len >= 16 ->
+            <<Length:16, Tail0/binary>> = Bin,
+            BinLength = Length * 8,
+            Tail0Length = bit_size(Tail0),
+            if
+                BinLength > Tail0Length ->
+                    [];
+                BinLength =< Tail0Length ->
+                    <<Msg:BinLength, Tail1/binary>> = Tail0,
+                    {ok, {M}} = parse_t_position_report(Msg),
+                    [[Length, M]|get_position_data_entries(Tail1)]
+            end
+    end.                    
 
 %%%
-%%%0800
+%%% 0x0705
+%%%
+parse_t_CAN_data_update(Bin) ->
+    <<Count:32, Time:40, Tail/binary>> = Bin,
+    Data = get_CAN_data_entries(Tail),
+    {ok, {Count, Time, Data}}.
+
+get_CAN_data_entries(Bin) ->
+    Len = bit_size(Bin),
+    if
+        Len < 96 ->
+            [];
+        Len >= 96 ->
+            <<ID:32, Data:64, Tail/binary>> = Bin,
+            TailLength = bit_size(Tail),
+            if
+                TailLength < 96 ->
+                    [ID, Data];
+                TailLength >= 96 ->
+                    [[ID, Data]|get_CAN_data_entries(Tail)]
+            end
+    end.                    
+
+%%%
+%%% 0x0800
 %%%
 parse_t_multi_media_event_update(Bin) ->
     <<Id:32,Type:8,Code:8,EICode:8,PipeId:8>> = Bin,
     {ok,{Id,Type,Code,EICode,PipeId}}.
+
 %%%
-%%%0801
+%%% 0x0801
 %%%
 parse_t_multi_media_data_update(Bin) ->
     <<Id:32,Type:8,Code:8,EICode:8,PipeId:8,MsgBody:(28*8),Pack/binary>> = Bin,
     {ok,{Id,Type,Code,EICode,PipeId,MsgBody,Pack}}.
+
 %%%
-%%%0x8800
+%%% 0x8800
 %%%
-create_p_multimedia_data_reply(Id,PacCount,IdLists) ->
-    IL=term_to_binary(IdLists),
-    <<Id:32,PacCount:8,IL/binary>>.
+create_p_multimedia_data_reply(Id,_Count,IDs) ->
+    Len = length(IDs),
+    IL=term_to_binary(IDs),
+    <<Id:32,Len:8,IL/binary>>.
+
 %%%
 %%%0x8801
 %%%
 create_p_shoot_order(PipeId,Order,Time,SaveSymbol,DisRate,Quality,Bri,Contrast,Sat,Chroma) ->
-    <<PipeId:8,Order:16,Time:16,SaveSymbol:8,DisRate:8,Quality:8,Bri:8,Contrast:8,Chroma:8>>.
+    <<PipeId:8,Order:16,Time:16,SaveSymbol:8,DisRate:8,Quality:8,Bri:8,Contrast:8,Sat:8,Chroma:8>>.
+
 %%%
 %%%0x0805
 %%%
