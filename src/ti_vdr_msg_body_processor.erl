@@ -23,7 +23,10 @@
          create_p_tmp_position_track_control/2,
          create_p_man_confirm_alarm/2,
          create_p_txt_send/2,
-         create_p_set_event/3
+         create_p_set_event/3,
+         create_p_send_question/4,
+         create_p_msgmenu_settings/3,
+         create_p_msg_service/3
 	]).
 
 %%%
@@ -92,6 +95,10 @@ do_parse_msg_body(ID, Body) ->
             parse_t_query_position_response(Body);
         769 ->                      % 0x0301
             parse_t_event_report(Body);
+        770 ->                      % 0x0302
+            parse_t_question_resp(Body);
+        771 ->                      % 0x0303
+            parse_t_msg_proorcancel(Body);
         _ ->
             {error, unsupported}
     end.
@@ -306,10 +313,10 @@ create_p_txt_send(Symbol,TextMsg) ->
 %%%
 create_p_set_event(Type,_Count,Events) ->
     Len = length(Events),
-    EventsBin = get_event_binary(Events),
+    EventsBin = get_event_binary(Events, 8, 8),
     <<Type:8,Len:8,EventsBin/binary>>.
 
-get_event_binary(Events) ->
+get_event_binary(Events, IDLen, LenLen) ->
     case Events of
         [] ->
             <<>>;
@@ -318,50 +325,57 @@ get_event_binary(Events) ->
             {ID,Len,Con} = H,
             case T of
                 [] ->
-                    <<ID:8,Len:8,Con:Len>>;
+                    <<ID:IDLen,Len:LenLen,Con:Len>>;
                 _ ->
-                    [<<ID:8,Len:8,Con:Len>>|get_event_binary(T)]
+                    [<<ID:IDLen,Len:LenLen,Con:Len>>|get_event_binary(T, IDLen, LenLen)]
             end
     end.
 
 %%%
-%%%0x0301
+%%% 0x0301
 %%%
 parse_t_event_report(Bin) ->
     <<Id:8>> = Bin,
     {ok,{Id}}.
 
 %%%
-%%%0x8302
+%%% 0x8302
+%%% Answers : [[ID0, Len0, Con0], [ID1, Len1, Con1], [ID2, Len2, Con2], ...]
 %%%
-create_p_question_send(Symbol,QueConLen,Que,AnsLists) ->    
-    Q = list_to_binary(Que),
-    Ans = term_to_binary(AnsLists),
-    <<Symbol:8,QueConLen:8,Que:QueConLen/binary,Ans/binary>>.
+create_p_send_question(Symbol,QueLen,Que,Answers) ->    
+    Ans = get_event_binary(Answers, 8, 16),
+    <<Symbol:8,QueLen:8,Que:QueLen,Ans/binary>>.
+
 %%%
-%%%0x0302
+%%% 0x0302
 %%%
-parse_t_que_reply(Bin) ->
+parse_t_question_resp(Bin) ->
     <<Number:16,Id:8>> = Bin,
     {ok,{Number,Id}}.
+
 %%%
-%%%0x8303
+%%% 0x8303
+%%% Msgs : [[ID0, Len0, Con0], [ID1, Len1, Con1], [ID2, Len2, Con2], ...]
 %%%
-create_p_msgmenu_set(SetType,ItemCount,MsgType,MsgNameLen,MsgName) ->
-    MN = list_to_binary(MsgName),
-    <<SetType:8,ItemCount:8,MsgType:8,MsgNameLen:16,MN/binary>>.
+create_p_msgmenu_settings(SetType,_Count,Msgs) ->
+    Len = length(Msgs),
+    MsgsBin = get_event_binary(Msgs, 8, 16),
+    <<SetType:8,Len:8,MsgsBin/binary>>.
+
 %%%
-%%%0x0303
+%%% 0x0303
 %%%
 parse_t_msg_proorcancel(Bin) ->
     <<MsgType:8,POC:8>> = Bin,
     {ok,{MsgType,POC}}.
+
 %%%
-%%%0x8304
+%%% 0x8304
 %%%
 create_p_msg_service(Type,Len,Con) ->
-    C = list_to_binary(Con),
-    <<Type:8,Len:16,C/binary>>.
+    ConBin = term_to_binary(Con),
+    <<Type:8,Len:16,ConBin:Len>>.
+
 %%%
 %%%0x8400
 %%%
