@@ -42,7 +42,14 @@
          create_p_record_args_send/2,
          create_p_report_driver_id_request/0,
          create_p_multimedia_data_reply/3,
-         create_p_shoot_order/10
+         create_p_shoot_order/10,
+         create_p_shoot_order_response/4,
+         create_p_stomuldata_search/5,
+         create_p_stomuldata_update/6,
+         create_p_record_start_order/4,
+         create_p_sinstomuldatasea_update_order/2,
+         create_p_data_send/2,
+         create_p_rsa/2
 	]).
 
 %%%
@@ -131,6 +138,14 @@ do_parse_msg_body(ID, Body) ->
             parse_t_multi_media_event_update(Body);
         2049 ->                     % 0x0809
             parse_t_multi_media_data_update(Body);
+        2050 ->                     % 0x0802
+            parse_t_stomuldata_response(Body);
+        2304 ->                     % 0x0900
+            parse_t_data_update(Body);
+        2305 ->                     % 0x0901
+            parse_t_compress_update(Body);
+        2560 ->                     % 0x0a00
+            parse_t_rsa(Body);
         _ ->
             {error, unsupported}
     end.
@@ -681,9 +696,10 @@ parse_t_driver_id_report(Bin) ->
 %%% 0x0704
 %%%
 parse_t_position_data_batch_update(Bin) ->
-    <<Count:32, Type:8, Tail/binary>> = Bin,
+    <<_Count:32, Type:8, Tail/binary>> = Bin,
     Positions = get_position_data_entries(Tail),
-    {ok, {Count,Type,Positions}}.
+    Len = length(Positions),
+    {ok, {Len,Type,Positions}}.
 
 get_position_data_entries(Bin) ->
     Len = bit_size(Bin),
@@ -751,76 +767,102 @@ create_p_multimedia_data_reply(Id,_Count,IDs) ->
     <<Id:32,Len:8,IL/binary>>.
 
 %%%
-%%%0x8801
+%%% 0x8801
 %%%
 create_p_shoot_order(PipeId,Order,Time,SaveSymbol,DisRate,Quality,Bri,Contrast,Sat,Chroma) ->
     <<PipeId:8,Order:16,Time:16,SaveSymbol:8,DisRate:8,Quality:8,Bri:8,Contrast:8,Sat:8,Chroma:8>>.
 
 %%%
-%%%0x0805
+%%% 0x0805
 %%%
-create_p_shoot_order_reply(ReplyNum,Result,MCount,MIdLists) ->
-    MIL = term_to_binary(MIdLists),
-    <<ReplyNum:16,Result:8,MCount:16,MIL/binary>>.
+create_p_shoot_order_response(ReplyNum,Result,_MCount,MIDs) ->
+    Len = length(MIDs),
+    Bin = list_to_binary([<<X:32>> || X <- MIDs]),
+    <<ReplyNum:16,Result:8,Len:16,Bin/binary>>.
+
 %%%
-%%%0x8802
+%%% 0x8802
 %%%
 create_p_stomuldata_search(MediaType,PipeId,EvenCode,StartTime,EndTime) ->
     <<MediaType:8,PipeId:8,EvenCode:8,StartTime:48,EndTime:48>>.
-%%%
-%%%0x0802
-%%%
-%
 
 %%%
-%%%0x8803
+%%% 0x0802
+%%%
+parse_t_stomuldata_response(Bin) ->
+    <<FlowNum:16, _Count:16, Tail/binary>> = Bin,
+    Data = get_stomuldata_entries(Tail),
+    Len = length(Data),
+    {ok, {FlowNum, Len, Data}}.
+
+get_stomuldata_entries(Bin) ->
+    Len = bit_size(Bin),
+    if
+        Len < (35*8) ->
+            [];
+        Len >= (35*8) ->
+            <<ID:32,Type:8,ChID:8,EventCoding:8,Msg:(28*8),Tail/binary>> = Bin,
+            {ok, {Resp}} = parse_t_position_report(Msg),
+            [[ID,Type,ChID,EventCoding,Resp]|get_stomuldata_entries(Tail)]
+    end.
+
+%%%
+%%% 0x8803
 %%%
 create_p_stomuldata_update(MediaType,PipeId,EventCode,StartTime,EndTime,Del) ->
     <<MediaType:8,PipeId:8,EventCode:8,StartTime:48,EndTime:48,Del:8>>.
+
 %%%
-%%%0x8804
+%%% 0x8804
 %%%
 create_p_record_start_order(RecordCode,RecordTime,SaveSymbol,VoiceSamplingRate) ->
     <<RecordCode:8,RecordTime:16,SaveSymbol:8,VoiceSamplingRate:8>>.
+
 %%%
-%%%0x8805
+%%% 0x8805
 %%%
-create_p_sinstoMuldatasea_update_order(MediaId,DelSymbol) ->
+create_p_sinstomuldatasea_update_order(MediaId,DelSymbol) ->
     <<MediaId:32,DelSymbol:8>>.
+
 %%%
 %%%0x8900
 %%%
 create_p_data_send(MsgType,MsgCon) ->
     MC = term_to_binary(MsgCon),
     <<MsgType:8,MC/binary>>.
+
 %%%
-%%%0x0900
+%%% 0x0900
 %%%
 parse_t_data_update(Bin) ->
-    <<MsgType:8,MsgCon/binary>> = Bin,
-    MC = binary_to_term(MsgCon),
-    {ok,{MsgType,MC}}.
+    <<Type:8,Con/binary>> = Bin,
+    {ok,{Type,Con}}.
+
 %%%
-%%%0x0901
+%%% 0x0901
 %%%
 parse_t_compress_update(Bin) ->
-    <<ComLen:32,ComBody/binary>> = Bin,CB = binary_to_term(ComBody),
-    {ok,{ComLen,CB}}.
+    <<Len:32,Body/binary>> = Bin,
+    {ok,{Len,Body}}.
+
 %%%
-%%%0x8A00
+%%% 0x8a00
+%%% Byte array to binary????
 %%%
 create_p_rsa(E,N) ->
-    NB = term_to_binary(N),
-    <<E:32,NB/binary>>.
+    <<E:32,N/binary>>.
+
 %%%
-%%%0x0A00
+%%% 0x0a00
 %%%
 parse_t_rsa(Bin) ->
-    <<E:32,NB/binary>> = Bin,
-    N = binary_to_term(NB),
+    <<E:32,N/binary>> = Bin,
     {ok,{E,N}}.
+
+
 %%%
-%%%over
+%%% over
+%%%
 
     
     
