@@ -10,7 +10,7 @@
 
 -export([parse_msg_body/2]).
 
--export([create_genresp/3, 
+-export([create_general_response/3, 
          create_resend_subpack_req/3,
          create_reg_resp/3,
 	     create_set_terminal_args/2,
@@ -60,26 +60,25 @@
 %%%     1 - FAIL
 %%%     2 - MSG ERROR
 %%%     3 - NOT SUPPORTED
-%%%     4 - WARNING ACK
+%%%     4 - ALARM ACK
 %%%
-create_genresp(FlowNum, ID, Res) ->
-    Fail = 1,
+create_general_response(FlowIdx, ID, Resp) ->
     if
-        Res < 0 ->
-            <<FlowNum:16, ID:16, Fail:8>>;
-        Res >= 0 ->
+        Resp < 0 ->
+            <<FlowIdx:16, ID:16, ?P_GENRESP_FAIL:8>>;
+        Resp >= 0 ->
             if
-                Res > 4 ->
-                    <<FlowNum:16, ID:16, Fail:8>>;
-                Res =< 4 ->
-                    <<FlowNum:16, ID:16, Res:8>>
+                Resp > 4 ->
+                    <<FlowIdx:16, ID:16, ?P_GENRESP_FAIL:8>>;
+                Resp =< 4 ->
+                    <<FlowIdx:16, ID:16, Resp:8>>
             end
     end.
 
 %%%
 %%% Parse terminal message body
 %%% Return :
-%%%     {ok, Result}
+%%%     {ok, Result}            - Result is a complex list, such as [[...],[...],[...],...]
 %%%     {error, msgerr}
 %%%     {error, unsupported}
 %%%
@@ -87,12 +86,12 @@ parse_msg_body(ID, Body) ->
     try do_parse_msg_body(ID, Body)
     catch
         _:Exception ->
-            ti_common:logerror("Exception when parsing message (ID:~p) body : ~p~n", [ID, Exception]),
+            ti_common:logerror("do_parse_msg_body(ID=~p, Body) exception : ~p~n", [ID, Exception]),
             {error, msgerr}
     end.
 
 %%%
-%%% Internal usage for parse_msg_body(ID, Body)
+%%% Internal method for parse_msg_body(ID, Body)
 %%%
 do_parse_msg_body(ID, Body) ->
     case ID of

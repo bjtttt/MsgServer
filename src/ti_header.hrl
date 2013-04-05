@@ -45,7 +45,7 @@
 -define(P_GENRESP_FAIL, 1).
 -define(P_GENRESP_ERRMSG, 2).
 -define(P_GENRESP_NOTSUPPORT, 3).
--define(P_GENRESP_WARNACK, 4).
+-define(P_GENRESP_ALARMACK, 4).
 
 %%%
 %%% There is only one super user, name is super, password is super.
