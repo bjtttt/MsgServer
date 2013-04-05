@@ -10,46 +10,46 @@
 
 -export([parse_msg_body/2]).
 
--export([create_p_genresp/3, 
-         create_p_resend_subpack_req/3,
-         create_t_reg_resp/3,
-	     create_p_set_terminal_args/2,
-         create_p_query_terminal_args/0,
-         create_p_query_specify_terminal_args/2,
-         create_p_terminal_control/2,
-         create_p_search_terminal_arr/0,
-         create_p_update_packet/6,
-         create_p_position_search/0,
-         create_p_tmp_position_track_control/2,
-         create_p_man_confirm_alarm/2,
-         create_p_txt_send/2,
-         create_p_set_event/3,
-         create_p_send_question/4,
-         create_p_msgmenu_settings/3,
-         create_p_msg_service/3,
-         create_p_tel_callback/2,
-         create_p_tel_note/3,
-         create_p_car_con/1,
-         create_p_set_circle_area/11,
-         create_p_del_circle_area/2,
-         create_p_set_rect_area/3,
-         create_p_del_rect_area/2,
-         create_p_set_polygon_area/8,
-         create_p_del_polygon_area/2,
-         create_p_set_lines/6,
-         create_p_del_lines/2,
-         create_p_record_collect_cmd/2,
-         create_p_record_args_send/2,
-         create_p_report_driver_id_request/0,
-         create_p_multimedia_data_reply/3,
-         create_p_shoot_order/10,
-         create_p_shoot_order_response/4,
-         create_p_stomuldata_search/5,
-         create_p_stomuldata_update/6,
-         create_p_record_start_order/4,
-         create_p_sinstomuldatasea_update_order/2,
-         create_p_data_send/2,
-         create_p_rsa/2
+-export([create_genresp/3, 
+         create_resend_subpack_req/3,
+         create_reg_resp/3,
+	     create_set_terminal_args/2,
+         create_query_terminal_args/0,
+         create_query_specify_terminal_args/2,
+         create_terminal_control/2,
+         create_search_terminal_arr/0,
+         create_update_packet/6,
+         create_position_search/0,
+         create_tmp_position_track_control/2,
+         create_man_confirm_alarm/2,
+         create_txt_send/2,
+         create_set_event/3,
+         create_send_question/4,
+         create_msgmenu_settings/3,
+         create_msg_service/3,
+         create_tel_callback/2,
+         create_tel_note/3,
+         create_car_con/1,
+         create_set_circle_area/11,
+         create_del_circle_area/2,
+         create_set_rect_area/3,
+         create_del_rect_area/2,
+         create_set_polygon_area/8,
+         create_del_polygon_area/2,
+         create_set_lines/6,
+         create_del_lines/2,
+         create_record_collect_cmd/2,
+         create_record_args_send/2,
+         create_report_driver_id_request/0,
+         create_multimedia_data_reply/3,
+         create_shoot_order/10,
+         create_shoot_order_response/4,
+         create_stomuldata_search/5,
+         create_stomuldata_update/6,
+         create_record_start_order/4,
+         create_sinstomuldatasea_update_order/2,
+         create_data_send/2,
+         create_rsa/2
 	]).
 
 %%%
@@ -62,7 +62,7 @@
 %%%     3 - NOT SUPPORTED
 %%%     4 - WARNING ACK
 %%%
-create_p_genresp(FlowNum, ID, Res) ->
+create_genresp(FlowNum, ID, Res) ->
     Fail = 1,
     if
         Res < 0 ->
@@ -97,55 +97,55 @@ parse_msg_body(ID, Body) ->
 do_parse_msg_body(ID, Body) ->
     case ID of
         1 ->                        % 0x0001
-            parse_t_genresp(Body);
+            parse_genresp(Body);
         2 ->                        % 0x0002
-            parse_t_pulse(Body);
+            parse_pulse(Body);
         256 ->                      % 0x0100
-            parse_t_reg(Body);
+            parse_reg(Body);
         3 ->                        % 0x0003
-            parse_t_unreg(Body);
+            parse_unreg(Body);
         258 ->                      % 0x0102
-            parse_t_checkacc(Body);
+            parse_checkacc(Body);
         260 ->                      % 0x0104
-            parse_t_query_terminal_args_reponse(Body);
+            parse_query_terminal_args_reponse(Body);
         263 ->                      % 0x0107
-            parse_t_search_terminal_arr_response(Body);
+            parse_search_terminal_arr_response(Body);
         264 ->                      % 0x0108
-            parse_t_update_result_notice(Body);
+            parse_update_result_notice(Body);
         512 ->                      % 0x0200
-            parse_t_position_report(Body);
+            parse_position_report(Body);
         513 ->                      % 0x0201
-            parse_t_query_position_response(Body);
+            parse_query_position_response(Body);
         769 ->                      % 0x0301
-            parse_t_event_report(Body);
+            parse_event_report(Body);
         770 ->                      % 0x0302
-            parse_t_question_resp(Body);
+            parse_question_resp(Body);
         771 ->                      % 0x0303
-            parse_t_msg_proorcancel(Body);
+            parse_msg_proorcancel(Body);
         1280 ->                     % 0x0500
-            parse_t_car_con_response(Body);
+            parse_car_con_response(Body);
         1792 ->                     % 0x0700
-            parse_t_record_upload(Body);
+            parse_record_upload(Body);
         1793 ->                     % 0x0701
-            parse_t_electron_invoice_report(Body);
+            parse_electron_invoice_report(Body);
         1794 ->                     % 0x0702
-            parse_t_driver_id_report(Body);
+            parse_driver_id_report(Body);
         1796 ->                     % 0x0704
-            parse_t_position_data_batch_update(Body);
+            parse_position_data_batch_update(Body);
         1797 ->                     % 0x0705
-            parse_t_CAN_data_update(Body);
+            parse_CAN_data_update(Body);
         2048 ->                     % 0x0800
-            parse_t_multi_media_event_update(Body);
+            parse_multi_media_event_update(Body);
         2049 ->                     % 0x0809
-            parse_t_multi_media_data_update(Body);
+            parse_multi_media_data_update(Body);
         2050 ->                     % 0x0802
-            parse_t_stomuldata_response(Body);
+            parse_stomuldata_response(Body);
         2304 ->                     % 0x0900
-            parse_t_data_update(Body);
+            parse_data_update(Body);
         2305 ->                     % 0x0901
-            parse_t_compress_update(Body);
+            parse_compress_update(Body);
         2560 ->                     % 0x0a00
-            parse_t_rsa(Body);
+            parse_rsa(Body);
         _ ->
             {error, unsupported}
     end.
@@ -154,7 +154,7 @@ do_parse_msg_body(ID, Body) ->
 %%% 0x0001
 %%% Terminal general response
 %%%
-parse_t_genresp(Bin) ->
+parse_genresp(Bin) ->
     <<RespFlowNum:16, ID:16, Res:8>> = Bin, 
     {ok, {RespFlowNum, ID, Res}}.
 
@@ -162,7 +162,7 @@ parse_t_genresp(Bin) ->
 %%% 0x0002
 %%% Terminal pulse
 %%% 
-parse_t_pulse(Bin) ->
+parse_pulse(Bin) ->
     {ok, {Bin}}.
 
 %%%
@@ -170,7 +170,7 @@ parse_t_pulse(Bin) ->
 %%% Platform resend sub-package request
 %%% Body : [ID0, ID1, ID2, ID3, ...]
 %%%
-create_p_resend_subpack_req(FlowNum, ID, Body) ->
+create_resend_subpack_req(FlowNum, ID, Body) ->
     Bin = list_to_binary([<<X:16>> || X <- Body]),
     <<FlowNum:16, ID:16, Bin/binary>>.
 
@@ -178,7 +178,7 @@ create_p_resend_subpack_req(FlowNum, ID, Body) ->
 %%% 0x0100
 %%% Terminal registration
 %%%
-parse_t_reg(Bin) ->
+parse_reg(Bin) ->
     <<Province:16, City:16, Producer:40, Model:160, ID:56, CertColor:8, Tail/binary>> = Bin,
     CertID = binary_to_list(Tail),
     {ok, {Province, City, Producer, Model, ID, CertColor, CertID}}.
@@ -187,7 +187,7 @@ parse_t_reg(Bin) ->
 %%% 0x8100
 %%% AccCode : string
 %%%
-create_t_reg_resp(FlowNum, ID, AccCode) ->
+create_reg_resp(FlowNum, ID, AccCode) ->
     Bin = list_to_binary(AccCode),
     <<FlowNum:16, ID:16, Bin/binary>>.
 
@@ -195,13 +195,13 @@ create_t_reg_resp(FlowNum, ID, AccCode) ->
 %%% 0x0003
 %%% unreg or logout?
 %%%
-parse_t_unreg(Bin) ->
+parse_unreg(Bin) ->
     {ok, {Bin}}.
 
 %%%
 %%% 0x0102
 %%%
-parse_t_checkacc(Bin) ->
+parse_checkacc(Bin) ->
     Str = binary_to_list(Bin),
     {ok, {Str}}.
 
@@ -209,7 +209,7 @@ parse_t_checkacc(Bin) ->
 %%% 0x8103
 %%% Lists:[[id,value],...,[id,value]]
 %%%
-create_p_set_terminal_args(_Count, Lists) ->
+create_set_terminal_args(_Count, Lists) ->
     Len = length(Lists),
     L = list_to_binary([make_to_binary(Id, Value) || [Id, Value] <- Lists]),
     <<Len:8,L/binary>>.
@@ -222,14 +222,14 @@ make_to_binary(Id, Value) ->
 %%%
 %%% 0x8104
 %%%
-create_p_query_terminal_args() ->
+create_query_terminal_args() ->
     <<>>.
 
 %%%
 %%% 0x8106
 %%% IDs : [ID0, ID1, ID2, ...]
 %%%
-create_p_query_specify_terminal_args(_Count, IDs) ->
+create_query_specify_terminal_args(_Count, IDs) ->
     Len = length(IDs),
     IDsBin = term_to_binary(IDs),
     <<Len:8,IDsBin/binary>>.
@@ -237,7 +237,7 @@ create_p_query_specify_terminal_args(_Count, IDs) ->
 %%%
 %%% 0x0104
 %%%
-parse_t_query_terminal_args_reponse(Bin) ->
+parse_query_terminal_args_reponse(Bin) ->
     <<FlowNum:16, _Count:8, Tail/binary>> = Bin,
     List = extracttermargsresp(Tail),
     Len = length(List),
@@ -263,7 +263,7 @@ extracttermargsresp(Bin) ->
 %%%
 %%% 0x8105
 %%%
-create_p_terminal_control(Type, Args) ->
+create_terminal_control(Type, Args) ->
     case Type of
         1 ->
             List = re:split(Args, ";", [{return, list}]),
@@ -280,13 +280,13 @@ create_p_terminal_control(Type, Args) ->
 %%%
 %%% 0x8107
 %%%
-create_p_search_terminal_arr() ->
+create_search_terminal_arr() ->
     <<>>.
 
 %%%
 %%% 0x0107
 %%%
-parse_t_search_terminal_arr_response(Bin) ->
+parse_search_terminal_arr_response(Bin) ->
     <<Type:16,ProId:40,Model:160,TerId:56,ICCID:80,HaltVLen:8,Tail0/binary>> = Bin,
     HaltVBinLen = HaltVLen * 8,
     <<HaltV:HaltVBinLen,FwVLen:8,Tail1/binary>> = Tail0,
@@ -297,7 +297,7 @@ parse_t_search_terminal_arr_response(Bin) ->
 %%%
 %%% 0x8108
 %%%
-create_p_update_packet(Type,ProId,Vlen,Ver,UpLen,UpPacket) ->    
+create_update_packet(Type,ProId,Vlen,Ver,UpLen,UpPacket) ->    
     PI = list_to_binary(ProId),
     V = list_to_binary(Ver),
     UP = term_to_binary(UpPacket),
@@ -306,14 +306,14 @@ create_p_update_packet(Type,ProId,Vlen,Ver,UpLen,UpPacket) ->
 %%%
 %%% 0x0108
 %%%
-parse_t_update_result_notice(Bin) ->
+parse_update_result_notice(Bin) ->
     <<UpType:8,UpResult:8>> = Bin,
     {ok,{UpType,UpResult}}.
 
 %%%
 %%% 0x0200
 %%%
-parse_t_position_report(Bin) ->  
+parse_position_report(Bin) ->  
     <<AlarmSymbol:32,State:32,Latitude:32,Longitude:32,Hight:16,Speed:16,Direction:16,Time:48,Tail/binary>> = Bin,
     H = [AlarmSymbol,State,Latitude,Longitude,Hight,Speed,Direction,Time],
     Len = bit_size(Tail),
@@ -328,33 +328,33 @@ parse_t_position_report(Bin) ->
 %%%
 %%% 0x8201
 %%%
-create_p_position_search() ->
+create_position_search() ->
     <<>>.
 
 %%%
 %%% 0x0201
 %%%
-parse_t_query_position_response(Bin) ->       
+parse_query_position_response(Bin) ->       
     <<RespNum:16,PosMsgResp/binary>> = Bin,
-    {ok, {PosMsg}} = parse_t_position_report(PosMsgResp),
+    {ok, {PosMsg}} = parse_position_report(PosMsgResp),
     {ok, {RespNum, PosMsg}}.
 
 %%%
 %%% 0x8202
 %%%
-create_p_tmp_position_track_control(Interval, PosTraValidity) ->
+create_tmp_position_track_control(Interval, PosTraValidity) ->
     <<Interval:16,PosTraValidity:32>>.
 
 %%%
 %%% 0x8203
 %%%
-create_p_man_confirm_alarm(Number,Type) ->
+create_man_confirm_alarm(Number,Type) ->
     <<Number:16,Type:32>>.
 
 %%%
 %%% 0x8300
 %%%
-create_p_txt_send(Symbol,TextMsg) ->
+create_txt_send(Symbol,TextMsg) ->
     TM = list_to_binary(TextMsg),
     <<Symbol:8,TM/binary>>.
 
@@ -362,7 +362,7 @@ create_p_txt_send(Symbol,TextMsg) ->
 %%% 0x8301
 %%% Events : [[ID0, Len0, Con0], [ID1, Len1, Con1], [ID2, Len2, Con2], ...]
 %%%
-create_p_set_event(Type,_Count,Events) ->
+create_set_event(Type,_Count,Events) ->
     Len = length(Events),
     EventsBin = get_event_binary(Events, 8, 8),
     <<Type:8,Len:8,EventsBin/binary>>.
@@ -385,7 +385,7 @@ get_event_binary(Events, IDLen, LenLen) ->
 %%%
 %%% 0x0301
 %%%
-parse_t_event_report(Bin) ->
+parse_event_report(Bin) ->
     <<Id:8>> = Bin,
     {ok,{Id}}.
 
@@ -393,7 +393,7 @@ parse_t_event_report(Bin) ->
 %%% 0x8302
 %%% Answers : [[ID0, Len0, Con0], [ID1, Len1, Con1], [ID2, Len2, Con2], ...]
 %%%
-create_p_send_question(Symbol,QueLen,Que,Answers) -> 
+create_send_question(Symbol,QueLen,Que,Answers) -> 
     Q = term_to_binary(Que),
     Ans = get_event_binary(Answers, 8, 16),
     <<Symbol:8,QueLen:8,Q/binary,Ans/binary>>.
@@ -401,7 +401,7 @@ create_p_send_question(Symbol,QueLen,Que,Answers) ->
 %%%
 %%% 0x0302
 %%%
-parse_t_question_resp(Bin) ->
+parse_question_resp(Bin) ->
     <<Number:16,Id:8>> = Bin,
     {ok,{Number,Id}}.
 
@@ -409,7 +409,7 @@ parse_t_question_resp(Bin) ->
 %%% 0x8303
 %%% Msgs : [[ID0, Len0, Con0], [ID1, Len1, Con1], [ID2, Len2, Con2], ...]
 %%%
-create_p_msgmenu_settings(SetType,_Count,Msgs) ->
+create_msgmenu_settings(SetType,_Count,Msgs) ->
     Len = length(Msgs),
     MsgsBin = get_event_binary(Msgs, 8, 16),
     <<SetType:8,Len:8,MsgsBin/binary>>.
@@ -417,21 +417,21 @@ create_p_msgmenu_settings(SetType,_Count,Msgs) ->
 %%%
 %%% 0x0303
 %%%
-parse_t_msg_proorcancel(Bin) ->
+parse_msg_proorcancel(Bin) ->
     <<MsgType:8,POC:8>> = Bin,
     {ok,{MsgType,POC}}.
 
 %%%
 %%% 0x8304
 %%%
-create_p_msg_service(Type,Len,Con) ->
+create_msg_service(Type,Len,Con) ->
     ConBin = term_to_binary(Con),
     <<Type:8,Len:16,ConBin/binary>>.
 
 %%%
 %%% 0x8400
 %%%
-create_p_tel_callback(Symbol,Number) ->
+create_tel_callback(Symbol,Number) ->
     Len = length(Number),
     if
         Len > 20 ->
@@ -446,7 +446,7 @@ create_p_tel_callback(Symbol,Number) ->
 %%%
 %%% 0x8401
 %%%
-create_p_tel_note(Type,_Count,Items) ->
+create_tel_note(Type,_Count,Items) ->
     Len = length(Items),
     ItemsBin = get_tel_book_entries(Items),
     <<Type:8,Len:8,ItemsBin/binary>>.
@@ -469,22 +469,22 @@ get_tel_book_entries(Items) ->
 %%%
 %%% 0x8500
 %%%
-create_p_car_con(Symbol) ->
+create_car_con(Symbol) ->
     <<Symbol:8>>.
 
 %%%
 %%% 0x0500
 %%% Definition is not complete in document.
 %%%
-parse_t_car_con_response(Msg) ->
+parse_car_con_response(Msg) ->
     <<FlowNum:16,M/binary>> = Msg,
-    {ok, Resp} = parse_t_position_report(M),
+    {ok, Resp} = parse_position_report(M),
     {ok,{FlowNum, Resp}}.
 
 %%%
 %%% 0x8600
 %%%
-create_p_set_circle_area(SetArr,AreaCount,AreaId,AreaArr,Latitude,Longitude,Radius,Stime,Etime,Hspeed,OSTime) ->
+create_set_circle_area(SetArr,AreaCount,AreaId,AreaArr,Latitude,Longitude,Radius,Stime,Etime,Hspeed,OSTime) ->
     St = list_to_binary(Stime),
     Et = list_to_binary(Etime),
     <<SetArr:8,AreaCount:8,AreaId:32,AreaArr:16,Latitude:32,Longitude:32,Radius:32,St:48,Et:48,Hspeed:16,OSTime:8>>.
@@ -493,7 +493,7 @@ create_p_set_circle_area(SetArr,AreaCount,AreaId,AreaArr,Latitude,Longitude,Radi
 %%% 0x8601
 %%% IDs : [ID0, Id1, Id2, ...]
 %%%
-create_p_del_circle_area(Count,IDs) ->
+create_del_circle_area(Count,IDs) ->
     if
         Count == 0 ->
             <<Count:8>>;
@@ -513,7 +513,7 @@ create_p_del_circle_area(Count,IDs) ->
 %%%
 %%% 0x8602
 %%%
-create_p_set_rect_area(Type,_Count,Items) ->
+create_set_rect_area(Type,_Count,Items) ->
     Len = length(Items),
     ItemsBin = get_rect_area_entries(Items),
     <<Type:8,Len:8,ItemsBin/binary>>.
@@ -538,7 +538,7 @@ get_rect_area_entries(Items) ->
 %%%0x8603
 %%% IDs : [ID0, Id1, Id2, ...]
 %%%
-create_p_del_rect_area(Count, IDs) ->
+create_del_rect_area(Count, IDs) ->
     if
         Count == 0 ->
             <<Count:8>>;
@@ -559,7 +559,7 @@ create_p_del_rect_area(Count, IDs) ->
 %%% 0x8604
 %%% Points : [[Lat0, Lon0], [Lat1, Lon1], [Lat2, Lon2], ...]
 %%%
-create_p_set_polygon_area(Id,Prop,StartTime,StopTime,MaxSpeed,OSTime,_PointsCount,Points) ->
+create_set_polygon_area(Id,Prop,StartTime,StopTime,MaxSpeed,OSTime,_PointsCount,Points) ->
     Len = length(Points),
     PointsBin = get_polygon_area_point_entries(Points),
     <<Id:32,Prop:16,StartTime:48,StopTime:48,MaxSpeed:16,OSTime:8,Len:16,PointsBin/binary>>.
@@ -583,7 +583,7 @@ get_polygon_area_point_entries(Items) ->
 %%% 0x8605
 %%% IDs : [ID0, Id1, Id2, ...]
 %%%
-create_p_del_polygon_area(Count, IDs) ->
+create_del_polygon_area(Count, IDs) ->
     if
         Count == 0 ->
             <<Count:8>>;
@@ -603,7 +603,7 @@ create_p_del_polygon_area(Count, IDs) ->
 %%%
 %%% 0x8606
 %%%
-create_p_set_lines(ID, Prop, StartTime, StopTime, _PointsCount, Points) ->
+create_set_lines(ID, Prop, StartTime, StopTime, _PointsCount, Points) ->
     Len = length(Points),
     PointsBin = get_lines_point_entries(Points),
     <<ID:32,Prop:16,StartTime:48,StopTime:48,Len:16,PointsBin/binary>>.
@@ -627,7 +627,7 @@ get_lines_point_entries(Items) ->
 %%% 0x8607
 %%% IDs : [ID0, Id1, Id2, ...]
 %%%
-create_p_del_lines(Count, IDs) ->
+create_del_lines(Count, IDs) ->
     if
         Count == 0 ->
             <<Count:8>>;
@@ -647,14 +647,14 @@ create_p_del_lines(Count, IDs) ->
 %%%
 %%% 0x8700
 %%%
-create_p_record_collect_cmd(OrderWord,DataBlock) ->
+create_record_collect_cmd(OrderWord,DataBlock) ->
     DB = term_to_binary(DataBlock),
     <<OrderWord:8,DB/binary>>.
 
 %%%
 %%% 0x0700
 %%%
-parse_t_record_upload(Bin) ->
+parse_record_upload(Bin) ->
     <<Number:16,OrderWord:8,DataBlock/binary>>=Bin,
     DB = binary_to_list(DataBlock),
     {ok,{Number,OrderWord,DB}}.
@@ -662,27 +662,27 @@ parse_t_record_upload(Bin) ->
 %%%
 %%% 0x8701
 %%%
-create_p_record_args_send(OrderWord,DataBlock) ->
+create_record_args_send(OrderWord,DataBlock) ->
     DB = list_to_binary(DataBlock),
     <<OrderWord:8,DB/binary>>.
 
 %%%
 %%% 0x0701
 %%%
-parse_t_electron_invoice_report(Bin) ->
+parse_electron_invoice_report(Bin) ->
     <<Length:32,Content/binary>> = Bin,
     {ok,{Length,Content}}.
 
 %%%
 %%% 0x8702
 %%%
-create_p_report_driver_id_request() ->
+create_report_driver_id_request() ->
     <<>>.
 
 %%%
 %%% 0x0702
 %%%
-parse_t_driver_id_report(Bin) ->
+parse_driver_id_report(Bin) ->
     <<State:8,Time:48,IcReadResult:8,NameLen:8,Tail0/binary>> = Bin,
     NameBinLen = NameLen * 8,
     <<Name:NameBinLen,CerNum:20,OrgLen:8,Tail1/binary>> = Tail0,
@@ -695,7 +695,7 @@ parse_t_driver_id_report(Bin) ->
 %%%
 %%% 0x0704
 %%%
-parse_t_position_data_batch_update(Bin) ->
+parse_position_data_batch_update(Bin) ->
     <<_Count:32, Type:8, Tail/binary>> = Bin,
     Positions = get_position_data_entries(Tail),
     Len = length(Positions),
@@ -715,7 +715,7 @@ get_position_data_entries(Bin) ->
                     [];
                 BinLength =< Tail0Length ->
                     <<Msg:BinLength, Tail1/binary>> = Tail0,
-                    {ok, {M}} = parse_t_position_report(Msg),
+                    {ok, {M}} = parse_position_report(Msg),
                     [[Length, M]|get_position_data_entries(Tail1)]
             end
     end.                    
@@ -723,7 +723,7 @@ get_position_data_entries(Bin) ->
 %%%
 %%% 0x0705
 %%%
-parse_t_CAN_data_update(Bin) ->
+parse_CAN_data_update(Bin) ->
     <<Count:32, Time:40, Tail/binary>> = Bin,
     Data = get_CAN_data_entries(Tail),
     {ok, {Count, Time, Data}}.
@@ -747,21 +747,21 @@ get_CAN_data_entries(Bin) ->
 %%%
 %%% 0x0800
 %%%
-parse_t_multi_media_event_update(Bin) ->
+parse_multi_media_event_update(Bin) ->
     <<Id:32,Type:8,Code:8,EICode:8,PipeId:8>> = Bin,
     {ok,{Id,Type,Code,EICode,PipeId}}.
 
 %%%
 %%% 0x0801
 %%%
-parse_t_multi_media_data_update(Bin) ->
+parse_multi_media_data_update(Bin) ->
     <<Id:32,Type:8,Code:8,EICode:8,PipeId:8,MsgBody:(28*8),Pack/binary>> = Bin,
     {ok,{Id,Type,Code,EICode,PipeId,MsgBody,Pack}}.
 
 %%%
 %%% 0x8800
 %%%
-create_p_multimedia_data_reply(Id,_Count,IDs) ->
+create_multimedia_data_reply(Id,_Count,IDs) ->
     Len = length(IDs),
     IL=term_to_binary(IDs),
     <<Id:32,Len:8,IL/binary>>.
@@ -769,13 +769,13 @@ create_p_multimedia_data_reply(Id,_Count,IDs) ->
 %%%
 %%% 0x8801
 %%%
-create_p_shoot_order(PipeId,Order,Time,SaveSymbol,DisRate,Quality,Bri,Contrast,Sat,Chroma) ->
+create_shoot_order(PipeId,Order,Time,SaveSymbol,DisRate,Quality,Bri,Contrast,Sat,Chroma) ->
     <<PipeId:8,Order:16,Time:16,SaveSymbol:8,DisRate:8,Quality:8,Bri:8,Contrast:8,Sat:8,Chroma:8>>.
 
 %%%
 %%% 0x0805
 %%%
-create_p_shoot_order_response(ReplyNum,Result,_MCount,MIDs) ->
+create_shoot_order_response(ReplyNum,Result,_MCount,MIDs) ->
     Len = length(MIDs),
     Bin = list_to_binary([<<X:32>> || X <- MIDs]),
     <<ReplyNum:16,Result:8,Len:16,Bin/binary>>.
@@ -783,13 +783,13 @@ create_p_shoot_order_response(ReplyNum,Result,_MCount,MIDs) ->
 %%%
 %%% 0x8802
 %%%
-create_p_stomuldata_search(MediaType,PipeId,EvenCode,StartTime,EndTime) ->
+create_stomuldata_search(MediaType,PipeId,EvenCode,StartTime,EndTime) ->
     <<MediaType:8,PipeId:8,EvenCode:8,StartTime:48,EndTime:48>>.
 
 %%%
 %%% 0x0802
 %%%
-parse_t_stomuldata_response(Bin) ->
+parse_stomuldata_response(Bin) ->
     <<FlowNum:16, _Count:16, Tail/binary>> = Bin,
     Data = get_stomuldata_entries(Tail),
     Len = length(Data),
@@ -802,46 +802,46 @@ get_stomuldata_entries(Bin) ->
             [];
         Len >= (35*8) ->
             <<ID:32,Type:8,ChID:8,EventCoding:8,Msg:(28*8),Tail/binary>> = Bin,
-            {ok, {Resp}} = parse_t_position_report(Msg),
+            {ok, {Resp}} = parse_position_report(Msg),
             [[ID,Type,ChID,EventCoding,Resp]|get_stomuldata_entries(Tail)]
     end.
 
 %%%
 %%% 0x8803
 %%%
-create_p_stomuldata_update(MediaType,PipeId,EventCode,StartTime,EndTime,Del) ->
+create_stomuldata_update(MediaType,PipeId,EventCode,StartTime,EndTime,Del) ->
     <<MediaType:8,PipeId:8,EventCode:8,StartTime:48,EndTime:48,Del:8>>.
 
 %%%
 %%% 0x8804
 %%%
-create_p_record_start_order(RecordCode,RecordTime,SaveSymbol,VoiceSamplingRate) ->
+create_record_start_order(RecordCode,RecordTime,SaveSymbol,VoiceSamplingRate) ->
     <<RecordCode:8,RecordTime:16,SaveSymbol:8,VoiceSamplingRate:8>>.
 
 %%%
 %%% 0x8805
 %%%
-create_p_sinstomuldatasea_update_order(MediaId,DelSymbol) ->
+create_sinstomuldatasea_update_order(MediaId,DelSymbol) ->
     <<MediaId:32,DelSymbol:8>>.
 
 %%%
 %%%0x8900
 %%%
-create_p_data_send(MsgType,MsgCon) ->
+create_data_send(MsgType,MsgCon) ->
     MC = term_to_binary(MsgCon),
     <<MsgType:8,MC/binary>>.
 
 %%%
 %%% 0x0900
 %%%
-parse_t_data_update(Bin) ->
+parse_data_update(Bin) ->
     <<Type:8,Con/binary>> = Bin,
     {ok,{Type,Con}}.
 
 %%%
 %%% 0x0901
 %%%
-parse_t_compress_update(Bin) ->
+parse_compress_update(Bin) ->
     <<Len:32,Body/binary>> = Bin,
     {ok,{Len,Body}}.
 
@@ -849,13 +849,13 @@ parse_t_compress_update(Bin) ->
 %%% 0x8a00
 %%% Byte array to binary????
 %%%
-create_p_rsa(E,N) ->
+create_rsa(E,N) ->
     <<E:32,N/binary>>.
 
 %%%
 %%% 0x0a00
 %%%
-parse_t_rsa(Bin) ->
+parse_rsa(Bin) ->
     <<E:32,N/binary>> = Bin,
     {ok,{E,N}}.
 
