@@ -22,7 +22,8 @@
          create_p_position_search/0,
          create_p_tmp_position_track_control/2,
          create_p_man_confirm_alarm/2,
-         create_p_txt_send/2
+         create_p_txt_send/2,
+         create_p_set_event/3
 	]).
 
 %%%
@@ -89,6 +90,8 @@ do_parse_msg_body(ID, Body) ->
             parse_t_position_report(Body);
         513 ->                      % 0x0201
             parse_t_query_position_response(Body);
+        769 ->                      % 0x0301
+            parse_t_event_report(Body);
         _ ->
             {error, unsupported}
     end.
@@ -152,16 +155,10 @@ parse_t_checkacc(Bin) ->
 %%% 0x8103
 %%% Lists:[[id,value],...,[id,value]]
 %%%
-create_p_set_terminal_args(Count, Lists) ->
+create_p_set_terminal_args(_Count, Lists) ->
     Len = length(Lists),
-    if
-        Len == Count ->
-            L = list_to_binary([make_to_binary(Id, Value) || [Id, Value] <- Lists]),
-            <<Count:8,L/binary>>;
-        Len =/= Count ->
-            L = list_to_binary([make_to_binary(Id, Value) || [Id, Value] <- Lists]),
-            <<Len:8,L/binary>>
-     end.
+    L = list_to_binary([make_to_binary(Id, Value) || [Id, Value] <- Lists]),
+    <<Len:8,L/binary>>.
 
 make_to_binary(Id, Value) ->
     V = list_to_binary(Value),
@@ -178,30 +175,19 @@ create_p_query_terminal_args() ->
 %%% 0x8106
 %%% IDs : [ID0, ID1, ID2, ...]
 %%%
-create_p_query_specify_terminal_args(Count, IDs) ->
+create_p_query_specify_terminal_args(_Count, IDs) ->
     Len = length(IDs),
-    if
-        Len == Count ->
-            IDsBin = term_to_binary(IDs),
-            <<Count:8,IDsBin/binary>>;
-        Len =/= Count ->
-            IDsBin = term_to_binary(IDs),
-            <<Len:8,IDsBin/binary>>
-    end.
+    IDsBin = term_to_binary(IDs),
+    <<Len:8,IDsBin/binary>>.
 
 %%%
 %%% 0x0104
 %%%
 parse_t_query_terminal_args_reponse(Bin) ->
-    <<FlowNum:16, Count:8, Tail/binary>> = Bin,
+    <<FlowNum:16, _Count:8, Tail/binary>> = Bin,
     List = extracttermargsresp(Tail),
     Len = length(List),
-    if
-        Len == Count ->
-            {ok, {FlowNum, Count, List}};
-        Len =/= Count ->
-            {ok, {FlowNum, Len, List}}
-    end.
+    {ok, {FlowNum, Len, List}}.
 
 extracttermargsresp(Bin) ->
     Len = bit_size(Bin),
@@ -318,9 +304,25 @@ create_p_txt_send(Symbol,TextMsg) ->
 %%% 0x8301
 %%% Events : [[ID0, Len0, Con0], [ID1, Len1, Con1], [ID2, Len2, Con2], ...]
 %%%
-create_p_event_set(Type,Count,Events) ->
-    C = list_to_binary(Con),
-    <<Type:8,Count:8,ID:8,Len:8,Con/binary>>.
+create_p_set_event(Type,_Count,Events) ->
+    Len = length(Events),
+    EventsBin = get_event_binary(Events),
+    <<Type:8,Len:8,EventsBin/binary>>.
+
+get_event_binary(Events) ->
+    case Events of
+        [] ->
+            <<>>;
+        _ ->
+            [H|T] = Events,
+            {ID,Len,Con} = H,
+            case T of
+                [] ->
+                    <<ID:8,Len:8,Con:Len>>;
+                _ ->
+                    [<<ID:8,Len:8,Con:Len>>|get_event_binary(T)]
+            end
+    end.
 
 %%%
 %%%0x0301
@@ -328,6 +330,7 @@ create_p_event_set(Type,Count,Events) ->
 parse_t_event_report(Bin) ->
     <<Id:8>> = Bin,
     {ok,{Id}}.
+
 %%%
 %%%0x8302
 %%%
