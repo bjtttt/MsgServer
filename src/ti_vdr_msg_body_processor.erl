@@ -3,6 +3,24 @@
 %%% Need considering the case when > 1 packages.
 %%% In this case, we need to keep the previous package.
 %%%
+%%% Abbr:
+%%%     resp    - response
+%%%     gen     - general
+%%%     pos     - position
+%%%     rect    - rectangle
+%%%     rnd     - round
+%%%     poly    - polygon
+%%%     mmedia  - multimedia
+%%%     rec     - record
+%%%     idx     - index
+%%%     res     - result
+%%%     msg     - message
+%%%     err     - error
+%%%     ori     - original
+%%%     lic     - License
+%%%     term    - terminal
+%%%     auth    - authentication
+%%%
 
 -module(ti_vdr_msg_body_processor).
 
@@ -13,8 +31,8 @@
 -export([create_general_response/3, 
          create_resend_subpack_req/3,
          create_reg_resp/3,
-	     create_set_terminal_args/2,
-         create_query_terminal_args/0,
+	     create_set_term_args/2,
+         create_query_term_args/0,
          create_query_specify_terminal_args/2,
          create_terminal_control/2,
          create_search_terminal_arr/0,
@@ -42,8 +60,7 @@
          create_record_args_send/2,
          create_report_driver_id_request/0,
          create_multimedia_data_reply/3,
-         create_shoot_order/10,
-         create_shoot_order_response/4,
+         create_imm_photo_cmd/10,
          create_stomuldata_search/5,
          create_stomuldata_update/6,
          create_record_start_order/4,
@@ -51,29 +68,6 @@
          create_data_send/2,
          create_rsa/2
 	]).
-
-%%%
-%%% 0x0801
-%%% Platform general response
-%%% Res :
-%%%     0 - SUCCESS/ACK
-%%%     1 - FAIL
-%%%     2 - MSG ERROR
-%%%     3 - NOT SUPPORTED
-%%%     4 - ALARM ACK
-%%%
-create_general_response(FlowIdx, ID, Resp) ->
-    if
-        Resp < 0 ->
-            <<FlowIdx:16, ID:16, ?P_GENRESP_FAIL:8>>;
-        Resp >= 0 ->
-            if
-                Resp > 4 ->
-                    <<FlowIdx:16, ID:16, ?P_GENRESP_FAIL:8>>;
-                Resp =< 4 ->
-                    <<FlowIdx:16, ID:16, Resp:8>>
-            end
-    end.
 
 %%%
 %%% Parse terminal message body
@@ -95,50 +89,52 @@ parse_msg_body(ID, Body) ->
 %%%
 do_parse_msg_body(ID, Body) ->
     case ID of
-        1 ->                        % 0x0001
-            parse_genresp(Body);
-        2 ->                        % 0x0002
+        16#1    ->                          
+            parse_gen_resp(Body);
+        16#2    ->                          
             parse_pulse(Body);
-        256 ->                      % 0x0100
+        16#100  ->                          
             parse_reg(Body);
-        3 ->                        % 0x0003
+        16#3    ->                          
             parse_unreg(Body);
-        258 ->                      % 0x0102
-            parse_checkacc(Body);
-        260 ->                      % 0x0104
+        16#102  ->                          
+            parse_check_auth(Body);
+        16#104  ->                          
             parse_query_terminal_args_reponse(Body);
-        263 ->                      % 0x0107
+        16#107  ->                      
             parse_search_terminal_arr_response(Body);
-        264 ->                      % 0x0108
+        16#108  ->                          
             parse_update_result_notice(Body);
-        512 ->                      % 0x0200
+        16#200  ->                      
             parse_position_report(Body);
-        513 ->                      % 0x0201
+        16#201  ->                          
             parse_query_position_response(Body);
-        769 ->                      % 0x0301
+        16#301  ->                          
             parse_event_report(Body);
-        770 ->                      % 0x0302
+        16#302  ->
             parse_question_resp(Body);
-        771 ->                      % 0x0303
+        16#303  ->
             parse_msg_proorcancel(Body);
-        1280 ->                     % 0x0500
+        16#500  ->
             parse_car_con_response(Body);
-        1792 ->                     % 0x0700
+        16#700  ->
             parse_record_upload(Body);
-        1793 ->                     % 0x0701
+        16#701  ->
             parse_electron_invoice_report(Body);
-        1794 ->                     % 0x0702
+        16#702  ->
             parse_driver_id_report(Body);
-        1796 ->                     % 0x0704
+        16#704  ->
             parse_position_data_batch_update(Body);
-        1797 ->                     % 0x0705
+        16#705  ->
             parse_CAN_data_update(Body);
-        2048 ->                     % 0x0800
+        16#800  ->
             parse_multi_media_event_update(Body);
-        2049 ->                     % 0x0809
+        16#801  ->
             parse_multi_media_data_update(Body);
-        2050 ->                     % 0x0802
+        16#802  ->
             parse_stomuldata_response(Body);
+        16#805  ->
+            parse_imm_photo_cmd_response(Body);
         2304 ->                     % 0x0900
             parse_data_update(Body);
         2305 ->                     % 0x0901
@@ -152,76 +148,302 @@ do_parse_msg_body(ID, Body) ->
 %%%
 %%% 0x0001
 %%% Terminal general response
+%%%     RespIdx : WORD
+%%%     RespID  : WORD
+%%%     Res     : BYTE
+%%%                 0   - SUCCESS/ACK
+%%%                 1   - FAIL
+%%%                 2   - MSG ERR
+%%%                 3   - NOT SUPPORTED
 %%%
-parse_genresp(Bin) ->
-    <<RespFlowNum:16, ID:16, Res:8>> = Bin, 
-    {ok, {RespFlowNum, ID, Res}}.
+parse_gen_resp(Bin) ->
+    Len = bit_size(Bin),
+    if
+        Len == (5 * ?LEN_BYTE) ->
+            <<RespIdx:?LEN_WORD, ID:?LEN_WORD, Res:?LEN_BYTE>> = Bin,
+            if
+                Res > 3 ->
+                    {error, msgerr};
+                Res < 0 ->
+                    {error, msgerr};
+                true ->
+                    {ok, {RespIdx, ID, Res}}
+            end;
+        Len =/=(5 * ?LEN_BYTE) ->
+            {error, msgerr}
+    end.
+
+%%%
+%%% 0x0801
+%%% Platform general response
+%%%     RespIdx : WORD
+%%%     RespID  : WORD
+%%%     Resp    : BYTE
+%%%                 0 - SUCCESS/ACK
+%%%                 1 - FAIL
+%%%                 2 - MSG ERR
+%%%                 3 - NOT SUPPORTED
+%%%                 4 - ALARM ACK
+%%%
+create_general_response(FlowIdx, ID, Resp) ->
+    if
+        Resp < 0 ->
+            error;
+        Resp > 4 ->
+            error;
+        true ->
+            {ok, <<FlowIdx:?LEN_WORD, ID:?LEN_WORD, Resp:?LEN_BYTE>>}
+    end.
 
 %%%
 %%% 0x0002
 %%% Terminal pulse
 %%% 
-parse_pulse(Bin) ->
-    {ok, {Bin}}.
+parse_pulse(_Bin) ->
+    {ok, {}}.
 
 %%%
 %%% 0x0803
-%%% Platform resend sub-package request
-%%% Body : [ID0, ID1, ID2, ID3, ...]
+%%% Platform sub-package resending request
+%%%     OriMsgIdx   : WORD      - The index of the first sub-package of the original message
+%%%     Count       : BYTE(n)   - The count of the whole sub-packages which are needed to be resent.
+%%%     IDList      : BYTE(2*n) - [ID0, ID1, ID2, ID3, ...]
+%%% Use the real IDList length as Count
 %%%
-create_resend_subpack_req(FlowNum, ID, Body) ->
-    Bin = list_to_binary([<<X:16>> || X <- Body]),
-    <<FlowNum:16, ID:16, Bin/binary>>.
+create_resend_subpack_req(FlowIdx, Count, IDList) ->
+    Bin = list_to_binary([<<X:?LEN_WORD>> || X <- IDList]),
+    Len = length(IDList),
+    if
+        Len == Count ->
+            {ok, <<FlowIdx:?LEN_WORD, Len:?LEN_BYTE, Bin/binary>>};
+        true ->
+            error
+    end.
 
 %%%
 %%% 0x0100
 %%% Terminal registration
 %%%
 parse_reg(Bin) ->
-    <<Province:16, City:16, Producer:40, Model:160, ID:56, CertColor:8, Tail/binary>> = Bin,
-    CertID = binary_to_list(Tail),
-    {ok, {Province, City, Producer, Model, ID, CertColor, CertID}}.
+    Len = bit_size(Bin),
+    if
+        Len =< ((2+2+5+20+7+1)*?LEN_BYTE) ->
+            {error, msgerr};
+        true ->
+            <<Province:?LEN_WORD, City:?LEN_WORD, Producer:(5*?LEN_BYTE), TermModel:(20*?LEN_BYTE), TermID:(7*?LEN_BYTE), LicColor:?LEN_BYTE, Tail/binary>> = Bin,
+            LicID = binary_to_term(Tail),
+            {ok, {Province, City, Producer, TermModel, TermID, LicColor, LicID}}
+    end.
 
 %%%
 %%% 0x8100
-%%% AccCode : string
+%%%     RespIdx : WORD
+%%%     Res     : BYTE
+%%%                 0   - OK
+%%%                 1   - VEHICLE ALREADY REGISTERED
+%%%                 2   - NO SUCH VEHICLE IN DATABASE
+%%%                 3   - TERM ALREADY REGISTERED
+%%%                 4   - NO SUCH TERM IN DATABASE
+%%%     Auth    : STRING
 %%%
-create_reg_resp(FlowNum, ID, AccCode) ->
-    Bin = list_to_binary(AccCode),
-    <<FlowNum:16, ID:16, Bin/binary>>.
+create_reg_resp(RespIdx, Res, Auth) ->
+    if
+        Res < 0 ->
+            error;
+        Res > 4 ->
+            error;
+        true ->
+            Bin = term_to_binary(Auth),
+            {ok, <<RespIdx:?LEN_WORD, Res:?LEN_WORD, Bin/binary>>}
+    end.
 
 %%%
 %%% 0x0003
-%%% unreg or logout?
+%%% Terminal unregistation
 %%%
-parse_unreg(Bin) ->
-    {ok, {Bin}}.
+parse_unreg(_Bin) ->
+    {ok, {}}.
 
 %%%
 %%% 0x0102
 %%%
-parse_checkacc(Bin) ->
-    Str = binary_to_list(Bin),
-    {ok, {Str}}.
+parse_check_auth(Bin) ->
+    Len = bit_size(Bin),
+    if
+        Len < 1 ->
+            error;
+        true ->
+            Auth = binary_to_term(Bin),
+            {ok, {Auth}}
+    end.
 
 %%%
 %%% 0x8103
-%%% Lists:[[id,value],...,[id,value]]
+%%%     Count       : BYTE
+%%%     ArgsList    : [[ID0, Value0], [ID1, Value1], [ID2, Value2], ...]
+%%%                   T-L-V : DWORD-BYTE-L*8
 %%%
-create_set_terminal_args(_Count, Lists) ->
-    Len = length(Lists),
-    L = list_to_binary([make_to_binary(Id, Value) || [Id, Value] <- Lists]),
-    <<Len:8,L/binary>>.
+create_set_term_args(_Count, ArgsList) ->
+    Len = length(ArgsList),
+    ArgsBin = list_to_binary([compose_term_args_binary(ID, Value) || [ID, Value] <- ArgsList]),
+    <<Len:?LEN_BYTE,ArgsBin/binary>>.
 
-make_to_binary(Id, Value) ->
-    V = list_to_binary(Value),
-    Len = byte_size(V),
-    <<Id:32,Len:8,V/binary>>.
+compose_term_args_binary(ID, Value) ->
+    Len = bit_size(Value),
+    if
+        Len < 1 ->
+            if
+                ID > 16#7, ID =< 16#F ->
+                    <<ID:?LEN_DWORD, 0:?LEN_BYTE>>;
+                ID > 16#1D, ID =< 16#1F ->
+                    <<ID:?LEN_DWORD, 0:?LEN_BYTE>>;
+                ID > 16#22, ID =< 16#26 ->
+                    <<ID:?LEN_DWORD, 0:?LEN_BYTE>>;
+                ID > 16#29, ID =< 16#2B ->
+                    <<ID:?LEN_DWORD, 0:?LEN_BYTE>>;
+                ID > 16#31, ID =< 16#3F ->
+                    <<ID:?LEN_DWORD, 0:?LEN_BYTE>>;
+                ID > 16#49, ID =< 16#4F ->
+                    <<ID:?LEN_DWORD, 0:?LEN_BYTE>>;
+                ID > 16#5E, ID =< 16#63 ->
+                    <<ID:?LEN_DWORD, 0:?LEN_BYTE>>;
+                ID > 16#65, ID =< 16#6F ->
+                    <<ID:?LEN_DWORD, 0:?LEN_BYTE>>;
+                ID > 16#74, ID =< 16#7F ->
+                    <<ID:?LEN_DWORD, 0:?LEN_BYTE>>;
+                ID > 16#F000, ID =< 16#FFFF ->
+                    <<ID:?LEN_DWORD, 0:?LEN_BYTE>>;
+                true ->
+                    <<>>
+            end;
+        true ->
+            if
+                ID >= 16#0, ID =< 16#7 ->
+                    ActLen = ?LEN_DWORD,
+                    <<ID:?LEN_DWORD, ActLen:?LEN_BYTE, Value:?LEN_DWORD>>;
+                ID > 16#7, ID =< 16#F ->                    % Impossible, the same to the other items whose length is 0.
+                    <<ID:?LEN_DWORD, 0:?LEN_BYTE>>;
+                ID > 16#F, ID =< 16#17 ->
+                    Bin = term_to_binary(Value),
+                    ActLen = length(Bin),
+                    list_to_binary([<<ID:?LEN_DWORD>>, <<ActLen:?LEN_BYTE>>, Bin]);
+                ID > 16#17, ID =< 16#19 ->
+                    ActLen = ?LEN_DWORD,
+                    <<ID:?LEN_DWORD, ActLen:?LEN_BYTE, Value:?LEN_DWORD>>;
+                ID == 16#1A ->
+                    Bin = term_to_binary(Value),
+                    ActLen = length(Bin),
+                    list_to_binary([<<ID:?LEN_DWORD>>, <<ActLen:?LEN_BYTE>>, Bin]);
+                ID > 16#1A, ID =< 16#1C ->
+                    ActLen = ?LEN_DWORD,
+                    <<ID:?LEN_DWORD, ActLen:?LEN_BYTE, Value:?LEN_DWORD>>;
+                ID == 16#1D ->
+                    Bin = term_to_binary(Value),
+                    ActLen = length(Bin),
+                    list_to_binary([<<ID:?LEN_DWORD>>, <<ActLen:?LEN_BYTE>>, Bin]);
+                ID > 16#1D, ID =< 16#1F ->                    % Impossible, the same to the other items whose length is 0.
+                    <<ID:?LEN_DWORD, 0:?LEN_BYTE>>;
+                ID > 16#1F, ID =< 16#22 ->
+                    ActLen = ?LEN_DWORD,
+                    <<ID:?LEN_DWORD, ActLen:?LEN_BYTE, Value:?LEN_DWORD>>;
+                ID > 16#22, ID =< 16#26 ->                    % Impossible, the same to the other items whose length is 0.
+                    <<ID:?LEN_DWORD, 0:?LEN_BYTE>>;
+                ID > 16#26, ID =< 16#29 ->
+                    ActLen = ?LEN_DWORD,
+                    <<ID:?LEN_DWORD, ActLen:?LEN_BYTE, Value:?LEN_DWORD>>;
+                ID > 16#29, ID =< 16#2B ->                    % Impossible, the same to the other items whose length is 0.
+                    <<ID:?LEN_DWORD, 0:?LEN_BYTE>>;
+                ID > 16#2B, ID =< 16#30 ->
+                    ActLen = ?LEN_DWORD,
+                    <<ID:?LEN_DWORD, ActLen:?LEN_BYTE, Value:?LEN_DWORD>>;
+                ID == 16#31 ->
+                    ActLen = ?LEN_WORD,
+                    <<ID:?LEN_DWORD, ActLen:?LEN_BYTE, Value:?LEN_DWORD>>;
+                ID > 16#31, ID =< 16#3F ->                    % Impossible, the same to the other items whose length is 0.
+                    <<ID:?LEN_DWORD, 0:?LEN_BYTE>>;
+                ID > 16#3F, ID =< 16#44 ->
+                    Bin = term_to_binary(Value),
+                    ActLen = length(Bin),
+                    list_to_binary([<<ID:?LEN_DWORD>>, <<ActLen:?LEN_BYTE>>, Bin]);
+                ID > 16#44, ID =< 16#47 ->
+                    ActLen = ?LEN_DWORD,
+                    <<ID:?LEN_DWORD, ActLen:?LEN_BYTE, Value:?LEN_DWORD>>;
+                ID > 16#47, ID =< 16#49 ->
+                    Bin = term_to_binary(Value),
+                    ActLen = length(Bin),
+                    list_to_binary([<<ID:?LEN_DWORD>>, <<ActLen:?LEN_BYTE>>, Bin]);
+                ID > 16#49, ID =< 16#4F ->                    % Impossible, the same to the other items whose length is 0.
+                    <<ID:?LEN_DWORD, 0:?LEN_BYTE>>;
+                ID > 16#4F, ID =< 16#5A ->
+                    ActLen = ?LEN_DWORD,
+                    <<ID:?LEN_DWORD, ActLen:?LEN_BYTE, Value:?LEN_DWORD>>;
+                ID > 16#5A, ID =< 16#5E ->
+                    ActLen = ?LEN_WORD,
+                    <<ID:?LEN_DWORD, ActLen:?LEN_BYTE, Value:?LEN_DWORD>>;
+                ID > 16#5E, ID =< 16#63 ->                    % Impossible, the same to the other items whose length is 0.
+                    <<ID:?LEN_DWORD, 0:?LEN_BYTE>>;
+                ID > 16#63, ID =< 16#65 ->
+                    ActLen = ?LEN_DWORD,
+                    <<ID:?LEN_DWORD, ActLen:?LEN_BYTE, Value:?LEN_DWORD>>;
+                ID > 16#65, ID =< 16#6F ->                    % Impossible, the same to the other items whose length is 0.
+                    <<ID:?LEN_DWORD, 0:?LEN_BYTE>>;
+                ID > 16#6F, ID =< 16#74 ->
+                    ActLen = ?LEN_DWORD,
+                    <<ID:?LEN_DWORD, ActLen:?LEN_BYTE, Value:?LEN_DWORD>>;
+                ID > 16#74, ID =< 16#7F ->                    % Impossible, the same to the other items whose length is 0.
+                    <<ID:?LEN_DWORD, 0:?LEN_BYTE>>;
+                ID == 16#80 ->
+                    ActLen = ?LEN_DWORD,
+                    <<ID:?LEN_DWORD, ActLen:?LEN_BYTE, Value:?LEN_DWORD>>;
+                ID > 16#80, ID =< 16#82 ->
+                    ActLen = ?LEN_WORD,
+                    <<ID:?LEN_DWORD, ActLen:?LEN_BYTE, Value:?LEN_DWORD>>;
+                ID == 16#83 ->
+                    Bin = term_to_binary(Value),
+                    ActLen = length(Bin),
+                    list_to_binary([<<ID:?LEN_DWORD>>, <<ActLen:?LEN_BYTE>>, Bin]);
+                ID == 16#84 ->
+                    ActLen = ?LEN_BYTE,
+                    <<ID:?LEN_DWORD, ActLen:?LEN_BYTE, Value:?LEN_DWORD>>;
+                ID > 16#8F, ID =< 16#92 ->
+                    ActLen = ?LEN_BYTE,
+                    <<ID:?LEN_DWORD, ActLen:?LEN_BYTE, Value:?LEN_DWORD>>;
+                ID == 16#93 ->
+                    ActLen = ?LEN_DWORD,
+                    <<ID:?LEN_DWORD, ActLen:?LEN_BYTE, Value:?LEN_DWORD>>;
+                ID == 16#94 ->
+                    ActLen = ?LEN_BYTE,
+                    <<ID:?LEN_DWORD, ActLen:?LEN_BYTE, Value:?LEN_DWORD>>;
+                ID == 16#95 ->
+                    ActLen = ?LEN_DWORD,
+                    <<ID:?LEN_DWORD, ActLen:?LEN_BYTE, Value:?LEN_DWORD>>;
+                ID == 16#100 ->
+                    ActLen = ?LEN_DWORD,
+                    <<ID:?LEN_DWORD, ActLen:?LEN_BYTE, Value:?LEN_DWORD>>;
+                ID == 16#101 ->
+                    ActLen = ?LEN_WORD,
+                    <<ID:?LEN_DWORD, ActLen:?LEN_BYTE, Value:?LEN_DWORD>>;
+                ID == 16#102 ->
+                    ActLen = ?LEN_DWORD,
+                    <<ID:?LEN_DWORD, ActLen:?LEN_BYTE, Value:?LEN_DWORD>>;
+                ID == 16#103 ->
+                    ActLen = ?LEN_WORD,
+                    <<ID:?LEN_DWORD, ActLen:?LEN_BYTE, Value:?LEN_DWORD>>;
+                ID > 16#110, ID =< 16#1FF ->
+                    ActLen = 8*?LEN_BYTE,
+                    <<ID:?LEN_DWORD, ActLen:?LEN_BYTE, Value:?LEN_DWORD>>;
+                ID > 16#F000, ID =< 16#FFFF ->                    % Impossible, the same to the other items whose length is 0.
+                    <<ID:?LEN_DWORD, 0:?LEN_BYTE>>;
+                true ->
+                    <<>>
+            end
+    end.
+
 
 %%%
 %%% 0x8104
 %%%
-create_query_terminal_args() ->
+create_query_term_args() ->
     <<>>.
 
 %%%
@@ -768,16 +990,65 @@ create_multimedia_data_reply(Id,_Count,IDs) ->
 %%%
 %%% 0x8801
 %%%
-create_shoot_order(PipeId,Order,Time,SaveSymbol,DisRate,Quality,Bri,Contrast,Sat,Chroma) ->
+create_imm_photo_cmd(PipeId,Order,Time,SaveSymbol,DisRate,Quality,Bri,Contrast,Sat,Chroma) ->
     <<PipeId:8,Order:16,Time:16,SaveSymbol:8,DisRate:8,Quality:8,Bri:8,Contrast:8,Sat:8,Chroma:8>>.
 
 %%%
 %%% 0x0805
 %%%
-create_shoot_order_response(ReplyNum,Result,_MCount,MIDs) ->
-    Len = length(MIDs),
-    Bin = list_to_binary([<<X:32>> || X <- MIDs]),
-    <<ReplyNum:16,Result:8,Len:16,Bin/binary>>.
+parse_imm_photo_cmd_response(Bin) ->
+    Len = bit_size(Bin),
+    if
+        Len < (5*?LEN_BYTE) ->
+            {error, msgerr};
+        true ->
+            <<RespIdx:?LEN_WORD, Res:?LEN_BYTE, Count:?LEN_WORD, Tail/binary>> = Bin,
+            case Res of
+                0 ->
+                    List = get_list_from_bin(Tail, ?LEN_DWORD),
+                    ActLen = length(List),
+                    if
+                        Count == ActLen ->
+                            {ok, {RespIdx, Res, ActLen, List}};
+                        true ->
+                            {error, msgerr}
+                    end;
+                1 ->
+                    ActLen = bit_size(Tail),
+                    if
+                        ActLen == 0 ->
+                            {ok, {RespIdx, Res, 0, []}};
+                        true ->
+                            {error, msgerr}
+                    end;
+                2 ->
+                    ActLen = bit_size(Tail),
+                    if
+                        ActLen == 0 ->
+                            {ok, {RespIdx, Res, 0, []}};
+                        true ->
+                            {error, msgerr}
+                    end;
+                _ ->
+                    {error, msgerr}
+        end
+    end.
+
+get_list_from_bin(Bin, ItemWidth) ->
+    Len = bit_size(Bin),
+    if
+        Len < ItemWidth ->
+            [];
+        true ->
+            <<H:ItemWidth, T/binary>> = Bin,
+            TLen = bit_size(T),
+            if
+                TLen < ItemWidth ->
+                    [H];
+                true ->
+                    [H|get_list_from_bin(T, ItemWidth)]
+            end
+    end.
 
 %%%
 %%% 0x8802
