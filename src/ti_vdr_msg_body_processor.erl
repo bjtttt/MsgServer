@@ -32,10 +32,10 @@
          create_resend_subpack_req/3,
          create_reg_resp/3,
 	     create_set_term_args/2,
-         create_query_term_args/0,
-         create_query_specify_terminal_args/2,
-         create_terminal_control/2,
-         create_search_terminal_arr/0,
+         create_term_query_args/0,
+         create_query_specific_term_args/2,
+         create_term_ctrl/2,
+         create_query_term_property/0,
          create_update_packet/6,
          create_position_search/0,
          create_tmp_position_track_control/2,
@@ -100,13 +100,13 @@ do_parse_msg_body(ID, Body) ->
         16#102  ->                          
             parse_check_auth(Body);
         16#104  ->                          
-            parse_query_terminal_args_reponse(Body);
+            parse_query_term_args_response(Body);
         16#107  ->                      
-            parse_search_terminal_arr_response(Body);
+            parse_query_term_prop_response(Body);
         16#108  ->                          
-            parse_update_result_notice(Body);
+            parse_update_result_notification(Body);
         16#200  ->                      
-            parse_position_report(Body);
+            parse_position_info_report(Body);
         16#201  ->                          
             parse_query_position_response(Body);
         16#301  ->                          
@@ -222,6 +222,13 @@ create_resend_subpack_req(FlowIdx, Count, IDList) ->
 %%%
 %%% 0x0100
 %%% Terminal registration
+%%%     Province    : WORD
+%%%     City        : WORD
+%%%     Producer ID : BYTE[5]
+%%%     Term Model  : BYTE[20]
+%%%     Term ID     : BYTE[7]
+%%%     Lic Color   : BYTE
+%%%     Lic ID      : STRING
 %%%
 parse_reg(Bin) ->
     Len = bit_size(Bin),
@@ -230,29 +237,29 @@ parse_reg(Bin) ->
             {error, msgerr};
         true ->
             <<Province:?LEN_WORD, City:?LEN_WORD, Producer:(5*?LEN_BYTE), TermModel:(20*?LEN_BYTE), TermID:(7*?LEN_BYTE), LicColor:?LEN_BYTE, Tail/binary>> = Bin,
-            LicID = binary_to_term(Tail),
+            LicID = binary_to_list(Tail),
             {ok, {Province, City, Producer, TermModel, TermID, LicColor, LicID}}
     end.
 
 %%%
 %%% 0x8100
-%%%     RespIdx : WORD
-%%%     Res     : BYTE
-%%%                 0   - OK
-%%%                 1   - VEHICLE ALREADY REGISTERED
-%%%                 2   - NO SUCH VEHICLE IN DATABASE
-%%%                 3   - TERM ALREADY REGISTERED
-%%%                 4   - NO SUCH TERM IN DATABASE
-%%%     Auth    : STRING
+%%%     RespIdx     : WORD
+%%%     Res         : BYTE
+%%%                     0   - OK
+%%%                     1   - VEHICLE ALREADY REGISTERED
+%%%                     2   - NO SUCH VEHICLE IN DATABASE
+%%%                     3   - TERM ALREADY REGISTERED
+%%%                     4   - NO SUCH TERM IN DATABASE
+%%%     AuthCode    : STRING
 %%%
-create_reg_resp(RespIdx, Res, Auth) ->
+create_reg_resp(RespIdx, Res, AuthCode) ->
     if
         Res < 0 ->
             error;
         Res > 4 ->
             error;
         true ->
-            Bin = term_to_binary(Auth),
+            Bin = list_to_binary(AuthCode),
             {ok, <<RespIdx:?LEN_WORD, Res:?LEN_WORD, Bin/binary>>}
     end.
 
@@ -265,28 +272,39 @@ parse_unreg(_Bin) ->
 
 %%%
 %%% 0x0102
+%%%     Auth    : STRING
 %%%
 parse_check_auth(Bin) ->
     Len = bit_size(Bin),
     if
         Len < 1 ->
-            error;
+            {error, msgerr};
         true ->
-            Auth = binary_to_term(Bin),
+            Auth = binary_to_list(Bin),
             {ok, {Auth}}
     end.
 
 %%%
 %%% 0x8103
-%%%     Count       : BYTE
-%%%     ArgsList    : [[ID0, Value0], [ID1, Value1], [ID2, Value2], ...]
-%%%                   T-L-V : DWORD-BYTE-L*8
+%%%     Count   : BYTE
+%%%     ArgList : [[ID0, Value0], [ID1, Value1], [ID2, Value2], ...]
+%%%               T-L-V : DWORD-BYTE-L*8
 %%%
-create_set_term_args(_Count, ArgsList) ->
-    Len = length(ArgsList),
-    ArgsBin = list_to_binary([compose_term_args_binary(ID, Value) || [ID, Value] <- ArgsList]),
-    <<Len:?LEN_BYTE,ArgsBin/binary>>.
+create_set_term_args(Count, ArgList) ->
+    Len = length(ArgList),
+    if
+        Len == Count ->
+            Bin = list_to_binary([compose_term_args_binary(ID, Value) || [ID, Value] <- ArgList]),
+            {ok, <<Len:?LEN_BYTE,Bin/binary>>};
+        true ->
+            error
+    end.
 
+%%%
+%%% ActLen should be bit_size or byte_size ?????
+%%% Currently using byte_size
+%%% Has better format?
+%%%
 compose_term_args_binary(ID, Value) ->
     Len = bit_size(Value),
     if
@@ -318,120 +336,120 @@ compose_term_args_binary(ID, Value) ->
         true ->
             if
                 ID >= 16#0, ID =< 16#7 ->
-                    ActLen = ?LEN_DWORD,
+                    ActLen = ?LEN_DWORD_BYTE,
                     <<ID:?LEN_DWORD, ActLen:?LEN_BYTE, Value:?LEN_DWORD>>;
-                ID > 16#7, ID =< 16#F ->                    % Impossible, the same to the other items whose length is 0.
+                ID >= 16#8, ID =< 16#F ->                    % Impossible, the same to the other items whose length is 0.
                     <<ID:?LEN_DWORD, 0:?LEN_BYTE>>;
-                ID > 16#F, ID =< 16#17 ->
-                    Bin = term_to_binary(Value),
-                    ActLen = length(Bin),
+                ID >= 16#10, ID =< 16#17 ->
+                    Bin = list_to_binary(Value),
+                    ActLen = byte_size(Bin),
                     list_to_binary([<<ID:?LEN_DWORD>>, <<ActLen:?LEN_BYTE>>, Bin]);
-                ID > 16#17, ID =< 16#19 ->
-                    ActLen = ?LEN_DWORD,
+                ID >= 16#18, ID =< 16#19 ->
+                    ActLen = ?LEN_DWORD_BYTE,
                     <<ID:?LEN_DWORD, ActLen:?LEN_BYTE, Value:?LEN_DWORD>>;
                 ID == 16#1A ->
-                    Bin = term_to_binary(Value),
-                    ActLen = length(Bin),
+                    Bin = list_to_binary(Value),
+                    ActLen = byte_size(Bin),
                     list_to_binary([<<ID:?LEN_DWORD>>, <<ActLen:?LEN_BYTE>>, Bin]);
-                ID > 16#1A, ID =< 16#1C ->
-                    ActLen = ?LEN_DWORD,
+                ID >= 16#1B, ID =< 16#1C ->
+                    ActLen = ?LEN_DWORD_BYTE,
                     <<ID:?LEN_DWORD, ActLen:?LEN_BYTE, Value:?LEN_DWORD>>;
                 ID == 16#1D ->
-                    Bin = term_to_binary(Value),
-                    ActLen = length(Bin),
+                    Bin = list_to_binary(Value),
+                    ActLen = byte_size(Bin),
                     list_to_binary([<<ID:?LEN_DWORD>>, <<ActLen:?LEN_BYTE>>, Bin]);
-                ID > 16#1D, ID =< 16#1F ->                    % Impossible, the same to the other items whose length is 0.
+                ID >= 16#1E, ID =< 16#1F ->                    % Impossible, the same to the other items whose length is 0.
                     <<ID:?LEN_DWORD, 0:?LEN_BYTE>>;
-                ID > 16#1F, ID =< 16#22 ->
-                    ActLen = ?LEN_DWORD,
+                ID >= 16#20, ID =< 16#22 ->
+                    ActLen = ?LEN_DWORD_BYTE,
                     <<ID:?LEN_DWORD, ActLen:?LEN_BYTE, Value:?LEN_DWORD>>;
-                ID > 16#22, ID =< 16#26 ->                    % Impossible, the same to the other items whose length is 0.
+                ID >= 16#23, ID =< 16#26 ->                    % Impossible, the same to the other items whose length is 0.
                     <<ID:?LEN_DWORD, 0:?LEN_BYTE>>;
-                ID > 16#26, ID =< 16#29 ->
-                    ActLen = ?LEN_DWORD,
+                ID >= 16#27, ID =< 16#29 ->
+                    ActLen = ?LEN_DWORD_BYTE,
                     <<ID:?LEN_DWORD, ActLen:?LEN_BYTE, Value:?LEN_DWORD>>;
-                ID > 16#29, ID =< 16#2B ->                    % Impossible, the same to the other items whose length is 0.
+                ID >= 16#2A, ID =< 16#2B ->                    % Impossible, the same to the other items whose length is 0.
                     <<ID:?LEN_DWORD, 0:?LEN_BYTE>>;
-                ID > 16#2B, ID =< 16#30 ->
-                    ActLen = ?LEN_DWORD,
+                ID >= 16#2C, ID =< 16#30 ->
+                    ActLen = ?LEN_DWORD_BYTE,
                     <<ID:?LEN_DWORD, ActLen:?LEN_BYTE, Value:?LEN_DWORD>>;
                 ID == 16#31 ->
-                    ActLen = ?LEN_WORD,
+                    ActLen = ?LEN_WORD_BYTE,
                     <<ID:?LEN_DWORD, ActLen:?LEN_BYTE, Value:?LEN_DWORD>>;
-                ID > 16#31, ID =< 16#3F ->                    % Impossible, the same to the other items whose length is 0.
+                ID >= 16#32, ID =< 16#3F ->                    % Impossible, the same to the other items whose length is 0.
                     <<ID:?LEN_DWORD, 0:?LEN_BYTE>>;
-                ID > 16#3F, ID =< 16#44 ->
-                    Bin = term_to_binary(Value),
-                    ActLen = length(Bin),
+                ID >= 16#40, ID =< 16#44 ->
+                    Bin = list_to_binary(Value),
+                    ActLen = byte_size(Bin),
                     list_to_binary([<<ID:?LEN_DWORD>>, <<ActLen:?LEN_BYTE>>, Bin]);
-                ID > 16#44, ID =< 16#47 ->
-                    ActLen = ?LEN_DWORD,
+                ID >= 16#45, ID =< 16#47 ->
+                    ActLen = ?LEN_DWORD_BYTE,
                     <<ID:?LEN_DWORD, ActLen:?LEN_BYTE, Value:?LEN_DWORD>>;
-                ID > 16#47, ID =< 16#49 ->
-                    Bin = term_to_binary(Value),
-                    ActLen = length(Bin),
+                ID >= 16#48, ID =< 16#49 ->
+                    Bin = list_to_binary(Value),
+                    ActLen = byte_size(Bin),
                     list_to_binary([<<ID:?LEN_DWORD>>, <<ActLen:?LEN_BYTE>>, Bin]);
-                ID > 16#49, ID =< 16#4F ->                    % Impossible, the same to the other items whose length is 0.
+                ID >= 16#4A, ID =< 16#4F ->                    % Impossible, the same to the other items whose length is 0.
                     <<ID:?LEN_DWORD, 0:?LEN_BYTE>>;
-                ID > 16#4F, ID =< 16#5A ->
-                    ActLen = ?LEN_DWORD,
+                ID >= 16#50, ID =< 16#5A ->
+                    ActLen = ?LEN_DWORD_BYTE,
                     <<ID:?LEN_DWORD, ActLen:?LEN_BYTE, Value:?LEN_DWORD>>;
-                ID > 16#5A, ID =< 16#5E ->
-                    ActLen = ?LEN_WORD,
+                ID >= 16#5B, ID =< 16#5E ->
+                    ActLen = ?LEN_WORD_BYTE,
                     <<ID:?LEN_DWORD, ActLen:?LEN_BYTE, Value:?LEN_DWORD>>;
-                ID > 16#5E, ID =< 16#63 ->                    % Impossible, the same to the other items whose length is 0.
+                ID >= 16#5F, ID =< 16#63 ->                    % Impossible, the same to the other items whose length is 0.
                     <<ID:?LEN_DWORD, 0:?LEN_BYTE>>;
-                ID > 16#63, ID =< 16#65 ->
-                    ActLen = ?LEN_DWORD,
+                ID >= 16#64, ID =< 16#65 ->
+                    ActLen = ?LEN_DWORD_BYTE,
                     <<ID:?LEN_DWORD, ActLen:?LEN_BYTE, Value:?LEN_DWORD>>;
-                ID > 16#65, ID =< 16#6F ->                    % Impossible, the same to the other items whose length is 0.
+                ID >= 16#66, ID =< 16#6F ->                    % Impossible, the same to the other items whose length is 0.
                     <<ID:?LEN_DWORD, 0:?LEN_BYTE>>;
-                ID > 16#6F, ID =< 16#74 ->
-                    ActLen = ?LEN_DWORD,
+                ID >= 16#70, ID =< 16#74 ->
+                    ActLen = ?LEN_DWORD_BYTE,
                     <<ID:?LEN_DWORD, ActLen:?LEN_BYTE, Value:?LEN_DWORD>>;
-                ID > 16#74, ID =< 16#7F ->                    % Impossible, the same to the other items whose length is 0.
+                ID >= 16#75, ID =< 16#7F ->                    % Impossible, the same to the other items whose length is 0.
                     <<ID:?LEN_DWORD, 0:?LEN_BYTE>>;
                 ID == 16#80 ->
-                    ActLen = ?LEN_DWORD,
+                    ActLen = ?LEN_DWORD_BYTE,
                     <<ID:?LEN_DWORD, ActLen:?LEN_BYTE, Value:?LEN_DWORD>>;
-                ID > 16#80, ID =< 16#82 ->
-                    ActLen = ?LEN_WORD,
+                ID >= 16#81, ID =< 16#82 ->
+                    ActLen = ?LEN_WORD_BYTE,
                     <<ID:?LEN_DWORD, ActLen:?LEN_BYTE, Value:?LEN_DWORD>>;
                 ID == 16#83 ->
-                    Bin = term_to_binary(Value),
-                    ActLen = length(Bin),
+                    Bin = list_to_binary(Value),
+                    ActLen = byte_size(Bin),
                     list_to_binary([<<ID:?LEN_DWORD>>, <<ActLen:?LEN_BYTE>>, Bin]);
                 ID == 16#84 ->
-                    ActLen = ?LEN_BYTE,
+                    ActLen = ?LEN_BYTE_BYTE,
                     <<ID:?LEN_DWORD, ActLen:?LEN_BYTE, Value:?LEN_DWORD>>;
-                ID > 16#8F, ID =< 16#92 ->
-                    ActLen = ?LEN_BYTE,
+                ID >= 16#90, ID =< 16#92 ->
+                    ActLen = ?LEN_BYTE_BYTE,
                     <<ID:?LEN_DWORD, ActLen:?LEN_BYTE, Value:?LEN_DWORD>>;
                 ID == 16#93 ->
-                    ActLen = ?LEN_DWORD,
+                    ActLen = ?LEN_DWORD_BYTE,
                     <<ID:?LEN_DWORD, ActLen:?LEN_BYTE, Value:?LEN_DWORD>>;
                 ID == 16#94 ->
-                    ActLen = ?LEN_BYTE,
+                    ActLen = ?LEN_BYTE_BYTE,
                     <<ID:?LEN_DWORD, ActLen:?LEN_BYTE, Value:?LEN_DWORD>>;
                 ID == 16#95 ->
-                    ActLen = ?LEN_DWORD,
+                    ActLen = ?LEN_DWORD_BYTE,
                     <<ID:?LEN_DWORD, ActLen:?LEN_BYTE, Value:?LEN_DWORD>>;
                 ID == 16#100 ->
-                    ActLen = ?LEN_DWORD,
+                    ActLen = ?LEN_DWORD_BYTE,
                     <<ID:?LEN_DWORD, ActLen:?LEN_BYTE, Value:?LEN_DWORD>>;
                 ID == 16#101 ->
-                    ActLen = ?LEN_WORD,
+                    ActLen = ?LEN_WORD_BYTE,
                     <<ID:?LEN_DWORD, ActLen:?LEN_BYTE, Value:?LEN_DWORD>>;
                 ID == 16#102 ->
-                    ActLen = ?LEN_DWORD,
+                    ActLen = ?LEN_DWORD_BYTE,
                     <<ID:?LEN_DWORD, ActLen:?LEN_BYTE, Value:?LEN_DWORD>>;
                 ID == 16#103 ->
-                    ActLen = ?LEN_WORD,
+                    ActLen = ?LEN_WORD_BYTE,
                     <<ID:?LEN_DWORD, ActLen:?LEN_BYTE, Value:?LEN_DWORD>>;
-                ID > 16#110, ID =< 16#1FF ->
-                    ActLen = 8*?LEN_BYTE,
+                ID >= 16#110, ID =< 16#1FF ->
+                    ActLen = 8*?LEN_BYTE_BYTE,
                     <<ID:?LEN_DWORD, ActLen:?LEN_BYTE, Value:?LEN_DWORD>>;
-                ID > 16#F000, ID =< 16#FFFF ->                    % Impossible, the same to the other items whose length is 0.
+                ID >= 16#F000, ID =< 16#FFFF ->                    % Impossible, the same to the other items whose length is 0.
                     <<ID:?LEN_DWORD, 0:?LEN_BYTE>>;
                 true ->
                     <<>>
@@ -442,107 +460,576 @@ compose_term_args_binary(ID, Value) ->
 %%%
 %%% 0x8104
 %%%
-create_query_term_args() ->
-    <<>>.
+create_term_query_args() ->
+    {ok, <<>>}.
 
 %%%
 %%% 0x8106
-%%% IDs : [ID0, ID1, ID2, ...]
+%%%     Count   : BYTE(n)
+%%%     IDList  : BYTE[4*n]
+%%%                 [ID0, ID1, ID2, ...]
 %%%
-create_query_specify_terminal_args(_Count, IDs) ->
-    Len = length(IDs),
-    IDsBin = term_to_binary(IDs),
-    <<Len:8,IDsBin/binary>>.
+create_query_specific_term_args(Count, IDList) ->
+    Len = length(IDList),
+    if
+        Count == Len ->
+            Bin = list_to_binary([<<ID:?LEN_DWORD>> || [ID] <- IDList]),
+            {ok,<<Len:8,Bin/binary>>};
+        true ->
+            error
+    end.
 
 %%%
 %%% 0x0104
+%%% Result:
+%%%     RespIdx : WORD
+%%%     Count   : BYTE
+%%%     ArgList : [[ID0, Value0], [ID1, Value1], [ID2, Value2], ...]
+%%%               T-L-V : DWORD-BYTE-L*8
 %%%
-parse_query_terminal_args_reponse(Bin) ->
-    <<FlowNum:16, _Count:8, Tail/binary>> = Bin,
-    List = extracttermargsresp(Tail),
-    Len = length(List),
-    {ok, {FlowNum, Len, List}}.
+%%% Len should be byte_size or bit_size????
+%%% Currently using byte_size
+%%%
+parse_query_term_args_response(Bin) ->
+    Len = length(Bin),
+    if
+        Len =< ((2+1)*?LEN_BYTE) ->
+            {error, msgerr};
+        true ->
+            <<RespIdx:?LEN_WORD, Count:?LEN_BYTE, Tail/binary>> = Bin,
+            List = extract_term_args_resp(Tail),
+            ActLen = length(List),
+            if
+                ActLen == Count ->
+                    {ok, {RespIdx, ActLen, List}};
+                true ->
+                    {error, msgerr}
+            end
+    end.
 
-extracttermargsresp(Bin) ->
+%%%
+%%% Len should be byte_size or bit_size????
+%%% Currently using byte_size
+%%%
+extract_term_args_resp(Bin) ->
     Len = bit_size(Bin),
     if
-        Len < 40 ->
+        Len < ((4+1)*?LEN_BYTE) ->
             [];
-        Len >= 40 ->
-            <<ID:32, Len:8, Tail/binary>> = Bin,
+        true ->
+            <<ID:?LEN_DWORD, Len:?LEN_BYTE, Tail/binary>> = Bin,
             TailLen = bit_size(Tail),
             if
                 Len > TailLen ->
                     [];
                 Len =< TailLen ->
-                    <<Value:Len, Body/binary>> = Tail,
-                    [[ID, Len, Value]|extracttermargsresp(Body)]
+                    {Bin0, Bin1} = split_binary(Tail, Len*?LEN_BYTE),
+                    Arg =  convert_term_args_binary(ID, Len, Bin0),
+                    [Arg|extract_term_args_resp(Bin1)]
             end
     end.
 
 %%%
-%%% 0x8105
+%%% Len should be byte_size or bit_size????
+%%% Currently using byte_size
+%%% Has better format?
 %%%
-create_terminal_control(Type, Args) ->
-    case Type of
-        1 ->
-            List = re:split(Args, ";", [{return, list}]),
-            Bin = list_to_binary(List),
-            <<Type:8,Bin/binary>>;
-        2 ->
-            List = re:split(Args, ";", [{return, list}]),
-            Bin = list_to_binary(List),
-            <<Type:8,Bin/binary>>;
-        _ ->
-            <<Type:8>>
+convert_term_args_binary(ID, Len, Bin) ->
+    if
+        ID >= 16#0, ID =< 16#7 ->
+            if
+                Len == ?LEN_DWORD_BYTE ->
+                    <<Value:?LEN_DWORD>> = Bin,
+                    [ID, Len, Value];
+                true ->
+                    []
+            end;
+        ID >= 16#8, ID =< 16#F ->
+            if
+                Len == 0 ->
+                    [ID, 0, []];
+                true ->
+                    []
+            end;
+        ID >= 16#10, ID =< 16#17 ->
+            ActLen = byte_size(Bin),
+            if
+                ActLen == Len ->
+                    Str = binary_to_list(Bin),
+                    [ID, Len, Str];
+                true ->
+                    []
+            end;
+        ID >= 16#18, ID =< 16#19 ->
+            if
+                Len == ?LEN_DWORD_BYTE ->
+                    <<Value:?LEN_DWORD>> = Bin,
+                    [ID, Len, Value];
+                true ->
+                    []
+            end;
+        ID == 16#1A ->
+            ActLen = byte_size(Bin),
+            if
+                ActLen == Len ->
+                    Str = binary_to_list(Bin),
+                    [ID, Len, Str];
+                true ->
+                    []
+            end;
+        ID >= 16#1B, ID =< 16#1C ->
+            if
+                Len == ?LEN_DWORD_BYTE ->
+                    <<Value:?LEN_DWORD>> = Bin,
+                    [ID, Len, Value];
+                true ->
+                    []
+            end;
+        ID == 16#1D ->
+            ActLen = byte_size(Bin),
+            if
+                ActLen == Len ->
+                    Str = binary_to_list(Bin),
+                    [ID, Len, Str];
+                true ->
+                    []
+            end;
+        ID >= 16#1E, ID =< 16#1F ->
+            if
+                Len == 0 ->
+                    [ID, 0, []];
+                true ->
+                    []
+            end;
+        ID >= 16#20, ID =< 16#22 ->
+            if
+                Len == ?LEN_DWORD_BYTE ->
+                    <<Value:?LEN_DWORD>> = Bin,
+                    [ID, Len, Value];
+                true ->
+                    []
+            end;
+        ID >= 16#23, ID =< 16#26 ->
+            if
+                Len == 0 ->
+                    [ID, 0, []];
+                true ->
+                    []
+            end;
+        ID >= 16#27, ID =< 16#29 ->
+            if
+                Len == ?LEN_DWORD_BYTE ->
+                    <<Value:?LEN_DWORD>> = Bin,
+                    [ID, Len, Value];
+                true ->
+                    []
+            end;
+        ID >= 16#2A, ID =< 16#2B ->
+            if
+                Len == 0 ->
+                    [ID, 0, []];
+                true ->
+                    []
+            end;
+        ID >= 16#2C, ID =< 16#30 ->
+            if
+                Len == ?LEN_DWORD_BYTE ->
+                    <<Value:?LEN_DWORD>> = Bin,
+                    [ID, Len, Value];
+                true ->
+                    []
+            end;
+        ID == 16#31 ->
+            if
+                Len == ?LEN_WORD_BYTE ->
+                    <<Value:?LEN_WORD>> = Bin,
+                    [ID, Len, Value];
+                true ->
+                    []
+            end;
+        ID >= 16#32, ID =< 16#3F ->
+            if
+                Len == 0 ->
+                    [ID, 0, []];
+                true ->
+                    []
+            end;
+        ID >= 16#40, ID =< 16#44 ->
+            ActLen = byte_size(Bin),
+            if
+                ActLen == Len ->
+                    Str = binary_to_list(Bin),
+                    [ID, Len, Str];
+                true ->
+                    []
+            end;
+        ID >= 16#45, ID =< 16#47 ->
+            if
+                Len == ?LEN_DWORD_BYTE ->
+                    <<Value:?LEN_DWORD>> = Bin,
+                    [ID, Len, Value];
+                true ->
+                    []
+            end;
+        ID >= 16#48, ID =< 16#49 ->
+            ActLen = byte_size(Bin),
+            if
+                ActLen == Len ->
+                    Str = binary_to_list(Bin),
+                    [ID, Len, Str];
+                true ->
+                    []
+            end;
+        ID >= 16#4A, ID =< 16#4F ->
+            if
+                Len == 0 ->
+                    [ID, 0, []];
+                true ->
+                    []
+            end;
+        ID >= 16#50, ID =< 16#5A ->
+            if
+                Len == ?LEN_DWORD_BYTE ->
+                    <<Value:?LEN_DWORD>> = Bin,
+                    [ID, Len, Value];
+                true ->
+                    []
+            end;
+        ID >= 16#5B, ID =< 16#5E ->
+            if
+                Len == ?LEN_WORD_BYTE ->
+                    <<Value:?LEN_WORD>> = Bin,
+                    [ID, Len, Value];
+                true ->
+                    []
+            end;
+        ID >= 16#5F, ID =< 16#63 ->
+            if
+                Len == 0 ->
+                    [ID, 0, []];
+                true ->
+                    []
+            end;
+        ID >= 16#64, ID =< 16#65 ->
+            if
+                Len == ?LEN_DWORD_BYTE ->
+                    <<Value:?LEN_DWORD>> = Bin,
+                    [ID, Len, Value];
+                true ->
+                    []
+            end;
+        ID >= 16#66, ID =< 16#6F ->
+            if
+                Len == 0 ->
+                    [ID, 0, []];
+                true ->
+                    []
+            end;
+        ID >= 16#70, ID =< 16#74 ->
+            if
+                Len == ?LEN_DWORD_BYTE ->
+                    <<Value:?LEN_DWORD>> = Bin,
+                    [ID, Len, Value];
+                true ->
+                    []
+            end;
+        ID >= 16#75, ID =< 16#7F ->
+            if
+                Len == 0 ->
+                    [ID, 0, []];
+                true ->
+                    []
+            end;
+        ID == 16#80 ->
+            if
+                Len == ?LEN_DWORD_BYTE ->
+                    <<Value:?LEN_DWORD>> = Bin,
+                    [ID, Len, Value];
+                true ->
+                    []
+            end;
+        ID >= 16#81, ID =< 16#82 ->
+            if
+                Len == ?LEN_WORD_BYTE ->
+                    <<Value:?LEN_WORD>> = Bin,
+                    [ID, Len, Value];
+                true ->
+                    []
+            end;
+        ID == 16#83 ->
+            ActLen = byte_size(Bin),
+            if
+                ActLen == Len ->
+                    Str = binary_to_list(Bin),
+                    [ID, Len, Str];
+                true ->
+                    []
+            end;
+        ID == 16#84 ->
+            if
+                Len == ?LEN_BYTE_BYTE ->
+                    <<Value:?LEN_BYTE>> = Bin,
+                    [ID, Len, Value];
+                true ->
+                    []
+            end;
+        ID >= 16#90, ID =< 16#92 ->
+            if
+                Len == ?LEN_BYTE_BYTE ->
+                    <<Value:?LEN_BYTE>> = Bin,
+                    [ID, Len, Value];
+                true ->
+                    []
+            end;
+        ID == 16#93 ->
+            if
+                Len == ?LEN_DWORD_BYTE ->
+                    <<Value:?LEN_DWORD>> = Bin,
+                    [ID, Len, Value];
+                true ->
+                    []
+            end;
+        ID == 16#94 ->
+            if
+                Len == ?LEN_BYTE_BYTE ->
+                    <<Value:?LEN_BYTE>> = Bin,
+                    [ID, Len, Value];
+                true ->
+                    []
+            end;
+        ID == 16#95 ->
+            if
+                Len == ?LEN_DWORD_BYTE ->
+                    <<Value:?LEN_DWORD>> = Bin,
+                    [ID, Len, Value];
+                true ->
+                    []
+            end;
+        ID == 16#100 ->
+            if
+                Len == ?LEN_DWORD_BYTE ->
+                    <<Value:?LEN_DWORD>> = Bin,
+                    [ID, Len, Value];
+                true ->
+                    []
+            end;
+        ID == 16#101 ->
+            if
+                Len == ?LEN_WORD_BYTE ->
+                    <<Value:?LEN_WORD>> = Bin,
+                    [ID, Len, Value];
+                true ->
+                    []
+            end;
+        ID == 16#102 ->
+            if
+                Len == ?LEN_DWORD_BYTE ->
+                    <<Value:?LEN_DWORD>> = Bin,
+                    [ID, Len, Value];
+                true ->
+                    []
+            end;
+        ID == 16#103 ->
+            if
+                Len == ?LEN_WORD_BYTE ->
+                    <<Value:?LEN_WORD>> = Bin,
+                    [ID, Len, Value];
+                true ->
+                    []
+            end;
+        ID >= 16#110, ID =< 16#1FF ->
+            ActLen = 8*?LEN_BYTE_BYTE,
+            [ID, ActLen, Bin];
+        ID >= 16#F000, ID =< 16#FFFF ->
+            if
+                Len == 0 ->
+                    [ID, 0, []];
+                true ->
+                    []
+            end;
+        true ->
+            []
+    end.    
+
+%%%
+%%% 0x8105
+%%% CmdType : BYTE
+%%% CmdArg  : STRING
+%%%
+create_term_ctrl(Type, Arg) ->
+    if
+        Type >= 1, Type =< 2 ->
+            Bin = list_to_binary(Arg),
+            {ok, <<Type:8, Bin/binary>>};
+        Type >=3, Type =< 7 ->
+            {ok, <<Type:8>>};
+        true ->
+            error
     end.
+    %case Type of
+    %    1 ->
+    %        List = re:split(Args, ";", [{return, list}]),
+    %        Bin = list_to_binary(List),
+    %        <<Type:8,Bin/binary>>;
+    %    2 ->
+    %        List = re:split(Args, ";", [{return, list}]),
+    %        Bin = list_to_binary(List),
+    %        <<Type:8,Bin/binary>>;
+    %    _ ->
+    %        <<Type:8>>
+    %end.
 
 %%%
 %%% 0x8107
 %%%
-create_search_terminal_arr() ->
-    <<>>.
+create_query_term_property() ->
+    {ok, <<>>}.
 
 %%%
 %%% 0x0107
 %%%
-parse_search_terminal_arr_response(Bin) ->
-    <<Type:16,ProId:40,Model:160,TerId:56,ICCID:80,HaltVLen:8,Tail0/binary>> = Bin,
-    HaltVBinLen = HaltVLen * 8,
-    <<HaltV:HaltVBinLen,FwVLen:8,Tail1/binary>> = Tail0,
-    FwVBinLen = FwVLen * 8,
-    <<FwV:FwVBinLen,GNSS:8,Arr:8>> = Tail1,
-    {ok,{Type,ProId,Model,TerId,ICCID,HaltVLen,HaltV,FwVLen,FwV,GNSS,Arr}}.
+parse_query_term_prop_response(Bin) ->
+    Len = byte_size(Bin),
+    if
+        Len < (2+5+20+7+10+1+1+1+1+2) ->       % The last 2 is for HwVer and FwVer
+            {error,msgerr};
+        true ->
+            <<Type:?LEN_WORD, ProId:(5*?LEN_BYTE), Model:(20*?LEN_BYTE), TerId:(7*?LEN_BYTE), ICCID:(10*?LEN_BYTE), HwVerLen:?LEN_BYTE, Tail0/binary>> = Bin,
+            HwVerBinLen = ?LEN_BYTE*HwVerLen,
+            Len0 = byte_size(Tail0),
+            if
+                Len0 < (HwVerLen+1+1+1+1) ->   % The last 1 is for FwVer
+                    {error, msgerr};
+                true ->
+                    <<HwVer:HwVerBinLen, FwVerLen:?LEN_BYTE, Tail1/binary>> = Tail0,
+                    FwVerBinLen = ?LEN_BYTE*FwVerLen,
+                    Len1 = byte_size(Tail1),
+                    if
+                        Len1 < (FwVerLen+1+1) ->
+                            <<FwVer:FwVerBinLen, GNSS:?LEN_BYTE, Prop:?LEN_BYTE>> = Tail1,
+                            {ok, {Type, ProId, Model, TerId, ICCID, HwVerLen, HwVer, FwVerLen, FwVer, GNSS, Prop}};
+                        true ->
+                            {error, msgerr}
+                    end
+            end
+    end.
 
 %%%
 %%% 0x8108
+%%% Type        : BYTE
+%%% ProID       : BYTE[5]
+%%% VerLen      : BYTE
+%%% Ver         : STRING
+%%% UpgradeLen  : DWORD
+%%% UpgradeData :
 %%%
-create_update_packet(Type,ProId,Vlen,Ver,UpLen,UpPacket) ->    
-    PI = list_to_binary(ProId),
-    V = list_to_binary(Ver),
-    UP = term_to_binary(UpPacket),
-    <<Type:8,PI:40/binary,Vlen:8,V:Vlen/binary,UpLen:32,UP/binary>>.
+%%% I don't know whether it is correct to process BYTE[n] by list_to_binary
+%%%
+create_update_packet(Type, ProID, VerLen, Ver, UpgradeLen, UpgradeData) ->
+    Len0 = length(Ver),
+    if
+        VerLen =/= Len0 ->
+            error;
+        true ->
+            Len1 = byte_size(UpgradeData),
+            if
+                Len1 =/= UpgradeLen ->
+                    error;
+                true ->
+                    %ProIDBin = list_to_binary(ProID),
+                    VerBin = list_to_binary(Ver),
+                    %UpgradeDataBin = list_to_binary(UpgradeData),
+                    Bin = list_to_binary([<<Type:?LEN_BYTE>>, ProID, <<VerLen:?LEN_BYTE>>, VerBin, <<UpgradeLen:?LEN_DWORD>>, UpgradeData]),
+                    {ok, Bin}
+            end
+    end.
 
 %%%
 %%% 0x0108
 %%%
-parse_update_result_notice(Bin) ->
-    <<UpType:8,UpResult:8>> = Bin,
-    {ok,{UpType,UpResult}}.
+parse_update_result_notification(Bin) ->
+    Len = byte_size(Bin),
+    if
+        Len == 2 ->
+            <<Type:?LEN_BYTE, Res:?LEN_BYTE>> = Bin,
+            if
+                Res >= 0, Res =< 2 ->
+                    case Type of
+                        0 ->
+                            {ok, {Type, Res}};
+                        12 ->
+                            {ok, {Type, Res}};
+                        52 ->
+                            {ok, {Type, Res}};
+                        _ ->
+                            {error, msgerr}
+                    end;
+                true ->
+                    {error, msgerr}
+            end;
+        true ->
+            {error, msgerr}
+    end.
+
+%%%
+%%%  Not completed here.
+%%%
 
 %%%
 %%% 0x0200
+%%% Appended Information is a list, we should parse it here!!!
 %%%
-parse_position_report(Bin) ->  
-    <<AlarmSymbol:32,State:32,Latitude:32,Longitude:32,Hight:16,Speed:16,Direction:16,Time:48,Tail/binary>> = Bin,
-    H = [AlarmSymbol,State,Latitude,Longitude,Hight,Speed,Direction,Time],
-    Len = bit_size(Tail),
+parse_position_info_report(Bin) ->
+    Len = byte_size(Bin),
     if
-	    Len > 0 ->
-            <<AppId:8,AppLen:8,AppMsg/binary>> = Tail,
-            {ok, {[H|[AppId,AppLen,AppMsg]]}};
-        Len == 0 ->
-            {ok, {H}}
+        Len < (4+4+4+4+2+2+2+6) ->
+            {error, msgerr};
+        true ->
+            <<AlarmSym:?LEN_DWORD, State:?LEN_DWORD, Lat:?LEN_DWORD, Lon:?LEN_DWORD, Height:?LEN_WORD, Speed:?LEN_WORD, Direction:?LEN_WORD, Time:(6*?LEN_BYTE), Tail/binary>> = Bin,
+            H = [AlarmSym, State, Lat, Lon, Height, Speed, Direction, Time],
+            Len = byte_size(Tail),
+            if
+        	    Len > 0 ->
+                    AppInfo = get_appended_info(Tail),
+                    case AppInfo of
+                        error ->
+                            {error, msgerr};
+                        [] ->
+                            {ok, {H}};
+                        _ ->
+                            {ok, {H, AppInfo}}
+                    end;
+                    %<<AppID:?LEN_BYTE, AppLen:?LEN_BYTE, AppMsg/binary>> = Tail,
+                    %Len0 = byte_size(AppMsg),
+                    %if
+                    %    Len0 == AppLen ->
+                    %        {ok, {H, [AppID, AppLen, AppMsg]}};
+                    %    true ->
+                    %        {error, msgerr}
+                    %end;
+                Len == 0 ->
+                    {ok, {H}}
+            end
+    end.
+
+get_appended_info(Bin) ->
+    Len = byte_size(Bin),
+    if
+        Len < 2 ->
+            [];
+        true ->
+            <<ID:?LEN_BYTE, Len:?LEN_BYTE, Tail0/binary>> = Bin,
+            case ID of
+                16#1 ->
+                    if
+                        Len == 4 ->
+                            ok;
+                        true ->
+                            error
+                    end;
+                _ ->
+                    error
+            end
     end.
 
 %%%
@@ -556,7 +1043,7 @@ create_position_search() ->
 %%%
 parse_query_position_response(Bin) ->       
     <<RespNum:16,PosMsgResp/binary>> = Bin,
-    {ok, {PosMsg}} = parse_position_report(PosMsgResp),
+    {ok, {PosMsg}} = parse_position_info_report(PosMsgResp),
     {ok, {RespNum, PosMsg}}.
 
 %%%
@@ -698,7 +1185,7 @@ create_car_con(Symbol) ->
 %%%
 parse_car_con_response(Msg) ->
     <<FlowNum:16,M/binary>> = Msg,
-    {ok, Resp} = parse_position_report(M),
+    {ok, Resp} = parse_position_info_report(M),
     {ok,{FlowNum, Resp}}.
 
 %%%
@@ -935,7 +1422,7 @@ get_position_data_entries(Bin) ->
                     [];
                 BinLength =< Tail0Length ->
                     <<Msg:BinLength, Tail1/binary>> = Tail0,
-                    {ok, {M}} = parse_position_report(Msg),
+                    {ok, {M}} = parse_position_info_report(Msg),
                     [[Length, M]|get_position_data_entries(Tail1)]
             end
     end.                    
@@ -1071,7 +1558,7 @@ get_stomuldata_entries(Bin) ->
             [];
         Len >= (35*8) ->
             <<ID:32,Type:8,ChID:8,EventCoding:8,Msg:(28*8),Tail/binary>> = Bin,
-            {ok, {Resp}} = parse_position_report(Msg),
+            {ok, {Resp}} = parse_position_info_report(Msg),
             [[ID,Type,ChID,EventCoding,Resp]|get_stomuldata_entries(Tail)]
     end.
 

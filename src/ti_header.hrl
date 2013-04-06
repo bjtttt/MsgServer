@@ -50,6 +50,9 @@
 -define(LEN_BYTE, 8).
 -define(LEN_WORD, 16).
 -define(LEN_DWORD, 32).
+-define(LEN_BYTE_BYTE, 1).
+-define(LEN_WORD_BYTE, 2).
+-define(LEN_DWORD_BYTE, 4).
 
 %%%
 %%% There is only one super user, name is super, password is super.
