@@ -208,7 +208,6 @@ parse_pulse(_Bin) ->
 %%%     OriMsgIdx   : WORD      - The index of the first sub-package of the original message
 %%%     Count       : BYTE(n)   - The count of the whole sub-packages which are needed to be resent.
 %%%     IDList      : BYTE(2*n) - [ID0, ID1, ID2, ID3, ...]
-%%% Use the real IDList length as Count
 %%%
 create_resend_subpack_req(FlowIdx, Count, IDList) ->
     Bin = list_to_binary([<<X:?LEN_WORD>> || X <- IDList]),
