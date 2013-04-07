@@ -45,6 +45,7 @@ process_data(Socket, State, Data) ->
 %%%     {ignore, HeaderInfo, State}
 %%%     {error, HeaderInfo, ErrorType, State}
 %%%     {error, State}
+%%%
 %%% HeaderInfo = {ID, FlowNum, TelNum, CryptoType}
 %%%
 %%% What is Decoded, still in design
@@ -52,12 +53,12 @@ process_data(Socket, State, Data) ->
 do_process_data(_Socket, State, Data) ->
     RawData = restoremsg(State, Data),
     NoParityLen = byte_size(RawData) - 1,
-    <<HeaderBody:NoParityLen,Parity/binary>> = RawData,
+    <<HeaderBody:NoParityLen, Parity/binary>> = RawData,
     CalcParity = bxorbytelist(HeaderBody),
     if
         CalcParity == Parity ->
-            <<ID:16,BodyProp:16,TelNum:48,FlowNum:16,Tail/binary>>=HeaderBody,
-            <<_Reserved:2,Pack:1,CryptoType:3,BodyLen:10>> = BodyProp,
+            <<ID:16, BodyProp:16, TelNum:48, FlowNum:16, Tail/binary>> = HeaderBody,
+            <<_Reserved:2, Pack:1, CryptoType:3, BodyLen:10>> = BodyProp,
             HeaderInfo = {ID, FlowNum, TelNum, CryptoType},
             case Pack of
                 0 ->
@@ -69,20 +70,6 @@ do_process_data(_Socket, State, Data) ->
                             case ti_vdr_msg_body_processor:parse_msg_body(ID, Body) of
                                 {ok, Result} ->
                                     {ok, HeaderInfo, Result, State};
-                                    %case ID of
-                                    %    1 ->            % 0x0001
-                                    %        {ResFlowNum, _PlatformID, _Result} = Res,
-                                    %        Msg2VDR = State#vdritem.msg2vdr,
-                                    %        NewMsg2VDR = ti_common:removemsgfromlistbyflownum(ResFlowNum, Msg2VDR),
-                                    %        {ok, State#vdritem{msg2vdr=NewMsg2VDR}};
-                                    %    2 ->            % 0x0002
-                                    %        Resp = ti_vdr_msg_body_processor:create_p_genresp(FlowNum, ID, ?P_GENRESP_OK),
-                                    %        {ok, Resp, State};
-                                    %    256 ->          % 0x0100
-                                    %        {Province, City, Producer, Model, ID, CertColor, CertID} = Res;
-                                    %    _ ->
-                                    %        {ok, State}
-                                    %end;
                                 {error, msgerror} ->
                                     {error, HeaderInfo, ?P_GENRESP_ERRMSG, State};
                                 {error, unsupported} ->

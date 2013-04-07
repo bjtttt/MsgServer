@@ -97,6 +97,7 @@ code_change(_OldVsn, State, _Extra) ->
 %%% Still in design
 %%%
 process_vdr_data(Socket, Data, State) ->
+    VDRID = State#vdritem.id,
     [{dbconnpid, DBProcessPid}] = ets:lookup(msgservertable, dbconnpid),
     case DBProcessPid of
         undefined ->
@@ -105,16 +106,49 @@ process_vdr_data(Socket, Data, State) ->
         _ ->
             case ti_vdr_data_parser:process_data(Socket, State, Data) of
                 {ok, HeaderInfo, Resp, NewState} ->
-                    % convert to database messages
-                    DBMsg = composedbmsg(HeaderInfo, Resp),
-                    DBProcessPid!DBMsg,
-                    case receivedbprocessmsg(DBProcessPid, 0) of
-                        ok ->
-                            VDRPid = NewState#vdritem.vdrpid,
-                            VDRPid!Resp,
-                            {ok, NewState};
-                        error ->
-                            {error, NewState}
+                    {ID, FlowNum, TelNum, CryptoType} = HeaderInfo,
+                    if
+                        VDRID == undefined ->
+                            case ID of
+                                16#100 ->
+                                    % Register VDR
+                                    DBMsg = compose_db_msg(HeaderInfo, Resp),
+                                    DBProcessPid!DBMsg,
+                                    case receivedbprocessmsg(DBProcessPid, 0) of
+                                        ok ->
+                                            VDRPid = NewState#vdritem.vdrpid,
+                                            VDRPid!Resp,
+                                            {ok, NewState#vdritem{msg2vdr=[], msg=[], req=[]}};
+                                        error ->
+                                            {error, NewState}
+                                    end;
+                                16#102 ->
+                                    % VDR Authentication
+                                    {Auth} = Resp,
+                                    DBMsg = compose_db_msg(HeaderInfo, Resp),
+                                    DBProcessPid!DBMsg,
+                                    case receivedbprocessmsg(DBProcessPid, 0) of
+                                        ok ->
+                                            VDRPid = NewState#vdritem.vdrpid,
+                                            VDRPid!Resp,
+                                            {ok, NewState#vdritem{id=Auth, msg2vdr=[], msg=[], req=[]}};
+                                        error ->
+                                            {error, NewState}
+                                    end;
+                                true ->
+                                     {error, State}
+                            end;
+                        true ->
+                            DBMsg = compose_db_msg(HeaderInfo, Resp),
+                            DBProcessPid!DBMsg,
+                            case receivedbprocessmsg(DBProcessPid, 0) of
+                                ok ->
+                                    VDRPid = NewState#vdritem.vdrpid,
+                                    VDRPid!Resp,
+                                    {ok, NewState};
+                                error ->
+                                    {error, NewState}
+                            end
                     end;
                 {ignore, HeaderInfo, NewState} ->
                     {ok, NewState};
@@ -153,7 +187,7 @@ receivedbprocessmsg(DBProcessPid, ErrorCount) ->
 %%%         
 %%%
 %%%
-composedbmsg(HeaderInfo, Resp) ->
+compose_db_msg(HeaderInfo, Resp) ->
     {ID, _FlowNum, _TelNum, _CryptoType} = HeaderInfo,
     case ID of
         1 ->
