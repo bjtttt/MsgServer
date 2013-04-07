@@ -177,7 +177,7 @@ disconnect_socket_by_id(IDSockList) ->
             try gen_tcp:close(Sock)
             catch
                 _:Ex ->
-                    ti_common:logerror("VDR (~p) : Exception when closing duplicated TCP : ~p~n", [Addr, Ex])
+                    ti_common:logerror("Exception when closing duplicated VDR from ~p : ~p~n", [Addr, Ex])
             end,
             ets:delete(vdrtable, Sock),
             ets:delete(vdridsocktable, ID),
