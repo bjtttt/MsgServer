@@ -37,6 +37,7 @@ start(StartType, StartArgs) ->
     ti_common:loginfo("StartType : ~p~n", [StartType]),
     ti_common:loginfo("StartArgs : ~p~n", [StartArgs]),
     ets:new(vdrtable,[set,public,named_table,{keypos,#vdritem.socket},{read_concurrency,true},{write_concurrency,true}]),
+    ets:new(vdridsocktable,[set,public,named_table,{keypos,#vdridsockitem.id},{read_concurrency,true},{write_concurrency,true}]),
     ets:new(mantable,[set,public,named_table,{keypos,#manitem.socket},{read_concurrency,true},{write_concurrency,true}]),
     ets:new(usertable,[set,public,named_table,{keypos,#user.id},{read_concurrency,true},{write_concurrency,true}]),
     ets:new(montable,[set,public,named_table,{keypos,#monitem.socket},{read_concurrency,true},{write_concurrency,true}]),

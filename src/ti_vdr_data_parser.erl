@@ -21,7 +21,7 @@
 %%% Return :
 %%%     {ok, HeaderInfo, Res, State}
 %%%     {ignore, HeaderInfo, State}
-%%%     {error, HeaderInfo, ErrorType, State}
+%%%     {warning, HeaderInfo, ErrorType, State}
 %%%     {error, State}
 %%%
 process_data(Socket, State, Data) ->
@@ -43,7 +43,7 @@ process_data(Socket, State, Data) ->
 %%% Return :
 %%%     {ok, HeaderInfo, Res, State}
 %%%     {ignore, HeaderInfo, State}
-%%%     {error, HeaderInfo, ErrorType, State}
+%%%     {warning, HeaderInfo, ErrorType, State}
 %%%     {error, State}
 %%%
 %%% HeaderInfo = {ID, FlowNum, TelNum, CryptoType}
@@ -71,13 +71,13 @@ do_process_data(_Socket, State, Data) ->
                                 {ok, Result} ->
                                     {ok, HeaderInfo, Result, State};
                                 {error, msgerror} ->
-                                    {error, HeaderInfo, ?P_GENRESP_ERRMSG, State};
+                                    {warning, HeaderInfo, ?P_GENRESP_ERRMSG, State};
                                 {error, unsupported} ->
-                                    {error, HeaderInfo, ?P_GENRESP_NOTSUPPORT, State}
+                                    {warning, HeaderInfo, ?P_GENRESP_NOTSUPPORT, State}
                             end;
                         BodyLen =/= ActBodyLen ->
                             ti_common:logerror("Length error for msg (~p) from (~p) : (Field)~p:(Actual)~p~n", [FlowNum, State#vdritem.addr, BodyLen, ActBodyLen]),
-                            {error, HeaderInfo, ?P_GENRESP_ERRMSG, State}
+                            {warning, HeaderInfo, ?P_GENRESP_ERRMSG, State}
                     end;
                 1 ->
                     % Multi package message
@@ -87,12 +87,12 @@ do_process_data(_Socket, State, Data) ->
                     if
                         Total =< 1 ->
                             ti_common:logerror("Total error for msg (~p) from (~p) : ~p~n", [FlowNum, State#vdritem.addr, Total]),
-                            {error, HeaderInfo, ?P_GENRESP_ERRMSG, State};
+                            {warning, HeaderInfo, ?P_GENRESP_ERRMSG, State};
                         Total > 1 ->
                             if
                                 Index > Total ->
                                     ti_common:logerror("Index error for msg (~p) from (~p) : (Total)~p:(Index)~p~n", [FlowNum, State#vdritem.addr, Total, Index]),
-                                    {error, HeaderInfo, ?P_GENRESP_ERRMSG, State};
+                                    {warning, HeaderInfo, ?P_GENRESP_ERRMSG, State};
                                 Index =< Total ->
                                     if
                                         BodyLen == ActBodyLen ->
@@ -101,9 +101,9 @@ do_process_data(_Socket, State, Data) ->
                                                     case ti_vdr_msg_body_processor:parse_msg_body(ID, Msg) of
                                                         {ok, Result} ->
                                                             {ok, ID, FlowNum, Result, NewState};
-                                                        {error, msgerror} ->
+                                                        {warning, msgerror} ->
                                                             {error, HeaderInfo, ?P_GENRESP_ERRMSG, NewState};
-                                                        {error, unsupported} ->
+                                                        {warning, unsupported} ->
                                                             {error, HeaderInfo, ?P_GENRESP_NOTSUPPORT, NewState}
                                                     end;
                                                 {notcomplete, NewState} ->
@@ -111,7 +111,7 @@ do_process_data(_Socket, State, Data) ->
                                             end;
                                         BodyLen =/= ActBodyLen ->
                                             ti_common:logerror("Length error for msg (~p) from (~p) : (Field)~p:(Actual)~p~n", [FlowNum, State#vdritem.addr, BodyLen, ActBodyLen]),
-                                            {error, HeaderInfo, ?P_GENRESP_ERRMSG, State}
+                                            {warning, HeaderInfo, ?P_GENRESP_ERRMSG, State}
                                     end
                             end
                     end

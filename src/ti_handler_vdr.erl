@@ -15,7 +15,7 @@ init([Socket, Addr]) ->
     %process_flag(trap_exit, true),
     Pid = self(),
     VDRPid = spawn(fun() -> data2vdr_process(Pid, Socket) end),
-    State=#vdritem{socket=Socket, pid=Pid, vdrpid=VDRPid, addr=Addr, msgflownum=0},
+    State = #vdritem{socket=Socket, pid=Pid, vdrpid=VDRPid, addr=Addr, msgflownum=0},
     ets:insert(vdrtable, State), 
     inet:setopts(Socket, [{active, once}]),
 	{ok, State}.
@@ -52,6 +52,8 @@ handle_info({tcp, Socket, Data}, State) ->
     case process_vdr_data(Socket, Data, State) of
         {error, NewState} ->
             {stop, dbprocerror, NewState};
+        {warning, NewState} ->
+            {noreply, NewState};
         {ok, NewState} ->
             {noreply, NewState}
     end;
@@ -74,12 +76,10 @@ terminate(Reason, State) ->
         _ ->
             VDRPid!stop
     end,
-	try gen_tcp:close(State#vdritem.socket) of
-        ok ->
-            ok
+	try gen_tcp:close(State#vdritem.socket)
     catch
-        _:Exception ->
-            ti_common:logerror("VDR (~p) : Exception when closing TCP : ~p~n", [State#vdritem.addr, Exception])
+        _:Ex ->
+            ti_common:logerror("VDR (~p) : Exception when closing TCP : ~p~n", [State#vdritem.addr, Ex])
     end,
     ti_common:loginfo("VDR (~p) : VDR handler process (~p) is terminated : ~p~n", [State#vdritem.addr, State#vdritem.pid, Reason]).
 
@@ -91,6 +91,7 @@ code_change(_OldVsn, State, _Extra) ->
 %%%
 %%% Return :
 %%%     {ok, State}
+%%%     {warning, State}
 %%%     {error, State}  1. when DB connection process is not available
 %%%                     2. when VDR ID is unavailable
 %%%                     In either case, the connection with VDR will be closed by the server.
@@ -107,7 +108,7 @@ process_vdr_data(Socket, Data, State) ->
         _ ->
             case ti_vdr_data_parser:process_data(Socket, State, Data) of
                 {ok, HeaderInfo, Resp, NewState} ->
-                    {ID, FlowNum, TelNum, CryptoType} = HeaderInfo,
+                    {ID, _FlowNum, _TelNum, _CryptoType} = HeaderInfo,
                     if
                         VDRID == undefined ->
                             case ID of
@@ -115,7 +116,7 @@ process_vdr_data(Socket, Data, State) ->
                                     % Register VDR
                                     DBMsg = compose_db_msg(HeaderInfo, Resp),
                                     DBProcessPid!DBMsg,
-                                    case receivedbprocessmsg(DBProcessPid, 0) of
+                                    case receive_db_process_msg(DBProcessPid, 0) of
                                         ok ->
                                             VDRPid = NewState#vdritem.vdrpid,
                                             VDRPid!Resp,
@@ -128,8 +129,12 @@ process_vdr_data(Socket, Data, State) ->
                                     {Auth} = Resp,
                                     DBMsg = compose_db_msg(HeaderInfo, Resp),
                                     DBProcessPid!DBMsg,
-                                    case receivedbprocessmsg(DBProcessPid, 0) of
+                                    case receive_db_process_msg(DBProcessPid, 0) of
                                         ok ->
+                                            IDSockList = ets:lookup(vdridsocktable, Auth),
+                                            disconnect_socket_by_id(IDSockList),
+                                            IDSock = #vdridsockitem{id=Auth, socket=Socket, addr=State#vdritem.addr},
+                                            ets:insert(vdridsocktable, IDSock),
                                             VDRPid = NewState#vdritem.vdrpid,
                                             VDRPid!Resp,
                                             {ok, NewState#vdritem{id=Auth, msg2vdr=[], msg=[], req=[]}};
@@ -142,7 +147,7 @@ process_vdr_data(Socket, Data, State) ->
                         true ->
                             DBMsg = compose_db_msg(HeaderInfo, Resp),
                             DBProcessPid!DBMsg,
-                            case receivedbprocessmsg(DBProcessPid, 0) of
+                            case receive_db_process_msg(DBProcessPid, 0) of
                                 ok ->
                                     VDRPid = NewState#vdritem.vdrpid,
                                     VDRPid!Resp,
@@ -151,21 +156,41 @@ process_vdr_data(Socket, Data, State) ->
                                     {error, NewState}
                             end
                     end;
-                {ignore, HeaderInfo, NewState} ->
+                {ignore, _HeaderInfo, NewState} ->
                     {ok, NewState};
-                {error, HeaderInfo, ErrorType, NewState} ->
-                    {error, NewState};
+                {warning, _HeaderInfo, _ErrorType, NewState} ->
+                    {warning, NewState};
                 {error, NewState} ->
                     {error, NewState}
             end
     end.
+
+disconnect_socket_by_id(IDSockList) ->
+    case IDSockList of
+        [] ->
+            ok;
+        _ ->
+            [H|T] = IDSockList,
+            ID = H#vdridsockitem.id,
+            Sock = H#vdridsockitem.socket,
+            Addr = H#vdridsockitem.addr,
+            try gen_tcp:close(Sock)
+            catch
+                _:Ex ->
+                    ti_common:logerror("VDR (~p) : Exception when closing duplicated TCP : ~p~n", [Addr, Ex])
+            end,
+            ets:delete(vdrtable, Sock),
+            ets:delete(vdridsocktable, ID),
+            disconnect_socket_by_id(T)
+    end.
+                
 
 %%%
 %%% Try to receive response from the DB connection process at most 10 times.
 %%% Do we need _Resp from the DB connection process?
 %%% Return : ok | error
 %%%
-receivedbprocessmsg(DBProcessPid, ErrorCount) ->
+receive_db_process_msg(DBProcessPid, ErrorCount) ->
     if
         ErrorCount < ?DB_PROCESS_TRIAL_MAX ->
             receive
@@ -174,12 +199,12 @@ receivedbprocessmsg(DBProcessPid, ErrorCount) ->
                         From == DBProcessPid ->
                             ok;
                         From =/= DBProcessPid ->
-                            receivedbprocessmsg(DBProcessPid, ErrorCount+1)
+                            receive_db_process_msg(DBProcessPid, ErrorCount+1)
                     end;
                 _ ->
-                    receivedbprocessmsg(DBProcessPid, ErrorCount+1)
+                    receive_db_process_msg(DBProcessPid, ErrorCount+1)
             after ?TIMEOUT_DATA_DB ->
-                    receivedbprocessmsg(DBProcessPid, ErrorCount+1)
+                    receive_db_process_msg(DBProcessPid, ErrorCount+1)
             end;
         ErrorCount >= ?DB_PROCESS_TRIAL_MAX ->
             error
@@ -188,7 +213,7 @@ receivedbprocessmsg(DBProcessPid, ErrorCount) ->
 %%%         
 %%%
 %%%
-compose_db_msg(HeaderInfo, Resp) ->
+compose_db_msg(HeaderInfo, _Resp) ->
     {ID, _FlowNum, _TelNum, _CryptoType} = HeaderInfo,
     case ID of
         1 ->

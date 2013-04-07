@@ -76,6 +76,11 @@
                     req=[]
                  }).
 
+-record(vdridsockitem, {    id=undefined,
+                            socket=undefined,
+                            addr=undefined
+                       }).
+
 %%%
 %%% pid     : VDR handler process id
 %%% datapid : VDR handler send data to VDR process id
