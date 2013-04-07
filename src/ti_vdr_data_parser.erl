@@ -22,20 +22,20 @@
 %%%     {ok, HeaderInfo, Res, State}
 %%%     {ignore, HeaderInfo, State}
 %%%     {warning, HeaderInfo, ErrorType, State}
-%%%     {error, State}
+%%%     {error, exception/dataerror, State}
 %%%
 process_data(Socket, State, Data) ->
     try do_process_data(Socket, State, Data)
     catch
         error:Error ->
-            ti_common:loginfo("ERROR : parsing data error : ~p~n", [Error]),
-            {error, State};
+            ti_common:loginfo("Parsing data error : ~p~n", [Error]),
+            {error, exception, State};
         throw:Throw ->
-            ti_common:loginfo("ERROR : parsing data throw : ~p~n", [Throw]),
-            {error, State};
+            ti_common:loginfo("Parsing data throw : ~p~n", [Throw]),
+            {error, exception, State};
         exit:Exit ->
-            ti_common:loginfo("ERROR : parsing data exit : ~p~n", [Exit]),
-            {error, State}
+            ti_common:loginfo("Parsing data exit : ~p~n", [Exit]),
+            {error, exception, State}
     end.
 
 %%%
@@ -44,7 +44,7 @@ process_data(Socket, State, Data) ->
 %%%     {ok, HeaderInfo, Res, State}
 %%%     {ignore, HeaderInfo, State}
 %%%     {warning, HeaderInfo, ErrorType, State}
-%%%     {error, State}
+%%%     {error, dataerror, State}
 %%%
 %%% HeaderInfo = {ID, FlowNum, TelNum, CryptoType}
 %%%
@@ -118,7 +118,7 @@ do_process_data(_Socket, State, Data) ->
             end;
         CalcParity =/= Parity ->
             ti_common:logerror("Parity error (calculated)~p:(data)~p from ~p~n", [CalcParity, Parity, State#vdritem.addr]),
-            {error, State}
+            {error, dataerror, State}
     end.
     %VDRItem = ets:lookup(vdrtable, Socket),
     %Length = length(VDRItem),
