@@ -91,8 +91,9 @@ code_change(_OldVsn, State, _Extra) ->
 %%%
 %%% Return :
 %%%     {ok, State}
-%%%     {error, State}          when DB connection process is not available
-%%%     
+%%%     {error, State}  1. when DB connection process is not available
+%%%                     2. when VDR ID is unavailable
+%%%                     In either case, the connection with VDR will be closed by the server.
 %%%
 %%% Still in design
 %%%
@@ -101,7 +102,7 @@ process_vdr_data(Socket, Data, State) ->
     [{dbconnpid, DBProcessPid}] = ets:lookup(msgservertable, dbconnpid),
     case DBProcessPid of
         undefined ->
-            ti_common:logerror("DB Client is not available~n"),
+            ti_common:logerror("Disconnect VDR from ~p : DB client is unavailable~n", [State#vdritem.addr]),
             {error, State};
         _ ->
             case ti_vdr_data_parser:process_data(Socket, State, Data) of
