@@ -100,6 +100,9 @@ code_change(_OldVsn, State, _Extra) ->
 %%% Still in design
 %%%
 process_vdr_data(Socket, Data, State) ->
+    % We should check whether the "DB Process PID" and the "VDR ID" is available or not.
+    % If "DB Process PID" is unavailable, we should terminate the current VDR connection as soon as possible.
+    % If "VDR ID" is unavailable, we should check the current message is for registration or login.
     VDRID = State#vdritem.id,
     [{dbconnpid, DBProcessPid}] = ets:lookup(msgservertable, dbconnpid),
     case DBProcessPid of
@@ -107,7 +110,7 @@ process_vdr_data(Socket, Data, State) ->
             ti_common:logerror("VDR from ~p is disconnected because DB client is unavailable~n", [State#vdritem.addr]),
             {error, dberror, State};
         _ ->
-            case ti_vdr_data_parser:process_data(Socket, State, Data) of
+            case ti_vdr_data_parser:process_data(State, Data) of
                 {ok, HeaderInfo, Resp, NewState} ->
                     {ID, _FlowNum, _TelNum, _CryptoType} = HeaderInfo,
                     if
