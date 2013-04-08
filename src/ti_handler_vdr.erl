@@ -168,7 +168,13 @@ process_vdr_data(Socket, Data, State) ->
                     end;
                 {ignore, _HeaderInfo, NewState} ->
                     {ok, NewState};
-                {warning, _HeaderInfo, _ErrorType, NewState} ->
+                {warning, _HeaderInfo, ErrorType, NewState} ->
+                    case ErrorType of
+                        ?T_GEN_RESP_ERRMSG ->
+                            ok;
+                        ?T_GEN_RESP_NOTSUPPORT ->
+                            ok
+                    end,
                     {warning, NewState};
                 {error, dataerror, NewState} ->
                     {error, NewState};
