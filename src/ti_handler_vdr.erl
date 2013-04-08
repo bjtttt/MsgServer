@@ -91,6 +91,7 @@ code_change(_OldVsn, State, _Extra) ->
 %%%
 %%% Return :
 %%%     {ok, State}
+%%%     {ok, Resp, State}
 %%%     {warning, State}
 %%%     {error, dberror/logicerror, State}  
 %%%         1. when DB connection process is not available
@@ -111,36 +112,41 @@ process_vdr_data(Socket, Data, State) ->
             {error, dberror, State};
         _ ->
             case ti_vdr_data_parser:process_data(State, Data) of
-                {ok, HeaderInfo, Resp, NewState} ->
-                    {ID, _FlowNum, _TelNum, _CryptoType} = HeaderInfo,
+                {ok, HeaderInfo, Msg, NewState} ->
+                    {ID, _MsgIdx, _Tel, _CryptoType} = HeaderInfo,
                     if
                         VDRID == undefined ->
                             case ID of
                                 16#100 ->
                                     % Register VDR
-                                    DBMsg = compose_db_msg(HeaderInfo, Resp),
+                                    %{Province, City, Producer, TermModel, TermID, LicColor, LicID} = Msg,
+                                    DBMsg = compose_db_msg(HeaderInfo, Msg),
                                     DBProcessPid!DBMsg,
                                     case receive_db_process_msg(DBProcessPid, 0) of
                                         {ok, DBResp} ->
                                             VDRPid = NewState#vdritem.vdrpid,
                                             VDRPid!DBResp,
+                                            % We don't need to wait for the response here if the original msg is from the VDR instead of the management platform
                                             {ok, NewState#vdritem{msg2vdr=[], msg=[], req=[]}};
                                         error ->
                                             {error, dberror, NewState}
                                     end;
                                 16#102 ->
                                     % VDR Authentication
-                                    {Auth} = Resp,
-                                    DBMsg = compose_db_msg(HeaderInfo, Resp),
+                                    {Auth} = Msg,
+                                    DBMsg = compose_db_msg(HeaderInfo, Msg),
                                     DBProcessPid!DBMsg,
                                     case receive_db_process_msg(DBProcessPid, 0) of
                                         {ok, DBResp} ->
+                                            % We should check the DB response to verify the authentication.
+                                            % No codes yet.
                                             IDSockList = ets:lookup(vdridsocktable, Auth),
                                             disconnect_socket_by_id(IDSockList),
                                             IDSock = #vdridsockitem{id=Auth, socket=Socket, addr=State#vdritem.addr},
                                             ets:insert(vdridsocktable, IDSock),
                                             VDRPid = NewState#vdritem.vdrpid,
                                             VDRPid!DBResp,
+                                            % We don't need to wait for the response here if the original msg is from the VDR instead of the management platform
                                             {ok, NewState#vdritem{id=Auth, msg2vdr=[], msg=[], req=[]}};
                                         error ->
                                             {error, dberror, NewState}
@@ -149,12 +155,12 @@ process_vdr_data(Socket, Data, State) ->
                                      {error, logicerror, State}
                             end;
                         true ->
-                            DBMsg = compose_db_msg(HeaderInfo, Resp),
+                            DBMsg = compose_db_msg(HeaderInfo, Msg),
                             DBProcessPid!DBMsg,
                             case receive_db_process_msg(DBProcessPid, 0) of
                                 ok ->
                                     VDRPid = NewState#vdritem.vdrpid,
-                                    VDRPid!Resp,
+                                    VDRPid!Msg,
                                     {ok, NewState};
                                 error ->
                                     {error, dberror, NewState}
@@ -194,7 +200,10 @@ disconnect_socket_by_id(IDSockList) ->
 %%%
 %%% Try to receive response from the DB connection process at most 10 times.
 %%% Do we need _Resp from the DB connection process?
-%%% Return : ok | error
+%%% Return :
+%%%     {ok, Resp}
+%%%     {fail, Resp}
+%%%     error
 %%%
 receive_db_process_msg(DBProcessPid, ErrorCount) ->
     if
