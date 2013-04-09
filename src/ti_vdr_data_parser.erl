@@ -368,7 +368,7 @@ compose_real_msg(Msg) ->
         _ ->
             [H|T] = Msg,
             [_ID,_MsgIdx,_Total,_HIdx,Body] = H,
-            [compose_real_msg(T)|Body]
+            list_to_binary([compose_real_msg(T)|Body])
     end.
 
 
