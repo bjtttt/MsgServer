@@ -52,6 +52,8 @@ handle_info({tcp, Socket, Data}, State) ->
     case process_vdr_data(Socket, Data, State) of
         {error, dberror, NewState} ->
             {stop, dbprocerror, NewState};
+        {error, logicerror, NewState} ->
+            {noreply, NewState};
         {warning, NewState} ->
             {noreply, NewState};
         {ok, NewState} ->
