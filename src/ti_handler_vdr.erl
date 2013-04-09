@@ -105,6 +105,7 @@ process_vdr_data(Socket, Data, State) ->
     % If "DB Process PID" is unavailable, we should terminate the current VDR connection as soon as possible.
     % If "VDR ID" is unavailable, we should check the current message is for registration or login.
     VDRID = State#vdritem.id,
+    VDRPid = State#vdritem.vdrpid,
     [{dbconnpid, DBProcessPid}] = ets:lookup(msgservertable, dbconnpid),
     case DBProcessPid of
         undefined ->
@@ -113,7 +114,7 @@ process_vdr_data(Socket, Data, State) ->
         _ ->
             case ti_vdr_data_parser:process_data(State, Data) of
                 {ok, HeaderInfo, Msg, NewState} ->
-                    {ID, _MsgIdx, _Tel, _CryptoType} = HeaderInfo,
+                    {ID, MsgIdx, _Tel, _CryptoType} = HeaderInfo,
                     if
                         VDRID == undefined ->
                             case ID of
@@ -124,8 +125,7 @@ process_vdr_data(Socket, Data, State) ->
                                     DBProcessPid!DBMsg,
                                     case receive_db_process_msg(DBProcessPid, 0) of
                                         {ok, DBResp} ->
-                                            VDRPid = NewState#vdritem.vdrpid,
-                                            VDRPid!DBResp,
+                                            VDRPid!{ok, {ID, MsgIdx, ?T_GEN_RESP_OK}},
                                             % We don't need to wait for the response here if the original msg is from the VDR instead of the management platform
                                             {ok, NewState#vdritem{msg2vdr=[], msg=[], req=[]}};
                                         error ->
@@ -144,8 +144,7 @@ process_vdr_data(Socket, Data, State) ->
                                             disconnect_socket_by_id(IDSockList),
                                             IDSock = #vdridsockitem{id=Auth, socket=Socket, addr=State#vdritem.addr},
                                             ets:insert(vdridsocktable, IDSock),
-                                            VDRPid = NewState#vdritem.vdrpid,
-                                            VDRPid!DBResp,
+                                            VDRPid!{ok, {ID, MsgIdx, ?T_GEN_RESP_OK}},
                                             % We don't need to wait for the response here if the original msg is from the VDR instead of the management platform
                                             {ok, NewState#vdritem{id=Auth, msg2vdr=[], msg=[], req=[]}};
                                         error ->
@@ -159,27 +158,24 @@ process_vdr_data(Socket, Data, State) ->
                             DBProcessPid!DBMsg,
                             case receive_db_process_msg(DBProcessPid, 0) of
                                 ok ->
-                                    VDRPid = NewState#vdritem.vdrpid,
-                                    VDRPid!Msg,
+                                    VDRPid!{ok, {ID, MsgIdx, ?T_GEN_RESP_OK}},
                                     {ok, NewState};
                                 error ->
                                     {error, dberror, NewState}
                             end
                     end;
-                {ignore, _HeaderInfo, NewState} ->
+                {ignore, HeaderInfo, NewState} ->
+                    {ID, MsgIdx, _Tel, _CryptoType} = HeaderInfo,
+                    VDRPid!{ok, {ID, MsgIdx, ?T_GEN_RESP_OK}},
                     {ok, NewState};
-                {warning, _HeaderInfo, ErrorType, NewState} ->
-                    case ErrorType of
-                        ?T_GEN_RESP_ERRMSG ->
-                            ok;
-                        ?T_GEN_RESP_NOTSUPPORT ->
-                            ok
-                    end,
+                {warning, HeaderInfo, ErrorType, NewState} ->
+                    {ID, MsgIdx, _Tel, _CryptoType} = HeaderInfo,
+                    VDRPid!{ok, {ID, MsgIdx, ErrorType}},
                     {warning, NewState};
                 {error, dataerror, NewState} ->
-                    {error, NewState};
+                    {error, logicerror, NewState};
                 {error, exception, NewState} ->
-                    {error, NewState}
+                    {error, logicerror, NewState}
             end
     end.
 
@@ -256,6 +252,20 @@ compose_db_msg(HeaderInfo, _Resp) ->
 %%%
 data2vdr_process(Pid, Socket) ->
     receive
+        {FromPid, {ok, Data}} ->
+            if 
+                FromPid == Pid ->
+                    {ID, MsgIdx, Res} = Data,
+                    case ti_vdr_msg_body_processor:create_general_response(ID, MsgIdx, Res) of
+                        {ok, Bin} ->
+                            gen_tcp:send(Socket, Bin);
+                        error ->
+                            ti_common:logerror("Data2VDR process : message type error unknown PID ~p : ~p~n", [FromPid, Res])
+                    end;
+                FromPid =/= Pid ->
+                    ti_common:logerror("Data2VDR process : message from unknown PID ~p : ~p~n", [FromPid, Data])
+            end,        
+            data2vdr_process(Pid, Socket);
         {FromPid, {data, Data}} ->
             if 
                 FromPid == Pid ->
