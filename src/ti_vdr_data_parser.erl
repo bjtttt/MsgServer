@@ -27,14 +27,8 @@
 process_data(State, Data) ->
     try do_process_data(State, Data)
     catch
-        error:Error ->
-            ti_common:loginfo("Parsing data error : ~p~n", [Error]),
-            {error, exception, State};
-        throw:Throw ->
-            ti_common:loginfo("Parsing data throw : ~p~n", [Throw]),
-            {error, exception, State};
-        exit:Exit ->
-            ti_common:loginfo("Parsing data exit : ~p~n", [Exit]),
+        _:Why ->
+            ti_common:loginfo("Parsing VDR data exception : ~p~n", [Why]),
             {error, exception, State}
     end.
 

@@ -6,7 +6,17 @@
 
 -module(ti_man_data_parser).
 
+-include("ti_header.hrl").
+
 -export([parse_data/1]).
 
 parse_data(Data) ->
-    Data.
+    try do_parse_data(Data)
+    catch
+        _:Why ->
+            ti_common:loginfo("Parsing management data exception : ~p~n", [Why]),
+            {error, exception}
+    end.
+
+do_parse_data(Data) ->
+    ok.
