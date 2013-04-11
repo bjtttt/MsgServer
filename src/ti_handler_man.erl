@@ -72,10 +72,10 @@ data2man_process(Socket) ->
     receive
         {_FromPid, {data, Data}} ->
             gen_tcp:send(Socket, Data),
-            send_data_to_management_process(Socket);
+            data2man_process(Socket);
         {FromPid, Data} ->
             ti_common:logerror("Management server send data to management process : unknown message from PID ~p : ~p~n", [FromPid, Data]),
-            send_data_to_management_process(Socket);
+            data2man_process(Socket);
         stop ->
             ti_common:logerror("Management server send data to management process stops~n"),
             true
