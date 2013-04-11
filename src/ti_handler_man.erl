@@ -2,29 +2,22 @@
 
 -behaviour(gen_server).
 
--export([start_link/1]).
+-export([start_link/2]).
 
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2, code_change/3]).
 
 -include("ti_header.hrl").
 
-start_link(Socket) ->   
-    gen_server:start_link(?MODULE, [Socket], []). 
+start_link(Socket, Addr) ->   
+    gen_server:start_link(?MODULE, [Socket, Addr], []). 
 
-init([Socket]) ->
-    Pid = spawn(fun() -> send_data_to_management_process(Socket) end),
-    case ti_common:safepeername(Socket) of
-        {ok, {Address, _Port}} ->
-            State=#manitem{socket=Socket, pid=self(), datapid=Pid, addr=Address},
-            ets:insert(mantable, State), 
-            inet:setopts(Socket, [{active, once}]),
-            {ok, State};
-        {error, _Reason} ->
-            State=#manitem{socket=Socket, pid=self(), datapid=Pid, addr="0.0.0.0"},
-            ets:insert(mantable, State), 
-            inet:setopts(Socket, [{active, once}]),
-            {ok, State}
-    end.            
+init([Socket, Addr]) ->
+    Pid = self(),
+    ManPid = spawn(fun() -> data2man_process(Socket) end),
+    State=#manitem{socket=Socket, pid=Pid, manpid=ManPid, addr=Addr},
+    ets:insert(mantable, State), 
+    inet:setopts(Socket, [{active, once}]),
+    {ok, State}.
 
 handle_call(_Request, _From, State) ->
     {noreply, ok, State}.
@@ -33,9 +26,9 @@ handle_cast(_Msg, State) ->
     {noreply, State}. 
 
 handle_info({tcp, Socket, Data}, State) ->    
-    case ti_man_data_parser:parse_data(Socket, Data) of
-        {ok, Decoded} ->
-            process_man_data(Socket, Decoded);
+    case process_man_data(Socket, Data,State) of
+        {error, NewState} ->
+             {stop, NewState};
         _ ->
             ok
     end,
@@ -44,16 +37,26 @@ handle_info({tcp, Socket, Data}, State) ->
     %ok = gen_tcp:send(Socket, <<"Management : ", Resp/binary>>),    
     {noreply, State}; 
 handle_info({tcp_closed, _Socket}, State) ->    
-    ti_common:loginfo("Management ~p is disconnected, management PID ~p stops and management data PID ~p stops~n", [State#manitem.addr, State#manitem.pid, State#manitem.datapid]),
-    State#manitem.datapid!stop,
-    {stop, normal, State}; 
+    ti_common:loginfo("Management (~p) : TCP is closed~n", [State#manitem.addr]),
+    %State#manitem.datapid!stop,
+    {stop, tcp_closed, State}; 
 handle_info(_Info, State) ->    
     {noreply, State}. 
 
 terminate(Reason, State) ->
-    State#manitem.datapid!stop,
-    (catch gen_tcp:close(State#vdritem.socket)),    
-    ti_common:loginfo("Management PID ~p is terminated, management data PID ~p stops and management ~p socket is closed : ~p~n", [State#manitem.pid, State#manitem.datapid, State#manitem.addr, Reason]).
+    ManPid = State#manitem.manpid,
+    case ManPid of
+        undefined ->
+            ok;
+        _ ->
+            ManPid!stop
+    end,
+    try gen_tcp:close(State#manitem.socket)
+    catch
+        _:Ex ->
+            ti_common:logerror("Management (~p) : Exception when closing TCP : ~p~n", [State#manitem.addr, Ex])
+    end,
+    ti_common:loginfo("Management (~p) : Management handler process (~p) is terminated : ~p~n", [State#manitem.addr, State#manitem.pid, Reason]).
 
 code_change(_OldVsn, State, _Extra) ->    
     {ok, State}.
@@ -61,12 +64,11 @@ code_change(_OldVsn, State, _Extra) ->
 %%%
 %%% This function should refer to the document on the mechanism
 %%%
-process_man_data(Socket, Data) ->
+process_man_data(Socket, Data, State) ->
     Socket,
-    Bin = ti_man_data_parser:parse_data(Data),
-    Bin.
+    ti_man_data_parser:process_data(State, Data).
 
-send_data_to_management_process(Socket) ->
+data2man_process(Socket) ->
     receive
         {_FromPid, {data, Data}} ->
             gen_tcp:send(Socket, Data),

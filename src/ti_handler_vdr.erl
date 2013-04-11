@@ -53,10 +53,13 @@ handle_info({tcp, Socket, Data}, State) ->
         {error, dberror, NewState} ->
             {stop, dbprocerror, NewState};
         {error, logicerror, NewState} ->
+            inet:setopts(Socket, [{active, once}]),
             {noreply, NewState};
         {warning, NewState} ->
+            inet:setopts(Socket, [{active, once}]),
             {noreply, NewState};
         {ok, NewState} ->
+            inet:setopts(Socket, [{active, once}]),
             {noreply, NewState}
     end;
 handle_info({tcp_closed, _Socket}, State) ->    

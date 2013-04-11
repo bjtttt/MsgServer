@@ -8,15 +8,15 @@
 
 -include("ti_header.hrl").
 
--export([parse_data/1]).
+-export([process_data/2]).
 
-parse_data(Data) ->
-    try do_parse_data(Data)
+process_data(State, Data) ->
+    try do_process_data(Data)
     catch
         _:Why ->
             ti_common:loginfo("Parsing management data exception : ~p~n", [Why]),
-            {error, exception}
+            {error, exception, State}
     end.
 
-do_parse_data(Data) ->
+do_process_data(Data) ->
     ok.

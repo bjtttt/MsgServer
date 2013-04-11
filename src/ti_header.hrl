@@ -85,7 +85,11 @@
 %%% pid     : VDR handler process id
 %%% datapid : VDR handler send data to VDR process id
 %%%
--record(manitem, {socket=undefined, pid=undefined, datapid=undefined, addr=undefined, timeout=undefined}).
+-record(manitem, {  socket=undefined, 
+                    pid=undefined, 
+                    manpid=undefined, 
+                    addr=undefined, 
+                    timeout=undefined}).
 
 -record(monitem, {socket=undefined, pid=undefined, addr=undefined, timeout=undefined}).
 
