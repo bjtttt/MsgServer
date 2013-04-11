@@ -19,4 +19,4 @@ process_data(State, Data) ->
     end.
 
 do_process_data(Data) ->
-    ok.
+    {ok, Erl, Rest} = ti_rfc4627:decode(Data).
