@@ -11,12 +11,17 @@
 -export([process_data/2]).
 
 process_data(State, Data) ->
-    try do_process_data(Data)
+    try do_process_data(State, Data)
     catch
         _:Why ->
             ti_common:loginfo("Parsing management data exception : ~p~n", [Why]),
             {error, exception, State}
     end.
 
-do_process_data(Data) ->
-    {ok, Erl, Rest} = ti_rfc4627:decode(Data).
+do_process_data(State, Data) ->
+    case ti_rfc4627:decode(Data) of
+        {ok, Erl, Rest} ->
+            ok;
+        {error, Reason} ->
+            ok
+    end.
