@@ -8,20 +8,80 @@
 
 -include("ti_header.hrl").
 
--export([process_data/2]).
+-export([process_data/1]).
 
-process_data(State, Data) ->
-    try do_process_data(State, Data)
+%%%
+%%% Maybe State is useless
+%%% Data : binary() | [byte()]
+%%% Maybe State is useless
+%%%
+%%% Return :
+%%%     {ok, Mid, Res}
+%%%     {error, length_error}
+%%%     {error, Reason}
+%%%     {error, exception, Why}
+%%%
+process_data(Data) ->
+    try do_process_data(Data)
     catch
         _:Why ->
             ti_common:loginfo("Parsing management data exception : ~p~n", [Why]),
-            {error, exception, State}
+            {error, exception, Why}
     end.
 
-do_process_data(State, Data) ->
+%%%
+%%% Maybe State is useless
+%%%
+%%% Return :
+%%%     {ok, Mid, Res}
+%%%     {error, length_error}
+%%%     {error, Reason}
+%%%
+do_process_data(Data) ->
     case ti_rfc4627:decode(Data) of
-        {ok, Erl, Rest} ->
-            ok;
+        {ok, Erl, _Rest} ->
+            {obj, Content} = Erl,
+            Len = length(Content),
+            if
+                Len < 1 ->
+                    {error, length_error};
+                true ->
+                    MidPair = element(1, Content),
+                    {"MID", Mid} = MidPair,
+                    case Mid of
+                        "0x0001" ->
+                            if
+                                Len == 5 ->
+                                    SNPair = element(2, Content),
+                                    SIDPair = element(3, Content),
+                                    ListPair = element(4, Content),
+                                    StatusPair = element(5, Content),
+                                    {"SN", SN} = SNPair,
+                                    {"SID", SID} = SIDPair,
+                                    {"LIST", List} = ListPair,
+                                    {"STATUS", Status} = StatusPair,
+                                    VIDList = get_vid_list(List),
+                                    {ok, Mid, [SN, SID, VIDList, Status]};
+                                true ->
+                                    {error, length_error}
+                            end
+                    end
+            end;
         {error, Reason} ->
-            ok
+            {error, Reason}
     end.
+
+%%%
+%%%
+%%%
+get_vid_list(VIDList) ->
+    Len = length(VIDList),
+    if
+        Len < 1 ->
+            [];
+        true ->
+            [H|T] = VIDList,
+            {"VID", VID} = H,
+            [VID|get_vid_list(T)]
+    end.
+

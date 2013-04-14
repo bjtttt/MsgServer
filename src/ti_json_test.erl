@@ -50,6 +50,7 @@ test_all() ->
 
 test_codec() ->
     Cases = [
+         {{obj, [{"a", 1}, {"b", 2}]}, "{\"a\": 1, \"b\": 2}"},
          {1, "1"},
          {1, "1,", false},
          {1.0, "1.0"},
@@ -80,7 +81,14 @@ test_codec({Erl, Json}) ->
 test_codec({Erl, Json, EofExpected}) ->
     %% We can test Erl -> Json -> Erl, but not Json -> Erl ->
     %% Json. However, we can test Json -> Erl.
-    {ok, Erl, []} = ti_rfc4627:decode(ti_rfc4627:encode(Erl)),
+    Bin = ti_rfc4627:encode(Erl),
+    Len = length(Bin),
+    [H|T] = Bin,
+    IsBool = is_binary(Bin),
+    IsBool,
+    ABin = <<"123">>,
+    %BBin = <<Bin>>,
+    {ok, Erl, []} = ti_rfc4627:decode(Bin),
     {ok, Erl, Rest} = ti_rfc4627:decode(Json),
     {at_eof, EofExpected} = {at_eof, (Rest == [])},
     passed.

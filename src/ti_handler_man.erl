@@ -63,10 +63,11 @@ code_change(_OldVsn, State, _Extra) ->
 
 %%%
 %%% This function should refer to the document on the mechanism
+%%% Maybe State is useless
 %%%
 process_man_data(Socket, Data, State) ->
     Socket,
-    ti_man_data_parser:process_data(State, Data).
+    ti_man_data_parser:process_data(Data).
 
 data2man_process(Socket) ->
     receive
