@@ -18,6 +18,7 @@
 %%% Return :
 %%%     {ok, Mid, Res}
 %%%     {error, length_error}
+%%%     {error, format_error}
 %%%     {error, Reason}
 %%%     {error, exception, Why}
 %%%
@@ -35,6 +36,7 @@ process_data(Data) ->
 %%% Return :
 %%%     {ok, Mid, Res}
 %%%     {error, length_error}
+%%%     {error, format_error}
 %%%     {error, Reason}
 %%%
 do_process_data(Data) ->
@@ -64,7 +66,41 @@ do_process_data(Data) ->
                                     {ok, Mid, [SN, SID, VIDList, Status]};
                                 true ->
                                     {error, length_error}
-                            end
+                            end;
+                        "0x8001" ->
+                            if
+                                Len == 5 ->
+                                    SNPair = element(2, Content),
+                                    SIDPair = element(3, Content),
+                                    ListPair = element(4, Content),
+                                    StatusPair = element(5, Content),
+                                    {"SN", SN} = SNPair,
+                                    {"SID", SID} = SIDPair,
+                                    {"LIST", List} = ListPair,
+                                    {"STATUS", Status} = StatusPair,
+                                    VIDList = get_vid_list(List),
+                                    LenVIDList = length(VIDList),
+                                    case Status of
+                                        0 ->
+                                            if
+                                                LenVIDList =/= 0 ->
+                                                    {error, format_error};
+                                                true ->
+                                                    {ok, Mid, [SN, SID, Status, VIDList]}
+                                            end;
+                                        _ ->
+                                            if
+                                                LenVIDList == 0 ->
+                                                    {error, format_error};
+                                                true ->
+                                                    {ok, Mid, [SN, SID, Status, VIDList]}
+                                            end
+                                    end;
+                                true ->
+                                    {error, length_error}
+                            end;
+                        _ ->
+                            {error, format_error}
                     end
             end;
         {error, Reason} ->
