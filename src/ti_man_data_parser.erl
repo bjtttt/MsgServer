@@ -10,6 +10,8 @@
 
 -export([process_data/1]).
 
+-export([create_gen_resp/4]).
+
 %%%
 %%% Maybe State is useless
 %%% Data : binary() | [byte()]
@@ -552,4 +554,35 @@ get_phone_name_list(PhoneNameList) ->
             end
     end.
     
-    
+%%%
+%%% List : [ID0, ID1, ID2, ...]
+%%%
+create_gen_resp(SN, Sid, Status, List) ->
+    if
+        Status < 0 ->
+            error;
+        Status > 3 ->
+            error;
+        true ->
+            if
+                Status == 1 ->
+                    ok;
+                true ->
+                    error
+            end
+    end.
+
+create_list(ID, List) ->
+    case List of
+        [] ->
+            [];
+        _ ->
+            [H|T] = List,
+            [{ID, H}|create_list(ID, T)]
+    end
+
+
+
+
+
+
