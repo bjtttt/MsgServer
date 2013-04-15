@@ -44,14 +44,15 @@ start_link(Host, Port) ->
 %start(Host, Port, Mod) ->
 %    start(Host, Port, "/", Mod).
   
-start(Host, Port, Path, Mod) ->
-    gen_server:start_link({local, ?MODULE}, ?MODULE, [{Host, Port, Path, Mod}], []).
+%start(Host, Port, Path, Mod) ->
+%    gen_server:start_link({local, ?MODULE}, ?MODULE, [{Host, Port, Path, Mod}], []).
 
-init(Args) ->
+init(Host, Port) ->
     process_flag(trap_exit, true),
-    [{Host, Port, Path, Mod}] = Args,
+    %[{Host, Port, Path, Mod}] = Args,
     {ok, Sock} = gen_tcp:connect(Host, Port, [binary, {packet, 0}, {active,true}]),    
-    Req = initial_request(Host, Path),
+    %Req = initial_request(Host, Path),
+    Req = initial_request(Host, "/"),
     ok = gen_tcp:send(Sock, Req),
     inet:setopts(Sock, [{packet, http}]),    
     {ok,#state{socket=Sock, callback=Mod}}.
