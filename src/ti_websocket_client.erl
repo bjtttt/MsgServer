@@ -29,17 +29,20 @@
 -define(CLOSED, 2).
 
 %% Behaviour definition
--export([behaviour_info/1]).
+%-export([behaviour_info/1]).
 
-behaviour_info(callbacks) ->
-    [{onmessage, 1}, {onopen, 0}, {onclose, 0}, {close, 0}, {send, 1}];
-behaviour_info(_) ->
-    undefined.
+%behaviour_info(callbacks) ->
+%    [{onmessage, 1}, {onopen, 0}, {onclose, 0}, {close, 0}, {send, 1}];
+%behaviour_info(_) ->
+%    undefined.
 
 -record(state, {socket, readystate=undefined, headers=[], callback}).
 
-start(Host, Port, Mod) ->
-    start(Host, Port, "/", Mod).
+start_link(Host, Port) ->
+    gen_server:start_link(?MODULE, [Host, Port], []).
+
+%start(Host, Port, Mod) ->
+%    start(Host, Port, "/", Mod).
   
 start(Host, Port, Path, Mod) ->
     gen_server:start_link({local, ?MODULE}, ?MODULE, [{Host, Port, Path, Mod}], []).
