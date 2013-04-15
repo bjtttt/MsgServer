@@ -10,7 +10,13 @@
 
 -export([process_data/1]).
 
--export([create_gen_resp/4]).
+-export([create_gen_resp/4,
+         create_term_online/1,
+         create_term_offline/1,
+         create_term_alarm/8,
+         create_term_answer/3,
+         create_vehicle_ctrl_answer/4,
+         create_shot_resp/4]).
 
 %%%
 %%% Maybe State is useless
@@ -124,47 +130,47 @@ do_process_data(Data) ->
                                 true ->
                                     {error, length_error}
                             end;
-                        "0x0003" ->
-                            if
-                                Len == 2 ->
-                                    ListPair = element(2, Content),
-                                    {"LIST", List} = ListPair,
-                                    VIDList = get_list("VID", List),
-                                    {ok, Mid, [VIDList]};
-                                true ->
-                                    {error, length_error}
-                            end;
-                        "0x0004" ->
-                            if
-                                Len == 2 ->
-                                    ListPair = element(2, Content),
-                                    {"LIST", List} = ListPair,
-                                    VIDList = get_list("VID", List),
-                                    {ok, Mid, [VIDList]};
-                                true ->
-                                    {error, length_error}
-                            end;
-                        "0x0200" ->
-                            if
-                                Len == 4 ->
-                                    ListPair = element(2, Content),
-                                    SNPair = element(3, Content),
-                                    DataPair = element(4, Content),
-                                    {"LIST", List} = ListPair,
-                                    {"SN", SN} = SNPair,
-                                    {"DATA", DATA} = DataPair,
-                                    VIDList = get_list("VID", List),
-                                    DataLen = length(DATA),
-                                    if
-                                        DataLen == 6 ->
-                                            [{"CODE", Code}, {"AF", AF}, {"SF", SF}, {"LAT", LAT}, {"LONG", LONG}, {"T", T}] = DATA,
-                                            {ok, Mid, [VIDList, SN, [Code, AF, SF, LAT, LONG, T]]};
-                                        true ->
-                                            {error, format_error}
-                                    end;
-                                true ->
-                                    {error, length_error}
-                            end;
+                        %"0x0003" ->
+                        %    if
+                        %        Len == 2 ->
+                        %            ListPair = element(2, Content),
+                        %            {"LIST", List} = ListPair,
+                        %            VIDList = get_list("VID", List),
+                        %            {ok, Mid, [VIDList]};
+                        %        true ->
+                        %            {error, length_error}
+                        %    end;
+                        %"0x0004" ->
+                        %    if
+                        %        Len == 2 ->
+                        %            ListPair = element(2, Content),
+                        %            {"LIST", List} = ListPair,
+                        %            VIDList = get_list("VID", List),
+                        %            {ok, Mid, [VIDList]};
+                        %        true ->
+                        %            {error, length_error}
+                        %    end;
+                        %"0x0200" ->
+                        %    if
+                        %        Len == 4 ->
+                        %            ListPair = element(2, Content),
+                        %            SNPair = element(3, Content),
+                        %            DataPair = element(4, Content),
+                        %            {"LIST", List} = ListPair,
+                        %            {"SN", SN} = SNPair,
+                        %            {"DATA", DATA} = DataPair,
+                        %            VIDList = get_list("VID", List),
+                        %            DataLen = length(DATA),
+                        %            if
+                        %                DataLen == 6 ->
+                        %                    [{"CODE", Code}, {"AF", AF}, {"SF", SF}, {"LAT", LAT}, {"LONG", LONG}, {"T", T}] = DATA,
+                        %                    {ok, Mid, [VIDList, SN, [Code, AF, SF, LAT, LONG, T]]};
+                        %                true ->
+                        %                    {error, format_error}
+                        %            end;
+                        %        true ->
+                        %            {error, length_error}
+                        %    end;
                         "0x8103" ->
                             if
                                 Len == 4 ->
@@ -309,27 +315,27 @@ do_process_data(Data) ->
                                 true ->
                                     {error, length_error}
                             end;
-                        "0x0302" ->
-                            if
-                                Len == 4 ->
-                                    SNPair = element(2, Content),
-                                    ListPair = element(3, Content),
-                                    DataPair = element(4, Content),
-                                    {"LIST", List} = ListPair,
-                                    {"SN", SN} = SNPair,
-                                    {"DATA", DATA} = DataPair,
-                                    VIDList = get_list("VID", List),
-                                    DataLen = length(DATA),
-                                    if
-                                        DataLen == 1 ->
-                                            [{"ID", ID}] = DATA,
-                                            {ok, Mid, [SN, VIDList, [ID]]};
-                                        true ->
-                                            {error, format_error}
-                                    end;
-                                true ->
-                                    {error, length_error}
-                            end;
+                        %"0x0302" ->
+                        %    if
+                        %        Len == 4 ->
+                        %            SNPair = element(2, Content),
+                        %            ListPair = element(3, Content),
+                        %            DataPair = element(4, Content),
+                        %            {"LIST", List} = ListPair,
+                        %            {"SN", SN} = SNPair,
+                        %            {"DATA", DATA} = DataPair,
+                        %            VIDList = get_list("VID", List),
+                        %            DataLen = length(DATA),
+                        %            if
+                        %                DataLen == 1 ->
+                        %                    [{"ID", ID}] = DATA,
+                        %                    {ok, Mid, [SN, VIDList, [ID]]};
+                        %                true ->
+                        %                    {error, format_error}
+                        %            end;
+                        %        true ->
+                        %            {error, length_error}
+                        %    end;
                         "0x8400" ->
                             if
                                 Len == 4 ->
@@ -394,44 +400,44 @@ do_process_data(Data) ->
                                 true ->
                                     {error, length_error}
                             end;
-                        "0x0500" ->
-                            if
-                                Len == 5 ->
-                                    SNPair = element(2, Content),
-                                    StatusPair = element(3, Content),
-                                    ListPair = element(4, Content),
-                                    DataPair = element(5, Content),
-                                    {"SN", SN} = SNPair,
-                                    {"STATUS", Status} = StatusPair,
-                                    {"LIST", List} = ListPair,
-                                    {"DATA", DATA} = DataPair,
-                                    VIDList = get_list("VID", List),
-                                    DataLen = length(DATA),
-                                    case Status of
-                                        0 ->
-                                            if
-                                                DataLen =/= 0 ->
-                                                    {error, format_error};
-                                                true ->
-                                                    {ok, Mid, [SN, Status, VIDList, []]}
-                                            end;
-                                        _ ->
-                                            if
-                                                DataLen == 0 ->
-                                                    {error, format_error};
-                                                true ->
-                                                    if
-                                                        DataLen == 1 ->
-                                                            [{"FLAG", FLAG}] = DATA,
-                                                            {ok, Mid, [SN, Status, VIDList, FLAG]};
-                                                        true ->
-                                                            {error, format_error}
-                                                    end
-                                            end
-                                    end;
-                                true ->
-                                    {error, length_error}
-                            end;
+                        %"0x0500" ->
+                        %    if
+                        %        Len == 5 ->
+                        %            SNPair = element(2, Content),
+                        %            StatusPair = element(3, Content),
+                        %            ListPair = element(4, Content),
+                        %            DataPair = element(5, Content),
+                        %            {"SN", SN} = SNPair,
+                        %            {"STATUS", Status} = StatusPair,
+                        %            {"LIST", List} = ListPair,
+                        %            {"DATA", DATA} = DataPair,
+                        %            VIDList = get_list("VID", List),
+                        %            DataLen = length(DATA),
+                        %            case Status of
+                        %                0 ->
+                        %                    if
+                        %                        DataLen =/= 0 ->
+                        %                            {error, format_error};
+                        %                        true ->
+                        %                            {ok, Mid, [SN, Status, VIDList, []]}
+                        %                    end;
+                        %                _ ->
+                        %                    if
+                        %                        DataLen == 0 ->
+                        %                            {error, format_error};
+                        %                        true ->
+                        %                            if
+                        %                                DataLen == 1 ->
+                        %                                    [{"FLAG", FLAG}] = DATA,
+                        %                                    {ok, Mid, [SN, Status, VIDList, FLAG]};
+                        %                                true ->
+                        %                                    {error, format_error}
+                        %                            end
+                        %                    end
+                        %            end;
+                        %        true ->
+                        %            {error, length_error}
+                        %    end;
                         "0x8801" ->
                             if
                                 Len == 4 ->
@@ -554,6 +560,7 @@ get_phone_name_list(PhoneNameList) ->
             end
     end.
     
+%%%
 %%% MID : 0x0001
 %%% List : [ID0, ID1, ID2, ...]
 %%%
@@ -561,22 +568,104 @@ create_gen_resp(SN, Sid, List, Status) ->
     Bool = is_string(Sid),
     if
         is_integer(SN) andalso Bool andalso is_integer(Status) andalso Status >= 0 andalso Status =< 3 ->
-            Len = length(List),
             MIDStr = "\"MID\":\"0x0001\"",
             SNStr = string:concat("\"SN\":", integer_to_list(SN)),
             SidStr = string:concat("\"SID\":", Sid),
+            VIDListStr = string:concat(string:concat("\"LIST\":[",  create_list(["\"VID\""], List, false)), "]"),
             StatusStr = string:concat("\"STATUS\":", integer_to_list(Status)),
-            if
-                Status == 1 ->
-                    if
-                        Len =< 0 ->
-                            error;
-                        true ->
-                            VIDListStr = string:concat(string:concat("\"LIST\":[",  create_list(["\"VID\""], List, false)), "]"),
-                            {ok, combine_strings([MIDStr, SNStr, SidStr, VIDListStr, StatusStr])}
-                    end;
-                true ->
-                    error
+            {ok, combine_strings([MIDStr, SNStr, SidStr, VIDListStr, StatusStr])};
+        true ->
+            error
+    end.
+
+%%%
+%%% MID : 0x0003
+%%% List : [ID0, ID1, ID2, ...]
+%%%
+create_term_online(List) ->
+    MIDStr = "\"MID\":\"0x0003\"",
+    VIDListStr = string:concat(string:concat("\"LIST\":[",  create_list(["\"VID\""], List, false)), "]"),
+    {ok, combine_strings([MIDStr, VIDListStr])}.
+
+%%%
+%%% MID : 0x0004
+%%% List : [ID0, ID1, ID2, ...]
+%%%
+create_term_offline(List) ->
+    MIDStr = "\"MID\":\"0x0004\"",
+    VIDListStr = string:concat(string:concat("\"LIST\":[",  create_list(["\"VID\""], List, false)), "]"),
+    {ok, combine_strings([MIDStr, VIDListStr])}.
+
+%%%
+%%% MID : 0x0200
+%%% List : [ID0, ID1, ID2, ...]
+%%%
+create_term_alarm(List, SN, Code, AF, SF, Lat, Long, T) ->
+    if
+        is_integer(SN) ->
+            MIDStr = "\"MID\":\"0x0004\"",
+            SNStr = string:concat("\"SN\":", integer_to_list(SN)),
+            VIDListStr = string:concat(string:concat("\"LIST\":[",  create_list(["\"VID\""], List, false)), "]"),
+            DataListStr = string:concat(string:concat("\"DATA\":{",  create_list(["\"CODE\"", "\"AF\"", "\"SF\"", "\"LAT\"", "\"LONG\"", "\"T\""], [Code, AF, SF, Lat, Long, T], true)), "}"),
+            {ok, combine_strings([MIDStr, SNStr, VIDListStr, DataListStr])};
+        true ->
+            error
+    end.
+
+%%%
+%%%
+%%%
+create_term_answer(SN, List, IDList) ->
+    if
+        is_integer(SN) ->
+            MIDStr = "\"MID\":\"0x0302\"",
+            SNStr = string:concat("\"SN\":", integer_to_list(SN)),
+            VIDListStr = string:concat(string:concat("\"LIST\":[",  create_list(["\"VID\""], List, false)), "]"),
+            DataListStr = string:concat(string:concat("\"DATA\":{",  create_list(["\"ID\""], IDList, true)), "}"),
+            {ok, combine_strings([MIDStr, SNStr, VIDListStr, DataListStr])};
+        true ->
+            error
+    end.
+
+%%%
+%%%
+%%%
+create_vehicle_ctrl_answer(SN, Status, List, DataList) ->
+    if
+        is_integer(SN) andalso is_integer(Status) andalso Status >= 0 andalso Status =< 3 ->
+            MIDStr = "\"MID\":\"0x0500\"",
+            SNStr = string:concat("\"SN\":", integer_to_list(SN)),
+            StatusStr = string:concat("\"STATUS\":", integer_to_list(Status)),
+            VIDListStr = string:concat(string:concat("\"LIST\":[",  create_list(["\"VID\""], List, false)), "]"),
+            case Status of
+                1 ->
+                    DataListStr = string:concat(string:concat("\"DATA\":{",  create_list(["\"FLAG\""], DataList, true)), "}"),
+                    {ok, combine_strings([MIDStr, SNStr, StatusStr, VIDListStr, DataListStr])};
+                _ ->
+                    DataListStr = "\"DATA\":{}",
+                    {ok, combine_strings([MIDStr, SNStr, StatusStr, VIDListStr, DataListStr])}
+            end;
+        true ->
+            error
+    end.
+
+%%%
+%%%
+%%%
+create_shot_resp(SN, List, Status, IDList) ->
+    if
+        is_integer(SN) andalso is_integer(Status) andalso Status >= 0 andalso Status =< 3 ->
+            MIDStr = "\"MID\":\"0x0805\"",
+            SNStr = string:concat("\"SN\":", integer_to_list(SN)),
+            VIDListStr = string:concat(string:concat("\"LIST\":[",  create_list(["\"VID\""], List, false)), "]"),
+            StatusStr = string:concat("\"STATUS\":", integer_to_list(Status)),
+            case Status of
+                0 ->
+                    DataListStr = string:concat(string:concat("\"DATA\":[",  create_list(["\"ID\""], IDList, false)), "]"),
+                    {ok, combine_strings([MIDStr, SNStr, StatusStr, VIDListStr, DataListStr])};
+                _ ->
+                    DataListStr = "\"DATA\":[]",
+                    {ok, combine_strings([MIDStr, SNStr, StatusStr, VIDListStr, DataListStr])}
             end;
         true ->
             error
