@@ -53,22 +53,22 @@ do_process_data(Data) ->
                     MidPair = element(1, Content),
                     {"MID", Mid} = MidPair,
                     case Mid of
-                        "0x0001" ->
-                            if
-                                Len == 5 ->
-                                    SNPair = element(2, Content),
-                                    SIDPair = element(3, Content),
-                                    ListPair = element(4, Content),
-                                    StatusPair = element(5, Content),
-                                    {"SN", SN} = SNPair,
-                                    {"SID", SID} = SIDPair,
-                                    {"LIST", List} = ListPair,
-                                    {"STATUS", Status} = StatusPair,
-                                    VIDList = get_list("VID", List),
-                                    {ok, Mid, [SN, SID, VIDList, Status]};
-                                true ->
-                                    {error, length_error}
-                            end;
+                        %"0x0001" ->
+                        %    if
+                        %        Len == 5 ->
+                        %            SNPair = element(2, Content),
+                        %            SIDPair = element(3, Content),
+                        %            ListPair = element(4, Content),
+                        %            StatusPair = element(5, Content),
+                        %            {"SN", SN} = SNPair,
+                        %            {"SID", SID} = SIDPair,
+                        %            {"LIST", List} = ListPair,
+                        %            {"STATUS", Status} = StatusPair,
+                        %            VIDList = get_list("VID", List),
+                        %            {ok, Mid, [SN, SID, VIDList, Status]};
+                        %        true ->
+                        %            {error, length_error}
+                        %    end;
                         "0x8001" ->
                             if
                                 Len == 5 ->
@@ -554,35 +554,288 @@ get_phone_name_list(PhoneNameList) ->
             end
     end.
     
-%%%
+%%% MID : 0x0001
 %%% List : [ID0, ID1, ID2, ...]
 %%%
-create_gen_resp(SN, Sid, Status, List) ->
+create_gen_resp(SN, Sid, List, Status) ->
+    Bool = is_string(Sid),
     if
-        Status < 0 ->
-            error;
-        Status > 3 ->
-            error;
-        true ->
+        is_integer(SN) andalso Bool andalso is_integer(Status) andalso Status >= 0 andalso Status =< 3 ->
+            Len = length(List),
+            MIDStr = "\"MID\":\"0x0001\"",
+            SNStr = string:concat("\"SN\":", integer_to_list(SN)),
+            SidStr = string:concat("\"SID\":", Sid),
+            StatusStr = string:concat("\"STATUS\":", integer_to_list(Status)),
             if
                 Status == 1 ->
-                    ok;
+                    if
+                        Len =< 0 ->
+                            error;
+                        true ->
+                            VIDListStr = string:concat(string:concat("\"LIST\":[",  create_list(["\"VID\""], List, false)), "]"),
+                            {ok, combine_strings([MIDStr, SNStr, SidStr, VIDListStr, StatusStr])}
+                    end;
                 true ->
                     error
+            end;
+        true ->
+            error
+    end.
+
+%%%
+%%% When IsOne == true, the result is like : "A":XA,"B":XB,"C":XC,...
+%%% When IsOne == false, the result is like : {"A":XA},{"B":XB},{"C":XC},...
+%%%
+create_list(IDList, List, IsOne) ->
+    IDListLen = length(IDList),
+    ListLen = length(List),
+    if
+        IDListLen < 1 ->
+            "";
+        IDListLen == 1 ->
+            [ID|_] = IDList,
+            if
+                ListLen < 1 ->
+                    "";
+                true ->
+                    [Val|T] = List,
+                    case is_integer(Val) of
+                        true ->
+                            SVal = integer_to_list(Val),
+                            case T of
+                                [] ->
+                                    case IsOne of
+                                        true ->
+                                            combine_strings([ID, ":", SVal]);
+                                        _ ->
+                                            combine_strings(["{", ID, ":", SVal, "}"])
+                                        end;
+                                _ ->
+                                    case IsOne of
+                                        true ->
+                                            combine_strings(lists:append([ID, ":", SVal, ","], [create_list(IDList, T, IsOne)]));
+                                        _ ->
+                                            combine_strings(lists:append(["{", ID, ":", SVal, "},"], [create_list(IDList, T, IsOne)]))
+                                    end
+                            end;
+                        _ ->
+                            case is_float(Val) of
+                                true ->
+                                    SVal = float_to_list(Val),
+                                    case T of
+                                        [] ->
+                                            case IsOne of
+                                                true ->
+                                                    combine_strings([ID, ":", SVal]);
+                                                _ ->
+                                                    combine_strings(["{", ID, ":", SVal, "}"])
+                                                end;
+                                        _ ->
+                                            case IsOne of
+                                                true ->
+                                                    combine_strings(lists:append([ID, ":", SVal, ","], [create_list(IDList, T, IsOne)]));
+                                                _ ->
+                                                    combine_strings(lists:append(["{", ID, ":", SVal, "},"], [create_list(IDList, T, IsOne)]))
+                                            end
+                                    end;
+                                _ ->
+                                    case is_atom(Val) of
+                                        true ->
+                                            SVal = atom_to_list(Val),
+                                            case T of
+                                                [] ->
+                                                    case IsOne of
+                                                        true ->
+                                                            combine_strings([ID, ":", SVal]);
+                                                        _ ->
+                                                            combine_strings(["{", ID, ":", SVal, "}"])
+                                                        end;
+                                                _ ->
+                                                    case IsOne of
+                                                        true ->
+                                                            combine_strings(lists:append([ID, ":", SVal, ","], [create_list(IDList, T, IsOne)]));
+                                                        _ ->
+                                                            combine_strings(lists:append(["{", ID, ":", SVal, "},"], [create_list(IDList, T, IsOne)]))
+                                                    end
+                                            end;
+                                        _ ->
+                                            case is_string(Val) of
+                                                true ->
+                                                    case T of
+                                                        [] ->
+                                                            case IsOne of
+                                                                true ->
+                                                                    combine_strings([ID, ":", Val]);
+                                                                _ ->
+                                                                    combine_strings(["{", ID, ":", Val, "}"])
+                                                                end;
+                                                        _ ->
+                                                            case IsOne of
+                                                                true ->
+                                                                    combine_strings(lists:append([ID, ":", Val, ","], [create_list(IDList, T, IsOne)]));
+                                                                _ ->
+                                                                    combine_strings(lists:append(["{", ID, ":", Val, "},"], [create_list(IDList, T, IsOne)]))
+                                                            end
+                                                    end;
+                                                _ ->
+                                                    case T of
+                                                        [] ->
+                                                            [];
+                                                        _ ->
+                                                            create_list(IDList, T, IsOne)
+                                                    end
+                                            end
+                                    end
+                            end
+                    end
+            end;
+        IDListLen > 1 ->
+            if
+                IDListLen =/= ListLen ->
+                    "";
+                true ->
+                    [ID|IDTail] = IDList,
+                    [Val|ValTail] = List,
+                    case is_integer(Val) of
+                        true ->
+                            SVal = integer_to_list(Val),
+                            case ValTail of
+                                [] ->
+                                    case IsOne of
+                                        true ->
+                                            combine_strings([ID, ":", SVal]);
+                                        _ ->
+                                            combine_strings(["{", ID, ":", SVal, "}"])
+                                        end;
+                                _ ->
+                                    case IsOne of
+                                        true ->
+                                            combine_strings(lists:append([ID, ":", SVal, ","], [create_list(IDTail, ValTail, IsOne)]));
+                                        _ ->
+                                            combine_strings(lists:append(["{", ID, ":", SVal, "},"], [create_list(IDTail, ValTail, IsOne)]))
+                                    end
+                            end;
+                        _ ->
+                            case is_float(Val) of
+                                true ->
+                                    SVal = float_to_list(Val),
+                                    case ValTail of
+                                        [] ->
+                                            case IsOne of
+                                                true ->
+                                                    combine_strings([ID, ":", SVal]);
+                                                _ ->
+                                                    combine_strings(["{", ID, ":", SVal, "}"])
+                                                end;
+                                        _ ->
+                                            case IsOne of
+                                                true ->
+                                                    combine_strings(lists:append([ID, ":", SVal, ","], [create_list(IDTail, ValTail, IsOne)]));
+                                                _ ->
+                                                    combine_strings(lists:append(["{", ID, ":", SVal, "},"], [create_list(IDTail, ValTail, IsOne)]))
+                                            end
+                                    end;
+                                _ ->
+                                    case is_atom(Val) of
+                                        true ->
+                                            SVal = atom_to_list(Val),
+                                            case ValTail of
+                                                [] ->
+                                                    case IsOne of
+                                                        true ->
+                                                            combine_strings([ID, ":", SVal]);
+                                                        _ ->
+                                                            combine_strings(["{", ID, ":", SVal, "}"])
+                                                        end;
+                                                _ ->
+                                                    case IsOne of
+                                                        true ->
+                                                            combine_strings(lists:append([ID, ":", SVal, ","], [create_list(IDTail, ValTail, IsOne)]));
+                                                        _ ->
+                                                            combine_strings(lists:append(["{", ID, ":", SVal, "},"], [create_list(IDTail, ValTail, IsOne)]))
+                                                    end
+                                            end;
+                                        _ ->
+                                            case is_string(Val) of
+                                                true ->
+                                                    case ValTail of
+                                                        [] ->
+                                                            case IsOne of
+                                                                true ->
+                                                                    combine_strings([ID, ":", Val]);
+                                                                _ ->
+                                                                    combine_strings(["{", ID, ":", Val, "}"])
+                                                                end;
+                                                        _ ->
+                                                            case IsOne of
+                                                                true ->
+                                                                    combine_strings(lists:append([ID, ":", Val, ","], [create_list(IDTail, ValTail, IsOne)]));
+                                                                _ ->
+                                                                    combine_strings(lists:append(["{", ID, ":", Val, "},"], [create_list(IDTail, ValTail, IsOne)]))
+                                                            end
+                                                    end;
+                                                _ ->
+                                                    case ValTail of
+                                                        [] ->
+                                                            [];
+                                                        _ ->
+                                                            create_list(IDTail, ValTail, IsOne)
+                                                    end
+                                            end
+                                    end
+                            end
+                    end
             end
     end.
 
-create_list(ID, List) ->
+%%%
+%%%
+%%%
+is_string(Value) ->
+    case is_list(Value) of
+        true ->
+            Fun = fun(X) ->
+                          if X < 0 -> false; 
+                             X > 255 -> false;
+                             true -> true
+                          end
+                  end,
+            lists:all(Fun, Value);
+        _ ->
+            false
+    end.
+
+%%%
+%%% List must be string list
+%%%
+combine_strings(List) ->
     case List of
         [] ->
-            [];
+            "";
         _ ->
-            [H|T] = List,
-            [{ID, H}|create_list(ID, T)]
-    end
-
-
-
+            Fun = fun(X) ->
+                          case is_string(X) of
+                              true ->
+                                  true;
+                              _ ->
+                                  false
+                          end
+                  end,
+            Bool = lists:all(Fun, List),
+            case Bool of
+                true ->
+                    [H|T] = List,
+                    case T of
+                        [] ->
+                            H;
+                        _ ->
+                            string:concat(string:concat(H, ","), combine_strings(T))
+                    end;
+                _ ->
+                    ""
+            end
+    end.
+            
 
 
 
