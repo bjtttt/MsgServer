@@ -17,11 +17,11 @@
 
 %% gen_server callbacks
 -export([init/1, 
-        handle_call/3, 
-        handle_cast/2, 
-        handle_info/2,
-        terminate/2, 
-        code_change/3]).
+         handle_call/3,
+         handle_cast/2,
+         handle_info/2,
+         terminate/2,
+         code_change/3]).
 
 %% Ready States
 -define(CONNECTING, 0).
@@ -47,7 +47,7 @@ start(Host, Port, Path, Mod) ->
 init(Args) ->
     process_flag(trap_exit, true),
     [{Host, Port, Path, Mod}] = Args,
-    {ok, Sock} = gen_tcp:connect(Host, Port, [binary,{packet, 0}, {active,true}]),    
+    {ok, Sock} = gen_tcp:connect(Host, Port, [binary, {packet, 0}, {active,true}]),    
     Req = initial_request(Host, Path),
     ok = gen_tcp:send(Sock, Req),
     inet:setopts(Sock, [{packet, http}]),    
@@ -80,11 +80,11 @@ handle_info({http, Socket, {http_header, _, Name, _, Value}},State) ->
     case State#state.readystate of
     ?CONNECTING ->
         H = [{Name,Value} | State#state.headers],
-        State1 = State#state{headers=H,socket=Socket},
-        {noreply,State1};
+        State1 = State#state{headers=H, socket=Socket},
+        {noreply, State1};
     undefined ->
         %% Bad state should have received response first
-        {stop,error,State}
+        {stop, error, State}
     end;
 %% Once we have all the headers check for the 'Upgrade' flag 
 handle_info({http, Socket, http_eoh}, State) ->
@@ -143,7 +143,6 @@ initial_request(Host,Path) ->
     "GET "++ Path ++" HTTP/1.1\r\nUpgrade: WebSocket\r\nConnection: Upgrade\r\n" ++ 
     "Host: " ++ Host ++ "\r\n" ++
     "Origin: http://" ++ Host ++ "/\r\n\r\n".
-
 
 unframe([0|T]) -> unframe1(T).
 unframe1([255]) -> [];
