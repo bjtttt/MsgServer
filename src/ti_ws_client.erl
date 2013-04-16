@@ -36,5 +36,3 @@ onopen() ->
 close() ->
     websocket_client:close().
 
-msg2websocket_process() ->
-    ok.

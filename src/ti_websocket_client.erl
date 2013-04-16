@@ -13,7 +13,7 @@
 -behaviour(gen_server).
 
 %% API
--export([start/3, start/4, write/1, close/0]).
+-export([start_link/2]).
 
 %% gen_server callbacks
 -export([init/1, 
@@ -36,49 +36,42 @@
 %behaviour_info(_) ->
 %    undefined.
 
--record(state, {socket, readystate=undefined, headers=[], callback}).
+-record(state, {socket, readystate=undefined, headers=[], pid=undefined, wspid=undefined}).
 
-start_link(Host, Port) ->
-    gen_server:start_link(?MODULE, [Host, Port], []).
+start_link(Hostname, Port) ->
+    gen_server:start_link(?MODULE, [Hostname, Port], []).
 
-%start(Host, Port, Mod) ->
-%    start(Host, Port, "/", Mod).
-  
-%start(Host, Port, Path, Mod) ->
-%    gen_server:start_link({local, ?MODULE}, ?MODULE, [{Host, Port, Path, Mod}], []).
-
-init(Host, Port) ->
+init([Hostname, Port]) ->
     process_flag(trap_exit, true),
-    %[{Host, Port, Path, Mod}] = Args,
-    {ok, Sock} = gen_tcp:connect(Host, Port, [binary, {packet, 0}, {active,true}]),    
-    %Req = initial_request(Host, Path),
-    Req = initial_request(Host, "/"),
-    ok = gen_tcp:send(Sock, Req),
-    inet:setopts(Sock, [{packet, http}]),    
-    {ok,#state{socket=Sock, callback=Mod}}.
+    case gen_tcp:connect(Hostname, Port, [binary, {packet, 0}, {active,true}]) of
+        {ok, Socket} ->
+            Request = "GET / HTTP/1.1\r\nUpgrade: WebSocket\r\nConnection: Upgrade\r\n" ++
+                          "Host: " ++ Hostname ++ "\r\n" ++ "Origin: http://" ++ Hostname ++ "/\r\n\r\n",
+            case gen_tcp:send(Socket, Request) of
+                ok ->
+                    inet:setopts(Socket, [{packet, http}]),    
+                    Pid = self(),
+                    WSPid = spawn(fun() -> msg2websocket_process(Pid, Socket) end),
+                    {ok, #state{socket=Socket, pid=Pid, wspid=WSPid}};
+                {error, Reason} ->
+                    ti_common:logerror("WebSocket gen_tcp:send initial request fails : ~p~n", [Reason]),
+                    {stop, Reason}
+            end;
+        {error, Reason} ->
+            ti_common:logerror("WebSocket gen_tcp:connect fails : ~p~n", [Reason]),
+            {stop, Reason}
+    end.
 
-%% Write to the server
-write(Data) ->
-    gen_server:cast(?MODULE, {send, Data}).
+handle_call(_Request, _From, State) ->
+    {noreply, ok, State}.
 
-%% Close the socket
-close() ->
-    gen_server:cast(?MODULE,close).
-
-handle_cast({send, Data}, State) ->
-    gen_tcp:send(State#state.socket, [0] ++ Data ++ [255]),
-    {noreply, State};
-handle_cast(close, State) ->
-    Mod = State#state.callback,
-    Mod:onclose(),
-    gen_tcp:close(State#state.socket),
-    State1 = State#state{readystate=?CLOSED},
-    {stop, normal, State1}.
+handle_cast(_Msg, State) ->    
+    {noreply, State}. 
 
 %% Start handshake
 handle_info({http, Socket, {http_response, {1, 1}, 101, "Web Socket Protocol Handshake"}}, State) ->
-    State1 = State#state{readystate=?CONNECTING,socket=Socket},
-    {noreply, State1};
+    NewState = State#state{readystate=?CONNECTING, socket=Socket},
+    {noreply, NewState};
 %% Extract the headers
 handle_info({http, Socket, {http_header, _, Name, _, Value}},State) ->
     case State#state.readystate of
@@ -99,10 +92,8 @@ handle_info({http, Socket, http_eoh}, State) ->
          case proplists:get_value('Upgrade', Headers) of
          "WebSocket" ->
              inet:setopts(Socket, [{packet, raw}]),
-             State1 = State#state{readystate=?OPEN, socket=Socket},
-             Mod = State#state.callback,
-             Mod:onopen(),
-             {noreply, State1};
+             NewState = State#state{readystate=?OPEN, socket=Socket},
+             {noreply, NewState};
          _Any  ->
              {stop, error, State}
          end;
@@ -115,23 +106,16 @@ handle_info({tcp, _Socket, Data}, State) ->
     case State#state.readystate of
     ?OPEN ->
         D = unframe(binary_to_list(Data)),
-        Mod = State#state.callback,
-        Mod:onmessage(D),
         {noreply, State};
     _Any ->
         {stop, error, State}
     end;
 handle_info({tcp_closed, _Socket}, State) ->
-    Mod = State#state.callback,
-    Mod:onclose(),
     {stop, normal, State};
 handle_info({tcp_error, _Socket, _Reason},State) ->
     {stop,tcp_error, State};
 handle_info({'EXIT', _Pid, _Reason},State) ->
     {noreply, State}.
-
-handle_call(_Request, _From, State) ->
-    {reply, ok, State}.
 
 terminate(Reason, _State) ->
     error_logger:info_msg("Terminated ~p~n", [Reason]),
@@ -140,16 +124,12 @@ terminate(Reason, _State) ->
 code_change(_OldVsn, State, _Extra) ->
     {ok, State}.
 
-%%--------------------------------------------------------------------
-%%% Internal functions
-%%--------------------------------------------------------------------
-initial_request(Host,Path) ->
-    "GET "++ Path ++" HTTP/1.1\r\nUpgrade: WebSocket\r\nConnection: Upgrade\r\n" ++ 
-    "Host: " ++ Host ++ "\r\n" ++
-    "Origin: http://" ++ Host ++ "/\r\n\r\n".
-
 unframe([0|T]) -> unframe1(T).
 unframe1([255]) -> [];
 unframe1([H|T]) -> [H|unframe1(T)].
+
+msg2websocket_process(Pid, Sock) ->
+    ok.
+
 
     
