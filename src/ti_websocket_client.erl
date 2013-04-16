@@ -130,8 +130,22 @@ unframe([0|T]) -> unframe1(T).
 unframe1([255]) -> [];
 unframe1([H|T]) -> [H|unframe1(T)].
 
-msg2websocket_process(Pid, Sock) ->
-    ok.
+msg2websocket_process(Pid, Socket) ->
+    receive
+        {FromPid, {data, Data}} ->
+            % Communicate with DB here
+            FromPid,
+            %process_message(FromPid, Ref, Data),
+            msg2websocket_process(Pid, Socket);
+        {FromPid, Data} ->
+            ti_common:logerror("DB connection process : unknown message from PID ~p : ~p~n", [FromPid, Data]),
+            msg2websocket_process(Pid, Socket);
+        stop ->
+            true
+    after ?TIMEOUT_DATA_DB ->
+        ti_common:loginfo("DB connection process : receiving PID message timeout after ~p~n", [?TIMEOUT_DB]),
+        msg2websocket_process(Pid, Socket)
+    end.
 
 
     
