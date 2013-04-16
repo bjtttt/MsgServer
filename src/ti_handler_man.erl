@@ -30,12 +30,11 @@ handle_info({tcp, Socket, Data}, State) ->
         {error, NewState} ->
              {stop, NewState};
         _ ->
-            ok
-    end,
-    inet:setopts(Socket, [{active, once}]),
-    % Should be modified in the future
-    %ok = gen_tcp:send(Socket, <<"Management : ", Resp/binary>>),    
-    {noreply, State}; 
+            inet:setopts(Socket, [{active, once}]),
+            % Should be modified in the future
+            %ok = gen_tcp:send(Socket, <<"Management : ", Resp/binary>>),    
+            {noreply, State}
+    end;
 handle_info({tcp_closed, _Socket}, State) ->    
     ti_common:loginfo("Management (~p) : TCP is closed~n", [State#manitem.addr]),
     %State#manitem.datapid!stop,

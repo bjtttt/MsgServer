@@ -95,6 +95,8 @@
 
 -record(dbstate, {db=undefined, dbport=undefined, dbref=undefined, dbconnpid=undefined}).
 
+-record(wsstate, {socket, state=undefined, headers=[], pid=undefined, wspid=undefined}).
+
 %%%
 %%% lsock       : Listening socket
 %%% acceptor    : Asynchronous acceptor's internal reference

@@ -12,6 +12,8 @@
 
 -behaviour(gen_server).
 
+-include("ti_header.hrl").
+
 %% API
 -export([start_link/2]).
 
@@ -36,8 +38,6 @@
 %behaviour_info(_) ->
 %    undefined.
 
--record(state, {socket, readystate=undefined, headers=[], pid=undefined, wspid=undefined}).
-
 start_link(Hostname, Port) ->
     gen_server:start_link(?MODULE, [Hostname, Port], []).
 
@@ -52,14 +52,14 @@ init([Hostname, Port]) ->
                     inet:setopts(Socket, [{packet, http}]),    
                     Pid = self(),
                     WSPid = spawn(fun() -> msg2websocket_process(Pid, Socket) end),
-                    {ok, #state{socket=Socket, pid=Pid, wspid=WSPid}};
+                    {ok, #wsstate{socket=Socket, pid=Pid, wspid=WSPid}};
                 {error, Reason} ->
                     ti_common:logerror("WebSocket gen_tcp:send initial request fails : ~p~n", [Reason]),
-                    {stop, Reason}
+                    {stop, tcp_error, Reason}
             end;
         {error, Reason} ->
             ti_common:logerror("WebSocket gen_tcp:connect fails : ~p~n", [Reason]),
-            {stop, Reason}
+            {stop, tcp_error, Reason}
     end.
 
 handle_call(_Request, _From, State) ->
@@ -70,45 +70,45 @@ handle_cast(_Msg, State) ->
 
 %% Start handshake
 handle_info({http, Socket, {http_response, {1, 1}, 101, "Web Socket Protocol Handshake"}}, State) ->
-    NewState = State#state{readystate=?CONNECTING, socket=Socket},
+    NewState = State#wsstate{state=?CONNECTING, socket=Socket},
     {noreply, NewState};
 %% Extract the headers
 handle_info({http, Socket, {http_header, _, Name, _, Value}},State) ->
-    case State#state.readystate of
-    ?CONNECTING ->
-        H = [{Name,Value} | State#state.headers],
-        State1 = State#state{headers=H, socket=Socket},
-        {noreply, State1};
-    undefined ->
-        %% Bad state should have received response first
-        {stop, error, State}
+    case State#wsstate.state of
+        ?CONNECTING ->
+            H = [{Name, Value} | State#wsstate.headers],
+            NewState = State#wsstate{headers=H, socket=Socket},
+            {noreply, NewState};
+        undefined ->
+            %% Bad state should have received response first
+            {stop, error, State}
     end;
 %% Once we have all the headers check for the 'Upgrade' flag 
 handle_info({http, Socket, http_eoh}, State) ->
     %% Validate headers, set state, change packet type back to raw
-    case State#state.readystate of
-    ?CONNECTING ->
-         Headers = State#state.headers,
-         case proplists:get_value('Upgrade', Headers) of
-         "WebSocket" ->
-             inet:setopts(Socket, [{packet, raw}]),
-             NewState = State#state{readystate=?OPEN, socket=Socket},
-             {noreply, NewState};
-         _Any  ->
-             {stop, error, State}
-         end;
-    undefined ->
-        %% Bad state should have received response first
-        {stop, error, State}
+    case State#wsstate.state of
+        ?CONNECTING ->
+            Headers = State#wsstate.headers,
+            case proplists:get_value('Upgrade', Headers) of
+                "WebSocket" ->
+                    inet:setopts(Socket, [{packet, raw}]),
+                    NewState = State#wsstate{state=?OPEN, socket=Socket},
+                    {noreply, NewState};
+                _Any  ->
+                    {stop, error, State}
+            end;
+        undefined ->
+            %% Bad state should have received response first
+            {stop, error, State}
     end;
 %% Handshake complete, handle packets
 handle_info({tcp, _Socket, Data}, State) ->
-    case State#state.readystate of
-    ?OPEN ->
-        D = unframe(binary_to_list(Data)),
-        {noreply, State};
-    _Any ->
-        {stop, error, State}
+    case State#wsstate.state of
+        ?OPEN ->
+            D = unframe(binary_to_list(Data)),
+            {noreply, State};
+        _Any ->
+            {stop, error, State}
     end;
 handle_info({tcp_closed, _Socket}, State) ->
     {stop, normal, State};
