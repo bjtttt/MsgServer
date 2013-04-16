@@ -31,6 +31,7 @@ start(StartType, StartArgs) ->
     ets:insert(msgservertable, {portdb, PortDB}),
     ets:insert(msgservertable, {dbdsn, DBDSN}),
     ets:insert(msgservertable, {dbconnpid, undefined}),
+    ets:insert(msgservertable, {wspid, undefined}),
     ets:insert(msgservertable, {dbref, undefined}),
     ets:insert(msgservertable, {rawdisplay, RawDisplay}),
     ets:insert(msgservertable, {display, Display}),

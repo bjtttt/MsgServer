@@ -52,6 +52,7 @@ init([Hostname, Port]) ->
                     inet:setopts(Socket, [{packet, http}]),    
                     Pid = self(),
                     WSPid = spawn(fun() -> msg2websocket_process(Pid, Socket) end),
+                    ets:insert(msgservertable, {wspid, WSPid}),
                     {ok, #wsstate{socket=Socket, pid=Pid, wspid=WSPid}};
                 {error, Reason} ->
                     ti_common:logerror("WebSocket gen_tcp:send initial request fails : ~p~n", [Reason]),
@@ -118,6 +119,7 @@ handle_info({'EXIT', _Pid, _Reason},State) ->
     {noreply, State}.
 
 terminate(Reason, _State) ->
+    ets:insert(msgservertable, {wspid, undefined}),
     error_logger:info_msg("Terminated ~p~n", [Reason]),
     ok.
 
