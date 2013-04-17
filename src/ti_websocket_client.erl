@@ -106,8 +106,13 @@ handle_info({http, Socket, http_eoh}, State) ->
 handle_info({tcp, _Socket, Data}, State) ->
     case State#wsstate.state of
         ?OPEN ->
-            D = unframe(binary_to_list(Data)),
-            {noreply, State};
+            Body = unframe(binary_to_list(Data)),
+            case ti_man_data_parser:process_data(Body) of
+                {ok, Mid, Res} ->
+                    {noreply, State};
+                {error, _Error} ->
+                    {noreply, State}
+            end;
         _Any ->
             {stop, error, State}
     end;
