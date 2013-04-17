@@ -23,12 +23,14 @@
 %%%
 start(StartType, StartArgs) ->
     ets:new(msgservertable,[set,public,named_table,{keypos,1},{read_concurrency,true},{write_concurrency,true}]),
-    [PortVDR, PortMan, PortMon, DB, PortDB, DBDSN, RawDisplay, Display] = StartArgs,
+    [PortVDR, PortMan, PortMon, DB, PortDB, WS, PortWS, DBDSN, RawDisplay, Display] = StartArgs,
     ets:insert(msgservertable, {portvdr, PortVDR}),
     ets:insert(msgservertable, {portman, PortMan}),
     ets:insert(msgservertable, {portmon, PortMon}),
     ets:insert(msgservertable, {db, DB}),
     ets:insert(msgservertable, {portdb, PortDB}),
+    ets:insert(msgservertable, {ws, WS}),
+    ets:insert(msgservertable, {portws, PortWS}),
     ets:insert(msgservertable, {dbdsn, DBDSN}),
     ets:insert(msgservertable, {dbconnpid, undefined}),
     ets:insert(msgservertable, {wspid, undefined}),
@@ -44,12 +46,12 @@ start(StartType, StartArgs) ->
     ets:new(montable,[set,public,named_table,{keypos,#monitem.socket},{read_concurrency,true},{write_concurrency,true}]),
     ti_common:loginfo("Tables are initialized.~n"),
     case supervisor:start_link(ti_sup, []) of
-        {ok, Pid} ->
-            APid = self(),
+        {ok, SupPid} ->
+            AppPid = self(),
             error_logger:info_msg("Message server starts~n"),
-            error_logger:info_msg("Application PID is ~p~n", [APid]),
-            error_logger:info_msg("Supervisor PID : ~p~n", [Pid]),
-            {ok, Pid};
+            error_logger:info_msg("Application PID is ~p~n", [AppPid]),
+            error_logger:info_msg("Supervisor PID : ~p~n", [SupPid]),
+            {ok, AppPid};
         ignore ->
             error_logger:info_msg("Message server fails to start : ignore~n"),
             ignore;

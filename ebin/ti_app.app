@@ -8,14 +8,16 @@
              ti_server_man,
              ti_server_mon,
              ti_client_db,
+             ti_websocket_client,
              ti_handler_vdr,
              ti_handler_man,
              ti_handler_mon,
              ti_vdr_data_parser,
              ti_man_data_parser,
              ti_mon_data_parser,
+             ti_vdr_msg_body_processor,
              ti_common]},
-  {registered, [ti_sup, ti_sup_db]},
+  {registered, [ti_sup]},
   {applications, [kernel, sasl, stdlib]},
-  {mod, {ti_app, [6000, 6001, 6003, "127.0.0.1", 6002, "sql-server", 1, 1]}}
+  {mod, {ti_app, [6000, 6001, 6003, "127.0.0.1", 6002, "127.0.0.1", 6004, "sql-server", 1, 1]}}
  ]}.
