@@ -19,5 +19,5 @@
              ti_common]},
   {registered, [ti_sup]},
   {applications, [kernel, sasl, stdlib]},
-  {mod, {ti_app, [6000, 6001, 6003, "127.0.0.1", 6002, "127.0.0.1", 6004, "sql-server", 1, 1]}}
+  {mod, {ti_app, [6000, 6001, 6003, "127.0.0.1", 6002, "42.96.146.34", 9090, "sql-server", 1, 1]}}
  ]}.

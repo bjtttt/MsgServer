@@ -45,8 +45,9 @@ init([Hostname, Port]) ->
     process_flag(trap_exit, true),
     case gen_tcp:connect(Hostname, Port, [binary, {packet, 0}, {active,true}]) of
         {ok, Socket} ->
-            Request = "GET / HTTP/1.1\r\nUpgrade: WebSocket\r\nConnection: Upgrade\r\n" ++
-                          "Host: " ++ Hostname ++ "\r\n" ++ "Origin: http://" ++ Hostname ++ "/\r\n\r\n",
+            Request = "{\"MID\":0x0005, \"TOKEN\":\"anystring\"}",
+                        %"GET / HTTP/1.1\r\nUpgrade: WebSocket\r\nConnection: Upgrade\r\n" ++
+                        %  "Host: " ++ Hostname ++ "\r\n" ++ "Origin: http://" ++ Hostname ++ "/\r\n\r\n",
             case gen_tcp:send(Socket, Request) of
                 ok ->
                     inet:setopts(Socket, [{packet, http}]),    
