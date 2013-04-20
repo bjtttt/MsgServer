@@ -51,14 +51,82 @@ start(StartType, StartArgs) ->
             error_logger:info_msg("Message server starts~n"),
             error_logger:info_msg("Application PID is ~p~n", [AppPid]),
             error_logger:info_msg("Supervisor PID : ~p~n", [SupPid]),
-            {ok, AppPid};
+            case ti_ws_fsm_client:start(WS, PortWS, "/") of
+                {ok, WSPid} ->
+                    error_logger:info_msg("WS client PID is ~p~n", [WSPid]),
+                    WSMsgPid = spawn(fun() -> ws_msg_collector_process() end),
+                    ets:insert(msgservertable, {wsmsgpid, WSMsgPid}),
+                    {ok, AppPid};
+                    %case ti_ws_fsm_client:start(WS, PortWS, "/") of
+                    %    {ok, WSPid} ->
+                    %        error_logger:info_msg("WS client PID is ~p~n", [WSPid]),
+                    %        {ok, AppPid};
+                    %    ignore ->
+                    %        error_logger:error_msg("WS client fails to start : ignore~n");
+                    %    {error, Error} ->
+                    %        error_logger:error_msg("WS client fails to start : ~p~n", [Error])
+                    %end;
+                ignore ->
+                    error_logger:error_msg("WS client fails to start : ignore~n");
+                {error, Error} ->
+                    error_logger:error_msg("WS client fails to start : ~p~n", [Error])
+            end;
         ignore ->
-            error_logger:info_msg("Message server fails to start : ignore~n"),
+            error_logger:error_msg("Message server fails to start : ignore~n"),
             ignore;
         {error, Error} ->
-            error_logger:info_msg("Message server fails to start : ~p~n", [Error]),
+            error_logger:error_msg("Message server fails to start : ~p~n", [Error]),
             {error, Error}
     end.
+
+%db_msg_collector_process() ->
+%    receive
+%        {Pid, Data} ->
+%            ws_msg_collector_process();
+%        stop ->
+%            ok;
+%        _Unknown ->
+%            ws_msg_collector_process()
+%    after ?TIMEOUT_MAN ->
+%            ws_msg_collector_process()
+%    end.
+
+%%%
+%%% Communication with websocket server
+%%%
+ws_msg_collector_process() ->
+    receive
+        {Pid, {Type, Data}} ->
+            try ws_msg_sendread(Pid, Type, Data)
+            catch
+                _:Why ->
+                    error_logger:error_msg("WS msg collector fails to send data : ~p~n", [Why])
+            end,
+            ws_msg_collector_process();
+        stop ->
+            ets:delete(msgservertable, wsmsgpid),
+            error_logger:info_msg("WS msg collector stops~n");
+        _Unknown ->
+            ws_msg_collector_process()
+    %after ?TIMEOUT_MAN ->
+    %        ws_msg_collector_process()
+    end.
+
+ws_msg_sendread(Pid, Type, Data) ->
+    ti_ws_fsm_client:send(Data),
+    case Type of
+        true ->
+            receive
+                {sent, Resp} ->
+                    Pid!Resp;
+                _ ->
+                    ok
+            after ?TIMEOUT_MAN ->
+                error_logger:error_msg("WS msg collector fails to receive response : timeout~n")
+            end;
+        _ ->
+            ok
+    end.    
 
 stop(_State) ->
     error_logger:info_msg("Message server stops.~n"),
