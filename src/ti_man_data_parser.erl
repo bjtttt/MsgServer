@@ -565,7 +565,7 @@ get_phone_name_list(PhoneNameList) ->
 %%% List : [ID0, ID1, ID2, ...]
 %%%
 create_gen_resp(SN, Sid, List, Status) ->
-    Bool = is_string(Sid),
+    Bool = ti_common:is_string(Sid),
     if
         is_integer(SN) andalso Bool andalso is_integer(Status) andalso Status >= 0 andalso Status =< 3 ->
             MIDStr = "\"MID\":\"0x0001\"",
@@ -573,7 +573,7 @@ create_gen_resp(SN, Sid, List, Status) ->
             SidStr = string:concat("\"SID\":", Sid),
             VIDListStr = string:concat(string:concat("\"LIST\":[",  create_list(["\"VID\""], List, false)), "]"),
             StatusStr = string:concat("\"STATUS\":", integer_to_list(Status)),
-            {ok, combine_strings([MIDStr, SNStr, SidStr, VIDListStr, StatusStr])};
+            {ok, ti_common:combine_strings([MIDStr, SNStr, SidStr, VIDListStr, StatusStr])};
         true ->
             error
     end.
@@ -585,7 +585,7 @@ create_gen_resp(SN, Sid, List, Status) ->
 create_term_online(List) ->
     MIDStr = "\"MID\":\"0x0003\"",
     VIDListStr = string:concat(string:concat("\"LIST\":[",  create_list(["\"VID\""], List, false)), "]"),
-    {ok, combine_strings([MIDStr, VIDListStr])}.
+    {ok, ti_common:combine_strings([MIDStr, VIDListStr])}.
 
 %%%
 %%% MID : 0x0004
@@ -594,7 +594,7 @@ create_term_online(List) ->
 create_term_offline(List) ->
     MIDStr = "\"MID\":\"0x0004\"",
     VIDListStr = string:concat(string:concat("\"LIST\":[",  create_list(["\"VID\""], List, false)), "]"),
-    {ok, combine_strings([MIDStr, VIDListStr])}.
+    {ok, ti_common:combine_strings([MIDStr, VIDListStr])}.
 
 %%%
 %%% MID : 0x0200
@@ -607,7 +607,7 @@ create_term_alarm(List, SN, Code, AF, SF, Lat, Long, T) ->
             SNStr = string:concat("\"SN\":", integer_to_list(SN)),
             VIDListStr = string:concat(string:concat("\"LIST\":[",  create_list(["\"VID\""], List, false)), "]"),
             DataListStr = string:concat(string:concat("\"DATA\":{",  create_list(["\"CODE\"", "\"AF\"", "\"SF\"", "\"LAT\"", "\"LONG\"", "\"T\""], [Code, AF, SF, Lat, Long, T], true)), "}"),
-            {ok, combine_strings([MIDStr, SNStr, VIDListStr, DataListStr])};
+            {ok, ti_common:combine_strings([MIDStr, SNStr, VIDListStr, DataListStr])};
         true ->
             error
     end.
@@ -622,7 +622,7 @@ create_term_answer(SN, List, IDList) ->
             SNStr = string:concat("\"SN\":", integer_to_list(SN)),
             VIDListStr = string:concat(string:concat("\"LIST\":[",  create_list(["\"VID\""], List, false)), "]"),
             DataListStr = string:concat(string:concat("\"DATA\":{",  create_list(["\"ID\""], IDList, true)), "}"),
-            {ok, combine_strings([MIDStr, SNStr, VIDListStr, DataListStr])};
+            {ok, ti_common:combine_strings([MIDStr, SNStr, VIDListStr, DataListStr])};
         true ->
             error
     end.
@@ -640,10 +640,10 @@ create_vehicle_ctrl_answer(SN, Status, List, DataList) ->
             case Status of
                 1 ->
                     DataListStr = string:concat(string:concat("\"DATA\":{",  create_list(["\"FLAG\""], DataList, true)), "}"),
-                    {ok, combine_strings([MIDStr, SNStr, StatusStr, VIDListStr, DataListStr])};
+                    {ok, ti_common:combine_strings([MIDStr, SNStr, StatusStr, VIDListStr, DataListStr])};
                 _ ->
                     DataListStr = "\"DATA\":{}",
-                    {ok, combine_strings([MIDStr, SNStr, StatusStr, VIDListStr, DataListStr])}
+                    {ok, ti_common:combine_strings([MIDStr, SNStr, StatusStr, VIDListStr, DataListStr])}
             end;
         true ->
             error
@@ -662,10 +662,10 @@ create_shot_resp(SN, List, Status, IDList) ->
             case Status of
                 0 ->
                     DataListStr = string:concat(string:concat("\"DATA\":[",  create_list(["\"ID\""], IDList, false)), "]"),
-                    {ok, combine_strings([MIDStr, SNStr, StatusStr, VIDListStr, DataListStr])};
+                    {ok, ti_common:combine_strings([MIDStr, SNStr, StatusStr, VIDListStr, DataListStr])};
                 _ ->
                     DataListStr = "\"DATA\":[]",
-                    {ok, combine_strings([MIDStr, SNStr, StatusStr, VIDListStr, DataListStr])}
+                    {ok, ti_common:combine_strings([MIDStr, SNStr, StatusStr, VIDListStr, DataListStr])}
             end;
         true ->
             error
@@ -695,16 +695,16 @@ create_list(IDList, List, IsOne) ->
                                 [] ->
                                     case IsOne of
                                         true ->
-                                            combine_strings([ID, ":", SVal]);
+                                            ti_common:combine_strings([ID, ":", SVal]);
                                         _ ->
-                                            combine_strings(["{", ID, ":", SVal, "}"])
+                                            ti_common:combine_strings(["{", ID, ":", SVal, "}"])
                                         end;
                                 _ ->
                                     case IsOne of
                                         true ->
-                                            combine_strings(lists:append([ID, ":", SVal, ","], [create_list(IDList, T, IsOne)]));
+                                            ti_common:combine_strings(lists:append([ID, ":", SVal, ","], [create_list(IDList, T, IsOne)]));
                                         _ ->
-                                            combine_strings(lists:append(["{", ID, ":", SVal, "},"], [create_list(IDList, T, IsOne)]))
+                                            ti_common:combine_strings(lists:append(["{", ID, ":", SVal, "},"], [create_list(IDList, T, IsOne)]))
                                     end
                             end;
                         _ ->
@@ -715,16 +715,16 @@ create_list(IDList, List, IsOne) ->
                                         [] ->
                                             case IsOne of
                                                 true ->
-                                                    combine_strings([ID, ":", SVal]);
+                                                    ti_common:combine_strings([ID, ":", SVal]);
                                                 _ ->
-                                                    combine_strings(["{", ID, ":", SVal, "}"])
+                                                    ti_common:combine_strings(["{", ID, ":", SVal, "}"])
                                                 end;
                                         _ ->
                                             case IsOne of
                                                 true ->
-                                                    combine_strings(lists:append([ID, ":", SVal, ","], [create_list(IDList, T, IsOne)]));
+                                                    ti_common:combine_strings(lists:append([ID, ":", SVal, ","], [create_list(IDList, T, IsOne)]));
                                                 _ ->
-                                                    combine_strings(lists:append(["{", ID, ":", SVal, "},"], [create_list(IDList, T, IsOne)]))
+                                                    ti_common:combine_strings(lists:append(["{", ID, ":", SVal, "},"], [create_list(IDList, T, IsOne)]))
                                             end
                                     end;
                                 _ ->
@@ -735,35 +735,35 @@ create_list(IDList, List, IsOne) ->
                                                 [] ->
                                                     case IsOne of
                                                         true ->
-                                                            combine_strings([ID, ":", SVal]);
+                                                            ti_common:combine_strings([ID, ":", SVal]);
                                                         _ ->
-                                                            combine_strings(["{", ID, ":", SVal, "}"])
+                                                            ti_common:combine_strings(["{", ID, ":", SVal, "}"])
                                                         end;
                                                 _ ->
                                                     case IsOne of
                                                         true ->
-                                                            combine_strings(lists:append([ID, ":", SVal, ","], [create_list(IDList, T, IsOne)]));
+                                                            ti_common:combine_strings(lists:append([ID, ":", SVal, ","], [create_list(IDList, T, IsOne)]));
                                                         _ ->
-                                                            combine_strings(lists:append(["{", ID, ":", SVal, "},"], [create_list(IDList, T, IsOne)]))
+                                                            ti_common:combine_strings(lists:append(["{", ID, ":", SVal, "},"], [create_list(IDList, T, IsOne)]))
                                                     end
                                             end;
                                         _ ->
-                                            case is_string(Val) of
+                                            case ti_common:is_string(Val) of
                                                 true ->
                                                     case T of
                                                         [] ->
                                                             case IsOne of
                                                                 true ->
-                                                                    combine_strings([ID, ":", Val]);
+                                                                    ti_common:combine_strings([ID, ":", Val]);
                                                                 _ ->
-                                                                    combine_strings(["{", ID, ":", Val, "}"])
+                                                                    ti_common:combine_strings(["{", ID, ":", Val, "}"])
                                                                 end;
                                                         _ ->
                                                             case IsOne of
                                                                 true ->
-                                                                    combine_strings(lists:append([ID, ":", Val, ","], [create_list(IDList, T, IsOne)]));
+                                                                    ti_common:combine_strings(lists:append([ID, ":", Val, ","], [create_list(IDList, T, IsOne)]));
                                                                 _ ->
-                                                                    combine_strings(lists:append(["{", ID, ":", Val, "},"], [create_list(IDList, T, IsOne)]))
+                                                                    ti_common:combine_strings(lists:append(["{", ID, ":", Val, "},"], [create_list(IDList, T, IsOne)]))
                                                             end
                                                     end;
                                                 _ ->
@@ -792,16 +792,16 @@ create_list(IDList, List, IsOne) ->
                                 [] ->
                                     case IsOne of
                                         true ->
-                                            combine_strings([ID, ":", SVal]);
+                                            ti_common:combine_strings([ID, ":", SVal]);
                                         _ ->
-                                            combine_strings(["{", ID, ":", SVal, "}"])
+                                            ti_common:combine_strings(["{", ID, ":", SVal, "}"])
                                         end;
                                 _ ->
                                     case IsOne of
                                         true ->
-                                            combine_strings(lists:append([ID, ":", SVal, ","], [create_list(IDTail, ValTail, IsOne)]));
+                                            ti_common:combine_strings(lists:append([ID, ":", SVal, ","], [create_list(IDTail, ValTail, IsOne)]));
                                         _ ->
-                                            combine_strings(lists:append(["{", ID, ":", SVal, "},"], [create_list(IDTail, ValTail, IsOne)]))
+                                            ti_common:combine_strings(lists:append(["{", ID, ":", SVal, "},"], [create_list(IDTail, ValTail, IsOne)]))
                                     end
                             end;
                         _ ->
@@ -812,16 +812,16 @@ create_list(IDList, List, IsOne) ->
                                         [] ->
                                             case IsOne of
                                                 true ->
-                                                    combine_strings([ID, ":", SVal]);
+                                                    ti_common:combine_strings([ID, ":", SVal]);
                                                 _ ->
-                                                    combine_strings(["{", ID, ":", SVal, "}"])
+                                                    ti_common:combine_strings(["{", ID, ":", SVal, "}"])
                                                 end;
                                         _ ->
                                             case IsOne of
                                                 true ->
-                                                    combine_strings(lists:append([ID, ":", SVal, ","], [create_list(IDTail, ValTail, IsOne)]));
+                                                    ti_common:combine_strings(lists:append([ID, ":", SVal, ","], [create_list(IDTail, ValTail, IsOne)]));
                                                 _ ->
-                                                    combine_strings(lists:append(["{", ID, ":", SVal, "},"], [create_list(IDTail, ValTail, IsOne)]))
+                                                    ti_common:combine_strings(lists:append(["{", ID, ":", SVal, "},"], [create_list(IDTail, ValTail, IsOne)]))
                                             end
                                     end;
                                 _ ->
@@ -832,35 +832,35 @@ create_list(IDList, List, IsOne) ->
                                                 [] ->
                                                     case IsOne of
                                                         true ->
-                                                            combine_strings([ID, ":", SVal]);
+                                                            ti_common:combine_strings([ID, ":", SVal]);
                                                         _ ->
-                                                            combine_strings(["{", ID, ":", SVal, "}"])
+                                                            ti_common:combine_strings(["{", ID, ":", SVal, "}"])
                                                         end;
                                                 _ ->
                                                     case IsOne of
                                                         true ->
-                                                            combine_strings(lists:append([ID, ":", SVal, ","], [create_list(IDTail, ValTail, IsOne)]));
+                                                            ti_common:combine_strings(lists:append([ID, ":", SVal, ","], [create_list(IDTail, ValTail, IsOne)]));
                                                         _ ->
-                                                            combine_strings(lists:append(["{", ID, ":", SVal, "},"], [create_list(IDTail, ValTail, IsOne)]))
+                                                            ti_common:combine_strings(lists:append(["{", ID, ":", SVal, "},"], [create_list(IDTail, ValTail, IsOne)]))
                                                     end
                                             end;
                                         _ ->
-                                            case is_string(Val) of
+                                            case ti_common:is_string(Val) of
                                                 true ->
                                                     case ValTail of
                                                         [] ->
                                                             case IsOne of
                                                                 true ->
-                                                                    combine_strings([ID, ":", Val]);
+                                                                    ti_common:combine_strings([ID, ":", Val]);
                                                                 _ ->
-                                                                    combine_strings(["{", ID, ":", Val, "}"])
+                                                                    ti_common:combine_strings(["{", ID, ":", Val, "}"])
                                                                 end;
                                                         _ ->
                                                             case IsOne of
                                                                 true ->
-                                                                    combine_strings(lists:append([ID, ":", Val, ","], [create_list(IDTail, ValTail, IsOne)]));
+                                                                    ti_common:combine_strings(lists:append([ID, ":", Val, ","], [create_list(IDTail, ValTail, IsOne)]));
                                                                 _ ->
-                                                                    combine_strings(lists:append(["{", ID, ":", Val, "},"], [create_list(IDTail, ValTail, IsOne)]))
+                                                                    ti_common:combine_strings(lists:append(["{", ID, ":", Val, "},"], [create_list(IDTail, ValTail, IsOne)]))
                                                             end
                                                     end;
                                                 _ ->
@@ -877,53 +877,6 @@ create_list(IDList, List, IsOne) ->
             end
     end.
 
-%%%
-%%%
-%%%
-is_string(Value) ->
-    case is_list(Value) of
-        true ->
-            Fun = fun(X) ->
-                          if X < 0 -> false; 
-                             X > 255 -> false;
-                             true -> true
-                          end
-                  end,
-            lists:all(Fun, Value);
-        _ ->
-            false
-    end.
-
-%%%
-%%% List must be string list
-%%%
-combine_strings(List) ->
-    case List of
-        [] ->
-            "";
-        _ ->
-            Fun = fun(X) ->
-                          case is_string(X) of
-                              true ->
-                                  true;
-                              _ ->
-                                  false
-                          end
-                  end,
-            Bool = lists:all(Fun, List),
-            case Bool of
-                true ->
-                    [H|T] = List,
-                    case T of
-                        [] ->
-                            H;
-                        _ ->
-                            string:concat(string:concat(H, ","), combine_strings(T))
-                    end;
-                _ ->
-                    ""
-            end
-    end.
             
 
 

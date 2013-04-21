@@ -29,14 +29,15 @@ start_link(DB, PortDB) ->
 %%% If a transient application terminates with Reason == normal, this is reported but no other applications are terminated. If a transient application terminates abnormally, all other applications and the entire Erlang node are also terminated.
 %%% If a temporary application terminates, this is reported but no other applications are terminated.
 %%%
-init([DB, PortDB]) ->
-    {ok, #dbstate{db=DB, dbport=PortDB}, 0}.
+init([DB, PortDB, DBDSN, DBName, DBUid, DBPwd]) ->
+    Connection = ti_common:combine_strings(["DSN=", DBDSN, ";SERVER=", DB, ";PORT=", PortDB, ";DATABASE=", DBDSN, ";UID=admin;PWD=admin"]),
+    {ok, #dbstate{db=DB, dbport=PortDB, dbdsn=DBDSN, dbname=DBName, dbuid=DBUid, dbpwd=DBPwd}, 0}.
 
 handle_call(Msg, _From, State) ->
     {reply, {ok, Msg}, State}.
 
 handle_cast({send, Data}, State) ->
-    DBRef = State#dbstate.dbref,
+    %DBRef = State#dbstate.dbref,
     {noreply, State};
 handle_cast(close, State) ->
     DBRef = State#dbstate.dbref,
@@ -58,8 +59,12 @@ handle_cast(stop, State) ->
 handle_info(timeout, State) ->
     case odbc:start(permanent) of
         ok ->
+            % DBDSN should be investigated and should be inserted into dbstate
             [{dbdsn, DBDSN}] = ets:lookup(msgservertable, dbdsn),
-            Connection = string:concat(string:concat("DSN=", DBDSN), "UID=aladdin;PWD=sesame"),
+            [{dbdsn, DBName}] = ets:lookup(msgservertable, dbname),
+            DB = State#dbstate.db,
+            DBPort = integer_to_list(State#dbstate.dbport),
+            Connection = ti_common:combine_strings(["DSN=", DBDSN, ";SERVER=", DB, ";PORT=", DBPort, ";DATABASE=", DBDSN, ";UID=admin;PWD=admin"]),
             case odbc:connect(Connection, []) of
                 {ok, Ref} ->
                     ets:insert(msgservertable, {dbref, Ref}),

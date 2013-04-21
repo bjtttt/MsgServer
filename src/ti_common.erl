@@ -5,7 +5,8 @@
 -module(ti_common).
 
 -export([number_list_to_binary/2,
-        removemsgfromlistbyflownum/2]).
+         removemsgfromlistbyflownum/2,
+         combine_strings/1]).
 
 -export([set_sockopt/3]).
 
@@ -233,6 +234,54 @@ loginfo(Format, Data) ->
             ok
     end.
 
+%%%
+%%% List must be string list.
+%%% Otherwise, an empty string will be returned.
+%%%
+combine_strings(List) ->
+    case List of
+        [] ->
+            "";
+        _ ->
+            Fun = fun(X) ->
+                          case is_string(X) of
+                              true ->
+                                  true;
+                              _ ->
+                                  false
+                          end
+                  end,
+            Bool = lists:all(Fun, List),
+            case Bool of
+                true ->
+                    [H|T] = List,
+                    case T of
+                        [] ->
+                            H;
+                        _ ->
+                            string:concat(string:concat(H, ","), combine_strings(T))
+                    end;
+                _ ->
+                    ""
+            end
+    end.
+
+%%%
+%%%
+%%%
+is_string(Value) ->
+    case is_list(Value) of
+        true ->
+            Fun = fun(X) ->
+                          if X < 0 -> false; 
+                             X > 255 -> false;
+                             true -> true
+                          end
+                  end,
+            lists:all(Fun, Value);
+        _ ->
+            false
+    end.
 
 
 

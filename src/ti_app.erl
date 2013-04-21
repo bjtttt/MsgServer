@@ -15,6 +15,12 @@
 %%% start/1 is useless and will be removed in the future
 -export([start/1]).
 
+%host: 42.96.146.34
+%user: optimus
+%passwd: opt123450
+%port:3306
+%dbname: gps_database
+
 %%%
 %%% rawdisplay  : 0 -> error_logger
 %%%               1 -> terminal
@@ -23,15 +29,18 @@
 %%%
 start(StartType, StartArgs) ->
     ets:new(msgservertable,[set,public,named_table,{keypos,1},{read_concurrency,true},{write_concurrency,true}]),
-    [PortVDR, PortMan, PortMon, DB, PortDB, WS, PortWS, DBDSN, RawDisplay, Display] = StartArgs,
+    [PortVDR, PortMon, WS, PortWS, DB, PortDB, DBDSN, DBName, DBUid, DBPwd, RawDisplay, Display] = StartArgs,
     ets:insert(msgservertable, {portvdr, PortVDR}),
-    ets:insert(msgservertable, {portman, PortMan}),
+    %ets:insert(msgservertable, {portman, PortMan}),
     ets:insert(msgservertable, {portmon, PortMon}),
-    ets:insert(msgservertable, {db, DB}),
-    ets:insert(msgservertable, {portdb, PortDB}),
     ets:insert(msgservertable, {ws, WS}),
     ets:insert(msgservertable, {portws, PortWS}),
+    ets:insert(msgservertable, {db, DB}),
+    ets:insert(msgservertable, {portdb, PortDB}),
     ets:insert(msgservertable, {dbdsn, DBDSN}),
+    ets:insert(msgservertable, {dbname, DBName}),
+    ets:insert(msgservertable, {dbname, DBUid}),
+    ets:insert(msgservertable, {dbname, DBPwd}),
     ets:insert(msgservertable, {dbpid, undefined}),
     ets:insert(msgservertable, {wspid, undefined}),
     ets:insert(msgservertable, {dbref, undefined}),
@@ -94,29 +103,29 @@ start(StartType, StartArgs) ->
 %%%
 %%% Communication with websocket server
 %%%
-ws_msg_collector_process() ->
-    receive
-        {Pid, {Type, Data}} ->
-            try ws_msg_sendread(Pid, Type, Data)
-            catch
-                _:Why ->
-                    error_logger:error_msg("WS msg collector fails to send data : ~p~n", [Why])
-            end,
-            ws_msg_collector_process();
-        stop ->
-            ets:delete(msgservertable, wsmsgpid),
-            error_logger:info_msg("WS msg collector stops~n");
-        _Unknown ->
-            ws_msg_collector_process()
-    %after ?TIMEOUT_MAN ->
-    %        ws_msg_collector_process()
-    end.
+%ws_msg_collector_process() ->
+%    receive
+%        {Pid, {Type, Data}} ->
+%            try ws_msg_sendread(Pid, Type, Data)
+%            catch
+%                _:Why ->
+%                    error_logger:error_msg("WS msg collector fails to send data : ~p~n", [Why])
+%            end,
+%            ws_msg_collector_process();
+%        stop ->
+%            ets:delete(msgservertable, wsmsgpid),
+%            error_logger:info_msg("WS msg collector stops~n");
+%        _Unknown ->
+%            ws_msg_collector_process()
+%    %after ?TIMEOUT_MAN ->
+%    %        ws_msg_collector_process()
+%    end.
 
 %%%
 %%%
 %%%
-ws_msg_sendread(_Pid, _Type, Data) ->
-    ti_ws_fsm_client:send(Data).%,
+%ws_msg_sendread(_Pid, _Type, Data) ->
+%    ti_ws_fsm_client:send(Data).%,
     %case Type of
     %    true ->
     %        receive
