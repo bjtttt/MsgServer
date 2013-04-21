@@ -32,7 +32,7 @@ start(StartType, StartArgs) ->
     ets:insert(msgservertable, {ws, WS}),
     ets:insert(msgservertable, {portws, PortWS}),
     ets:insert(msgservertable, {dbdsn, DBDSN}),
-    ets:insert(msgservertable, {dbconnpid, undefined}),
+    ets:insert(msgservertable, {dbpid, undefined}),
     ets:insert(msgservertable, {wspid, undefined}),
     ets:insert(msgservertable, {dbref, undefined}),
     ets:insert(msgservertable, {rawdisplay, RawDisplay}),
@@ -51,11 +51,11 @@ start(StartType, StartArgs) ->
             error_logger:info_msg("Message server starts~n"),
             error_logger:info_msg("Application PID is ~p~n", [AppPid]),
             error_logger:info_msg("Supervisor PID : ~p~n", [SupPid]),
-            case ti_ws_fsm_client:start(WS, PortWS, "/") of
-                {ok, WSPid} ->
-                    error_logger:info_msg("WS client PID is ~p~n", [WSPid]),
-                    WSMsgPid = spawn(fun() -> ws_msg_collector_process() end),
-                    ets:insert(msgservertable, {wsmsgpid, WSMsgPid}),
+            %case ti_ws_fsm_client:start(WS, PortWS, "/") of
+            %    {ok, WSPid} ->
+            %        error_logger:info_msg("WS client PID is ~p~n", [WSPid]),
+            %        WSMsgPid = spawn(fun() -> ws_msg_collector_process() end),
+            %        ets:insert(msgservertable, {wsmsgpid, WSMsgPid}),
                     {ok, AppPid};
                     %case ti_ws_fsm_client:start(WS, PortWS, "/") of
                     %    {ok, WSPid} ->
@@ -66,11 +66,11 @@ start(StartType, StartArgs) ->
                     %    {error, Error} ->
                     %        error_logger:error_msg("WS client fails to start : ~p~n", [Error])
                     %end;
-                ignore ->
-                    error_logger:error_msg("WS client fails to start : ignore~n");
-                {error, Error} ->
-                    error_logger:error_msg("WS client fails to start : ~p~n", [Error])
-            end;
+            %    ignore ->
+            %        error_logger:error_msg("WS client fails to start : ignore~n");
+            %    {error, Error} ->
+            %        error_logger:error_msg("WS client fails to start : ~p~n", [Error])
+            %end;
         ignore ->
             error_logger:error_msg("Message server fails to start : ignore~n"),
             ignore;
@@ -112,21 +112,24 @@ ws_msg_collector_process() ->
     %        ws_msg_collector_process()
     end.
 
-ws_msg_sendread(Pid, Type, Data) ->
-    ti_ws_fsm_client:send(Data),
-    case Type of
-        true ->
-            receive
-                {sent, Resp} ->
-                    Pid!Resp;
-                _ ->
-                    ok
-            after ?TIMEOUT_MAN ->
-                error_logger:error_msg("WS msg collector fails to receive response : timeout~n")
-            end;
-        _ ->
-            ok
-    end.    
+%%%
+%%%
+%%%
+ws_msg_sendread(_Pid, _Type, Data) ->
+    ti_ws_fsm_client:send(Data).%,
+    %case Type of
+    %    true ->
+    %        receive
+    %            {sent, Resp} ->
+    %                Pid!Resp;
+    %            _ ->
+    %                ok
+    %        after ?TIMEOUT_MAN ->
+    %            error_logger:error_msg("WS msg collector fails to receive response : timeout~n")
+    %        end;
+    %    _ ->
+    %        ok
+    %end.    
 
 stop(_State) ->
     error_logger:info_msg("Message server stops.~n"),

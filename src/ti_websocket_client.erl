@@ -45,14 +45,14 @@ init([Hostname, Port]) ->
     process_flag(trap_exit, true),
     case gen_tcp:connect(Hostname, Port, [binary, {packet, 0}, {active,true}]) of
         {ok, Socket} ->
-            Request = "{\"MID\":0x0005, \"TOKEN\":\"anystring\"}",
-                        %"GET / HTTP/1.1\r\nUpgrade: WebSocket\r\nConnection: Upgrade\r\n" ++
-                        %  "Host: " ++ Hostname ++ "\r\n" ++ "Origin: http://" ++ Hostname ++ "/\r\n\r\n",
+            Request = %"{\"MID\":0x0005, \"TOKEN\":\"anystring\"}",
+                      "GET / HTTP/1.1\r\nUpgrade: WebSocket\r\nConnection: Upgrade\r\n" ++
+                      "Host: " ++ Hostname ++ "\r\n" ++ "Origin: ws://" ++ Hostname ++ ":9090/\r\n\r\n",
             case gen_tcp:send(Socket, Request) of
                 ok ->
                     inet:setopts(Socket, [{packet, http}]),    
                     Pid = self(),
-                    WSPid = spawn(fun() -> msg2websocket_process(Pid, Socket) end),
+                    WSPid = spawn(fun() -> msg2ws_process(Pid, Socket) end),
                     ets:insert(msgservertable, {wspid, WSPid}),
                     {ok, #wsstate{socket=Socket, pid=Pid, wspid=WSPid}};
                 {error, Reason} ->
@@ -67,20 +67,24 @@ init([Hostname, Port]) ->
 handle_call(_Request, _From, State) ->
     {noreply, ok, State}.
 
+handle_cast({send, Data}, State) ->
+    gen_tcp:send(State#wsstate.socket,[0] ++ Data ++ [255]),
+    {noreply, State};
+handle_cast(close, State) ->
+    gen_tcp:close(State#wsstate.socket),
+    {stop, normal, State#wsstate{state=?CLOSED}};
 handle_cast(_Msg, State) ->    
     {noreply, State}. 
 
 %% Start handshake
 handle_info({http, Socket, {http_response, {1, 1}, 101, "Web Socket Protocol Handshake"}}, State) ->
-    NewState = State#wsstate{state=?CONNECTING, socket=Socket},
-    {noreply, NewState};
+    {noreply, State#wsstate{state=?CONNECTING, socket=Socket}};
 %% Extract the headers
 handle_info({http, Socket, {http_header, _, Name, _, Value}},State) ->
     case State#wsstate.state of
         ?CONNECTING ->
             H = [{Name, Value} | State#wsstate.headers],
-            NewState = State#wsstate{headers=H, socket=Socket},
-            {noreply, NewState};
+            {noreply, State#wsstate{headers=H, socket=Socket}};
         undefined ->
             %% Bad state should have received response first
             {stop, error, State}
@@ -124,10 +128,14 @@ handle_info({tcp_error, _Socket, _Reason},State) ->
 handle_info({'EXIT', _Pid, _Reason},State) ->
     {noreply, State}.
 
-terminate(Reason, _State) ->
+terminate(Reason, State) ->
     ets:insert(msgservertable, {wspid, undefined}),
-    error_logger:info_msg("Terminated ~p~n", [Reason]),
-    ok.
+    WSPid = State#wsstate.wspid,
+    WSPid!stop,
+    
+    error_logger:error_msg("WS client is terminated ~p~n", [Reason]),
+    error_logger:error_msg("Msg server is terminated~n"),
+    application:stop(ti_app).
 
 code_change(_OldVsn, State, _Extra) ->
     {ok, State}.
@@ -136,21 +144,22 @@ unframe([0|T]) -> unframe1(T).
 unframe1([255]) -> [];
 unframe1([H|T]) -> [H|unframe1(T)].
 
-msg2websocket_process(Pid, Socket) ->
+msg2ws_process(Pid, Sock) ->
     receive
         {FromPid, {data, Data}} ->
             % Communicate with DB here
             FromPid,
             %process_message(FromPid, Ref, Data),
-            msg2websocket_process(Pid, Socket);
+            gen_server:cast(?MODULE, {send, Data}),
+            msg2ws_process(Pid, Sock);
         {FromPid, Data} ->
-            ti_common:logerror("DB connection process : unknown message from PID ~p : ~p~n", [FromPid, Data]),
-            msg2websocket_process(Pid, Socket);
+            ti_common:logerror("msg2ws process : unknown message from PID ~p : ~p~n", [FromPid, Data]),
+            msg2ws_process(Pid, Sock);
         stop ->
             true
-    after ?TIMEOUT_DATA_DB ->
-        ti_common:loginfo("DB connection process : receiving PID message timeout after ~p~n", [?TIMEOUT_DB]),
-        msg2websocket_process(Pid, Socket)
+    after ?TIMEOUT_MAN ->
+        ti_common:loginfo("msg2ws process : timeout~n", [?TIMEOUT_MAN]),
+        msg2ws_process(Pid, Sock)
     end.
 
 

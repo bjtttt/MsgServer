@@ -65,8 +65,9 @@
          create_stomuldata_update/6,
          create_record_start_order/4,
          create_sinstomuldatasea_update_order/2,
-         create_data_send/2,
-         create_rsa/2
+         create_data_dl_transparent/2,
+         %create_data_ul_send/2,         
+         create_platform_rsa/2
 	]).
 
 %%%
@@ -135,12 +136,12 @@ do_parse_msg_body(ID, Body) ->
             parse_stomuldata_response(Body);
         16#805  ->
             parse_imm_photo_cmd_response(Body);
-        2304 ->                     % 0x0900
-            parse_data_update(Body);
-        2305 ->                     % 0x0901
-            parse_compress_update(Body);
-        2560 ->                     % 0x0a00
-            parse_rsa(Body);
+        16#900  ->
+            parse_data_ul_transparent(Body);
+        16#901  ->
+            parse_data_compress_update(Body);
+        16#a00  ->
+            parse_term_rsa(Body);
         _ ->
             {error, unsupported}
     end.
@@ -1583,21 +1584,22 @@ create_sinstomuldatasea_update_order(MediaId,DelSymbol) ->
 %%%
 %%%0x8900
 %%%
-create_data_send(MsgType,MsgCon) ->
+create_data_dl_transparent(MsgType,MsgCon) ->
     MC = term_to_binary(MsgCon),
+    % Not complete
     <<MsgType:8,MC/binary>>.
 
 %%%
-%%% 0x0900
+%%%0x9000
 %%%
-parse_data_update(Bin) ->
+parse_data_ul_transparent(Bin) ->
     <<Type:8,Con/binary>> = Bin,
     {ok,{Type,Con}}.
 
 %%%
 %%% 0x0901
 %%%
-parse_compress_update(Bin) ->
+parse_data_compress_update(Bin) ->
     <<Len:32,Body/binary>> = Bin,
     {ok,{Len,Body}}.
 
@@ -1605,13 +1607,13 @@ parse_compress_update(Bin) ->
 %%% 0x8a00
 %%% Byte array to binary????
 %%%
-create_rsa(E,N) ->
+create_platform_rsa(E,N) ->
     <<E:32,N/binary>>.
 
 %%%
 %%% 0x0a00
 %%%
-parse_rsa(Bin) ->
+parse_term_rsa(Bin) ->
     <<E:32,N/binary>> = Bin,
     {ok,{E,N}}.
 

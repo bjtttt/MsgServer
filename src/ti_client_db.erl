@@ -35,40 +35,45 @@ init([DB, PortDB]) ->
 handle_call(Msg, _From, State) ->
     {reply, {ok, Msg}, State}.
 
+handle_cast({send, Data}, State) ->
+    DBRef = State#dbstate.dbref,
+    {noreply, State};
+handle_cast(close, State) ->
+    DBRef = State#dbstate.dbref,
+    odbc:disconnect(DBRef),
+    {stop, normal, State#dbstate{dbref=undefined}};
 handle_cast(stop, State) ->
     {stop, normal, State}.
 
-handle_info({tcp, Socket, Data}, State) ->
-    ti_common:printsocketinfo(Socket, "ERROR : DB Client receives data from"),
-    ti_common:logerror("ERROR : DB Client receives data : ~p~n", [Data]),
-    %NewState = handle_data(Socket, Data, State),
-    %{noreply, NewState};
-    {noreply, State};
-handle_info({tcp_closed, Socket}, State) ->
-    ti_common:printsocketinfo(Socket, "DB Client receives tcp_closed from"),
-    stop_db(),
-    {stop, normal, State};
+%handle_info({tcp, Socket, Data}, State) ->
+%    ti_common:printsocketinfo(Socket, "ERROR : DB Client receives data from"),
+%    ti_common:logerror("ERROR : DB Client receives data : ~p~n", [Data]),
+%    %NewState = handle_data(Socket, Data, State),
+%    %{noreply, NewState};
+%    {noreply, State};
+%handle_info({tcp_closed, Socket}, State) ->
+%    ti_common:printsocketinfo(Socket, "DB Client receives tcp_closed from"),
+%    stop_db(),
+%    {stop, normal, State};
 handle_info(timeout, State) ->
-    {noreply, State}.
-    % comment for debug.    
-    %case odbc:start(permanent) of
-    %    ok ->
-    %        [{dbdsn, DBDSN}] = ets:lookup(msgservertable, dbdsn),
-    %        Connection = string:concat(string:concat("DSN=", DBDSN), "UID=aladdin;PWD=sesame"),
-    %        case odbc:connect(Connection, []) of
-    %            {ok, Ref} ->
-    %                ets:insert(msgservertable, {dbref, Ref}),
-    %                Pid = spawn(fun() -> db_message_processor(Ref) end),
-    %                ets:insert(msgservertable, {dbconnpid, Pid}),
-    %                {noreply, #dbstate{dbref=Ref, dbconnpid=Pid}=State};
-    %            {error, Reason} ->
-    %                ti_common:logerror("ODBC cannot connect ~p : ~p~n", [Connection, Reason]),
-    %                {stop, error, Reason}
-    %        end;
-    %    {error, Reason} ->
-    %        ti_common:logerror("ODBC cannot start : ~p~n", [Reason]),
-    %        {stop, error, Reason}
-    %end.
+    case odbc:start(permanent) of
+        ok ->
+            [{dbdsn, DBDSN}] = ets:lookup(msgservertable, dbdsn),
+            Connection = string:concat(string:concat("DSN=", DBDSN), "UID=aladdin;PWD=sesame"),
+            case odbc:connect(Connection, []) of
+                {ok, Ref} ->
+                    ets:insert(msgservertable, {dbref, Ref}),
+                    Pid = spawn(fun() -> db_message_processor(Ref) end),
+                    ets:insert(msgservertable, {dbpid, Pid}),
+                    {noreply, State#dbstate{dbref=Ref, dbpid=Pid}};
+                {error, Reason} ->
+                    ti_common:logerror("ODBC cannot connect ~p : ~p~n", [Connection, Reason]),
+                    {stop, error, Reason}
+            end;
+        {error, Reason} ->
+            ti_common:logerror("ODBC cannot start : ~p~n", [Reason]),
+            {stop, error, Reason}
+    end.
 
 terminate(_Reason, _State) ->
     stop_db().
@@ -112,13 +117,13 @@ process_message(FromPid, Ref, Msg) ->
 	Msg.
 
 stop_db() ->
-    [{dbconnpid, DBConnPid}] = ets:lookup(msgservertable, dbconnpid),
-    case DBConnPid of
+    [{dbpid, DBPid}] = ets:lookup(msgservertable, dbpid),
+    case DBPid of
         undefined ->
             ok;
         _ ->
-            ets:insert(msgservertable, {dbconnpid, undefined}),
-            DBConnPid!stop
+            ets:insert(msgservertable, {dbpid, undefined}),
+            DBPid!stop
     end,
     [{dbref, DBRef}] = ets:lookup(msgservertable, dbref),
     case DBRef of

@@ -89,13 +89,29 @@
                     pid=undefined, 
                     manpid=undefined, 
                     addr=undefined, 
-                    timeout=undefined}).
+                    timeout=undefined
+                 }).
 
--record(monitem, {socket=undefined, pid=undefined, addr=undefined, timeout=undefined}).
+-record(monitem, {  socket=undefined, 
+                    pid=undefined, 
+                    addr=undefined, 
+                    timeout=undefined
+                 }).
 
--record(dbstate, {db=undefined, dbport=undefined, dbref=undefined, dbconnpid=undefined}).
+-record(dbstate, {  db=undefined, 
+                    dbport=undefined, 
+                    dbref=undefined, 
+                    dbpid=undefined,
+                    timeout=undefined
+                 }).
 
--record(wsstate, {socket, state=undefined, headers=[], pid=undefined, wspid=undefined}).
+-record(wsstate, {  socket=undefined, 
+                    state=undefined, 
+                    headers=[], 
+                    pid=undefined, 
+                    wspid=undefined,
+                    timeout=undefined
+                 }).
 
 %%%
 %%% lsock       : Listening socket

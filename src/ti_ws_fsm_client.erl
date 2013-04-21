@@ -206,13 +206,15 @@ on_close(Socket, Callback) ->
 %% @hidden
 -spec init({Host::string(), Port::integer(), Resource::string()}) -> {ok, connecting, #data{}}.
 init({Host, Port, Resource}) ->
-  {ok, Socket} = gen_tcp:connect(Host, Port, [binary, {reuseaddr, true}, {packet, raw}] ),
-
-  {ok, Handshake} = wsock_handshake:open(Resource, Host, Port),
-  Request = wsock_http:encode(Handshake#handshake.message),
-
-  ok = gen_tcp:send(Socket, Request),
-  {ok, connecting, #data{ socket = Socket, handshake = Handshake}}.
+  case gen_tcp:connect(Host, Port, [binary, {reuseaddr, true}, {packet, raw}]) of
+      {ok, Socket} ->
+          {ok, Handshake} = ti_wsock_handshake:open(Resource, Host, Port),
+          Request = ti_wsock_http:encode(Handshake#handshake.message),
+          ok = gen_tcp:send(Socket, Request),
+          {ok, connecting, #data{socket = Socket, handshake = Handshake}};
+      {error, Reason} ->
+          {stop, error, Reason}
+  end.
 
 %% @hidden
 -spec connecting({on_open, Callback::fun()}, StateData::#data{}) -> term();
@@ -232,7 +234,7 @@ open({on_open, Callback}, StateData) ->
   {next_state, open, StateData};
 
 open({send, Data}, StateData) ->
-  Message = wsock_message:encode(Data, [mask, text]),
+  Message = ti_wsock_message:encode(Data, [mask, text]),
   case gen_tcp:send(StateData#data.socket, Message) of
     ok ->
       ok;
@@ -285,7 +287,7 @@ handle_sync_event(stop, _From, connecting, StateData) ->
   {stop, normal, {ok, closing}, StateData};
 
 handle_sync_event(stop, _From, open, StateData) ->
-  Message = wsock_message:encode([], [mask, close]),
+  Message = ti_wsock_message:encode([], [mask, close]),
   case gen_tcp:send(StateData#data.socket, Message) of
     ok ->
       gen_fsm:start_timer(?CLOSE_HANDSHAKE_TIMEOUT, waiting_close_reply),
@@ -297,8 +299,8 @@ handle_sync_event(stop, _From, open, StateData) ->
 %% @hidden
 -spec handle_info({tcp, Socket::gen_tcp:socket(), Data::binary()}, connecting, #data{}) -> {next_state, atom(), #data{}}.
 handle_info({tcp, Socket, Data}, connecting, StateData) ->
-  {ok, Response} = wsock_http:decode(Data, response),
-  case wsock_handshake:handle_response(Response, StateData#data.handshake) of
+  {ok, Response} = ti_wsock_http:decode(Data, response),
+  case ti_wsock_handshake:handle_response(Response, StateData#data.handshake) of
     {ok, _Handshake} ->
       spawn(StateData#data.cb#callbacks.on_open),
       {next_state, open, StateData};
@@ -309,15 +311,15 @@ handle_info({tcp, Socket, Data}, connecting, StateData) ->
 handle_info({tcp, Socket, Data}, open, StateData) ->
   {Messages, State} = case StateData#data.fragmented_message of
     undefined ->
-      {wsock_message:decode(Data, []), StateData};
+      {ti_wsock_message:decode(Data, []), StateData};
     Message ->
-      {wsock_message:decode(Data, Message, []), StateData#data{fragmented_message = undefined}}
+      {ti_wsock_message:decode(Data, Message, []), StateData#data{fragmented_message = undefined}}
   end,
   NewStateData = process_messages(Messages, State),
   {next_state, open, NewStateData};
 
 handle_info({tcp, Socket, Data}, closing, StateData) ->
-  [Message] = wsock_message:decode(Data, []),
+  [Message] = ti_wsock_message:decode(Data, []),
   case Message#message.type of
     close ->
       % if we don't receive a tcp_closed message, move to closed state anyway

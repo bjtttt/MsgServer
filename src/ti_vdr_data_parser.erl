@@ -19,9 +19,9 @@
 %%%
 %%% Parse the data from VDR
 %%% Return :
-%%%     {ok, HeaderInfo, Res, State}
-%%%     {ignore, HeaderInfo, State}
-%%%     {warning, HeaderInfo, ErrorType, State}
+%%%     {ok, HeadInfo, Res, State}
+%%%     {ignore, HeadInfo, State}
+%%%     {warning, HeadInfo, ErrorType, State}
 %%%     {error, exception/dataerror, State}
 %%%
 process_data(State, Data) ->
@@ -35,12 +35,12 @@ process_data(State, Data) ->
 %%%
 %%% Internal usage for parse_data(Socket, State, Data)
 %%% Return :
-%%%     {ok, HeaderInfo, Res, State}
-%%%     {ignore, HeaderInfo, State}
-%%%     {warning, HeaderInfo, ErrorType, State}
+%%%     {ok, HeadInfo, Res, State}
+%%%     {ignore, HeadInfo, State}
+%%%     {warning, HeadInfo, ErrorType, State}
 %%%     {error, dataerror, State}
 %%%
-%%% HeaderInfo = {ID, MsgIdx, Tel, CryptoType}
+%%% HeadInfo = {ID, MsgIdx, Tel, CryptoType}
 %%%
 %%% What is Decoded, still in design
 %%%
@@ -54,7 +54,7 @@ do_process_data(State, Data) ->
         CalcParity == Parity ->
             <<ID:16, Property:16, Tel:48, MsgIdx:16, Tail/binary>> = HeaderBody,
             <<_Reserved:2, Pack:1, CryptoType:3, BodyLen:10>> = Property,
-            HeaderInfo = {ID, MsgIdx, Tel, CryptoType},
+            HeadInfo = {ID, MsgIdx, Tel, CryptoType},
             case Pack of
                 0 ->
                     % Single package message
@@ -64,15 +64,15 @@ do_process_data(State, Data) ->
                         BodyLen == ActBodyLen ->
                             case ti_vdr_msg_body_processor:parse_msg_body(ID, Body) of
                                 {ok, Result} ->
-                                    {ok, HeaderInfo, Result, State};
+                                    {ok, HeadInfo, Result, State};
                                 {error, msgerror} ->
-                                    {warning, HeaderInfo, ?P_GENRESP_ERRMSG, State};
+                                    {warning, HeadInfo, ?P_GENRESP_ERRMSG, State};
                                 {error, unsupported} ->
-                                    {warning, HeaderInfo, ?P_GENRESP_NOTSUPPORT, State}
+                                    {warning, HeadInfo, ?P_GENRESP_NOTSUPPORT, State}
                             end;
                         BodyLen =/= ActBodyLen ->
                             ti_common:logerror("Length error for msg (~p) from (~p) : (Field)~p:(Actual)~p~n", [MsgIdx, State#vdritem.addr, BodyLen, ActBodyLen]),
-                            {warning, HeaderInfo, ?P_GENRESP_ERRMSG, State}
+                            {warning, HeadInfo, ?P_GENRESP_ERRMSG, State}
                     end;
                 1 ->
                     % Multi package message
@@ -82,15 +82,15 @@ do_process_data(State, Data) ->
                     if
                         Total =< 1 ->
                             ti_common:logerror("Total error for msg (~p) from (~p) : ~p~n", [MsgIdx, State#vdritem.addr, Total]),
-                            {warning, HeaderInfo, ?P_GENRESP_ERRMSG, State};
+                            {warning, HeadInfo, ?P_GENRESP_ERRMSG, State};
                         Total > 1 ->
                             if
                                 Index < 1 ->
                                     ti_common:logerror("Index error for msg (~p) from (~p) : (Index)~p~n", [MsgIdx, State#vdritem.addr, Index]),
-                                    {warning, HeaderInfo, ?P_GENRESP_ERRMSG, State};
+                                    {warning, HeadInfo, ?P_GENRESP_ERRMSG, State};
                                 Index > Total ->
                                     ti_common:logerror("Index error for msg (~p) from (~p) : (Total)~p:(Index)~p~n", [MsgIdx, State#vdritem.addr, Total, Index]),
-                                    {warning, HeaderInfo, ?P_GENRESP_ERRMSG, State};
+                                    {warning, HeadInfo, ?P_GENRESP_ERRMSG, State};
                                 Index =< Total ->
                                     if
                                         BodyLen == ActBodyLen ->
@@ -100,16 +100,16 @@ do_process_data(State, Data) ->
                                                         {ok, Result} ->
                                                             {ok, ID, MsgIdx, Result, NewState};
                                                         {warning, msgerror} ->
-                                                            {error, HeaderInfo, ?P_GENRESP_ERRMSG, NewState};
+                                                            {error, HeadInfo, ?P_GENRESP_ERRMSG, NewState};
                                                         {warning, unsupported} ->
-                                                            {error, HeaderInfo, ?P_GENRESP_NOTSUPPORT, NewState}
+                                                            {error, HeadInfo, ?P_GENRESP_NOTSUPPORT, NewState}
                                                     end;
                                                 {notcomplete, NewState} ->
-                                                    {ignore, HeaderInfo, NewState}
+                                                    {ignore, HeadInfo, NewState}
                                             end;
                                         BodyLen =/= ActBodyLen ->
                                             ti_common:logerror("Length error for msg (~p) from (~p) : (Field)~p:(Actual)~p~n", [MsgIdx, State#vdritem.addr, BodyLen, ActBodyLen]),
-                                            {warning, HeaderInfo, ?P_GENRESP_ERRMSG, State}
+                                            {warning, HeadInfo, ?P_GENRESP_ERRMSG, State}
                                     end
                             end
                     end

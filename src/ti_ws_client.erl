@@ -15,13 +15,13 @@
          send/1]).
 
 send(Data) ->
-    websocket_client:write(Data).
+    ti_websocket_client:write(Data).
 
 start() ->
-    websocket_client:start("localhost", 8002, ?MODULE).
+    ti_websocket_client:start("42.96.146.34", 9090, ?MODULE).
 
 start(Hostname, Port) ->
-    websocket_client:start(Hostname, Port, ?MODULE).
+    ti_websocket_client:start(Hostname, Port, ?MODULE).
 
 onmessage(Data) ->
     io:format("Got some data:: ~p~n",[Data]).
@@ -34,5 +34,5 @@ onopen() ->
     send("client-connected").
 
 close() ->
-    websocket_client:close().
+    ti_websocket_client:close().
 

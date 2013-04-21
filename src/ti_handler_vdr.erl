@@ -51,7 +51,9 @@ handle_cast(_Msg, State) ->
 handle_info({tcp, Socket, Data}, State) ->
     case process_vdr_data(Socket, Data, State) of
         {error, dberror, NewState} ->
-            {stop, dbprocerror, NewState};
+            {stop, dbclierror, NewState};
+        {error, wserror, NewState} ->
+            {stop, wsclirror, NewState};
         {error, logicerror, NewState} ->
             inet:setopts(Socket, [{active, once}]),
             {noreply, NewState};
@@ -98,89 +100,75 @@ code_change(_OldVsn, State, _Extra) ->
 %%%     {ok, State}
 %%%     {ok, Resp, State}
 %%%     {warning, State}
-%%%     {error, dberror/logicerror, State}  
-%%%         1. when DB connection process is not available
+%%%     {error, dberror/wserror/logicerror, State}  
+%%%         1. when DB client process is not available
+%%%         1. when Websocket client process is not available
 %%%         2. when VDR ID is unavailable
 %%%         In either case, the connection with VDR will be closed by the server.
 %%%
 %%% Still in design
 %%%
 process_vdr_data(Socket, Data, State) ->
-    % We should check whether the "DB Process PID" and the "VDR ID" is available or not.
-    % If "DB Process PID" is unavailable, we should terminate the current VDR connection as soon as possible.
-    % If "VDR ID" is unavailable, we should check the current message is for registration or login.
     VDRID = State#vdritem.id,
     VDRPid = State#vdritem.vdrpid,
-    [{dbconnpid, DBProcessPid}] = ets:lookup(msgservertable, dbconnpid),
-    case DBProcessPid of
+    [{dbpid, DBPid}] = ets:lookup(msgservertable, dbpid),
+    [{wspid, WSPid}] = ets:lookup(msgservertable, wspid),
+    case DBPid of
         undefined ->
-            ti_common:logerror("VDR from ~p is disconnected because DB client is unavailable~n", [State#vdritem.addr]),
+            ti_common:logerror("Disconnect VDR from ~p because of unavailable DB client process~n", [State#vdritem.addr]),
             {error, dberror, State};
         _ ->
-            case ti_vdr_data_parser:process_data(State, Data) of
-                {ok, HeaderInfo, Msg, NewState} ->
-                    {ID, MsgIdx, _Tel, _CryptoType} = HeaderInfo,
-                    if
-                        VDRID == undefined ->
-                            case ID of
-                                16#100 ->
-                                    % Register VDR
-                                    %{Province, City, Producer, TermModel, TermID, LicColor, LicID} = Msg,
-                                    DBMsg = compose_db_msg(HeaderInfo, Msg),
-                                    DBProcessPid!DBMsg,
-                                    case receive_db_process_msg(DBProcessPid, 0) of
-                                        {ok, DBResp} ->
+            case WSPid of
+                undefined ->
+                    ti_common:logerror("Disconnect VDR from ~p because of unavailable WS client process~n", [State#vdritem.addr]),
+                    {error, wserror, State};
+                _ ->
+                    case ti_vdr_data_parser:process_data(State, Data) of
+                        {ok, HeadInfo, Msg, NewState} ->
+                            {ID, MsgIdx, _Tel, _CryptoType} = HeadInfo,
+                            if
+                                VDRID == undefined ->
+                                    case ID of
+                                        16#100 ->
+                                            % Register VDR
+                                            %{Province, City, Producer, TermModel, TermID, LicColor, LicID} = Msg,
+                                            DBMsg = compose_db_msg(HeadInfo, Msg),
+                                            DBPid!DBMsg,
                                             VDRPid!{ok, {ID, MsgIdx, ?T_GEN_RESP_OK}},
-                                            % We don't need to wait for the response here if the original msg is from the VDR instead of the management platform
                                             {ok, NewState#vdritem{msg2vdr=[], msg=[], req=[]}};
-                                        error ->
-                                            {error, dberror, NewState}
-                                    end;
-                                16#102 ->
-                                    % VDR Authentication
-                                    {Auth} = Msg,
-                                    DBMsg = compose_db_msg(HeaderInfo, Msg),
-                                    DBProcessPid!DBMsg,
-                                    case receive_db_process_msg(DBProcessPid, 0) of
-                                        {ok, DBResp} ->
-                                            % We should check the DB response to verify the authentication.
-                                            % No codes yet.
+                                        16#102 ->
+                                            % VDR Authentication
+                                            {Auth} = Msg,
+                                            DBMsg = compose_db_msg(HeadInfo, Msg),
+                                            DBPid!DBMsg,
                                             IDSockList = ets:lookup(vdridsocktable, Auth),
                                             disconnect_socket_by_id(IDSockList),
                                             IDSock = #vdridsockitem{id=Auth, socket=Socket, addr=State#vdritem.addr},
                                             ets:insert(vdridsocktable, IDSock),
                                             VDRPid!{ok, {ID, MsgIdx, ?T_GEN_RESP_OK}},
-                                            % We don't need to wait for the response here if the original msg is from the VDR instead of the management platform
                                             {ok, NewState#vdritem{id=Auth, msg2vdr=[], msg=[], req=[]}};
-                                        error ->
-                                            {error, dberror, NewState}
+                                        true ->
+                                             {error, logicerror, State}
                                     end;
                                 true ->
-                                     {error, logicerror, State}
-                            end;
-                        true ->
-                            DBMsg = compose_db_msg(HeaderInfo, Msg),
-                            DBProcessPid!DBMsg,
-                            case receive_db_process_msg(DBProcessPid, 0) of
-                                ok ->
+                                    DBMsg = compose_db_msg(HeadInfo, Msg),
+                                    DBPid!DBMsg,
                                     VDRPid!{ok, {ID, MsgIdx, ?T_GEN_RESP_OK}},
-                                    {ok, NewState};
-                                error ->
-                                    {error, dberror, NewState}
-                            end
-                    end;
-                {ignore, HeaderInfo, NewState} ->
-                    {ID, MsgIdx, _Tel, _CryptoType} = HeaderInfo,
-                    VDRPid!{ok, {ID, MsgIdx, ?T_GEN_RESP_OK}},
-                    {ok, NewState};
-                {warning, HeaderInfo, ErrorType, NewState} ->
-                    {ID, MsgIdx, _Tel, _CryptoType} = HeaderInfo,
-                    VDRPid!{ok, {ID, MsgIdx, ErrorType}},
-                    {warning, NewState};
-                {error, dataerror, NewState} ->
-                    {error, logicerror, NewState};
-                {error, exception, NewState} ->
-                    {error, logicerror, NewState}
+                                    {ok, NewState}
+                            end;
+                        {ignore, HeaderInfo, NewState} ->
+                            {ID, MsgIdx, _Tel, _CryptoType} = HeaderInfo,
+                            VDRPid!{ok, {ID, MsgIdx, ?T_GEN_RESP_OK}},
+                            {ok, NewState};
+                        {warning, HeaderInfo, ErrorType, NewState} ->
+                            {ID, MsgIdx, _Tel, _CryptoType} = HeaderInfo,
+                            VDRPid!{ok, {ID, MsgIdx, ErrorType}},
+                            {warning, NewState};
+                        {error, dataerror, NewState} ->
+                            {error, logicerror, NewState};
+                        {error, exception, NewState} ->
+                            {error, logicerror, NewState}
+                    end
             end
     end.
 
@@ -202,35 +190,6 @@ disconnect_socket_by_id(IDSockList) ->
             ets:delete(vdridsocktable, ID),
             disconnect_socket_by_id(T)
     end.
-                
-
-%%%
-%%% Try to receive response from the DB connection process at most 10 times.
-%%% Do we need _Resp from the DB connection process?
-%%% Return :
-%%%     {ok, Resp}
-%%%     {fail, Resp}
-%%%     error
-%%%
-receive_db_process_msg(DBProcessPid, ErrorCount) ->
-    if
-        ErrorCount < ?DB_PROCESS_TRIAL_MAX ->
-            receive
-                {From, Resp} ->
-                    if
-                        From == DBProcessPid ->
-                            {ok, Resp};
-                        From =/= DBProcessPid ->
-                            receive_db_process_msg(DBProcessPid, ErrorCount+1)
-                    end;
-                _ ->
-                    receive_db_process_msg(DBProcessPid, ErrorCount+1)
-            after ?TIMEOUT_DATA_DB ->
-                    receive_db_process_msg(DBProcessPid, ErrorCount+1)
-            end;
-        ErrorCount >= ?DB_PROCESS_TRIAL_MAX ->
-            error
-    end.
             
 %%%         
 %%%
@@ -238,12 +197,60 @@ receive_db_process_msg(DBProcessPid, ErrorCount) ->
 compose_db_msg(HeaderInfo, _Resp) ->
     {ID, _FlowNum, _TelNum, _CryptoType} = HeaderInfo,
     case ID of
-        1 ->
-            ok;
-        2 ->
-            ok;
+        16#1    ->                          
+            "";
+        16#2    ->                          
+            "";
+        16#100  ->                          
+            "";
+        16#3    ->                          
+            "";
+        16#102  ->                          
+            "";
+        16#104  ->                          
+            "";
+        16#107  ->                      
+            "";
+        16#108  ->                          
+            "";
+        16#200  ->                      
+            "";
+        16#201  ->                          
+            "";
+        16#301  ->                          
+            "";
+        16#302  ->
+            "";
+        16#303  ->
+            "";
+        16#500  ->
+            "";
+        16#700  ->
+            "";
+        16#701  ->
+            "";
+        16#702  ->
+            "";
+        16#704  ->
+            "";
+        16#705  ->
+            "";
+        16#800  ->
+            "";
+        16#801  ->
+            "";
+        16#802  ->
+            "";
+        16#805  ->
+            "";
+        16#900 ->
+            "";
+        16#901 ->
+            "";
+        16#a00 ->
+            "";
         _ ->
-            error
+            ""
     end.
 
 %%%
