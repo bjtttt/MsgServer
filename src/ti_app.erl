@@ -68,6 +68,8 @@ start(StartType, StartArgs) ->
                     %Result = mysql:fetch(innov, <<"select * from client">>),
                     %io:format("Result1: ~p~n", [Result]),
                     error_logger:info_msg("DB client PID is ~p~n", [DBPid]),
+                    VDR2DBPid = spawn(fun() -> mysql_msg_handler:mysql_msg_handler() end),
+                    ets:insert(msgservertable, {dbpid, VDR2DBPid}),
                     {ok, AppPid};
                 ignore ->
                     error_logger:error_msg("DB client fails to start : ignore~n"),
@@ -157,6 +159,13 @@ start(StartType, StartArgs) ->
     %end.    
 
 stop(_State) ->
+    [{dbpid, DBPid}] = ets:lookup(msgservertable, dbpid),
+    case DBPid of
+        undefined ->
+            ok;
+        _ ->
+            DBPid!stop
+    end,
     error_logger:info_msg("Message server stops.~n"),
     ok.
 
