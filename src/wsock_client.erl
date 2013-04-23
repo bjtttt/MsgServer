@@ -209,9 +209,23 @@ init({Host, Port, Resource}) ->
   {ok, Socket} = gen_tcp:connect(Host, Port, [binary, {reuseaddr, true}, {packet, raw}] ),
 
   {ok, Handshake} = wsock_handshake:open(Resource, Host, Port),
-  Request = wsock_http:encode(Handshake#handshake.message),
+  %Request = wsock_http:encode(Handshake#handshake.message),
+  
+  % I use Request1 instead of Request because of the server.
+  {http_message, request, _Header, Body} = Handshake#handshake.message,
+  [_Host, _Up, _Conn, {_SKey, Key}, _SVer] = Body,
+  
+  Request1 = %"{\"MID\":0x0005, \"TOKEN\":\"anystring\"}",
+            [<<"GET / HTTP/1.1\r\n">>,
+             <<"Upgrade: WebSocket\r\n">>,
+             <<"Connection: Upgrade\r\n">>,
+             <<"Host: ">>, list_to_binary(Host), <<":">>, list_to_binary(integer_to_list(Port)), <<"\r\n">>,
+             <<"Sec-WebSocket-Key: ">>, list_to_binary(Key), <<"\r\n">>,
+             <<"Sec-WebSocket-Version: 13\r\n">>,
+             <<"\r\n">>],
 
-  ok = gen_tcp:send(Socket, Request),
+  %ok = gen_tcp:send(Socket, Request),
+  ok = gen_tcp:send(Socket, Request1),
   {ok, connecting, #data{ socket = Socket, handshake = Handshake}}.
 
 %% @hidden

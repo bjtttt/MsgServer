@@ -69,12 +69,6 @@ start(StartType, StartArgs) ->
                     %io:format("Result1: ~p~n", [Result]),
                     error_logger:info_msg("DB client PID is ~p~n", [DBPid]),
                     VDR2DBPid = spawn(fun() -> mysql_msg_handler:vdr2db_msg_handler() end),
-                    VDR2DBPid!a,
-                    VDR2DBPid!a,
-                    VDR2DBPid!a,
-                    VDR2DBPid!a,
-                    VDR2DBPid!a,
-                    VDR2DBPid!a,
                     ets:insert(msgservertable, {dbpid, VDR2DBPid}),
                     {ok, AppPid};
                 ignore ->
