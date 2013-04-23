@@ -7,7 +7,6 @@
              ti_server_vdr,
              ti_server_man,
              ti_server_mon,
-             ti_client_db,
              ti_websocket_client,
              ti_handler_vdr,
              ti_handler_man,
