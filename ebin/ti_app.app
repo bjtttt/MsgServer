@@ -19,5 +19,5 @@
              ti_common]},
   {registered, [ti_sup]},
   {applications, [kernel, sasl, stdlib]},
-  {mod, {ti_app, [6000, 6003, "42.96.146.34", 9090, "42.96.146.34", 3306, "sql-server", "optimus", "gps_database", 1, 1]}}
+  {mod, {ti_app, [6000, 6001, "42.96.146.34", 9090, "42.96.146.34", "gps_database", "optimus", "opt123450", 1, 1]}}
  ]}.

@@ -51,6 +51,10 @@
 -define(LEN_WORD_BYTE, 2).
 -define(LEN_DWORD_BYTE, 4).
 
+-define(CONNECTING, 0).
+-define(OPEN, 1).
+-define(CLOSED, 2).
+
 %%%
 %%% There is only one super user, name is super, password is super.
 %%% 
@@ -108,11 +112,12 @@
                  }).
 
 -record(wsstate, {  socket=undefined, 
-                    state=undefined, 
+                    state=?CONNECTING, 
                     headers=[], 
                     pid=undefined, 
                     wspid=undefined,
-                    timeout=undefined
+                    timeout=undefined,
+                    wsacckey=undeifned
                  }).
 
 %%%

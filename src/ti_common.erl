@@ -6,7 +6,8 @@
 
 -export([number_list_to_binary/2,
          removemsgfromlistbyflownum/2,
-         combine_strings/1]).
+         combine_strings/1,
+         combine_strings/2]).
 
 -export([set_sockopt/3]).
 
@@ -239,6 +240,8 @@ loginfo(Format, Data) ->
 %%% Otherwise, an empty string will be returned.
 %%%
 combine_strings(List) ->
+    combine_strings(List, true).
+combine_strings(List, HasComma) ->
     case List of
         [] ->
             "";
@@ -259,7 +262,12 @@ combine_strings(List) ->
                         [] ->
                             H;
                         _ ->
-                            string:concat(string:concat(H, ","), combine_strings(T))
+                            case HasComma of
+                                true ->
+                                    string:concat(string:concat(H, ","), combine_strings(T, HasComma));
+                                _ ->
+                                    string:concat(H, combine_strings(T, HasComma))
+                            end
                     end;
                 _ ->
                     ""

@@ -8,7 +8,7 @@
 
 -include("ti_header.hrl").
 
--export([start_link/2]).
+-export([start_link/6]).
 
 -export([init/1, 
          handle_call/3, 
@@ -21,8 +21,8 @@
 %%% In fact, we can get DB & PortDB from msgservertable.
 %%% Here, the reason that we use parameter is for efficiency.
 %%%
-start_link(DB, PortDB) ->
-    gen_server:start_link(?MODULE, [DB, PortDB], []).
+start_link(DB, PortDB, DBDSN, DBName, DBUid, DBPwd) ->
+    gen_server:start_link(?MODULE, [DB, PortDB, DBDSN, DBName, DBUid, DBPwd], []).
 
 %%%
 %%% If a permanent application terminates, all other applications and the entire Erlang node are also terminated.
@@ -30,8 +30,13 @@ start_link(DB, PortDB) ->
 %%% If a temporary application terminates, this is reported but no other applications are terminated.
 %%%
 init([DB, PortDB, DBDSN, DBName, DBUid, DBPwd]) ->
-    Connection = ti_common:combine_strings(["DSN=", DBDSN, ";SERVER=", DB, ";PORT=", PortDB, ";DATABASE=", DBDSN, ";UID=admin;PWD=admin"]),
-    {ok, #dbstate{db=DB, dbport=PortDB, dbdsn=DBDSN, dbname=DBName, dbuid=DBUid, dbpwd=DBPwd}, 0}.
+    DBConn = ti_common:combine_strings(["DSN=", DBDSN, 
+                                        ";SERVER=", DB, 
+                                        ";PORT=", integer_to_list(PortDB), 
+                                        %";DATABASE=", DBName, 
+                                        ";UID=", DBUid,
+                                        ";PWD=", DBPwd], false),
+    {ok, #dbstate{db=DB, dbport=PortDB, dbdsn=DBDSN, dbname=DBName, dbuid=DBUid, dbpwd=DBPwd, dbconn=DBConn}, 0}.
 
 handle_call(Msg, _From, State) ->
     {reply, {ok, Msg}, State}.
@@ -59,20 +64,14 @@ handle_cast(stop, State) ->
 handle_info(timeout, State) ->
     case odbc:start(permanent) of
         ok ->
-            % DBDSN should be investigated and should be inserted into dbstate
-            [{dbdsn, DBDSN}] = ets:lookup(msgservertable, dbdsn),
-            [{dbdsn, DBName}] = ets:lookup(msgservertable, dbname),
-            DB = State#dbstate.db,
-            DBPort = integer_to_list(State#dbstate.dbport),
-            Connection = ti_common:combine_strings(["DSN=", DBDSN, ";SERVER=", DB, ";PORT=", DBPort, ";DATABASE=", DBDSN, ";UID=admin;PWD=admin"]),
-            case odbc:connect(Connection, []) of
+            case odbc:connect(State#dbstate.dbconn, []) of
                 {ok, Ref} ->
                     ets:insert(msgservertable, {dbref, Ref}),
                     Pid = spawn(fun() -> db_message_processor(Ref) end),
                     ets:insert(msgservertable, {dbpid, Pid}),
                     {noreply, State#dbstate{dbref=Ref, dbpid=Pid}};
                 {error, Reason} ->
-                    ti_common:logerror("ODBC cannot connect ~p : ~p~n", [Connection, Reason]),
+                    ti_common:logerror("ODBC cannot connect ~p : ~p~n", [State#dbstate.db, Reason]),
                     {stop, error, Reason}
             end;
         {error, Reason} ->

@@ -28,19 +28,20 @@
 %%%               1 -> log
 %%%
 start(StartType, StartArgs) ->
+    %[PortVDR, PortMon, WS, PortWS, DB, PortDB, DBDSN, DBName, DBUid, DBPwd, RawDisplay, Display] = StartArgs,
+    [PortVDR, PortMon, WS, PortWS, DB, DBName, DBUid, DBPwd, RawDisplay, Display] = StartArgs,
     ets:new(msgservertable,[set,public,named_table,{keypos,1},{read_concurrency,true},{write_concurrency,true}]),
-    [PortVDR, PortMon, WS, PortWS, DB, PortDB, DBDSN, DBName, DBUid, DBPwd, RawDisplay, Display] = StartArgs,
     ets:insert(msgservertable, {portvdr, PortVDR}),
     %ets:insert(msgservertable, {portman, PortMan}),
     ets:insert(msgservertable, {portmon, PortMon}),
     ets:insert(msgservertable, {ws, WS}),
     ets:insert(msgservertable, {portws, PortWS}),
     ets:insert(msgservertable, {db, DB}),
-    ets:insert(msgservertable, {portdb, PortDB}),
-    ets:insert(msgservertable, {dbdsn, DBDSN}),
+    %ets:insert(msgservertable, {portdb, PortDB}),
+    %ets:insert(msgservertable, {dbdsn, DBDSN}),
     ets:insert(msgservertable, {dbname, DBName}),
-    ets:insert(msgservertable, {dbname, DBUid}),
-    ets:insert(msgservertable, {dbname, DBPwd}),
+    ets:insert(msgservertable, {dbuid, DBUid}),
+    ets:insert(msgservertable, {dbpwd, DBPwd}),
     ets:insert(msgservertable, {dbpid, undefined}),
     ets:insert(msgservertable, {wspid, undefined}),
     ets:insert(msgservertable, {dbref, undefined}),
@@ -60,12 +61,27 @@ start(StartType, StartArgs) ->
             error_logger:info_msg("Message server starts~n"),
             error_logger:info_msg("Application PID is ~p~n", [AppPid]),
             error_logger:info_msg("Supervisor PID : ~p~n", [SupPid]),
+            %case mysql:start_link(innov, DB, PortDB, DBUid, DBPwd, DBName, undefined, utf8) of
+            case mysql:start_link(innov, DB, DBUid, DBPwd, DBName) of
+                {ok, DBPid} ->
+                    mysql:connect(innov, DB, undefined, DBUid, DBPwd, DBName, true),
+                    %Result = mysql:fetch(innov, <<"select * from client">>),
+                    %io:format("Result1: ~p~n", [Result]),
+                    error_logger:info_msg("DB client PID is ~p~n", [DBPid]),
+                    {ok, AppPid};
+                ignore ->
+                    error_logger:error_msg("DB client fails to start : ignore~n"),
+                    ignore;
+                {error, Error} ->
+                    error_logger:error_msg("DB client fails to start : ~p~n", [Error]),
+                    {error, Error}
+            end;
             %case ti_ws_fsm_client:start(WS, PortWS, "/") of
             %    {ok, WSPid} ->
             %        error_logger:info_msg("WS client PID is ~p~n", [WSPid]),
             %        WSMsgPid = spawn(fun() -> ws_msg_collector_process() end),
             %        ets:insert(msgservertable, {wsmsgpid, WSMsgPid}),
-                    {ok, AppPid};
+                    %{ok, AppPid};
                     %case ti_ws_fsm_client:start(WS, PortWS, "/") of
                     %    {ok, WSPid} ->
                     %        error_logger:info_msg("WS client PID is ~p~n", [WSPid]),
