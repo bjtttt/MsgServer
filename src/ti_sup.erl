@@ -200,8 +200,8 @@ init([]) ->
     [{portvdr, PortVDR}] = ets:lookup(msgservertable, portvdr),
     %[{portman, PortMan}] = ets:lookup(msgservertable, portman),
     [{portmon, PortMon}] = ets:lookup(msgservertable, portmon),
-    [{ws, WS}] = ets:lookup(msgservertable, ws),
-    [{portws, PortWS}] = ets:lookup(msgservertable, portws),
+    %[{ws, WS}] = ets:lookup(msgservertable, ws),
+    %[{portws, PortWS}] = ets:lookup(msgservertable, portws),
     %[{db, DB}] = ets:lookup(msgservertable, db),
     %[{portdb, PortDB}] = ets:lookup(msgservertable, portdb),
     %[{dbdsn, DBDSN}] = ets:lookup(msgservertable, dbdsn),
@@ -262,16 +262,16 @@ init([]) ->
                   supervisor,                       % Type     = worker | supervisor
                   []                                % Modules  = [Module] | dynamic
                  },
-    % Create DB client
+    %% Create DB client
     %DBClient  = {
     %             mysql,                              % Id       = internal id
-    %             {mysql, start_link, [innov, DB, PortDB, DBName, DBUid, DBPwd, undefined, utf8]},  % StartFun = {M, F, A}
+    %             {mysql, start_link, [innov, DB, ?DEF_PORT_DB, DBName, DBUid, DBPwd]},  % StartFun = {M, F, A}
     %             permanent,                                 % Restart  = permanent | transient | temporary
     %             ?TIME_TERMINATE_DB,                        % Shutdown = brutal_kill | int() >= 0 | infinity
     %             worker,                                    % Type     = worker | supervisor
     %             [mysql]                             % Modules  = [Module] | dynamic
     %            },
-    % Create WS client
+    %% Create WS client
     %WSClient  = {
     %             ti_websocket_client,                               % Id       = internal id
     %             {ti_websocket_client, start_link, [WS, PortWS]},   % StartFun = {M, F, A}

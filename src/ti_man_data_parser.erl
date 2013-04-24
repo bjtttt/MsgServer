@@ -8,15 +8,48 @@
 
 -include("ti_header.hrl").
 
+-export([process_wsock_message/2,
+         tows_msg_handler/0]).
+
 -export([process_data/1]).
 
 -export([create_gen_resp/4,
+         create_init_msg/0,
          create_term_online/1,
          create_term_offline/1,
          create_term_alarm/8,
          create_term_answer/3,
          create_vehicle_ctrl_answer/4,
          create_shot_resp/4]).
+
+%%%
+%%%
+%%%
+tows_msg_handler() ->
+    receive
+        {_Pid, Msg} ->
+            wsock_client:send(Msg),
+            tows_msg_handler();
+        stop ->
+            ok;
+        _ ->
+            tows_msg_handler()
+    after ?TIMEOUT_DATA_MAN ->
+            tows_msg_handler()
+    end.
+
+%%%
+%%%
+%%%
+process_wsock_message(Type, Msg) ->
+    case Type of
+        binary ->
+            ok;
+        text ->
+            ok;
+        _ ->
+            {error, typeerror}
+    end.
 
 %%%
 %%% Maybe State is useless
@@ -560,6 +593,12 @@ get_phone_name_list(PhoneNameList) ->
             end
     end.
     
+%%%
+%%%
+%%%
+create_init_msg() ->
+    {ok, "{\"MID\":0x0005, \"TOKEN\":\"anystring\"}"}.
+
 %%%
 %%% MID : 0x0001
 %%% List : [ID0, ID1, ID2, ...]

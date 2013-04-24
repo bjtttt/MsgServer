@@ -27,10 +27,10 @@
 -export([handle_event/3, handle_sync_event/4, handle_info/3, terminate/3, code_change/4]).
 
 -record(callbacks, {
-    on_open = fun()-> undefined end,
-    on_error = fun(_Reason)-> undefined end,
-    on_message = fun(_Type, _Message) -> undefined end,
-    on_close = fun(_Reason) -> undefined end
+    on_open = fun()-> ws_on_open() end,% undefined end,
+    on_error = fun(Reason)-> ws_on_error(Reason) end,% undefined end,
+    on_message = fun(Type, Msg) -> ws_on_message(Type, Msg) end,% undefined end,
+    on_close = fun(Reason) -> ws_on_close(Reason) end% undefined end
   }).
 -record(data, {
     socket :: gen_tcp:socket(),
@@ -42,6 +42,27 @@
 -define(CLOSE_HANDSHAKE_TIMEOUT, 2000).
 -define(TCP_CLOSE_TIMEOUT, 500).
 -define(DEFAULT_REG_NAME, ?MODULE).
+
+%%%%%%%%%%%%%%%%%%%%%
+%
+% Callbacks
+%
+%%%%%%%%%%%%%%%%%%%%%
+ws_on_open() ->
+    ok.
+
+ws_on_error(_Reason) ->
+    ok.
+
+ws_on_message(Type, Msg) ->
+    try ti_man_data_parser:process_wsock_message(Type, Msg)
+    catch
+        _:_ ->
+            {error, exception}
+    end.
+
+ws_on_close(_Reason) ->
+    ok.
 
 %%%%%%%%%%%%%%%%%%%%%
 %

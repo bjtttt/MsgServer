@@ -2,6 +2,7 @@
 %%%
 %%%
 
+-define(DEF_PORT_DB, 3306).
 -define(DEF_PORT_VDR, 6000).
 -define(DEF_PORT_MON, 6001).
 

@@ -62,15 +62,29 @@ start(StartType, StartArgs) ->
             error_logger:info_msg("Application PID is ~p~n", [AppPid]),
             error_logger:info_msg("Supervisor PID : ~p~n", [SupPid]),
             %case mysql:start_link(innov, DB, PortDB, DBUid, DBPwd, DBName, undefined, utf8) of
-            case mysql:start_link(innov, DB, DBUid, DBPwd, DBName) of
+            case mysql:start_link(conn, DB, ?DEF_PORT_DB, DBUid, DBPwd, DBName) of
                 {ok, DBPid} ->
-                    mysql:connect(innov, DB, undefined, DBUid, DBPwd, DBName, true),
+                    mysql:connect(conn, DB, undefined, DBUid, DBPwd, DBName, true),
                     %Result = mysql:fetch(innov, <<"select * from client">>),
                     %io:format("Result1: ~p~n", [Result]),
                     error_logger:info_msg("DB client PID is ~p~n", [DBPid]),
                     VDR2DBPid = spawn(fun() -> mysql_msg_handler:vdr2db_msg_handler() end),
                     ets:insert(msgservertable, {dbpid, VDR2DBPid}),
-                    {ok, AppPid};
+                    case wsock_client:start(WS, PortWS, "/") of
+                        {ok, WSPid} ->
+                            error_logger:info_msg("WS client PID is ~p~n", [WSPid]),
+                            ToWSPid = spawn(fun() -> ti_man_data_parser:tows_msg_handler() end),
+                            ets:insert(msgservertable, {wspid, ToWSPid}),
+                            InitMsg = ti_man_data_parser:create_init_msg(),
+                            ToWSPid ! InitMsg,
+                            {ok, AppPid};
+                        ignore ->
+                            error_logger:error_msg("DB client fails to start : ignore~n"),
+                            ignore;
+                        {error, Error} ->
+                            error_logger:error_msg("DB client fails to start : ~p~n", [Error]),
+                            {error, Error}
+                    end;
                 ignore ->
                     error_logger:error_msg("DB client fails to start : ignore~n"),
                     ignore;
