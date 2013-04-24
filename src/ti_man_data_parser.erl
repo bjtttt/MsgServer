@@ -44,9 +44,9 @@ tows_msg_handler() ->
 process_wsock_message(Type, Msg) ->
     case Type of
         binary ->
-            ok;
+            {error, binaryerror};
         text ->
-            ok;
+            do_process_data(Msg);
         _ ->
             {error, typeerror}
     end.
