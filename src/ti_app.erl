@@ -55,35 +55,50 @@ start(StartType, StartArgs) ->
     ets:new(usertable,[set,public,named_table,{keypos,#user.id},{read_concurrency,true},{write_concurrency,true}]),
     ets:new(montable,[set,public,named_table,{keypos,#monitem.socket},{read_concurrency,true},{write_concurrency,true}]),
     ti_common:loginfo("Tables are initialized.~n"),
-    case supervisor:start_link(ti_sup, []) of
-        {ok, SupPid} ->
-            AppPid = self(),
-            error_logger:info_msg("Message server starts~n"),
-            error_logger:info_msg("Application PID is ~p~n", [AppPid]),
-            error_logger:info_msg("Supervisor PID : ~p~n", [SupPid]),
-            %case mysql:start_link(innov, DB, PortDB, DBUid, DBPwd, DBName, undefined, utf8) of
-            case mysql:start_link(conn, DB, ?DEF_PORT_DB, DBUid, DBPwd, DBName) of
-                {ok, DBPid} ->
-                    mysql:connect(conn, DB, undefined, DBUid, DBPwd, DBName, true),
-                    %Result = mysql:fetch(innov, <<"select * from client">>),
-                    %io:format("Result1: ~p~n", [Result]),
-                    error_logger:info_msg("DB client PID is ~p~n", [DBPid]),
-                    VDR2DBPid = spawn(fun() -> mysql_msg_handler:vdr2db_msg_handler() end),
-                    ets:insert(msgservertable, {dbpid, VDR2DBPid}),
-                    case wsock_client:start(WS, PortWS, "/") of
-                        {ok, WSPid} ->
-                            error_logger:info_msg("WS client PID is ~p~n", [WSPid]),
-                            ToWSPid = spawn(fun() -> ti_man_data_parser:tows_msg_handler() end),
-                            ets:insert(msgservertable, {wspid, ToWSPid}),
-                            InitMsg = ti_man_data_parser:create_init_msg(),
-                            ToWSPid ! InitMsg,
-                            {ok, AppPid};
-                        ignore ->
-                            error_logger:error_msg("DB client fails to start : ignore~n"),
-                            ignore;
-                        {error, Error} ->
-                            error_logger:error_msg("DB client fails to start : ~p~n", [Error]),
-                            {error, Error}
+    VDR2DBPid = spawn(fun() -> mysql_msg_handler:vdr2db_msg_handler() end),
+    ets:insert(msgservertable, {dbpid, VDR2DBPid}),
+    ToWSPid = spawn(fun() -> ti_man_data_parser:tows_msg_handler() end),
+    ets:insert(msgservertable, {wspid, ToWSPid}),
+    case mysql:start_link(conn, DB, ?DEF_PORT_DB, DBUid, DBPwd, DBName) of
+        {ok, DBPid} ->
+            mysql:connect(conn, DB, undefined, DBUid, DBPwd, DBName, true),
+            %Result = mysql:fetch(innov, <<"select * from client">>),
+            %io:format("Result1: ~p~n", [Result]),
+            error_logger:info_msg("DB client PID is ~p~n", [DBPid]),
+            %VDR2DBPid = spawn(fun() -> mysql_msg_handler:vdr2db_msg_handler() end),
+            %ets:insert(msgservertable, {dbpid, VDR2DBPid}),
+            case wsock_client:start(WS, PortWS, "/") of
+                {ok, WSPid} ->
+                    error_logger:info_msg("WS client PID is ~p~n", [WSPid]),
+                    %ToWSPid = spawn(fun() -> ti_man_data_parser:tows_msg_handler() end),
+                    %ets:insert(msgservertable, {wspid, ToWSPid}),
+                    {ok, Msg} = ti_man_data_parser:create_init_msg(),
+                    ToWSPid ! {wait, self(), Msg},
+                    receive
+                        {FromPid, over} ->
+                            if
+                                FromPid == ToWSPid ->
+                                    case supervisor:start_link(ti_sup, []) of
+                                        {ok, SupPid} ->
+                                            AppPid = self(),
+                                            error_logger:info_msg("Message server starts~n"),
+                                            error_logger:info_msg("Application PID is ~p~n", [AppPid]),
+                                            error_logger:info_msg("Supervisor PID : ~p~n", [SupPid]),
+                                            {ok, AppPid};
+                                        ignore ->
+                                            error_logger:error_msg("Message server fails to start : ignore~n"),
+                                            ignore;
+                                        {error, Error} ->
+                                            error_logger:error_msg("Message server fails to start : ~p~n", [Error]),
+                                            {error, Error}
+                                    end;
+                                true ->
+                                    {error, "WS initialization PID error~n"}
+                            end%;
+                        %_ ->
+                        %    {error, "WS initialization response error~n"}
+                    after ?TIMEOUT_MAN ->
+                            {error, "WS initialization timeout~n"}
                     end;
                 ignore ->
                     error_logger:error_msg("DB client fails to start : ignore~n"),
@@ -92,31 +107,11 @@ start(StartType, StartArgs) ->
                     error_logger:error_msg("DB client fails to start : ~p~n", [Error]),
                     {error, Error}
             end;
-            %case ti_ws_fsm_client:start(WS, PortWS, "/") of
-            %    {ok, WSPid} ->
-            %        error_logger:info_msg("WS client PID is ~p~n", [WSPid]),
-            %        WSMsgPid = spawn(fun() -> ws_msg_collector_process() end),
-            %        ets:insert(msgservertable, {wsmsgpid, WSMsgPid}),
-                    %{ok, AppPid};
-                    %case ti_ws_fsm_client:start(WS, PortWS, "/") of
-                    %    {ok, WSPid} ->
-                    %        error_logger:info_msg("WS client PID is ~p~n", [WSPid]),
-                    %        {ok, AppPid};
-                    %    ignore ->
-                    %        error_logger:error_msg("WS client fails to start : ignore~n");
-                    %    {error, Error} ->
-                    %        error_logger:error_msg("WS client fails to start : ~p~n", [Error])
-                    %end;
-            %    ignore ->
-            %        error_logger:error_msg("WS client fails to start : ignore~n");
-            %    {error, Error} ->
-            %        error_logger:error_msg("WS client fails to start : ~p~n", [Error])
-            %end;
         ignore ->
-            error_logger:error_msg("Message server fails to start : ignore~n"),
+            error_logger:error_msg("DB client fails to start : ignore~n"),
             ignore;
         {error, Error} ->
-            error_logger:error_msg("Message server fails to start : ~p~n", [Error]),
+            error_logger:error_msg("DB client fails to start : ~p~n", [Error]),
             {error, Error}
     end.
 

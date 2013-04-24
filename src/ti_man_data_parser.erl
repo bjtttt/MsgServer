@@ -27,15 +27,19 @@
 %%%
 tows_msg_handler() ->
     receive
+        {wait, Pid , Msg} ->
+            wsock_client:send(Msg),
+            Pid ! {self(), over},
+            tows_msg_handler();
         {_Pid, Msg} ->
             wsock_client:send(Msg),
             tows_msg_handler();
         stop ->
             ok;
-        _ ->
+        _Other ->
             tows_msg_handler()
-    after ?TIMEOUT_DATA_MAN ->
-            tows_msg_handler()
+    %after ?TIMEOUT_DATA_MAN ->
+    %        tows_msg_handler()
     end.
 
 %%%
@@ -89,16 +93,16 @@ do_process_data(Data) ->
                 Len < 1 ->
                     {error, length_error};
                 true ->
-                    MidPair = element(1, Content),
+                    MidPair = lists:nth(1, Content),
                     {"MID", Mid} = MidPair,
                     case Mid of
                         %"0x0001" ->
                         %    if
                         %        Len == 5 ->
-                        %            SNPair = element(2, Content),
-                        %            SIDPair = element(3, Content),
-                        %            ListPair = element(4, Content),
-                        %            StatusPair = element(5, Content),
+                        %            SNPair = lists:nth(2, Content),
+                        %            SIDPair = lists:nth(3, Content),
+                        %            ListPair = lists:nth(4, Content),
+                        %            StatusPair = lists:nth(5, Content),
                         %            {"SN", SN} = SNPair,
                         %            {"SID", SID} = SIDPair,
                         %            {"LIST", List} = ListPair,
@@ -108,17 +112,13 @@ do_process_data(Data) ->
                         %        true ->
                         %            {error, length_error}
                         %    end;
-                        "0x8001" ->
+                        16#8001 ->
                             if
                                 Len == 5 ->
-                                    SNPair = element(2, Content),
-                                    SIDPair = element(3, Content),
-                                    ListPair = element(4, Content),
-                                    StatusPair = element(5, Content),
-                                    {"SN", SN} = SNPair,
-                                    {"SID", SID} = SIDPair,
-                                    {"LIST", List} = ListPair,
-                                    {"STATUS", Status} = StatusPair,
+                                    {"SN", SN} = get_specific_entry(Content, "SN"),
+                                    {"SID", SID} = get_specific_entry(Content, "SID"),
+                                    {"LIST", List} = get_specific_entry(Content, "LIST"),
+                                    {"STATUS", Status} = get_specific_entry(Content, "STATUS"),
                                     VIDList = get_list("VID", List),
                                     LenVIDList = length(VIDList),
                                     case Status of
@@ -140,24 +140,20 @@ do_process_data(Data) ->
                                 true ->
                                     {error, length_error}
                             end;
-                        "0x4001" ->
+                        16#4001 ->
                             if
                                 Len == 4 ->
-                                    SNPair = element(2, Content),
-                                    SIDPair = element(3, Content),
-                                    StatusPair = element(4, Content),
-                                    {"SN", SN} = SNPair,
-                                    {"SID", SID} = SIDPair,
-                                    {"STATUS", Status} = StatusPair,
+                                    {"SN", SN} = get_specific_entry(Content, "SN"),
+                                    {"SID", SID} = get_specific_entry(Content, "SID"),
+                                    {"STATUS", Status} = get_specific_entry(Content, "STATUS"),
                                     {ok, Mid, [SN, SID, Status]};
                                 true ->
                                     {error, length_error}
                             end;
-                        "0x4002" ->
+                        16#4002 ->
                             if
                                 Len == 2 ->
-                                    ListPair = element(2, Content),
-                                    {"LIST", List} = ListPair,
+                                    {"LIST", List} = get_specific_entry(Content, "LIST"),
                                     VIDList = get_list("VID", List),
                                     {ok, Mid, [VIDList]};
                                 true ->
@@ -166,7 +162,7 @@ do_process_data(Data) ->
                         %"0x0003" ->
                         %    if
                         %        Len == 2 ->
-                        %            ListPair = element(2, Content),
+                        %            ListPair = lists:nth(2, Content),
                         %            {"LIST", List} = ListPair,
                         %            VIDList = get_list("VID", List),
                         %            {ok, Mid, [VIDList]};
@@ -176,7 +172,7 @@ do_process_data(Data) ->
                         %"0x0004" ->
                         %    if
                         %        Len == 2 ->
-                        %            ListPair = element(2, Content),
+                        %            ListPair = lists:nth(2, Content),
                         %            {"LIST", List} = ListPair,
                         %            VIDList = get_list("VID", List),
                         %            {ok, Mid, [VIDList]};
@@ -186,9 +182,9 @@ do_process_data(Data) ->
                         %"0x0200" ->
                         %    if
                         %        Len == 4 ->
-                        %            ListPair = element(2, Content),
-                        %            SNPair = element(3, Content),
-                        %            DataPair = element(4, Content),
+                        %            ListPair = lists:nth(2, Content),
+                        %            SNPair = lists:nth(3, Content),
+                        %            DataPair = lists:nth(4, Content),
                         %            {"LIST", List} = ListPair,
                         %            {"SN", SN} = SNPair,
                         %            {"DATA", DATA} = DataPair,
@@ -204,20 +200,18 @@ do_process_data(Data) ->
                         %        true ->
                         %            {error, length_error}
                         %    end;
-                        "0x8103" ->
+                        16#8103 ->
                             if
                                 Len == 4 ->
-                                    SNPair = element(2, Content),
-                                    ListPair = element(3, Content),
-                                    DataPair = element(4, Content),
-                                    {"LIST", List} = ListPair,
-                                    {"SN", SN} = SNPair,
-                                    {"DATA", DATA} = DataPair,
+                                    {"LIST", List} = get_specific_entry(Content, "LIST"),
+                                    {"SN", SN} = get_specific_entry(Content, "SN"),
+                                    {"DATA", DATA} = get_specific_entry(Content, "DATA"),
                                     VIDList = get_list("VID", List),
                                     DataLen = length(DATA),
                                     if
                                         DataLen == 2 ->
-                                            [{"ST", ST}, {"DT", DT}] = DATA,
+                                            {"ST", ST} = get_specific_entry(DATA, "ST"),
+                                            {"DT", DT} = get_specific_entry(DATA, "DT"),
                                             {ok, Mid, [SN, VIDList, [ST, DT]]};
                                         true ->
                                             {error, format_error}
@@ -225,20 +219,18 @@ do_process_data(Data) ->
                                 true ->
                                     {error, length_error}
                             end;
-                        "0x8203" ->
+                        16#8203 ->
                             if
                                 Len == 4 ->
-                                    SNPair = element(2, Content),
-                                    ListPair = element(3, Content),
-                                    DataPair = element(4, Content),
-                                    {"LIST", List} = ListPair,
-                                    {"SN", SN} = SNPair,
-                                    {"DATA", DATA} = DataPair,
+                                    {"LIST", List} = get_specific_entry(Content, "LIST"),
+                                    {"SN", SN} = get_specific_entry(Content, "SN"),
+                                    {"DATA", DATA} = get_specific_entry(Content, "DATA"),
                                     VIDList = get_list("VID", List),
                                     DataLen = length(DATA),
                                     if
                                         DataLen == 2 ->
-                                            [{"ASN", ASN}, {"TYPE", TYPE}] = DATA,
+                                            {"ASN", ASN} = get_specific_entry(DATA, "ASN"),
+                                            {"TYPE", TYPE} = get_specific_entry(DATA, "TYPE"),
                                             {ok, Mid, [SN, VIDList, [ASN, TYPE]]};
                                         true ->
                                             {error, format_error}
@@ -246,20 +238,28 @@ do_process_data(Data) ->
                                 true ->
                                     {error, length_error}
                             end;
-                        "0x8602" ->
+                        16#8602 ->
                             if
                                 Len == 4 ->
-                                    SNPair = element(2, Content),
-                                    ListPair = element(3, Content),
-                                    DataPair = element(4, Content),
-                                    {"LIST", List} = ListPair,
-                                    {"SN", SN} = SNPair,
-                                    {"DATA", DATA} = DataPair,
+                                    {"LIST", List} = get_specific_entry(Content, "LIST"),
+                                    {"SN", SN} = get_specific_entry(Content, "SN"),
+                                    {"DATA", DATA} = get_specific_entry(Content, "DATA"),
                                     VIDList = get_list("VID", List),
                                     DataLen = length(DATA),
                                     if
                                         DataLen == 12 ->
-                                            [{"FLAG", FLAG}, {"LIST", LIST}, {"ID", ID}, {"PROPERTY", PROPERTY}, {"LT_LAT", LT_LAT}, {"LT_LONG", LT_LONG}, {"RB_LAT", RB_LAT}, {"RB_LONG", RB_LONG}, {"ST", ST}, {"ET", ET}, {"MAX_S", MAX_S}, {"LENGTH", LENGTH}] = DATA,
+                                            {"FLAG", FLAG} = get_specific_entry(DATA, "FLAG"),
+                                            {"LIST", LIST} = get_specific_entry(DATA, "LIST"),
+                                            {"ID", ID} = get_specific_entry(DATA, "ID"),
+                                            {"PROPERTY", PROPERTY} = get_specific_entry(DATA, "PROPERTY"),
+                                            {"LT_LAT", LT_LAT} = get_specific_entry(DATA, "LT_LAT"),
+                                            {"LT_LONG", LT_LONG} = get_specific_entry(DATA, "LT_LONG"),
+                                            {"RB_LAT", RB_LAT} = get_specific_entry(DATA, "RB_LAT"),
+                                            {"RB_LONG", RB_LONG} = get_specific_entry(DATA, "RB_LONG"),
+                                            {"ST", ST} = get_specific_entry(DATA, "ST"),
+                                            {"ET", ET} = get_specific_entry(DATA, "ET"),
+                                            {"MAX_S", MAX_S} = get_specific_entry(DATA, "MAX_S"),
+                                            {"LENGTH", LENGTH} = get_specific_entry(DATA, "LENGTH"),
                                             {ok, Mid, [SN, VIDList, [FLAG, LIST, ID, PROPERTY, LT_LAT, LT_LONG, RB_LAT, RB_LONG, ST, ET, MAX_S, LENGTH]]};
                                         true ->
                                             {error, format_error}
@@ -267,15 +267,12 @@ do_process_data(Data) ->
                                 true ->
                                     {error, length_error}
                             end;
-                        "0x8603" ->
+                        16#8603 ->
                             if
                                 Len == 4 ->
-                                    SNPair = element(2, Content),
-                                    ListPair = element(3, Content),
-                                    DataPair = element(4, Content),
-                                    {"LIST", List} = ListPair,
-                                    {"SN", SN} = SNPair,
-                                    {"DATA", DATA} = DataPair,
+                                    {"LIST", List} = get_specific_entry(Content, "LIST"),
+                                    {"SN", SN} = get_specific_entry(Content, "SN"),
+                                    {"DATA", DATA} = get_specific_entry(Content, "DATA"),
                                     VIDList = get_list("VID", List),
                                     [{"LIST", LIST}] = DATA,
                                     DataList = get_list("ID", LIST),
@@ -283,22 +280,20 @@ do_process_data(Data) ->
                                 true ->
                                     {error, length_error}
                             end;
-                        "0x8605" ->
+                        16#8605 ->
                             {error, format_error};
-                        "0x8202" ->
+                        16#8202 ->
                             if
                                 Len == 4 ->
-                                    SNPair = element(2, Content),
-                                    ListPair = element(3, Content),
-                                    DataPair = element(4, Content),
-                                    {"LIST", List} = ListPair,
-                                    {"SN", SN} = SNPair,
-                                    {"DATA", DATA} = DataPair,
+                                    {"LIST", List} = get_specific_entry(Content, "LIST"),
+                                    {"SN", SN} = get_specific_entry(Content, "SN"),
+                                    {"DATA", DATA} = get_specific_entry(Content, "DATA"),
                                     VIDList = get_list("VID", List),
                                     DataLen = length(DATA),
                                     if
                                         DataLen == 2 ->
-                                            [{"ITERVAL", ITERVAL}, {"LENGTH", LENGTH}] = DATA,
+                                            {"ITERVAL", ITERVAL} = get_specific_entry(DATA, "ITERVAL"),
+                                            {"LENGTH", LENGTH} = get_specific_entry(DATA, "LENGTH"),
                                             {ok, Mid, [SN, VIDList, [ITERVAL, LENGTH]]};
                                         true ->
                                             {error, format_error}
@@ -306,20 +301,18 @@ do_process_data(Data) ->
                                 true ->
                                     {error, length_error}
                             end;
-                        "0x8300" ->
+                        16#8300 ->
                             if
                                 Len == 4 ->
-                                    SNPair = element(2, Content),
-                                    ListPair = element(3, Content),
-                                    DataPair = element(4, Content),
-                                    {"LIST", List} = ListPair,
-                                    {"SN", SN} = SNPair,
-                                    {"DATA", DATA} = DataPair,
+                                    {"LIST", List} = get_specific_entry(Content, "LIST"),
+                                    {"SN", SN} = get_specific_entry(Content, "SN"),
+                                    {"DATA", DATA} = get_specific_entry(Content, "DATA"),
                                     VIDList = get_list("VID", List),
                                     DataLen = length(DATA),
                                     if
                                         DataLen == 2 ->
-                                            [{"FLAG", FLAG}, {"TEXT", TEXT}] = DATA,
+                                            {"FLAG", FLAG} = get_specific_entry(DATA, "FLAG"),
+                                            {"TEXT", TEXT} = get_specific_entry(DATA, "TEXT"),
                                             {ok, Mid, [SN, VIDList, [FLAG, TEXT]]};
                                         true ->
                                             {error, format_error}
@@ -327,20 +320,21 @@ do_process_data(Data) ->
                                 true ->
                                     {error, length_error}
                             end;
-                        "0x8302" ->
+                        16#8302 ->
                             if
                                 Len == 4 ->
-                                    SNPair = element(2, Content),
-                                    ListPair = element(3, Content),
-                                    DataPair = element(4, Content),
-                                    {"LIST", List} = ListPair,
-                                    {"SN", SN} = SNPair,
-                                    {"DATA", DATA} = DataPair,
+                                    {"LIST", List} = get_specific_entry(Content, "LIST"),
+                                    {"SN", SN} = get_specific_entry(Content, "SN"),
+                                    {"DATA", DATA} = get_specific_entry(Content, "DATA"),
                                     VIDList = get_list("VID", List),
                                     DataLen = length(DATA),
                                     if
                                         DataLen == 5 ->
-                                            [{"FLAG", FLAG}, {"QUES", QUES}, {"ALIST", ALIST}, {"ID", ID}, {"AN", AN}] = DATA,
+                                            {"FLAG", FLAG} = get_specific_entry(DATA, "FLAG"),
+                                            {"QUES", QUES} = get_specific_entry(DATA, "QUES"),
+                                            {"ALIST", ALIST} = get_specific_entry(DATA, "ALIST"),
+                                            {"ID", ID} = get_specific_entry(DATA, "ID"),
+                                            {"AN", AN} = get_specific_entry(DATA, "AN"),
                                             {ok, Mid, [SN, VIDList, [FLAG, QUES, ALIST, ID, AN]]};
                                         true ->
                                             {error, format_error}
@@ -351,9 +345,9 @@ do_process_data(Data) ->
                         %"0x0302" ->
                         %    if
                         %        Len == 4 ->
-                        %            SNPair = element(2, Content),
-                        %            ListPair = element(3, Content),
-                        %            DataPair = element(4, Content),
+                        %            SNPair = lists:nth(2, Content),
+                        %            ListPair = lists:nth(3, Content),
+                        %            DataPair = lists:nth(4, Content),
                         %            {"LIST", List} = ListPair,
                         %            {"SN", SN} = SNPair,
                         %            {"DATA", DATA} = DataPair,
@@ -369,20 +363,18 @@ do_process_data(Data) ->
                         %        true ->
                         %            {error, length_error}
                         %    end;
-                        "0x8400" ->
+                        16#8400 ->
                             if
                                 Len == 4 ->
-                                    SNPair = element(2, Content),
-                                    ListPair = element(3, Content),
-                                    DataPair = element(4, Content),
-                                    {"LIST", List} = ListPair,
-                                    {"SN", SN} = SNPair,
-                                    {"DATA", DATA} = DataPair,
+                                    {"LIST", List} = get_specific_entry(Content, "LIST"),
+                                    {"SN", SN} = get_specific_entry(Content, "SN"),
+                                    {"DATA", DATA} = get_specific_entry(Content, "DATA"),
                                     VIDList = get_list("VID", List),
                                     DataLen = length(DATA),
                                     if
                                         DataLen == 2 ->
-                                            [{"FLAG", FLAG}, {"PHONE", PHONE}] = DATA,
+                                            {"FLAG", FLAG} = get_specific_entry(DATA, "FLAG"),
+                                            {"PHONE", PHONE} = get_specific_entry(DATA, "PHONE"),
                                             {ok, Mid, [SN, VIDList, [FLAG, PHONE]]};
                                         true ->
                                             {error, format_error}
@@ -390,20 +382,18 @@ do_process_data(Data) ->
                                 true ->
                                     {error, length_error}
                             end;
-                        "0x8401" ->
+                        16#8401 ->
                             if
                                 Len == 4 ->
-                                    SNPair = element(2, Content),
-                                    ListPair = element(3, Content),
-                                    DataPair = element(4, Content),
-                                    {"LIST", List} = ListPair,
-                                    {"SN", SN} = SNPair,
-                                    {"DATA", DATA} = DataPair,
+                                    {"LIST", List} = get_specific_entry(Content, "LIST"),
+                                    {"SN", SN} = get_specific_entry(Content, "SN"),
+                                    {"DATA", DATA} = get_specific_entry(Content, "DATA"),
                                     VIDList = get_list("VID", List),
                                     DataLen = length(DATA),
                                     if
                                         DataLen == 2 ->
-                                            [{"TYPE", TYPE}, {"LIST", LIST}] = DATA,
+                                            {"TYPE", TYPE} = get_specific_entry(DATA, "TYPE"),
+                                            {"LIST", LIST} = get_specific_entry(DATA, "LIST"),
                                             PhoneNameList = get_phone_name_list(LIST),
                                             {ok, Mid, [SN, VIDList, [TYPE, PhoneNameList]]};
                                         true ->
@@ -412,20 +402,17 @@ do_process_data(Data) ->
                                 true ->
                                     {error, length_error}
                             end;
-                        "0x8500" ->
+                        16#8500 ->
                             if
                                 Len == 4 ->
-                                    SNPair = element(2, Content),
-                                    ListPair = element(3, Content),
-                                    DataPair = element(4, Content),
-                                    {"LIST", List} = ListPair,
-                                    {"SN", SN} = SNPair,
-                                    {"DATA", DATA} = DataPair,
+                                    {"LIST", List} = get_specific_entry(Content, "LIST"),
+                                    {"SN", SN} = get_specific_entry(Content, "SN"),
+                                    {"DATA", DATA} = get_specific_entry(Content, "DATA"),
                                     VIDList = get_list("VID", List),
                                     DataLen = length(DATA),
                                     if
                                         DataLen == 1 ->
-                                            [{"FLAG", FLAG}] = DATA,
+                                            {"FLAG", FLAG} = get_specific_entry(DATA, "FLAG"),
                                             {ok, Mid, [SN, VIDList, FLAG]};
                                         true ->
                                             {error, format_error}
@@ -436,10 +423,10 @@ do_process_data(Data) ->
                         %"0x0500" ->
                         %    if
                         %        Len == 5 ->
-                        %            SNPair = element(2, Content),
-                        %            StatusPair = element(3, Content),
-                        %            ListPair = element(4, Content),
-                        %            DataPair = element(5, Content),
+                        %            SNPair = lists:nth(2, Content),
+                        %            StatusPair = lists:nth(3, Content),
+                        %            ListPair = lists:nth(4, Content),
+                        %            DataPair = lists:nth(5, Content),
                         %            {"SN", SN} = SNPair,
                         %            {"STATUS", Status} = StatusPair,
                         %            {"LIST", List} = ListPair,
@@ -471,20 +458,26 @@ do_process_data(Data) ->
                         %        true ->
                         %            {error, length_error}
                         %    end;
-                        "0x8801" ->
+                        16#8801 ->
                             if
                                 Len == 4 ->
-                                    SNPair = element(2, Content),
-                                    ListPair = element(3, Content),
-                                    DataPair = element(4, Content),
-                                    {"LIST", List} = ListPair,
-                                    {"SN", SN} = SNPair,
-                                    {"DATA", DATA} = DataPair,
+                                    {"LIST", List} = get_specific_entry(Content, "LIST"),
+                                    {"SN", SN} = get_specific_entry(Content, "SN"),
+                                    {"DATA", DATA} = get_specific_entry(Content, "DATA"),
                                     VIDList = get_list("VID", List),
                                     DataLen = length(DATA),
                                     if
                                         DataLen == 10 ->
-                                            [{"ID", ID}, {"CMD", CMD}, {"T", T}, {"SF", SF}, {"R", R}, {"Q", Q}, {"B", B}, {"CO", CO}, {"S", S}, {"CH", CH}] = DATA,
+                                            {"ID", ID} = get_specific_entry(DATA, "ID"),
+                                            {"CMD", CMD} = get_specific_entry(DATA, "CMD"),
+                                            {"T", T} = get_specific_entry(DATA, "T"),
+                                            {"SF", SF} = get_specific_entry(DATA, "SF"),
+                                            {"R", R} = get_specific_entry(DATA, "R"),
+                                            {"Q", Q} = get_specific_entry(DATA, "Q"),
+                                            {"B", B} = get_specific_entry(DATA, "B"),
+                                            {"CO", CO} = get_specific_entry(DATA, "CO"),
+                                            {"S", S} = get_specific_entry(DATA, "S"),
+                                            {"CH", CH} = get_specific_entry(DATA, "CH"),
                                             {ok, Mid, [SN, VIDList, [ID, CMD, T, SF, R, Q, B, CO, S, CH]]};
                                         true ->
                                             {error, format_error}
@@ -492,17 +485,13 @@ do_process_data(Data) ->
                                 true ->
                                     {error, length_error}
                             end;
-                        "0x0805" ->
+                        16#805 ->
                             if
                                 Len == 5->
-                                    SNPair = element(2, Content),
-                                    ListPair = element(3, Content),
-                                    StatusPair = element(4, Content),
-                                    DataPair = element(5, Content),
-                                    {"SN", SN} = SNPair,
-                                    {"LIST", List} = ListPair,
-                                    {"STATUS", Status} = StatusPair,
-                                    {"DATA", DATA} = DataPair,
+                                    {"SN", SN} = get_specific_entry(Content, "SN"),
+                                    {"LIST", List} = get_specific_entry(Content, "LIST"),
+                                    {"STATUS", Status} = get_specific_entry(Content, "STATUS"),
+                                    {"DATA", DATA} = get_specific_entry(Content, "DATA"),
                                     VIDList = get_list("VID", List),
                                     DataLen = length(DATA),
                                     case Status of
@@ -530,21 +519,21 @@ do_process_data(Data) ->
                                 true ->
                                     {error, length_error}
                             end;
-                        "0x8804" ->
+                        16#8804 ->
                             if
                                 Len == 4 ->
-                                    SNPair = element(2, Content),
-                                    ListPair = element(3, Content),
-                                    DataPair = element(4, Content),
-                                    {"LIST", List} = ListPair,
-                                    {"SN", SN} = SNPair,
-                                    {"DATA", DATA} = DataPair,
+                                    {"LIST", List} = get_specific_entry(Content, "LIST"),
+                                    {"SN", SN} = get_specific_entry(Content, "SN"),
+                                    {"DATA", DATA} = get_specific_entry(Content, "DATA"),
                                     VIDList = get_list("VID", List),
                                     DataLen = length(DATA),
                                     if
                                         DataLen == 4 ->
-                                            [{"CMD", CMD}, {"SF", S}, {"T", T}, {"FREQ", FREQ}] = DATA,
-                                            {ok, Mid, [SN, VIDList, [CMD, S, T, FREQ]]};
+                                            {"CMD", CMD} = get_specific_entry(DATA, "CMD"),
+                                            {"TIME", TIME} = get_specific_entry(DATA, "TIME"),
+                                            {"FLAG", FLAG} = get_specific_entry(DATA, "FLAG"),
+                                            {"FREQ", FREQ} = get_specific_entry(DATA, "FREQ"),
+                                            {ok, Mid, [SN, VIDList, [CMD, TIME, FLAG, FREQ]]};
                                         true ->
                                             {error, format_error}
                                     end;
@@ -558,6 +547,44 @@ do_process_data(Data) ->
         {error, Reason} ->
             {error, Reason}
     end.
+
+%%%
+%%%
+%%%
+get_specific_entry(List, ID) ->
+    case List of
+        [] ->
+            {ID, null};
+        _ ->
+            [H|T] = List,
+            case is_tuple(H) of
+                true ->
+                    case tuple_size(H) of
+                        2 ->
+                            HID = element(1, H),
+                            HValue = element(2, H),
+                            if
+                                HID == ID ->
+                                    {ID, HValue};
+                                true ->
+                                    case T of
+                                        [] ->
+                                            {ID, null};
+                                        _ ->
+                                            get_specific_entry(T, ID)
+                                    end
+                            end
+                    end;
+                _ ->
+                    case T of
+                        [] ->
+                            {ID, null};
+                        _ ->
+                            get_specific_entry(T, ID)
+                    end
+            end
+    end.
+                    
 
 %%%
 %%%

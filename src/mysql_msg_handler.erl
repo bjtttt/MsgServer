@@ -18,9 +18,9 @@ vdr2db_msg_handler() ->
             vdr2db_msg_handler();
         stop ->
             ok;
-        _ ->
+        _Other ->
             %Result = mysql:fetch(innov, <<"select * from client">>),
             vdr2db_msg_handler()
-    after ?TIMEOUT_DATA_DB ->
-            vdr2db_msg_handler()
+    %after ?TIMEOUT_DATA_DB ->
+    %        vdr2db_msg_handler()
     end.
