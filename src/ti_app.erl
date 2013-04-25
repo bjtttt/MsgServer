@@ -69,7 +69,6 @@ start(StartType, StartArgs) ->
                 {ok, WSPid} ->
                     error_logger:info_msg("WS client PID is ~p~n", [WSPid]),
                     {ok, Msg} = ti_man_data_parser:create_init_msg(),
-                    wsock_client:send(Msg),
                     ToWSPid ! {wait, self(), Msg},
                     receive
                         {FromPid, over} ->
