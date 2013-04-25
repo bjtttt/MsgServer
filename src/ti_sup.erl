@@ -196,18 +196,14 @@ start_link() ->
     end.
 
 init([]) ->
-    % VDR
     [{portvdr, PortVDR}] = ets:lookup(msgservertable, portvdr),
-    %[{portman, PortMan}] = ets:lookup(msgservertable, portman),
     [{portmon, PortMon}] = ets:lookup(msgservertable, portmon),
-    %[{ws, WS}] = ets:lookup(msgservertable, ws),
-    %[{portws, PortWS}] = ets:lookup(msgservertable, portws),
-    %[{db, DB}] = ets:lookup(msgservertable, db),
-    %[{portdb, PortDB}] = ets:lookup(msgservertable, portdb),
-    %[{dbdsn, DBDSN}] = ets:lookup(msgservertable, dbdsn),
-    %[{dbname, DBName}] = ets:lookup(msgservertable, dbname),
-    %[{dbuid, DBUid}] = ets:lookup(msgservertable, dbuid),
-    %[{dbpwd, DBPwd}] = ets:lookup(msgservertable, dbpwd),
+    [{ws, WS}] = ets:lookup(msgservertable, ws),
+    [{portws, PortWS}] = ets:lookup(msgservertable, portws),
+    [{db, DB}] = ets:lookup(msgservertable, db),
+    [{dbname, DBName}] = ets:lookup(msgservertable, dbname),
+    [{dbuid, DBUid}] = ets:lookup(msgservertable, dbuid),
+    [{dbpwd, DBPwd}] = ets:lookup(msgservertable, dbpwd),
     % Listen VDR connection
     VDRServer = {
 				 ti_server_vdr,                             % Id       = internal id
@@ -226,24 +222,6 @@ init([]) ->
 				  supervisor, 				    	% Type     = worker | supervisor
 				  []								% Modules  = [Module] | dynamic
 				 },
-    % Listen Management connection
-    %ManServer = {
-    %             ti_server_man,                             % Id       = internal id
-    %             {ti_server_man, start_link, [PortMan]},    % StartFun = {M, F, A}
-    %             permanent,                                 % Restart  = permanent | transient | temporary
-    %             brutal_kill,                               % Shutdown = brutal_kill | int() >= 0 | infinity
-    %             worker,                                    % Type     = worker | supervisor
-    %             [ti_server_man]                            % Modules  = [Module] | dynamic
-    %            },
-    % Process Management communication
-    %ManHandler = {
-    %              ti_sup_handler_man,               % Id       = internal id
-    %              {supervisor, start_link, [{local, ti_sup_handler_man}, ?MODULE, [ti_handler_man]]},
-    %              permanent,                        % Restart  = permanent | transient | temporary
-    %              ?TIME_TERMINATE_MAN,              % Shutdown = brutal_kill | int() >= 0 | infinity
-    %              supervisor,                       % Type     = worker | supervisor
-    %              []                                % Modules  = [Module] | dynamic
-    %             },
     % Listen Monitor connection
     MonServer = {
                  ti_server_mon,                             % Id       = internal id
@@ -262,29 +240,29 @@ init([]) ->
                   supervisor,                       % Type     = worker | supervisor
                   []                                % Modules  = [Module] | dynamic
                  },
-    %% Create DB client
-    %DBClient  = {
-    %             mysql,                              % Id       = internal id
-    %             {mysql, start_link, [innov, DB, ?DEF_PORT_DB, DBName, DBUid, DBPwd]},  % StartFun = {M, F, A}
-    %             permanent,                                 % Restart  = permanent | transient | temporary
-    %             ?TIME_TERMINATE_DB,                        % Shutdown = brutal_kill | int() >= 0 | infinity
-    %             worker,                                    % Type     = worker | supervisor
-    %             [mysql]                             % Modules  = [Module] | dynamic
-    %            },
-    %% Create WS client
-    %WSClient  = {
-    %             ti_websocket_client,                               % Id       = internal id
-    %             {ti_websocket_client, start_link, [WS, PortWS]},   % StartFun = {M, F, A}
-    %             permanent,                                         % Restart  = permanent | transient | temporary
-    %             ?TIME_TERMINATE_MAN,                               % Shutdown = brutal_kill | int() >= 0 | infinity
-    %             worker,                                            % Type     = worker | supervisor
-    %             [ti_client_db]                                     % Modules  = [Module] | dynamic
-    %            },
+    % Create DB client
+    DBClient  = {
+                 mysql,                              % Id       = internal id
+                 {mysql, start_link, [conn, DB, ?DEF_PORT_DB, DBUid, DBPwd, DBName]},  % StartFun = {M, F, A}
+                 permanent,                                 % Restart  = permanent | transient | temporary
+                 ?TIME_TERMINATE_DB,                        % Shutdown = brutal_kill | int() >= 0 | infinity
+                 worker,                                    % Type     = worker | supervisor
+                 [mysql]                             % Modules  = [Module] | dynamic
+                },
+    % Create WS client
+    WSClient  = {
+                 wsock_client,                               % Id       = internal id
+                 {wsock_client, start, [WS, PortWS, "/"]},   % StartFun = {M, F, A}
+                 permanent,                                         % Restart  = permanent | transient | temporary
+                 ?TIME_TERMINATE_MAN,                               % Shutdown = brutal_kill | int() >= 0 | infinity
+                 worker,                                            % Type     = worker | supervisor
+                 [wsock_client]                                     % Modules  = [Module] | dynamic
+                },
     %Children = [VDRServer, VDRHandler, ManServer, ManHandler, MonServer, MonHandler, DBClient],
-    %Children = [VDRServer, VDRHandler, MonServer, MonHandler, DBClient, WSClient],
+    Children = [VDRServer, VDRHandler, MonServer, MonHandler, DBClient, WSClient],
     %Children = [VDRServer, VDRHandler, MonServer, MonHandler, WSClient],
     %Children = [VDRServer, VDRHandler, MonServer, MonHandler, DBClient],
-    Children = [VDRServer, VDRHandler, MonServer, MonHandler],
+    %Children = [VDRServer, VDRHandler, MonServer, MonHandler],
     RestartStrategy = {one_for_one, 0, 1},
     {ok, {RestartStrategy, Children}};
 %%%

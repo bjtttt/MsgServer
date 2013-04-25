@@ -336,6 +336,13 @@ handle_info({tcp, Socket, Data}, connecting, StateData) ->
   case wsock_handshake:handle_response(Response, StateData#data.handshake) of
     {ok, _Handshake} ->
       spawn(StateData#data.cb#callbacks.on_open),
+
+      %ToWSPid = spawn(fun() -> ti_man_data_parser:tows_msg_handler() end),
+      %ets:insert(msgservertable, {wspid, ToWSPid}),
+
+      {ok, Msg} = ti_man_data_parser:create_init_msg(),
+      wsock_client:send(Msg),
+
       {next_state, open, StateData};
     {error, _Error} ->
       {stop, failed_handshake, StateData}

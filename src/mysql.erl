@@ -525,6 +525,7 @@ init([PoolId, Host, Port, User, Password, Database, LogFun, Encoding]) ->
 	    Conn = new_conn(PoolId, ConnPid, true, Host, Port, User, Password,
 			    Database, Encoding),
 	    State = #state{log_fun = LogFun1},
+        
 	    {ok, add_conn(Conn, State)};
 	{error, _Reason} ->
 	    ?Log(LogFun1, error,

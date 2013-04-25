@@ -28,17 +28,13 @@
 %%%               1 -> log
 %%%
 start(StartType, StartArgs) ->
-    %[PortVDR, PortMon, WS, PortWS, DB, PortDB, DBDSN, DBName, DBUid, DBPwd, RawDisplay, Display] = StartArgs,
-    [PortVDR, PortMon, WS, PortWS, DB, DBName, DBUid, DBPwd, RawDisplay, Display] = StartArgs,
+    [PortVDR, PortMon, WS, PortWS, DB, DBName, DBUid, DBPwd, DBStartWait, RawDisplay, Display] = StartArgs,
     ets:new(msgservertable,[set,public,named_table,{keypos,1},{read_concurrency,true},{write_concurrency,true}]),
     ets:insert(msgservertable, {portvdr, PortVDR}),
-    %ets:insert(msgservertable, {portman, PortMan}),
     ets:insert(msgservertable, {portmon, PortMon}),
     ets:insert(msgservertable, {ws, WS}),
     ets:insert(msgservertable, {portws, PortWS}),
     ets:insert(msgservertable, {db, DB}),
-    %ets:insert(msgservertable, {portdb, PortDB}),
-    %ets:insert(msgservertable, {dbdsn, DBDSN}),
     ets:insert(msgservertable, {dbname, DBName}),
     ets:insert(msgservertable, {dbuid, DBUid}),
     ets:insert(msgservertable, {dbpwd, DBPwd}),
@@ -55,122 +51,32 @@ start(StartType, StartArgs) ->
     ets:new(usertable,[set,public,named_table,{keypos,#user.id},{read_concurrency,true},{write_concurrency,true}]),
     ets:new(montable,[set,public,named_table,{keypos,#monitem.socket},{read_concurrency,true},{write_concurrency,true}]),
     ti_common:loginfo("Tables are initialized.~n"),
-    VDR2DBPid = spawn(fun() -> mysql_msg_handler:vdr2db_msg_handler() end),
-    ets:insert(msgservertable, {dbpid, VDR2DBPid}),
-    ToWSPid = spawn(fun() -> ti_man_data_parser:tows_msg_handler() end),
-    ets:insert(msgservertable, {wspid, ToWSPid}),
-    case mysql:start_link(conn, DB, ?DEF_PORT_DB, DBUid, DBPwd, DBName) of
-        {ok, DBPid} ->
-            mysql:connect(conn, DB, undefined, DBUid, DBPwd, DBName, true),
-            %Result = mysql:fetch(innov, <<"select * from client">>),
-            %io:format("Result1: ~p~n", [Result]),
-            error_logger:info_msg("DB client PID is ~p~n", [DBPid]),
-            case wsock_client:start(WS, PortWS, "/") of
-                {ok, WSPid} ->
-                    error_logger:info_msg("WS client PID is ~p~n", [WSPid]),
-                    {ok, Msg} = ti_man_data_parser:create_init_msg(),
-                    ToWSPid ! {wait, self(), Msg},
-                    receive
-                        {FromPid, over} ->
-                            if
-                                FromPid == ToWSPid ->
-                                    case supervisor:start_link(ti_sup, []) of
-                                        {ok, SupPid} ->
-                                            AppPid = self(),
-                                            error_logger:info_msg("Message server starts~n"),
-                                            error_logger:info_msg("Application PID is ~p~n", [AppPid]),
-                                            error_logger:info_msg("Supervisor PID : ~p~n", [SupPid]),
-                                            {ok, AppPid};
-                                        ignore ->
-                                            error_logger:error_msg("Message server fails to start : ignore~n"),
-                                            ignore;
-                                        {error, Error} ->
-                                            error_logger:error_msg("Message server fails to start : ~p~n", [Error]),
-                                            {error, Error}
-                                    end;
-                                true ->
-                                    {error, "WS initialization PID error~n"}
-                            end%;
-                        %_ ->
-                        %    {error, "WS initialization response error~n"}
-                    after ?TIMEOUT_MAN ->
-                            {error, "WS initialization timeout~n"}
-                    end;
-                ignore ->
-                    error_logger:error_msg("DB client fails to start : ignore~n"),
-                    ignore;
-                {error, Error} ->
-                    error_logger:error_msg("DB client fails to start : ~p~n", [Error]),
-                    {error, Error}
+    case supervisor:start_link(ti_sup, []) of
+        {ok, SupPid} ->
+            AppPid = self(),
+            error_logger:info_msg("Message server starts~n"),
+            error_logger:info_msg("Application PID is ~p~n", [AppPid]),
+            error_logger:info_msg("Supervisor PID : ~p~n", [SupPid]),
+            receive
+                {nopid, wait} ->
+                    % DB client should tell it is ok, still in design
+                    mysql:connect(conn, DB, undefined, DBUid, DBPwd, DBName, true),
+                    %Result = mysql:fetch(conn, <<"select * from client">>),
+                    {ok, AppPid}
+            after DBStartWait ->
+                    mysql:connect(conn, DB, undefined, DBUid, DBPwd, DBName, true),
+                    %Result = mysql:fetch(conn, <<"select * from client">>),
+                    {ok, AppPid}
             end;
         ignore ->
-            error_logger:error_msg("DB client fails to start : ignore~n"),
+            error_logger:error_msg("Message server fails to start : ignore~n"),
             ignore;
         {error, Error} ->
-            error_logger:error_msg("DB client fails to start : ~p~n", [Error]),
+            error_logger:error_msg("Message server fails to start : ~p~n", [Error]),
             {error, Error}
     end.
 
-%db_msg_collector_process() ->
-%    receive
-%        {Pid, Data} ->
-%            ws_msg_collector_process();
-%        stop ->
-%            ok;
-%        _Unknown ->
-%            ws_msg_collector_process()
-%    after ?TIMEOUT_MAN ->
-%            ws_msg_collector_process()
-%    end.
-
-%%%
-%%% Communication with websocket server
-%%%
-%ws_msg_collector_process() ->
-%    receive
-%        {Pid, {Type, Data}} ->
-%            try ws_msg_sendread(Pid, Type, Data)
-%            catch
-%                _:Why ->
-%                    error_logger:error_msg("WS msg collector fails to send data : ~p~n", [Why])
-%            end,
-%            ws_msg_collector_process();
-%        stop ->
-%            ets:delete(msgservertable, wsmsgpid),
-%            error_logger:info_msg("WS msg collector stops~n");
-%        _Unknown ->
-%            ws_msg_collector_process()
-%    %after ?TIMEOUT_MAN ->
-%    %        ws_msg_collector_process()
-%    end.
-
-%%%
-%%%
-%%%
-%ws_msg_sendread(_Pid, _Type, Data) ->
-%    ti_ws_fsm_client:send(Data).%,
-    %case Type of
-    %    true ->
-    %        receive
-    %            {sent, Resp} ->
-    %                Pid!Resp;
-    %            _ ->
-    %                ok
-    %        after ?TIMEOUT_MAN ->
-    %            error_logger:error_msg("WS msg collector fails to receive response : timeout~n")
-    %        end;
-    %    _ ->
-    %        ok
-    %end.    
-
 stop(_State) ->
-    [{dbpid, DBPid}] = ets:lookup(msgservertable, dbpid),
-    case DBPid of
-        undefined ->
-            ok;
-        _ ->
-            DBPid!stop
-    end,
     error_logger:info_msg("Message server stops.~n"),
     ok.
 

@@ -8,8 +8,8 @@
 
 -include("ti_header.hrl").
 
--export([process_wsock_message/2,
-         tows_msg_handler/0]).
+-export([process_wsock_message/2]).%,
+         %tows_msg_handler/0]).
 
 -export([process_data/1]).
 
@@ -25,20 +25,20 @@
 %%%
 %%%
 %%%
-tows_msg_handler() ->
-    receive
-        {wait, Pid , Msg} ->
-            wsock_client:send(Msg),
-            Pid ! {self(), over},
-            tows_msg_handler();
-        {_Pid, Msg} ->
-            wsock_client:send(Msg),
-            tows_msg_handler();
-        stop ->
-            ok;
-        _Other ->
-            tows_msg_handler()
-    end.
+%tows_msg_handler() ->
+%    receive
+%        {wait, Pid , Msg} ->
+%            wsock_client:send(Msg),
+%            Pid ! {self(), over},
+%            tows_msg_handler();
+%        {_Pid, Msg} ->
+%            wsock_client:send(Msg),
+%            tows_msg_handler();
+%        stop ->
+%            ok;
+%        _Other ->
+%            tows_msg_handler()
+%    end.
 
 %%%
 %%%

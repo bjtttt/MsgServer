@@ -111,8 +111,10 @@ code_change(_OldVsn, State, _Extra) ->
 process_vdr_data(Socket, Data, State) ->
     VDRID = State#vdritem.id,
     VDRPid = State#vdritem.vdrpid,
-    [{dbpid, DBPid}] = ets:lookup(msgservertable, dbpid),
-    [{wspid, WSPid}] = ets:lookup(msgservertable, wspid),
+    %[{dbpid, DBPid}] = ets:lookup(msgservertable, dbpid),
+    %[{wspid, WSPid}] = ets:lookup(msgservertable, wspid),
+    DBPid = ok,
+    WSPid = ok,
     case DBPid of
         undefined ->
             ti_common:logerror("Disconnect VDR from ~p because of unavailable DB client process~n", [State#vdritem.addr]),
