@@ -28,7 +28,8 @@
 %%%               1 -> log
 %%%
 start(StartType, StartArgs) ->
-    [PortVDR, PortMon, WS, PortWS, DB, DBName, DBUid, DBPwd, DBStartWait, RawDisplay, Display] = StartArgs,
+    [PortVDR, PortMon, WS, PortWS, DB, DBName, DBUid, DBPwd, RawDisplay, Display] = StartArgs,
+    AppPid = self(),
     ets:new(msgservertable,[set,public,named_table,{keypos,1},{read_concurrency,true},{write_concurrency,true}]),
     ets:insert(msgservertable, {portvdr, PortVDR}),
     ets:insert(msgservertable, {portmon, PortMon}),
@@ -40,7 +41,7 @@ start(StartType, StartArgs) ->
     ets:insert(msgservertable, {dbpwd, DBPwd}),
     ets:insert(msgservertable, {dbpid, undefined}),
     ets:insert(msgservertable, {wspid, undefined}),
-    ets:insert(msgservertable, {dbref, undefined}),
+    ets:insert(msgservertable, {apppid, AppPid}),
     ets:insert(msgservertable, {rawdisplay, RawDisplay}),
     ets:insert(msgservertable, {display, Display}),
     ti_common:loginfo("StartType : ~p~n", [StartType]),
@@ -53,20 +54,16 @@ start(StartType, StartArgs) ->
     ti_common:loginfo("Tables are initialized.~n"),
     case supervisor:start_link(ti_sup, []) of
         {ok, SupPid} ->
-            AppPid = self(),
+            ets:insert(msgservertable, {suppid, SupPid}),
             error_logger:info_msg("Message server starts~n"),
             error_logger:info_msg("Application PID is ~p~n", [AppPid]),
             error_logger:info_msg("Supervisor PID : ~p~n", [SupPid]),
-            receive
-                {nopid, wait} ->
-                    % DB client should tell it is ok, still in design
+            case receive_db_ws_init_msg(false, false, 0) of
+                ok ->
                     mysql:connect(conn, DB, undefined, DBUid, DBPwd, DBName, true),
-                    %Result = mysql:fetch(conn, <<"select * from client">>),
-                    {ok, AppPid}
-            after DBStartWait ->
-                    mysql:connect(conn, DB, undefined, DBUid, DBPwd, DBName, true),
-                    %Result = mysql:fetch(conn, <<"select * from client">>),
-                    {ok, AppPid}
+                    {ok, AppPid};
+                {error, ErrMsg} ->
+                    {error, ErrMsg}
             end;
         ignore ->
             error_logger:error_msg("Message server fails to start : ignore~n"),
@@ -76,9 +73,53 @@ start(StartType, StartArgs) ->
             {error, Error}
     end.
 
+%%%
+%%%
+%%%
 stop(_State) ->
     error_logger:info_msg("Message server stops.~n"),
     ok.
+
+%%%
+%%% Will wait 20s
+%%%
+receive_db_ws_init_msg(WSOK, DBOK, Count) ->
+    if
+        Count >= 20 ->
+            if
+                WSOK == false andalso DBOK == false ->
+                    {error, "DB and WS both are not ready"};
+                WSOK == true andalso DBOK == false ->
+                    {error, "DB is not ready"};
+                WSOK == false andalso DBOK == true ->
+                    {error, "WS is not ready"};
+                WSOK == true andalso DBOK == true ->
+                    ok;
+                true ->
+                    {error, "Unknown DB and WS states"}
+            end;
+        true ->
+            receive
+                {_DBPid, dbok} ->
+                    if
+                        WSOK == true ->
+                            ok;
+                        true ->
+                            receive_db_ws_init_msg(WSOK, true, Count+1)
+                    end;
+                {_WSPid, wsok} ->
+                    if
+                        DBOK == true ->
+                            ok;
+                        true ->
+                            receive_db_ws_init_msg(true, DBOK, Count+1)
+                    end;
+                _ ->
+                    receive_db_ws_init_msg(WSOK, DBOK, Count+1)
+            after ?WAIT_LOOP_INTERVAL ->
+                    receive_db_ws_init_msg(WSOK, DBOK, Count+1)
+            end
+    end.                
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%% File END.

@@ -247,6 +247,10 @@ init({Host, Port, Resource}) ->
 
   %ok = gen_tcp:send(Socket, Request),
   ok = gen_tcp:send(Socket, Request1),
+  
+  WSPid = self(),
+  ets:insert(msgservertable, {wspid, WSPid}),
+  
   {ok, connecting, #data{ socket = Socket, handshake = Handshake}}.
 
 %% @hidden
@@ -342,6 +346,10 @@ handle_info({tcp, Socket, Data}, connecting, StateData) ->
 
       {ok, Msg} = ti_man_data_parser:create_init_msg(),
       wsock_client:send(Msg),
+
+      [{apppid, AppPid}] = ets:lookup(msgservertable, apppid),
+      [{wspid, WSPid}] = ets:lookup(msgservertable, wspid),
+      AppPid ! {WSPid, wsok},
 
       {next_state, open, StateData};
     {error, _Error} ->
