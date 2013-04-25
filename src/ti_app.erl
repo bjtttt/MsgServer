@@ -65,14 +65,11 @@ start(StartType, StartArgs) ->
             %Result = mysql:fetch(innov, <<"select * from client">>),
             %io:format("Result1: ~p~n", [Result]),
             error_logger:info_msg("DB client PID is ~p~n", [DBPid]),
-            %VDR2DBPid = spawn(fun() -> mysql_msg_handler:vdr2db_msg_handler() end),
-            %ets:insert(msgservertable, {dbpid, VDR2DBPid}),
             case wsock_client:start(WS, PortWS, "/") of
                 {ok, WSPid} ->
                     error_logger:info_msg("WS client PID is ~p~n", [WSPid]),
-                    %ToWSPid = spawn(fun() -> ti_man_data_parser:tows_msg_handler() end),
-                    %ets:insert(msgservertable, {wspid, ToWSPid}),
                     {ok, Msg} = ti_man_data_parser:create_init_msg(),
+                    wsock_client:send(Msg),
                     ToWSPid ! {wait, self(), Msg},
                     receive
                         {FromPid, over} ->

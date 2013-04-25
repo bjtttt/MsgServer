@@ -38,8 +38,6 @@ tows_msg_handler() ->
             ok;
         _Other ->
             tows_msg_handler()
-    %after ?TIMEOUT_DATA_MAN ->
-    %        tows_msg_handler()
     end.
 
 %%%
@@ -624,7 +622,7 @@ get_phone_name_list(PhoneNameList) ->
 %%%
 %%%
 create_init_msg() ->
-    {ok, "{\"MID\":0x0005, \"TOKEN\":\"anystring\"}"}.
+    {ok, "{\"MID\":5, \"TOKEN\":\"anystring\"}"}.
 
 %%%
 %%% MID : 0x0001
@@ -634,7 +632,7 @@ create_gen_resp(SN, Sid, List, Status) ->
     Bool = ti_common:is_string(Sid),
     if
         is_integer(SN) andalso Bool andalso is_integer(Status) andalso Status >= 0 andalso Status =< 3 ->
-            MIDStr = "\"MID\":\"0x0001\"",
+            MIDStr = "\"MID\":1",
             SNStr = string:concat("\"SN\":", integer_to_list(SN)),
             SidStr = string:concat("\"SID\":", Sid),
             VIDListStr = string:concat(string:concat("\"LIST\":[",  create_list(["\"VID\""], List, false)), "]"),
@@ -649,7 +647,7 @@ create_gen_resp(SN, Sid, List, Status) ->
 %%% List : [ID0, ID1, ID2, ...]
 %%%
 create_term_online(List) ->
-    MIDStr = "\"MID\":\"0x0003\"",
+    MIDStr = "\"MID\":3",
     VIDListStr = string:concat(string:concat("\"LIST\":[",  create_list(["\"VID\""], List, false)), "]"),
     {ok, ti_common:combine_strings([MIDStr, VIDListStr])}.
 
@@ -658,7 +656,7 @@ create_term_online(List) ->
 %%% List : [ID0, ID1, ID2, ...]
 %%%
 create_term_offline(List) ->
-    MIDStr = "\"MID\":\"0x0004\"",
+    MIDStr = "\"MID\":4",
     VIDListStr = string:concat(string:concat("\"LIST\":[",  create_list(["\"VID\""], List, false)), "]"),
     {ok, ti_common:combine_strings([MIDStr, VIDListStr])}.
 
@@ -669,7 +667,7 @@ create_term_offline(List) ->
 create_term_alarm(List, SN, Code, AF, SF, Lat, Long, T) ->
     if
         is_integer(SN) ->
-            MIDStr = "\"MID\":\"0x0004\"",
+            MIDStr = "\"MID\":512",
             SNStr = string:concat("\"SN\":", integer_to_list(SN)),
             VIDListStr = string:concat(string:concat("\"LIST\":[",  create_list(["\"VID\""], List, false)), "]"),
             DataListStr = string:concat(string:concat("\"DATA\":{",  create_list(["\"CODE\"", "\"AF\"", "\"SF\"", "\"LAT\"", "\"LONG\"", "\"T\""], [Code, AF, SF, Lat, Long, T], true)), "}"),
@@ -679,12 +677,12 @@ create_term_alarm(List, SN, Code, AF, SF, Lat, Long, T) ->
     end.
 
 %%%
-%%%
+%%% 0x0302
 %%%
 create_term_answer(SN, List, IDList) ->
     if
         is_integer(SN) ->
-            MIDStr = "\"MID\":\"0x0302\"",
+            MIDStr = "\"MID\":770",
             SNStr = string:concat("\"SN\":", integer_to_list(SN)),
             VIDListStr = string:concat(string:concat("\"LIST\":[",  create_list(["\"VID\""], List, false)), "]"),
             DataListStr = string:concat(string:concat("\"DATA\":{",  create_list(["\"ID\""], IDList, true)), "}"),
@@ -694,12 +692,12 @@ create_term_answer(SN, List, IDList) ->
     end.
 
 %%%
-%%%
+%%% 0x0500
 %%%
 create_vehicle_ctrl_answer(SN, Status, List, DataList) ->
     if
         is_integer(SN) andalso is_integer(Status) andalso Status >= 0 andalso Status =< 3 ->
-            MIDStr = "\"MID\":\"0x0500\"",
+            MIDStr = "\"MID\":1280",
             SNStr = string:concat("\"SN\":", integer_to_list(SN)),
             StatusStr = string:concat("\"STATUS\":", integer_to_list(Status)),
             VIDListStr = string:concat(string:concat("\"LIST\":[",  create_list(["\"VID\""], List, false)), "]"),
@@ -716,12 +714,12 @@ create_vehicle_ctrl_answer(SN, Status, List, DataList) ->
     end.
 
 %%%
-%%%
+%%% 0x0805
 %%%
 create_shot_resp(SN, List, Status, IDList) ->
     if
         is_integer(SN) andalso is_integer(Status) andalso Status >= 0 andalso Status =< 3 ->
-            MIDStr = "\"MID\":\"0x0805\"",
+            MIDStr = "\"MID\":2053",
             SNStr = string:concat("\"SN\":", integer_to_list(SN)),
             VIDListStr = string:concat(string:concat("\"LIST\":[",  create_list(["\"VID\""], List, false)), "]"),
             StatusStr = string:concat("\"STATUS\":", integer_to_list(Status)),

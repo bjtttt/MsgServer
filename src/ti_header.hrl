@@ -16,6 +16,8 @@
 %-define(LOG_INFO_ERR, 1).
 %-define(LOG_ERR, 0).
 
+-define(TIMEOUT_WS_INIT, 10000).
+
 -define(TIMEOUT_VDR, 60000). 
 -define(TIMEOUT_MAN, 30000). 
 -define(TIMEOUT_MON, 3000). 
