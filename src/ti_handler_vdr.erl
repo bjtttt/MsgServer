@@ -23,6 +23,12 @@ init([Socket, Addr]) ->
 handle_call(_Request, _From, State) ->
 	{noreply, ok, State}.
 
+handle_cast({send, Socket, Msg}, State) ->
+    gen_tcp:send(Socket, Msg),
+    {noreply, State};
+handle_cast({fetch, PoolId, Msg}, State) ->
+    mysql:fetch(PoolId, Msg),
+    {noreply, State};
 handle_cast(_Msg, State) ->    
 	{noreply, State}. 
 
@@ -122,16 +128,16 @@ process_vdr_data(Socket, Data, State) ->
                             %{Province, City, Producer, TermModel, TermID, LicColor, LicID} = Msg,
                             % We should check whether fetch works or not
                             DBMsg = compose_db_msg(HeadInfo, Msg),
-                            mysql:fetch(p1, DBMsg),
+                            send_data_to_db(conn, DBMsg),
                             
                             VDRResp = vdr_data_processor:create_gen_resp(ID, MsgIdx, ?T_GEN_RESP_OK),
-                            gen_tcp:send(Socket, VDRResp),
+                            send_data_to_vdr(Socket, VDRResp),
                             
                             {ok, NewState#vdritem{msg2vdr=[], msg=[], req=[]}};
                         16#102 ->
                             % VDR Authentication
                             DBMsg = compose_db_msg(HeadInfo, Msg),
-                            mysql:fetch(p1, DBMsg),
+                            send_data_to_db(conn, DBMsg),
                             
                             {Auth} = Msg,
                             IDSockList = ets:lookup(vdridsocktable, Auth),
@@ -140,30 +146,33 @@ process_vdr_data(Socket, Data, State) ->
                             ets:insert(vdridsocktable, IDSock),
                             
                             VDRResp = vdr_data_processor:create_gen_resp(ID, MsgIdx, ?T_GEN_RESP_OK),
-                            gen_tcp:send(Socket, VDRResp),
+                            send_data_to_vdr(Socket, VDRResp),
 
                             {ok, NewState#vdritem{id=Auth, msg2vdr=[], msg=[], req=[]}};
                         true ->
                             VDRResp = vdr_data_processor:create_gen_resp(ID, MsgIdx, ?T_GEN_RESP_ERRMSG),
-                            gen_tcp:send(Socket, VDRResp),
+                            send_data_to_vdr(Socket, VDRResp),
 
                             {error, logicerror, State}
                     end;
                 true ->
                     DBMsg = compose_db_msg(HeadInfo, Msg),
-                    mysql:fetch(p1, DBMsg),
-                    VDRPid!{ok, {ID, MsgIdx, ?T_GEN_RESP_OK}},
+                    send_data_to_db(conn, DBMsg),
+
+                    VDRResp = vdr_data_processor:create_gen_resp(ID, MsgIdx, ?T_GEN_RESP_OK),
+                    send_data_to_vdr(Socket, VDRResp),
+
                     {ok, NewState}
             end;
         {ignore, HeaderInfo, NewState} ->
             {ID, MsgIdx, _Tel, _CryptoType} = HeaderInfo,
             VDRResp = vdr_data_processor:create_gen_resp(ID, MsgIdx, ?T_GEN_RESP_OK),
-            gen_tcp:send(Socket, VDRResp),
+            send_data_to_vdr(Socket, VDRResp),
             {ok, NewState};
         {warning, HeaderInfo, ErrorType, NewState} ->
             {ID, MsgIdx, _Tel, _CryptoType} = HeaderInfo,
             VDRResp = vdr_data_processor:create_gen_resp(ID, MsgIdx, ErrorType),
-            gen_tcp:send(Socket, VDRResp),
+            send_data_to_vdr(Socket, VDRResp),
             {warning, NewState};
         {error, dataerror, NewState} ->
             {error, logicerror, NewState};
@@ -189,7 +198,19 @@ disconnect_socket_by_id(IDSockList) ->
             ets:delete(vdridsocktable, ID),
             disconnect_socket_by_id(T)
     end.
-            
+           
+%%%
+%%%
+%%%
+send_data_to_vdr(Socket, Msg) ->
+    gen_server:cast(?MODULE, {send, Socket, Msg}).
+
+%%%
+%%%
+%%%
+send_data_to_db(PoolId, Msg) ->
+    gen_server:cast(?MODULE, {fetch, PoolId, Msg}).
+
 %%%         
 %%%
 %%%
