@@ -187,14 +187,16 @@ parse_gen_resp(Bin) ->
 %%%                 4 - ALARM ACK
 %%%
 create_general_response(FlowIdx, ID, Resp) ->
-    if
-        Resp < 0 ->
-            error;
-        Resp > 4 ->
-            error;
-        true ->
-            {ok, <<FlowIdx:?LEN_WORD, ID:?LEN_WORD, Resp:?LEN_BYTE>>}
-    end.
+    <<FlowIdx:?LEN_WORD, ID:?LEN_WORD, Resp:?LEN_BYTE>>.
+%create_general_response(FlowIdx, ID, Resp) ->
+%    if
+%        Resp < 0 ->
+%            error;
+%        Resp > 4 ->
+%            error;
+%        true ->
+%            {ok, <<FlowIdx:?LEN_WORD, ID:?LEN_WORD, Resp:?LEN_BYTE>>}
+%    end.
 
 %%%
 %%% 0x0002
