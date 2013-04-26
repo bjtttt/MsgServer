@@ -111,7 +111,7 @@ code_change(_OldVsn, State, _Extra) ->
 process_vdr_data(Socket, Data, State) ->
     VDRID = State#vdritem.id,
     VDRPid = State#vdritem.vdrpid,
-    case ti_vdr_data_parser:process_data(State, Data) of
+    case vdr_data_parser:process_data(State, Data) of
         {ok, HeadInfo, Msg, NewState} ->
             {ID, MsgIdx, _Tel, _CryptoType} = HeadInfo,
             if
@@ -124,7 +124,7 @@ process_vdr_data(Socket, Data, State) ->
                             DBMsg = compose_db_msg(HeadInfo, Msg),
                             mysql:fetch(p1, DBMsg),
                             
-                            VDRResp = ti_vdr_msg_body_processor:create_general_response(ID, MsgIdx, ?T_GEN_RESP_OK),
+                            VDRResp = vdr_data_processor:create_gen_resp(ID, MsgIdx, ?T_GEN_RESP_OK),
                             gen_tcp:send(Socket, VDRResp),
                             
                             {ok, NewState#vdritem{msg2vdr=[], msg=[], req=[]}};
@@ -139,12 +139,12 @@ process_vdr_data(Socket, Data, State) ->
                             IDSock = #vdridsockitem{id=Auth, socket=Socket, addr=State#vdritem.addr},
                             ets:insert(vdridsocktable, IDSock),
                             
-                            VDRResp = ti_vdr_msg_body_processor:create_general_response(ID, MsgIdx, ?T_GEN_RESP_OK),
+                            VDRResp = vdr_data_processor:create_gen_resp(ID, MsgIdx, ?T_GEN_RESP_OK),
                             gen_tcp:send(Socket, VDRResp),
 
                             {ok, NewState#vdritem{id=Auth, msg2vdr=[], msg=[], req=[]}};
                         true ->
-                            VDRResp = ti_vdr_msg_body_processor:create_general_response(ID, MsgIdx, ?T_GEN_RESP_ERRMSG),
+                            VDRResp = vdr_data_processor:create_gen_resp(ID, MsgIdx, ?T_GEN_RESP_ERRMSG),
                             gen_tcp:send(Socket, VDRResp),
 
                             {error, logicerror, State}
@@ -157,12 +157,12 @@ process_vdr_data(Socket, Data, State) ->
             end;
         {ignore, HeaderInfo, NewState} ->
             {ID, MsgIdx, _Tel, _CryptoType} = HeaderInfo,
-            VDRResp = ti_vdr_msg_body_processor:create_general_response(ID, MsgIdx, ?T_GEN_RESP_OK),
+            VDRResp = vdr_data_processor:create_gen_resp(ID, MsgIdx, ?T_GEN_RESP_OK),
             gen_tcp:send(Socket, VDRResp),
             {ok, NewState};
         {warning, HeaderInfo, ErrorType, NewState} ->
             {ID, MsgIdx, _Tel, _CryptoType} = HeaderInfo,
-            VDRResp = ti_vdr_msg_body_processor:create_general_response(ID, MsgIdx, ErrorType),
+            VDRResp = vdr_data_processor:create_gen_resp(ID, MsgIdx, ErrorType),
             gen_tcp:send(Socket, VDRResp),
             {warning, NewState};
         {error, dataerror, NewState} ->
@@ -267,7 +267,7 @@ compose_db_msg(HeaderInfo, _Resp) ->
 %            if 
 %                FromPid == Pid ->
 %                    {ID, MsgIdx, Res} = Data,
-%                    case ti_vdr_msg_body_processor:create_general_response(ID, MsgIdx, Res) of
+%                    case vdr_data_processor:create_gen_resp(ID, MsgIdx, Res) of
 %                        {ok, Bin} ->
 %                            gen_tcp:send(Socket, Bin);
 %                        error ->
@@ -310,7 +310,7 @@ createresp(HeaderInfo, Result, State) ->
     BodyProp = <<0:2, 0:1, CryptoType:3, BodyLen:10>>,
     Header = <<128, 1, BodyProp:16, TelNum:48, RespFlowNum:16>>,
     HeaderBody = <<Header, Body>>,
-    XOR = ti_vdr_data_parser:bxorbytelist(HeaderBody),
+    XOR = vdr_data_parser:bxorbytelist(HeaderBody),
     RawData = binary:replace(<<HeaderBody, XOR>>, <<125>>, <<125,1>>, [global]),
     RawDataNew = binary:replace(RawData, <<126>>, <<125,2>>, [global]),
     {<<126, RawDataNew, 126>>, State#vdritem{msgflownum=RespFlowNum+1}}.
