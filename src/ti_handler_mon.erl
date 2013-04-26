@@ -32,7 +32,7 @@ handle_cast(_Msg, State) ->
     {noreply, State}. 
 
 handle_info({tcp, Socket, Data}, State) ->    
-    case ti_mon_data_parser:parse_data(Socket, Data) of
+    case mon_data_parser:parse_data(Socket, Data) of
         {ok, Decoded} ->
             process_mon_data(Socket, Decoded);
         _ ->
