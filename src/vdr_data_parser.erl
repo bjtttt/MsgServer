@@ -45,77 +45,80 @@ process_data(State, Data) ->
 %%% What is Decoded, still in design
 %%%
 do_process_data(State, Data) ->
-    RawData = restore_7d_7e_msg(State, Data),
-    NoParityLen = byte_size(RawData) - 1,
-    NoParityBitLen = NoParityLen*?LEN_BYTE,
-    <<HeaderBody:NoParityBitLen, Parity/binary>> = RawData,
-    CalcParity = bxorbytelist(HeaderBody),
-    if
-        CalcParity == Parity ->
-            <<ID:16, Property:16, Tel:48, MsgIdx:16, Tail/binary>> = HeaderBody,
-            <<_Reserved:2, Pack:1, CryptoType:3, BodyLen:10>> = Property,
-            HeadInfo = {ID, MsgIdx, Tel, CryptoType},
-            case Pack of
-                0 ->
-                    % Single package message
-                    Body = Tail,
-                    ActBodyLen = byte_size(Body),
-                    if
-                        BodyLen == ActBodyLen ->
-                            case vdr_data_processor:parse_msg_body(ID, Body) of
-                                {ok, Result} ->
-                                    {ok, HeadInfo, Result, State};
-                                {error, msgerror} ->
-                                    {warning, HeadInfo, ?P_GENRESP_ERRMSG, State};
-                                {error, unsupported} ->
-                                    {warning, HeadInfo, ?P_GENRESP_NOTSUPPORT, State}
-                            end;
-                        BodyLen =/= ActBodyLen ->
-                            ti_common:logerror("Length error for msg (~p) from (~p) : (Field)~p:(Actual)~p~n", [MsgIdx, State#vdritem.addr, BodyLen, ActBodyLen]),
-                            {warning, HeadInfo, ?P_GENRESP_ERRMSG, State}
-                    end;
-                1 ->
-                    % Multi package message
-                    <<PackInfo:32,Body/binary>> = Tail,
-                    ActBodyLen = byte_size(Body),
-                    <<Total:16,Index:16>> = PackInfo,
-                    if
-                        Total =< 1 ->
-                            ti_common:logerror("Total error for msg (~p) from (~p) : ~p~n", [MsgIdx, State#vdritem.addr, Total]),
-                            {warning, HeadInfo, ?P_GENRESP_ERRMSG, State};
-                        Total > 1 ->
+    case restore_7d_7e_msg(State, Data) of
+        {ok, RawData} ->
+            NoParityLen = byte_size(RawData) - 1,
+            {HeaderBody, Parity} = split_binary(RawData, NoParityLen),
+            CalcParity = bxorbytelist(HeaderBody),
+            if
+                CalcParity == Parity ->
+                    <<ID:16, Property:16, Tel:48, MsgIdx:16, Tail/binary>> = HeaderBody,
+                    <<_Reserved:2, Pack:1, CryptoType:3, BodyLen:10>> = <<Property:16>>,
+                    HeadInfo = {ID, MsgIdx, Tel, CryptoType},
+                    case Pack of
+                        0 ->
+                            % Single package message
+                            Body = Tail,
+                            ActBodyLen = byte_size(Body),
                             if
-                                Index < 1 ->
-                                    ti_common:logerror("Index error for msg (~p) from (~p) : (Index)~p~n", [MsgIdx, State#vdritem.addr, Index]),
+                                BodyLen == ActBodyLen ->
+                                    case vdr_data_processor:parse_msg_body(ID, Body) of
+                                        {ok, Result} ->
+                                            {ok, HeadInfo, Result, State};
+                                        {error, msgerror} ->
+                                            {warning, HeadInfo, ?P_GENRESP_ERRMSG, State};
+                                        {error, unsupported} ->
+                                            {warning, HeadInfo, ?P_GENRESP_NOTSUPPORT, State}
+                                    end;
+                                BodyLen =/= ActBodyLen ->
+                                    ti_common:logerror("Length error for msg (~p) from (~p) : (Field)~p:(Actual)~p~n", [MsgIdx, State#vdritem.addr, BodyLen, ActBodyLen]),
+                                    {warning, HeadInfo, ?P_GENRESP_ERRMSG, State}
+                            end;
+                        1 ->
+                            % Multi package message
+                            <<PackInfo:32,Body/binary>> = Tail,
+                            ActBodyLen = byte_size(Body),
+                            <<Total:16,Index:16>> = <<PackInfo:32>>,
+                            if
+                                Total =< 1 ->
+                                    ti_common:logerror("Total error for msg (~p) from (~p) : ~p~n", [MsgIdx, State#vdritem.addr, Total]),
                                     {warning, HeadInfo, ?P_GENRESP_ERRMSG, State};
-                                Index > Total ->
-                                    ti_common:logerror("Index error for msg (~p) from (~p) : (Total)~p:(Index)~p~n", [MsgIdx, State#vdritem.addr, Total, Index]),
-                                    {warning, HeadInfo, ?P_GENRESP_ERRMSG, State};
-                                Index =< Total ->
+                                Total > 1 ->
                                     if
-                                        BodyLen == ActBodyLen ->
-                                            case combine_msg_packs(State, ID, MsgIdx, Total, Index, Body) of
-                                                {complete, Msg, NewState} ->
-                                                    case vdr_data_processor:parse_msg_body(ID, Msg) of
-                                                        {ok, Result} ->
-                                                            {ok, ID, MsgIdx, Result, NewState};
-                                                        {warning, msgerror} ->
-                                                            {error, HeadInfo, ?P_GENRESP_ERRMSG, NewState};
-                                                        {warning, unsupported} ->
-                                                            {error, HeadInfo, ?P_GENRESP_NOTSUPPORT, NewState}
+                                        Index < 1 ->
+                                            ti_common:logerror("Index error for msg (~p) from (~p) : (Index)~p~n", [MsgIdx, State#vdritem.addr, Index]),
+                                            {warning, HeadInfo, ?P_GENRESP_ERRMSG, State};
+                                        Index > Total ->
+                                            ti_common:logerror("Index error for msg (~p) from (~p) : (Total)~p:(Index)~p~n", [MsgIdx, State#vdritem.addr, Total, Index]),
+                                            {warning, HeadInfo, ?P_GENRESP_ERRMSG, State};
+                                        Index =< Total ->
+                                            if
+                                                BodyLen == ActBodyLen ->
+                                                    case combine_msg_packs(State, ID, MsgIdx, Total, Index, Body) of
+                                                        {complete, Msg, NewState} ->
+                                                            case vdr_data_processor:parse_msg_body(ID, Msg) of
+                                                                {ok, Result} ->
+                                                                    {ok, ID, MsgIdx, Result, NewState};
+                                                                {warning, msgerror} ->
+                                                                    {error, HeadInfo, ?P_GENRESP_ERRMSG, NewState};
+                                                                {warning, unsupported} ->
+                                                                    {error, HeadInfo, ?P_GENRESP_NOTSUPPORT, NewState}
+                                                            end;
+                                                        {notcomplete, NewState} ->
+                                                            {ignore, HeadInfo, NewState}
                                                     end;
-                                                {notcomplete, NewState} ->
-                                                    {ignore, HeadInfo, NewState}
-                                            end;
-                                        BodyLen =/= ActBodyLen ->
-                                            ti_common:logerror("Length error for msg (~p) from (~p) : (Field)~p:(Actual)~p~n", [MsgIdx, State#vdritem.addr, BodyLen, ActBodyLen]),
-                                            {warning, HeadInfo, ?P_GENRESP_ERRMSG, State}
+                                                BodyLen =/= ActBodyLen ->
+                                                    ti_common:logerror("Length error for msg (~p) from (~p) : (Field)~p:(Actual)~p~n", [MsgIdx, State#vdritem.addr, BodyLen, ActBodyLen]),
+                                                    {warning, HeadInfo, ?P_GENRESP_ERRMSG, State}
+                                            end
                                     end
                             end
-                    end
+                    end;
+                CalcParity =/= Parity ->
+                    ti_common:logerror("Parity error (calculated)~p:(data)~p from ~p~n", [CalcParity, Parity, State#vdritem.addr]),
+                    {error, dataerror, State}
             end;
-        CalcParity =/= Parity ->
-            ti_common:logerror("Parity error (calculated)~p:(data)~p from ~p~n", [CalcParity, Parity, State#vdritem.addr]),
+        error ->
             {error, dataerror, State}
     end.
 
@@ -144,7 +147,7 @@ bxorbytelist(Data) ->
 %%% 0x7d0x1 -> 0x7d & 0x7d0x2 -> 0x7e
 %%%
 restore_7d_7e_msg(State, Data) ->
-    Len = length(Data),
+    Len = byte_size(Data),
     {Header, Remain} = split_binary(Data, 1),
     {Body, Tail} = split_binary(Remain, Len-2),
     case Header of
