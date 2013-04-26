@@ -12,22 +12,21 @@ start_link(Socket, Addr) ->
 	gen_server:start_link(?MODULE, [Socket, Addr], []). 
 
 init([Socket, Addr]) ->
-    %process_flag(trap_exit, true),
+    process_flag(trap_exit, true),
     Pid = self(),
-    %VDRPid = spawn(fun() -> data2vdr_process(Pid, Socket) end),
     State = #vdritem{socket=Socket, pid=Pid, addr=Addr, msgflownum=0},
     ets:insert(vdrtable, State), 
     inet:setopts(Socket, [{active, once}]),
 	{ok, State}.
 
+handle_call({fetch, PoolId, Msg}, _From, State) ->
+    Resp = mysql:fetch(PoolId, Msg),
+    {noreply, {ok, Resp}, State};
 handle_call(_Request, _From, State) ->
-	{noreply, ok, State}.
+    {noreply, ok, State}.
 
 handle_cast({send, Socket, Msg}, State) ->
     gen_tcp:send(Socket, Msg),
-    {noreply, State};
-handle_cast({fetch, PoolId, Msg}, State) ->
-    mysql:fetch(PoolId, Msg),
     {noreply, State};
 handle_cast(_Msg, State) ->    
 	{noreply, State}. 
@@ -82,13 +81,6 @@ handle_info(_Info, State) ->
 %%% When VDR handler process is terminated, do the clean jobs here
 %%%
 terminate(Reason, State) ->
-    VDRPid = State#vdritem.vdrpid,
-    case VDRPid of
-        undefined ->
-            ok;
-        _ ->
-            VDRPid!stop
-    end,
 	try gen_tcp:close(State#vdritem.socket)
     catch
         _:Ex ->
@@ -116,7 +108,6 @@ code_change(_OldVsn, State, _Extra) ->
 %%%
 process_vdr_data(Socket, Data, State) ->
     VDRID = State#vdritem.id,
-    VDRPid = State#vdritem.vdrpid,
     case vdr_data_parser:process_data(State, Data) of
         {ok, HeadInfo, Msg, NewState} ->
             {ID, MsgIdx, _Tel, _CryptoType} = HeadInfo,
@@ -128,7 +119,7 @@ process_vdr_data(Socket, Data, State) ->
                             %{Province, City, Producer, TermModel, TermID, LicColor, LicID} = Msg,
                             % We should check whether fetch works or not
                             DBMsg = compose_db_msg(HeadInfo, Msg),
-                            send_data_to_db(conn, DBMsg),
+                            Resp = send_data_to_db(conn, DBMsg),
                             
                             VDRResp = vdr_data_processor:create_gen_resp(ID, MsgIdx, ?T_GEN_RESP_OK),
                             send_data_to_vdr(Socket, VDRResp),
@@ -137,7 +128,7 @@ process_vdr_data(Socket, Data, State) ->
                         16#102 ->
                             % VDR Authentication
                             DBMsg = compose_db_msg(HeadInfo, Msg),
-                            send_data_to_db(conn, DBMsg),
+                            Resp = send_data_to_db(conn, DBMsg),
                             
                             {Auth} = Msg,
                             IDSockList = ets:lookup(vdridsocktable, Auth),
@@ -209,12 +200,12 @@ send_data_to_vdr(Socket, Msg) ->
 %%%
 %%%
 send_data_to_db(PoolId, Msg) ->
-    gen_server:cast(?MODULE, {fetch, PoolId, Msg}).
+    gen_server:call(?MODULE, {fetch, PoolId, Msg}).
 
 %%%         
 %%%
 %%%
-compose_db_msg(HeaderInfo, _Resp) ->
+compose_db_msg(HeaderInfo, Msg) ->
     {ID, _FlowNum, _TelNum, _CryptoType} = HeaderInfo,
     case ID of
         16#1    ->                          
@@ -225,8 +216,9 @@ compose_db_msg(HeaderInfo, _Resp) ->
             {ok, ""};
         16#3    ->                          
             {ok, ""};
-        16#102  ->                          
-            {ok, ""};
+        16#102  ->
+            {Auth} = Msg,
+            {ok, [<<"select * from device where authen_code=='">>, Auth, <<"'">>]};
         16#104  ->                          
             {ok, ""};
         16#107  ->                      

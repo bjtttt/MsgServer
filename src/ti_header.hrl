@@ -70,7 +70,6 @@
 -record(vdritem, {  socket=undefined, 
                     id=undefined, 
                     pid=undefined, 
-                    vdrpid=undefined,
                     addr=undefined, 
                     acttime=undefined, 
                     timeout=undefined,

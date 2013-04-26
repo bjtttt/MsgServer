@@ -524,8 +524,7 @@ init([PoolId, Host, Port, User, Password, Database, LogFun, Encoding]) ->
 	{ok, ConnPid} ->
 	    Conn = new_conn(PoolId, ConnPid, true, Host, Port, User, Password,
 			    Database, Encoding),
-	    State = #state{log_fun = LogFun1},
-        
+	    State = #state{log_fun = LogFun1},        
   
         DBPid = self(),
         ets:insert(msgservertable, {dbpid, DBPid}),

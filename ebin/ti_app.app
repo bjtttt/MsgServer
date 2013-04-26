@@ -19,7 +19,7 @@
              ti_rfc4627,
              wsock_client,
              wsock_framing,
-             wsock_handshake
+             wsock_handshake,
              wsock_http,
              wsock_key,
              wsock_message]},

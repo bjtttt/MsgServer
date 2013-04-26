@@ -83,7 +83,6 @@ handle_info({inet_async, LSock, Ref, {ok, CSock}}, #serverstate{lsock=LSock, acc
                     {ok, Pid} ->
                         case gen_tcp:controlling_process(CSock, Pid) of
                             ok ->
-                                %ets:insert(vdrtable, #vdritem{socket=CSock, pid=Pid});
                                 ok;
                             {error, Reason1} ->
                                 ti_common:logerror("VDR server gen_server:controlling_process(Socket, PID : ~p) fails : ~p~n", [Pid, Reason1]),
