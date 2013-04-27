@@ -89,8 +89,8 @@ terminate(Reason, State) ->
     Socket = State#vdritem.socket,
     ets:delete(vdrtable, Socket),
     ets:delete(vdridsocktable, ID),
-    DBUpdate = list_to_binary([<<"update device set is_online=0 where authen_code='">>, list_to_binary(Auth), <<"'">>]),
-    send_sql_to_db(conn, DBUpdate),
+    Sql = list_to_binary([<<"update device set is_online=0 where authen_code='">>, list_to_binary(Auth), <<"'">>]),
+    send_sql_to_db(conn, Sql),
     {ok, WSUpdate} = wsock_data_parser:create_term_offline([ID]),
     wsock_client:send(WSUpdate),
 	try gen_tcp:close(State#vdritem.socket)
@@ -130,7 +130,7 @@ process_vdr_data(Socket, Data, State) ->
                             % Register VDR
                             %{Province, City, Producer, TermModel, TermID, LicColor, LicID} = Msg,
                             % We should check whether fetch works or not
-                            {ok, DBMsg} = compose_db_msg(HeadInfo, Msg),
+                            {ok, DBMsg} = compose_db_msg_from_vdr(HeadInfo, Msg),
                             SqlResp = send_sql_to_db(conn, DBMsg),
                             
                             VDRResp = vdr_data_processor:create_gen_resp(ID, MsgIdx, ?T_GEN_RESP_OK),
@@ -139,7 +139,7 @@ process_vdr_data(Socket, Data, State) ->
                             {ok, NewState#vdritem{msg2vdr=[], msg=[], req=[]}};
                         16#102 ->
                             % VDR Authentication
-                            {ok, DBMsg} = compose_db_msg(HeadInfo, Msg),
+                            {ok, DBMsg} = compose_db_msg_from_vdr(HeadInfo, Msg),
                             SqlResp = send_sql_to_db(conn, DBMsg),
                             case extract_db_resp(SqlResp) of
                                 {ok, empty} ->
@@ -183,7 +183,7 @@ process_vdr_data(Socket, Data, State) ->
                             {error, logicerror, State}
                     end;
                 true ->
-                    DBMsg = compose_db_msg(HeadInfo, Msg),
+                    DBMsg = compose_db_msg_from_vdr(HeadInfo, Msg),
                     send_sql_to_db(conn, DBMsg),
 
                     VDRResp = vdr_data_processor:create_gen_resp(ID, MsgIdx, ?T_GEN_RESP_OK),
@@ -249,7 +249,7 @@ send_sql_to_db(PoolId, Msg) ->
 %%%     {error, iderror}
 %%%     error
 %%%
-compose_db_msg(HeaderInfo, Msg) ->
+compose_db_msg_from_vdr(HeaderInfo, Msg) ->
     {ID, _FlowNum, _TelNum, _CryptoType} = HeaderInfo,
     case ID of
         16#1    ->                          

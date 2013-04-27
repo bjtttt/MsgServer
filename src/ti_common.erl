@@ -238,6 +238,7 @@ loginfo(Format, Data) ->
 %%%
 %%% List must be string list.
 %%% Otherwise, an empty string will be returned.
+%%% combine_strings(List, HasComma = true)
 %%%
 combine_strings(List) ->
     combine_strings(List, true).
