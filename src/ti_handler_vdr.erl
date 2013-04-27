@@ -57,14 +57,9 @@ handle_cast(_Msg, State) ->
 %%% Still in design
 %%%
 handle_info({tcp, Socket, Data}, State) ->
-    case process_vdr_data(Socket, Data, State) of
-        {error, dberror, NewState} ->
-            {stop, dbclierror, NewState};
-        {error, wserror, NewState} ->
-            {stop, wsclirror, NewState};
-        {error, logicerror, NewState} ->
-            inet:setopts(Socket, [{active, once}]),
-            {noreply, NewState};
+    case safe_process_vdr_data(Socket, Data, State) of
+        {error, _, NewState} ->
+            {stop, msgprocesserror, NewState};
         {warning, NewState} ->
             inet:setopts(Socket, [{active, once}]),
             {noreply, NewState};
@@ -103,6 +98,19 @@ terminate(Reason, State) ->
 code_change(_OldVsn, State, _Extra) ->    
 	{ok, State}.
 
+%%% Return :
+%%%     {ok, State}
+%%%     {ok, Resp, State}
+%%%     {warning, State}
+%%%     {error, dberror/dbresperror/dbstructerror/wserror/logicerror/exception, State}  
+%%%         In either case, the connection with VDR will be closed by the server.
+safe_process_vdr_data(Socket, Data, State) ->
+    try process_vdr_data(Socket, Data, State)
+    catch
+        _ ->
+            {error, exception, State}
+    end.
+
 %%%
 %%% This function should refer to the document on the mechanism
 %%%
@@ -111,9 +119,6 @@ code_change(_OldVsn, State, _Extra) ->
 %%%     {ok, Resp, State}
 %%%     {warning, State}
 %%%     {error, dberror/dbresperror/dbstructerror/wserror/logicerror, State}  
-%%%         1. when DB client process is not available
-%%%         1. when Websocket client process is not available
-%%%         2. when VDR ID is unavailable
 %%%         In either case, the connection with VDR will be closed by the server.
 %%%
 %%% Still in design
@@ -130,51 +135,55 @@ process_vdr_data(Socket, Data, State) ->
                             % Register VDR
                             %{Province, City, Producer, TermModel, TermID, LicColor, LicID} = Msg,
                             % We should check whether fetch works or not
-                            {ok, DBMsg} = compose_db_msg_from_vdr(HeadInfo, Msg),
-                            SqlResp = send_sql_to_db(conn, DBMsg),
+                            {ok, Sql} = create_sql_from_vdr(HeadInfo, Msg),
+                            SqlResp = send_sql_to_db(conn, Sql),
                             
                             VDRResp = vdr_data_processor:create_gen_resp(ID, MsgIdx, ?T_GEN_RESP_OK),
                             send_data_to_vdr(Socket, VDRResp),
                             
-                            {ok, NewState#vdritem{msg2vdr=[], msg=[], req=[]}};
+                            {ok, State#vdritem{msg2vdr=[], msg=[], req=[]}};
                         16#102 ->
                             % VDR Authentication
-                            {ok, DBMsg} = compose_db_msg_from_vdr(HeadInfo, Msg),
-                            SqlResp = send_sql_to_db(conn, DBMsg),
-                            case extract_db_resp(SqlResp) of
-                                {ok, empty} ->
-                                    {error, operinvalid, State};
-                                {ok, Records} ->
-                                    RecordsLen = length(Records),
-                                    case RecordsLen of
-                                        1 ->
-                                            [Record] = Records,
-                                            case get_db_resp_record_field(Record, list_to_binary("id")) of
-                                                {_Key, Value} ->
-                                                    {Auth} = Msg,
-                                                    IDSockList = ets:lookup(vdridsocktable, Auth),
-                                                    disconnect_socket_by_id(IDSockList),
-                                                    IDSock = #vdridsockitem{id=Auth, socket=Socket, addr=State#vdritem.addr},
-                                                    ets:insert(vdridsocktable, IDSock),
-                                                    
-                                                    DBUpdate = list_to_binary([<<"update device set is_online=1 where authen_code='">>, list_to_binary(Auth), <<"'">>]),
-                                                    send_sql_to_db(conn, DBUpdate),
-                                                    
-                                                    {ok, WSUpdate} = wsock_data_parser:create_term_online([Value]),
-                                                    wsock_client:send(WSUpdate),
-                                                    
-                                                    VDRResp = vdr_data_processor:create_gen_resp(ID, MsgIdx, ?T_GEN_RESP_OK),
-                                                    send_data_to_vdr(Socket, VDRResp),
-                        
-                                                    {ok, NewState#vdritem{id=Value, auth=Auth, msg2vdr=[], msg=[], req=[]}};
+                            case create_sql_from_vdr(HeadInfo, Msg) of
+                                {ok, Sql} ->
+                                    SqlResp = send_sql_to_db(conn, Sql),
+                                    case extract_db_resp(SqlResp) of
+                                        {ok, empty} ->
+                                            {ok, State};
+                                        {ok, Records} ->
+                                            RecordsLen = length(Records),
+                                            case RecordsLen of
+                                                1 ->
+                                                    [Record] = Records,
+                                                    case get_db_resp_record_field(Record, list_to_binary("id")) of
+                                                        {_Key, Value} ->
+                                                            {Auth} = Msg,
+                                                            IDSockList = ets:lookup(vdridsocktable, Auth),
+                                                            disconnect_socket_by_id(IDSockList),
+                                                            IDSock = #vdridsockitem{id=Auth, socket=Socket, addr=State#vdritem.addr},
+                                                            ets:insert(vdridsocktable, IDSock),
+                                                            
+                                                            DBUpdate = list_to_binary([<<"update device set is_online=1 where authen_code='">>, list_to_binary(Auth), <<"'">>]),
+                                                            send_sql_to_db(conn, DBUpdate),
+                                                            
+                                                            {ok, WSUpdate} = wsock_data_parser:create_term_online([Value]),
+                                                            wsock_client:send(WSUpdate),
+                                                            
+                                                            VDRResp = vdr_data_processor:create_gen_resp(ID, MsgIdx, ?T_GEN_RESP_OK),
+                                                            send_data_to_vdr(Socket, VDRResp),
+                                
+                                                            {ok, State#vdritem{id=Value, auth=Auth, msg2vdr=[], msg=[], req=[]}};
+                                                        _ ->
+                                                            {error, dbstructerror, State}
+                                                    end;
                                                 _ ->
                                                     {error, dbstructerror, State}
                                             end;
                                         _ ->
-                                            {error, dbstructerror, State}
+                                            {error, dbresperror, State}
                                     end;
                                 _ ->
-                                    {error, dbresperror, State}
+                                    {error, logicerror, State}
                             end;
                         true ->
                             VDRResp = vdr_data_processor:create_gen_resp(ID, MsgIdx, ?T_GEN_RESP_ERRMSG),
@@ -183,7 +192,7 @@ process_vdr_data(Socket, Data, State) ->
                             {error, logicerror, State}
                     end;
                 true ->
-                    DBMsg = compose_db_msg_from_vdr(HeadInfo, Msg),
+                    DBMsg = create_sql_from_vdr(HeadInfo, Msg),
                     send_sql_to_db(conn, DBMsg),
 
                     VDRResp = vdr_data_processor:create_gen_resp(ID, MsgIdx, ?T_GEN_RESP_OK),
@@ -249,7 +258,7 @@ send_sql_to_db(PoolId, Msg) ->
 %%%     {error, iderror}
 %%%     error
 %%%
-compose_db_msg_from_vdr(HeaderInfo, Msg) ->
+create_sql_from_vdr(HeaderInfo, Msg) ->
     {ID, _FlowNum, _TelNum, _CryptoType} = HeaderInfo,
     case ID of
         16#1    ->                          
