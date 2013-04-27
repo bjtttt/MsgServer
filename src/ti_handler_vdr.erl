@@ -135,13 +135,17 @@ process_vdr_data(Socket, Data, State) ->
                             % Register VDR
                             %{Province, City, Producer, TermModel, TermID, LicColor, LicID} = Msg,
                             % We should check whether fetch works or not
-                            {ok, Sql} = create_sql_from_vdr(HeadInfo, Msg),
-                            SqlResp = send_sql_to_db(conn, Sql),
+                            case create_sql_from_vdr(HeadInfo, Msg) of
+                                {ok, Sql} ->
+                                    SqlResp = send_sql_to_db(conn, Sql),
                             
-                            VDRResp = vdr_data_processor:create_gen_resp(ID, MsgIdx, ?T_GEN_RESP_OK),
-                            send_data_to_vdr(Socket, VDRResp),
-                            
-                            {ok, State#vdritem{msg2vdr=[], msg=[], req=[]}};
+                                    VDRResp = vdr_data_processor:create_gen_resp(ID, MsgIdx, ?T_GEN_RESP_OK),
+                                    send_data_to_vdr(Socket, VDRResp),
+                                    
+                                    {ok, State#vdritem{msg2vdr=[], msg=[], req=[]}};
+                                _ ->
+                                    {error, vdrerror, State}
+                            end;
                         16#102 ->
                             % VDR Authentication
                             case create_sql_from_vdr(HeadInfo, Msg) of
