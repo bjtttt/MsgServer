@@ -17,6 +17,7 @@
              mysql_msg_handler,
              mysql_recv,
              ti_rfc4627,
+             wsock_data_parser,
              wsock_client,
              wsock_framing,
              wsock_handshake,

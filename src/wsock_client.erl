@@ -55,7 +55,7 @@ ws_on_error(_Reason) ->
     ok.
 
 ws_on_message(Type, Msg) ->
-    try ti_ws_data_parser:process_wsock_message(Type, Msg)
+    try wsock_data_parser:process_wsock_message(Type, Msg)
     catch
         _:_ ->
             {error, exception}
@@ -341,10 +341,10 @@ handle_info({tcp, Socket, Data}, connecting, StateData) ->
     {ok, _Handshake} ->
       spawn(StateData#data.cb#callbacks.on_open),
 
-      %ToWSPid = spawn(fun() -> ti_ws_data_parser:tows_msg_handler() end),
+      %ToWSPid = spawn(fun() -> wsock_data_parser:tows_msg_handler() end),
       %ets:insert(msgservertable, {wspid, ToWSPid}),
 
-      {ok, Msg} = ti_ws_data_parser:create_init_msg(),
+      {ok, Msg} = wsock_data_parser:create_init_msg(),
       wsock_client:send(Msg),
 
       [{apppid, AppPid}] = ets:lookup(msgservertable, apppid),

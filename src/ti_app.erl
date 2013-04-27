@@ -63,6 +63,12 @@ start(StartType, StartArgs) ->
                     mysql:connect(conn, DB, undefined, DBUid, DBPwd, DBName, true),
                     %Result0 = mysql:fetch(conn, <<"select * from device">>),
                     %Result0,
+                    %Result1 = mysql:fetch(conn, <<"select * from client">>),
+                    %Result1,
+                    %Result2 = mysql:fetch(conn, <<"select * from driver">>),
+                    %Result2,
+                    %Result3 = mysql:fetch(conn, <<"update device set is_online=1 where authen_code='QR'">>),
+                    %Result3,
                     {ok, AppPid};
                 {error, ErrMsg} ->
                     {error, ErrMsg}

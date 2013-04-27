@@ -7,6 +7,7 @@
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2, code_change/3]).
 
 -include("ti_header.hrl").
+-include("mysql.hrl").
 
 start_link(Socket, Addr) ->	
 	gen_server:start_link(?MODULE, [Socket, Addr], []). 
@@ -81,6 +82,26 @@ handle_info(_Info, State) ->
 %%% When VDR handler process is terminated, do the clean jobs here
 %%%
 terminate(Reason, State) ->
+    ID = State#vdritem.id,
+    Auth = State#vdritem.auth,
+    Socket = State#vdritem.socket,
+    ets:delete(vdrtable, Socket),
+    ets:delete(vdridsocktable, ID),
+    DBUpdate = [<<"update device set is_online=0 where authen_code='">>, Auth, <<"'">>],
+    RespUpdate = send_data_to_db(conn, DBUpdate),
+    case check_db_update(RespUpdate) of
+        {ok, AffectedRows} ->
+            if
+                AffectedRows == 1 ->
+                    ok;
+                true ->
+                    ok
+            end;
+        _ ->
+            ok
+    end,
+    {ok, WSUpdate} = wsock_data_parser:create_term_offline([ID]),
+    wsock_client:send(WSUpdate),
 	try gen_tcp:close(State#vdritem.socket)
     catch
         _:Ex ->
@@ -98,7 +119,7 @@ code_change(_OldVsn, State, _Extra) ->
 %%%     {ok, State}
 %%%     {ok, Resp, State}
 %%%     {warning, State}
-%%%     {error, dberror/wserror/logicerror, State}  
+%%%     {error, dberror/dbresperror/dbstructerror/wserror/logicerror, State}  
 %%%         1. when DB client process is not available
 %%%         1. when Websocket client process is not available
 %%%         2. when VDR ID is unavailable
@@ -129,17 +150,50 @@ process_vdr_data(Socket, Data, State) ->
                             % VDR Authentication
                             DBMsg = compose_db_msg(HeadInfo, Msg),
                             Resp = send_data_to_db(conn, DBMsg),
-                            
-                            {Auth} = Msg,
-                            IDSockList = ets:lookup(vdridsocktable, Auth),
-                            disconnect_socket_by_id(IDSockList),
-                            IDSock = #vdridsockitem{id=Auth, socket=Socket, addr=State#vdritem.addr},
-                            ets:insert(vdridsocktable, IDSock),
-                            
-                            VDRResp = vdr_data_processor:create_gen_resp(ID, MsgIdx, ?T_GEN_RESP_OK),
-                            send_data_to_vdr(Socket, VDRResp),
-
-                            {ok, NewState#vdritem{id=Auth, msg2vdr=[], msg=[], req=[]}};
+                            case extract_db_resp(Resp) of
+                                {ok, empty} ->
+                                    {error, operinvalid, State};
+                                {ok, Records} ->
+                                    RecordsLen = length(Records),
+                                    case RecordsLen of
+                                        1 ->
+                                            [Record] = Records,
+                                            case get_db_resp_record_field(Record, list_to_binary("id")) of
+                                                {_Key, Value} ->
+                                                    {Auth} = Msg,
+                                                    IDSockList = ets:lookup(vdridsocktable, Auth),
+                                                    disconnect_socket_by_id(IDSockList),
+                                                    IDSock = #vdridsockitem{id=Auth, socket=Socket, addr=State#vdritem.addr},
+                                                    ets:insert(vdridsocktable, IDSock),
+                                                    
+                                                    DBUpdate = [<<"update device set is_online=1 where authen_code='">>, Auth, <<"'">>],
+                                                    RespUpdate = send_data_to_db(conn, DBUpdate),
+                                                    case check_db_update(RespUpdate) of
+                                                        {ok, AffectedRows} ->
+                                                            if
+                                                                AffectedRows == 1 ->
+                                                                    {ok, WSUpdate} = wsock_data_parser:create_term_online([Value]),
+                                                                    wsock_client:send(WSUpdate),
+                                                                    
+                                                                    VDRResp = vdr_data_processor:create_gen_resp(ID, MsgIdx, ?T_GEN_RESP_OK),
+                                                                    send_data_to_vdr(Socket, VDRResp),
+                                        
+                                                                    {ok, NewState#vdritem{id=Value, auth=Auth, msg2vdr=[], msg=[], req=[]}};
+                                                                true ->
+                                                                    {error, dbstructerror, State}
+                                                            end;
+                                                        error ->
+                                                            {error, dbresperror, State}
+                                                    end;
+                                                _ ->
+                                                    {error, dbstructerror, State}
+                                            end;
+                                        _ ->
+                                            {error, dbstructerror, State}
+                                    end;
+                                _ ->
+                                    {error, dbresperror, State}
+                            end;
                         true ->
                             VDRResp = vdr_data_processor:create_gen_resp(ID, MsgIdx, ?T_GEN_RESP_ERRMSG),
                             send_data_to_vdr(Socket, VDRResp),
@@ -171,6 +225,9 @@ process_vdr_data(Socket, Data, State) ->
             {error, logicerror, NewState}
     end.
 
+%%%
+%%%
+%%%
 disconnect_socket_by_id(IDSockList) ->
     case IDSockList of
         [] ->
@@ -218,7 +275,7 @@ compose_db_msg(HeaderInfo, Msg) ->
             {ok, ""};
         16#102  ->
             {Auth} = Msg,
-            {ok, [<<"select * from device where authen_code=='">>, Auth, <<"'">>]};
+            {ok, [<<"select * from device where authen_code='">>, Auth, <<"'">>]};
         16#104  ->                          
             {ok, ""};
         16#107  ->                      
@@ -263,6 +320,130 @@ compose_db_msg(HeaderInfo, Msg) ->
             {ok, ""};
         _ ->
             {error, iderror}
+    end.
+
+%%%
+%%% Parameter :
+%%% {data, {mysql_result, ColumnDefition, Results, AffectedRows, InsertID, Error, ErrorCode, ErrorSqlState}}
+%%% Results = [[Record0], [Record1], [Record2], ...]
+%%%
+%%% Return :
+%%%     {ok, RecordPairs} 
+%%%     {ok, empty} 
+%%%     error 
+%%%
+extract_db_resp(Msg) ->
+    case Msg of
+        {data, {mysql_result, ColDef, Res, _, _, _, _, _}} ->
+            case Res of
+                [] ->
+                    {ok, empty};
+                _ ->
+                    {ok, compose_db_resp_records(ColDef, Res)}
+            end;
+        _ ->
+            error
+    end.
+
+%%%
+%%%
+%%%
+compose_db_resp_records(ColDef, Res) ->
+    case Res of
+        [] ->
+            [];
+        _ ->
+            [H|T] = Res,
+            case compose_db_resp_record(ColDef, H) of
+                error ->
+                    case T of
+                        [] ->
+                            [];
+                        _ ->
+                            compose_db_resp_records(ColDef, T)
+                    end;
+                _ ->
+                    case compose_db_resp_record(ColDef, H) of
+                        error ->
+                            case T of
+                                [] ->
+                                    [];
+                                _ ->
+                                    compose_db_resp_records(ColDef, T)
+                            end;
+                        Record ->
+                            case T of
+                                [] ->
+                                    [];
+                                _ ->
+                                    [Record|compose_db_resp_records(ColDef, T)]
+                            end
+                    end
+            end
+    end.
+
+%%%
+%%%
+%%%
+compose_db_resp_record(ColDef, Res) ->
+    Len1 = length(ColDef),
+    Len2 = length(Res),
+    if
+        Len1 == Len2 ->
+            case ColDef of
+                [] ->
+                    [];
+                _ ->
+                    [H1|T1] = ColDef,
+                    [H2|T2] = Res,
+                    {_Tab, ColName, _Len, _Type} = H1,
+                    case T1 of
+                        [] ->
+                            [{ColName, H2}];
+                        _ ->
+                            [{ColName, H2}|compose_db_resp_record(T1, T2)]
+                    end
+            end;
+        true ->
+            error
+    end.
+
+%%%
+%%%
+%%%
+get_db_resp_record_field(Record, Field) ->
+    case Record of
+        [] ->
+            error;
+        _ ->
+            [H|T] = Record,
+            [Key, Value] = H,
+            if
+                Key == Field ->
+                    {Key, Value};
+                true ->
+                    case T of
+                        [] ->
+                            error;
+                        _ ->
+                            get_db_resp_record_field(T, Field)
+                    end
+            end
+    end.                    
+
+%%%
+%%% {update, {mysql_result, ColumnDefition, Results, AffectedRows, InsertID, Error, ErrorCode, ErrorSqlState}}
+%%%
+%%% Return :
+%%%     {ok, AffectedRows}
+%%%     error
+%%%
+check_db_update(Msg) ->
+    case Msg of
+        {update, {mysql_result, _, _, AffectedRows, _, _, _, _}} ->
+            {ok, AffectedRows};
+        _ ->
+            error
     end.
 
 %%%

@@ -68,7 +68,8 @@
 %%% vdrpid  : VDR handler send data to VDR PID
 %%%
 -record(vdritem, {  socket=undefined, 
-                    id=undefined, 
+                    id=undefined,
+                    auth=undefined, 
                     pid=undefined, 
                     addr=undefined, 
                     acttime=undefined, 
