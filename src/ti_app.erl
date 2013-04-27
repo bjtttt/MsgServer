@@ -61,14 +61,8 @@ start(StartType, StartArgs) ->
             case receive_db_ws_init_msg(false, false, 0) of
                 ok ->
                     mysql:connect(conn, DB, undefined, DBUid, DBPwd, DBName, true),
-                    Result0 = mysql:fetch(conn, <<"select * from vehicle_position">>),
-                    Result0,
-                    Result1 = mysql:fetch(conn, <<"select * from vehicle_position_last">>),
-                    Result1,
-                    Result2 = mysql:fetch(conn, <<"select * from device where not(authen_code=66666)">>),
-                    Result2,
-                    Result3 = mysql:fetch(conn, <<"select * from vehicle">>),
-                    Result3,
+                    %Result0 = mysql:fetch(conn, <<"select * from device">>),
+                    %Result0,
                     {ok, AppPid};
                 {error, ErrMsg} ->
                     {error, ErrMsg}
