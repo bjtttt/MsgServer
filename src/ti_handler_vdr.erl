@@ -206,8 +206,8 @@ process_vdr_data(Socket, Data, State) ->
                             {error, vdrerror, State}
                     end;
                 true ->
-                    DBMsg = create_sql_from_vdr(HeadInfo, Msg),
-                    send_sql_to_db(conn, DBMsg),
+                    Sql = create_sql_from_vdr(HeadInfo, Msg),
+                    send_sql_to_db(conn, Sql),
 
                     VDRResp = vdr_data_processor:create_gen_resp(ID, MsgIdx, ?T_GEN_RESP_OK),
                     send_data_to_vdr(Socket, VDRResp),
