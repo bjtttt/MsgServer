@@ -150,31 +150,45 @@ process_vdr_data(Socket, Data, State) ->
                                     case extract_db_resp(SqlResp) of
                                         {ok, empty} ->
                                             {ok, State};
-                                        {ok, Records} ->
-                                            RecordsLen = length(Records),
-                                            case RecordsLen of
+                                        {ok, Recs} ->
+                                            RecsLen = length(Recs),
+                                            case RecsLen of
                                                 1 ->
-                                                    [Record] = Records,
-                                                    case get_db_resp_record_field(Record, list_to_binary("id")) of
-                                                        {_Key, Value} ->
+                                                    [Rec] = Recs,
+                                                    case get_db_resp_record_field(Rec, list_to_binary("id")) of
+                                                        {<<"id">>, ID} ->
                                                             {Auth} = Msg,
+                                                            
+                                                            % Not tested yet.
                                                             IDSockList = ets:lookup(vdridsocktable, Auth),
-                                                            disconnect_socket_by_id(IDSockList),
-                                                            IDSock = #vdridsockitem{id=Auth, socket=Socket, addr=State#vdritem.addr},
+                                                            disconn_socket_by_id(IDSockList),
+                                                            IDSock = #vdridsockitem{id=ID, socket=Socket, addr=State#vdritem.addr},
                                                             ets:insert(vdridsocktable, IDSock),
-                                                            
-                                                            DBUpdate = list_to_binary([<<"update device set is_online=1 where authen_code='">>, list_to_binary(Auth), <<"'">>]),
-                                                            send_sql_to_db(conn, DBUpdate),
-                                                            
-                                                            {ok, WSUpdate} = wsock_data_parser:create_term_online([Value]),
-                                                            wsock_client:send(WSUpdate),
-                                                            
-                                                            VDRResp = vdr_data_processor:create_gen_resp(ID, MsgIdx, ?T_GEN_RESP_OK),
-                                                            send_data_to_vdr(Socket, VDRResp),
-                                
-                                                            {ok, State#vdritem{id=Value, auth=Auth, msg2vdr=[], msg=[], req=[]}};
+                                                            SockVdrList = ets:lookup(vdrtable, Socket),
+                                                            case length(SockVdrList) of
+                                                                1 ->
+                                                                    [SockVdr] = SockVdrList,
+                                                                    ets:insert(vdridsocktable, SockVdr#vdritem{id=ID, auth=Auth}),
+                                                                    
+                                                                    SqlUpdate = list_to_binary([<<"update device set is_online=1 where authen_code='">>, list_to_binary(Auth), <<"'">>]),
+                                                                    send_sql_to_db(conn, SqlUpdate),
+                                                                    
+                                                                    case wsock_data_parser:create_term_online([ID]) of
+                                                                        {ok, WSUpdate} ->
+                                                                            wsock_client:send(WSUpdate),
+                                                                    
+                                                                            VDRResp = vdr_data_processor:create_gen_resp(ID, MsgIdx, ?T_GEN_RESP_OK),
+                                                                            send_data_to_vdr(Socket, VDRResp),
+                                                
+                                                                            {ok, State#vdritem{id=ID, auth=Auth, msg2vdr=[], msg=[], req=[]}};
+                                                                        _ ->
+                                                                            {error, wsmsgerror, State}
+                                                                    end;
+                                                                _ ->
+                                                                    {error, vdrtableerror, State}
+                                                            end;
                                                         _ ->
-                                                            {error, dbstructerror, State}
+                                                            {error, dbresperror, State}
                                                     end;
                                                 _ ->
                                                     {error, dbstructerror, State}
@@ -183,13 +197,13 @@ process_vdr_data(Socket, Data, State) ->
                                             {error, dbresperror, State}
                                     end;
                                 _ ->
-                                    {error, logicerror, State}
+                                    {error, vdrerror, State}
                             end;
                         true ->
                             VDRResp = vdr_data_processor:create_gen_resp(ID, MsgIdx, ?T_GEN_RESP_ERRMSG),
                             send_data_to_vdr(Socket, VDRResp),
 
-                            {error, logicerror, State}
+                            {error, vdrerror, State}
                     end;
                 true ->
                     DBMsg = create_sql_from_vdr(HeadInfo, Msg),
@@ -217,9 +231,9 @@ process_vdr_data(Socket, Data, State) ->
     end.
 
 %%%
+%%% Diconnect socket and remove related entries from vdrtable and vdridsocktable
 %%%
-%%%
-disconnect_socket_by_id(IDSockList) ->
+disconn_socket_by_id(IDSockList) ->
     case IDSockList of
         [] ->
             ok;
@@ -227,15 +241,19 @@ disconnect_socket_by_id(IDSockList) ->
             [H|T] = IDSockList,
             ID = H#vdridsockitem.id,
             Sock = H#vdridsockitem.socket,
-            Addr = H#vdridsockitem.addr,
             try gen_tcp:close(Sock)
             catch
-                _:Ex ->
-                    ti_common:logerror("Exception when closing duplicated VDR from ~p : ~p~n", [Addr, Ex])
+                _ ->
+                    ok
             end,
             ets:delete(vdrtable, Sock),
             ets:delete(vdridsocktable, ID),
-            disconnect_socket_by_id(T)
+            case T of
+                [] ->
+                    ok;
+                _ ->
+                    disconn_socket_by_id(T)
+            end
     end.
            
 %%%
