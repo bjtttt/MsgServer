@@ -82,12 +82,27 @@ terminate(Reason, State) ->
     ID = State#vdritem.id,
     Auth = State#vdritem.auth,
     Socket = State#vdritem.socket,
-    ets:delete(vdrtable, Socket),
-    ets:delete(vdridsocktable, ID),
-    Sql = list_to_binary([<<"update device set is_online=0 where authen_code='">>, list_to_binary(Auth), <<"'">>]),
-    send_sql_to_db(conn, Sql),
-    {ok, WSUpdate} = wsock_data_parser:create_term_offline([ID]),
-    wsock_client:send(WSUpdate),
+    case Socket of
+        undefined ->
+            ok;
+        _ ->
+            ets:delete(vdrtable, Socket)
+    end,
+    case ID of
+        undefined ->
+            ok;
+        _ ->
+            ets:delete(vdridsocktable, ID),
+            {ok, WSUpdate} = wsock_data_parser:create_term_offline([ID]),
+            wsock_client:send(WSUpdate)
+    end,
+    case Auth of
+        undefined ->
+            ok;
+        _ ->
+            Sql = list_to_binary([<<"update device set is_online=0 where authen_code='">>, list_to_binary(Auth), <<"'">>]),
+            send_sql_to_db(conn, Sql)
+    end,
 	try gen_tcp:close(State#vdritem.socket)
     catch
         _:Ex ->
@@ -170,6 +185,7 @@ process_vdr_data(Socket, Data, State) ->
                                                             ets:insert(vdridsocktable, IDSock),
                                                             SockVdrList = ets:lookup(vdrtable, Socket),
                                                             case length(SockVdrList) of
+                                                            %case 1 of
                                                                 1 ->
                                                                     [SockVdr] = SockVdrList,
                                                                     ets:insert(vdridsocktable, SockVdr#vdritem{id=Value, auth=Auth}),

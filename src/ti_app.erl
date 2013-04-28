@@ -69,7 +69,8 @@ start(StartType, StartArgs) ->
                     %Result2,
                     %Result3 = mysql:fetch(conn, <<"update device set is_online=1 where authen_code='QR'">>),
                     %Result3,
-                    ti_handler_vdr:process_vdr_data(null, <<126,1,2,0,2,1,86,121,16,51,112,1,197,81,82,187,126>>, null),
+                    %ti_handler_vdr:process_vdr_data(null, <<126,1,2,0,2,1,86,121,16,51,112,1,197,81,82,187,126>>, null),
+                    %ti_handler_vdr:process_vdr_data(null, <<126,1,2,0,2,1,86,121,16,51,112,0,14,81,82,113,126,126,1,2,0,2,1,86,121,16,51,112,0,14,81,82,113,126>>, null),
                     {ok, AppPid};
                 {error, ErrMsg} ->
                     {error, ErrMsg}
