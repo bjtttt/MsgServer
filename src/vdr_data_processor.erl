@@ -28,7 +28,8 @@
 
 -export([parse_msg_body/2]).
 
--export([create_gen_resp/3, 
+-export([create_final_msg/4,
+         create_gen_resp/3, 
          create_resend_subpack_req/3,
          create_reg_resp/3,
 	     create_set_term_args/2,
@@ -69,6 +70,26 @@
          %create_data_ul_send/2,         
          create_platform_rsa/2
 	]).
+
+%%%
+%%%
+%%%
+create_final_msg(ID, Tel, MsgIdx, Data) ->
+    case Data of
+        {ok, Msg} ->
+            Len = byte_size(Msg),
+            Header = <<ID:16, 0:2, 0:1, 0:3, Len:10, Tel:48, MsgIdx:16>>,
+            HeaderBody = list_to_binary([Header, Msg]),
+            Parity = vdr_data_parser:bxorbytelist(HeaderBody),
+            MsgBody = list_to_binary([HeaderBody, Parity]),
+            MsgBody1 = binary:replace(MsgBody, <<125>>, <<254, 1, 254, 2, 254, 3, 254, 4, 254, 5, 254>>, [global]),
+            MsgBody2 = binary:replace(MsgBody1, <<126>>, <<255, 1, 255, 2, 255, 3, 255, 4, 255, 5, 255>>, [global]),
+            MsgBody3 = binary:replace(MsgBody2, <<255, 1, 255, 2, 255, 3, 255, 4, 255, 5, 255>>, <<125, 1>>, [global]),
+            MsgBody4 = binary:replace(MsgBody3, <<255, 1, 255, 2, 255, 3, 255, 4, 255, 5, 255>>, <<125, 2>>, [global]),
+            list_to_binary([<<126>>, MsgBody4, <<126>>]);
+        _ ->
+            <<"">>
+    end.
 
 %%%
 %%% Parse terminal message body
@@ -187,7 +208,7 @@ parse_gen_resp(Bin) ->
 %%%                 4 - ALARM ACK
 %%%
 create_gen_resp(FlowIdx, ID, Resp) ->
-    <<FlowIdx:?LEN_WORD, ID:?LEN_WORD, Resp:?LEN_BYTE>>.
+    {ok, <<FlowIdx:?LEN_WORD, ID:?LEN_WORD, Resp:?LEN_BYTE>>}.
 %create_gen_resp(FlowIdx, ID, Resp) ->
 %    if
 %        Resp < 0 ->

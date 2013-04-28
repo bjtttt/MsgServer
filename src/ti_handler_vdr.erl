@@ -171,7 +171,7 @@ process_vdr_data(Socket, Data, State) ->
     VDRID = State#vdritem.id,
     case vdr_data_parser:process_data(State, Data) of
         {ok, HeadInfo, Msg, NewState} ->
-            {ID, MsgIdx, _Tel, _CryptoType} = HeadInfo,
+            {ID, MsgIdx, Tel, _CryptoType} = HeadInfo,
             if
                 VDRID == undefined ->
                     case ID of
@@ -182,11 +182,13 @@ process_vdr_data(Socket, Data, State) ->
                             case create_sql_from_vdr(HeadInfo, Msg) of
                                 {ok, Sql} ->
                                     SqlResp = send_sql_to_db(conn, Sql),
-                            
-                                    VDRResp = vdr_data_processor:create_gen_resp(ID, MsgIdx, ?T_GEN_RESP_OK),
+                                    
+                                    FlowIdx = State#vdritem.msgflownum,                           
+                                    MsgBody = vdr_data_processor:create_gen_resp(ID, MsgIdx, ?T_GEN_RESP_OK),
+                                    VDRResp = vdr_data_processor:create_final_msg(ID, Tel, FlowIdx, MsgBody),
                                     send_data_to_vdr(Socket, VDRResp),
                                     
-                                    {ok, State#vdritem{msg2vdr=[], msg=[], req=[]}};
+                                    {ok, State#vdritem{msgflownum=FlowIdx+1, msg2vdr=[], msg=[], req=[]}};
                                 _ ->
                                     {error, vdrerror, State}
                             end;
@@ -226,10 +228,12 @@ process_vdr_data(Socket, Data, State) ->
                                                                         {ok, WSUpdate} ->
                                                                             wsock_client:send(WSUpdate),
                                                                     
-                                                                            VDRResp = vdr_data_processor:create_gen_resp(ID, MsgIdx, ?T_GEN_RESP_OK),
+                                                                            FlowIdx = State#vdritem.msgflownum,
+                                                                            MsgBody = vdr_data_processor:create_gen_resp(ID, MsgIdx, ?T_GEN_RESP_OK),
+                                                                            VDRResp = vdr_data_processor:create_final_msg(ID, Tel, FlowIdx, MsgBody),
                                                                             send_data_to_vdr(Socket, VDRResp),
                                                 
-                                                                            {ok, State#vdritem{id=Value, auth=Auth, msg2vdr=[], msg=[], req=[]}};
+                                                                            {ok, State#vdritem{id=Value, auth=Auth, msgflownum=FlowIdx+1, msg2vdr=[], msg=[], req=[]}};
                                                                         _ ->
                                                                             {error, wserror, State}
                                                                     end;
@@ -257,22 +261,28 @@ process_vdr_data(Socket, Data, State) ->
                 true ->
                     Sql = create_sql_from_vdr(HeadInfo, Msg),
                     send_sql_to_db(conn, Sql),
-
-                    VDRResp = vdr_data_processor:create_gen_resp(ID, MsgIdx, ?T_GEN_RESP_OK),
+                    
+                    FlowIdx = State#vdritem.msgflownum,                    
+                    MsgBody = vdr_data_processor:create_gen_resp(ID, MsgIdx, ?T_GEN_RESP_OK),
+                    VDRResp = vdr_data_processor:create_final_msg(ID, Tel, FlowIdx, MsgBody),
                     send_data_to_vdr(Socket, VDRResp),
 
-                    {ok, NewState}
+                    {ok, NewState#vdritem{msgflownum=FlowIdx+1}}
             end;
         {ignore, HeaderInfo, NewState} ->
-            {ID, MsgIdx, _Tel, _CryptoType} = HeaderInfo,
-            VDRResp = vdr_data_processor:create_gen_resp(ID, MsgIdx, ?T_GEN_RESP_OK),
+            {ID, MsgIdx, Tel, _CryptoType} = HeaderInfo,
+            FlowIdx = State#vdritem.msgflownum,
+            MsgBody = vdr_data_processor:create_gen_resp(ID, MsgIdx, ?T_GEN_RESP_OK),
+            VDRResp = vdr_data_processor:create_final_msg(ID, Tel, FlowIdx, MsgBody),
             send_data_to_vdr(Socket, VDRResp),
-            {ok, NewState};
+            {ok, NewState#vdritem{msgflownum=FlowIdx+1}};
         {warning, HeaderInfo, ErrorType, NewState} ->
-            {ID, MsgIdx, _Tel, _CryptoType} = HeaderInfo,
-            VDRResp = vdr_data_processor:create_gen_resp(ID, MsgIdx, ErrorType),
+            {ID, MsgIdx, Tel, _CryptoType} = HeaderInfo,
+            FlowIdx = State#vdritem.msgflownum,
+            MsgBody = vdr_data_processor:create_gen_resp(ID, MsgIdx, ErrorType),
+            VDRResp = vdr_data_processor:create_final_msg(ID, Tel, FlowIdx, MsgBody),
             send_data_to_vdr(Socket, VDRResp),
-            {warning, NewState};
+            {warning, NewState#vdritem{msgflownum=FlowIdx+1}};
         {error, dataerror, NewState} ->
             {error, logicerror, NewState};
         {error, exception, NewState} ->
