@@ -637,7 +637,7 @@ create_gen_resp(SN, Sid, List, Status) ->
             SidStr = string:concat("\"SID\":", Sid),
             VIDListStr = string:concat(string:concat("\"LIST\":[",  create_list(["\"VID\""], List, false)), "]"),
             StatusStr = string:concat("\"STATUS\":", integer_to_list(Status)),
-            {ok, ti_common:combine_strings([MIDStr, SNStr, SidStr, VIDListStr, StatusStr])};
+            {ok, ti_common:combine_strings(["{", MIDStr, SNStr, SidStr, VIDListStr, StatusStr, "}"])};
         true ->
             error
     end.
@@ -649,7 +649,7 @@ create_gen_resp(SN, Sid, List, Status) ->
 create_term_online(List) ->
     MIDStr = "\"MID\":3",
     VIDListStr = string:concat(string:concat("\"LIST\":[",  create_list(["\"VID\""], List, false)), "]"),
-    {ok, ti_common:combine_strings([MIDStr, VIDListStr])}.
+    {ok, ti_common:combine_strings(["{", MIDStr, VIDListStr, "}"])}.
 
 %%%
 %%% MID : 0x0004
@@ -658,7 +658,7 @@ create_term_online(List) ->
 create_term_offline(List) ->
     MIDStr = "\"MID\":4",
     VIDListStr = string:concat(string:concat("\"LIST\":[",  create_list(["\"VID\""], List, false)), "]"),
-    {ok, ti_common:combine_strings([MIDStr, VIDListStr])}.
+    {ok, ti_common:combine_strings(["{", MIDStr, VIDListStr, "}"])}.
 
 %%%
 %%% MID : 0x0200
@@ -671,7 +671,7 @@ create_term_alarm(List, SN, Code, AF, SF, Lat, Long, T) ->
             SNStr = string:concat("\"SN\":", integer_to_list(SN)),
             VIDListStr = string:concat(string:concat("\"LIST\":[",  create_list(["\"VID\""], List, false)), "]"),
             DataListStr = string:concat(string:concat("\"DATA\":{",  create_list(["\"CODE\"", "\"AF\"", "\"SF\"", "\"LAT\"", "\"LONG\"", "\"T\""], [Code, AF, SF, Lat, Long, T], true)), "}"),
-            {ok, ti_common:combine_strings([MIDStr, SNStr, VIDListStr, DataListStr])};
+            {ok, ti_common:combine_strings(["{", MIDStr, SNStr, VIDListStr, DataListStr, "}"])};
         true ->
             error
     end.
@@ -686,7 +686,7 @@ create_term_answer(SN, List, IDList) ->
             SNStr = string:concat("\"SN\":", integer_to_list(SN)),
             VIDListStr = string:concat(string:concat("\"LIST\":[",  create_list(["\"VID\""], List, false)), "]"),
             DataListStr = string:concat(string:concat("\"DATA\":{",  create_list(["\"ID\""], IDList, true)), "}"),
-            {ok, ti_common:combine_strings([MIDStr, SNStr, VIDListStr, DataListStr])};
+            {ok, ti_common:combine_strings(["{", MIDStr, SNStr, VIDListStr, DataListStr, "}"])};
         true ->
             error
     end.
@@ -704,10 +704,10 @@ create_vehicle_ctrl_answer(SN, Status, List, DataList) ->
             case Status of
                 1 ->
                     DataListStr = string:concat(string:concat("\"DATA\":{",  create_list(["\"FLAG\""], DataList, true)), "}"),
-                    {ok, ti_common:combine_strings([MIDStr, SNStr, StatusStr, VIDListStr, DataListStr])};
+                    {ok, ti_common:combine_strings(["{", MIDStr, SNStr, StatusStr, VIDListStr, DataListStr, "}"])};
                 _ ->
                     DataListStr = "\"DATA\":{}",
-                    {ok, ti_common:combine_strings([MIDStr, SNStr, StatusStr, VIDListStr, DataListStr])}
+                    {ok, ti_common:combine_strings(["{", MIDStr, SNStr, StatusStr, VIDListStr, DataListStr, "}"])}
             end;
         true ->
             error
@@ -726,10 +726,10 @@ create_shot_resp(SN, List, Status, IDList) ->
             case Status of
                 0 ->
                     DataListStr = string:concat(string:concat("\"DATA\":[",  create_list(["\"ID\""], IDList, false)), "]"),
-                    {ok, ti_common:combine_strings([MIDStr, SNStr, StatusStr, VIDListStr, DataListStr])};
+                    {ok, ti_common:combine_strings(["{", MIDStr, SNStr, StatusStr, VIDListStr, DataListStr, "}"])};
                 _ ->
                     DataListStr = "\"DATA\":[]",
-                    {ok, ti_common:combine_strings([MIDStr, SNStr, StatusStr, VIDListStr, DataListStr])}
+                    {ok, ti_common:combine_strings(["{", MIDStr, SNStr, StatusStr, VIDListStr, DataListStr, "}"])}
             end;
         true ->
             error
