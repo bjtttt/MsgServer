@@ -17,7 +17,7 @@ start_link(Socket, Addr) ->
 init([Socket, Addr]) ->
     process_flag(trap_exit, true),
     Pid = self(),
-    State = #vdritem{socket=Socket, pid=Pid, addr=Addr, msgflownum=0},
+    State = #vdritem{socket=Socket, pid=Pid, addr=Addr, msgflownum=0, errorcount=0},
     ets:insert(vdrtable, State), 
     inet:setopts(Socket, [{active, once}]),
 	{ok, State}.
@@ -35,37 +35,44 @@ handle_cast(_Msg, State) ->
 	{noreply, State}. 
 
 %%%
-%%% VDR handler receives date from VDR
-%%% Steps :
-%%%     1. Parse the data
-%%%     2. Check whether it is ID reporting message
-%%%         YES -> 
-%%%             Update the vdritem record
-%%%         NO ->
-%%%             A. Check whether the VDR has reported ID or not
-%%%                 YES ->
-%%%                     a. Send it to the DB
-%%%                     b. Check whether it is a management reporting message
-%%%                         YES ->
-%%%                             Report the data to the management platform
-%%%                         NO ->
-%%%                             Do nothing
-%%%                 NO ->
-%%%                     a. Discard the data
-%%%                     b. Request ID reporting message (REALLY NEEDED?)
 %%%
-%%% Still in design
 %%%
 handle_info({tcp, Socket, Data}, State) ->
-    case safe_process_vdr_data(Socket, Data, State) of
-        {error, _, NewState} ->
-            {stop, msgprocesserror, NewState};
-        {warning, NewState} ->
-            inet:setopts(Socket, [{active, once}]),
-            {noreply, NewState};
-        {ok, NewState} ->
-            inet:setopts(Socket, [{active, once}]),
-            {noreply, NewState}
+    Msges = ti_common:split_msg_to_single(Data, 16#7e),
+    case Msges of
+        [] ->
+            ErrorCount = State#vdritem.errorcount + 1,
+            NewState = State#vdritem{errorcount=ErrorCount},
+            if
+                ErrorCount >= ?MAX_VDR_ERR_COUNT ->
+                    {stop, vdrerror, NewState};
+                true ->
+                    inet:setopts(Socket, [{active, once}]),
+                    {noreply, NewState}
+            end;
+        _ ->
+            case process_vdr_msges(Socket, Msges, State) of
+                {error, vdrerror, NewState} ->
+                    ErrorCount = NewState#vdritem.errorcount + 1,
+                    UpdatedState = NewState#vdritem{errorcount=ErrorCount},
+                    if
+                        ErrorCount >= ?MAX_VDR_ERR_COUNT ->
+                            {stop, vdrerror, UpdatedState};
+                        true ->
+                            inet:setopts(Socket, [{active, once}]),
+                            {noreply, UpdatedState}
+                    end;
+                {error, ErrorType, NewState} ->
+                    {stop, ErrorType, NewState};
+                {warning, NewState} ->
+                    UpdatedState = NewState#vdritem{errorcount=0},
+                    inet:setopts(Socket, [{active, once}]),
+                    {noreply, UpdatedState};
+                {ok, NewState} ->
+                    UpdatedState = NewState#vdritem{errorcount=0},
+                    inet:setopts(Socket, [{active, once}]),
+                    {noreply, UpdatedState}
+            end
     end;
 handle_info({tcp_closed, _Socket}, State) ->    
     ti_common:loginfo("VDR (~p) : TCP is closed~n"),
@@ -113,14 +120,39 @@ terminate(Reason, State) ->
 code_change(_OldVsn, State, _Extra) ->    
 	{ok, State}.
 
+%%%
 %%% Return :
 %%%     {ok, State}
-%%%     {ok, Resp, State}
 %%%     {warning, State}
-%%%     {error, dberror/dbresperror/dbstructerror/wserror/logicerror/exception, State}  
-%%%         In either case, the connection with VDR will be closed by the server.
-safe_process_vdr_data(Socket, Data, State) ->
-    try process_vdr_data(Socket, Data, State)
+%%%     {error, dberror/wserror/vdrerror/systemerror/exception/unknown, State}  
+%%%
+process_vdr_msges(Socket, Msges, State) ->
+    [H|T] = Msges,
+    Result = safe_process_vdr_msg(Socket, H, State),
+    case T of
+        [] ->
+            Result;
+        _ ->
+            case Result of
+                {ok, NewState} ->
+                    safe_process_vdr_msg(Socket, T, NewState);
+                {warning, NewState} ->
+                    safe_process_vdr_msg(Socket, T, NewState);
+                {error, ErrorType, NewState} ->
+                    {error, ErrorType, NewState};
+                _ ->
+                    {error, unknown, State}
+            end
+    end.
+
+%%%
+%%% Return :
+%%%     {ok, State}
+%%%     {warning, State}
+%%%     {error, dberror/wserror/systemerror/vdrerror/exception, State}  
+%%%
+safe_process_vdr_msg(Socket, Msg, State) ->
+    try process_vdr_data(Socket, Msg, State)
     catch
         _ ->
             {error, exception, State}
@@ -131,14 +163,11 @@ safe_process_vdr_data(Socket, Data, State) ->
 %%%
 %%% Return :
 %%%     {ok, State}
-%%%     {ok, Resp, State}
 %%%     {warning, State}
-%%%     {error, dberror/dbresperror/dbstructerror/wserror/logicerror, State}  
-%%%         In either case, the connection with VDR will be closed by the server.
-%%%
-%%% Still in design
+%%%     {error, dberror/wserror/systemerror/vdrerror, State}  
 %%%
 process_vdr_data(Socket, Data, State) ->
+    %Data = <<126,1,2,0,2,1,86,121,16,51,112,0,14,81,82,113,126>>,
     VDRID = State#vdritem.id,
     case vdr_data_parser:process_data(State, Data) of
         {ok, HeadInfo, Msg, NewState} ->
@@ -185,7 +214,7 @@ process_vdr_data(Socket, Data, State) ->
                                                             ets:insert(vdridsocktable, IDSock),
                                                             SockVdrList = ets:lookup(vdrtable, Socket),
                                                             case length(SockVdrList) of
-                                                            %case 1 of
+                                                            %case 1 of                   % DEBUG only
                                                                 1 ->
                                                                     [SockVdr] = SockVdrList,
                                                                     ets:insert(vdridsocktable, SockVdr#vdritem{id=Value, auth=Auth}),
@@ -202,19 +231,19 @@ process_vdr_data(Socket, Data, State) ->
                                                 
                                                                             {ok, State#vdritem{id=Value, auth=Auth, msg2vdr=[], msg=[], req=[]}};
                                                                         _ ->
-                                                                            {error, wsmsgerror, State}
+                                                                            {error, wserror, State}
                                                                     end;
                                                                 _ ->
-                                                                    {error, vdrtableerror, State}
+                                                                    {error, systemerror, State}
                                                             end;
                                                         _ ->
-                                                            {error, dbresperror, State}
+                                                            {error, dberror, State}
                                                     end;
                                                 _ ->
-                                                    {error, dbstructerror, State}
+                                                    {error, dberror, State}
                                             end;
                                         _ ->
-                                            {error, dbresperror, State}
+                                            {error, dberror, State}
                                     end;
                                 _ ->
                                     {error, vdrerror, State}

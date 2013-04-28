@@ -7,7 +7,8 @@
 -export([number_list_to_binary/2,
          removemsgfromlistbyflownum/2,
          combine_strings/1,
-         combine_strings/2]).
+         combine_strings/2,
+         split_msg_to_single/2]).
 
 -export([set_sockopt/3]).
 
@@ -292,5 +293,57 @@ is_string(Value) ->
             false
     end.
 
+%%%
+%%%
+%%%
+split_msg_to_single(Msg, Tag) ->
+    List = binary_to_list(Msg),
+    split_list(List, Tag).
 
+%%%
+%%%
+%%%
+split_list(List, Tag) ->
+    case List of
+        [] ->
+            [];
+        _ ->
+            {L11, L12} = lists:splitwith(fun(A) -> A =/= Tag end, List),
+            {L21, L22} = lists:splitwith(fun(A) -> A == Tag end, List),
+            case L11 of
+                [] ->
+                    case L21 of
+                        [Tag] ->
+                            split_list(L22, Tag);
+                        [Tag, Tag] ->
+                            split_list(L22, Tag);
+                        _ ->
+                            List22 = split_list(L22, Tag),
+                            case List22 of
+                                [] ->
+                                    [list_to_binary([<<126>>, list_to_binary(L21), <<126>>])];
+                                _ ->
+                                    [list_to_binary([<<126>>, list_to_binary(L21), <<126>>])|List22]
+                            end
+                    end;
+                _ ->
+                    case L11 of
+                        [Tag] ->
+                            split_list(L12, Tag);
+                        [Tag, Tag] ->
+                            split_list(L12, Tag);
+                        _ ->
+                            List12 = split_list(L12, Tag),
+                            case List12 of
+                                [] ->
+                                    [list_to_binary([<<126>>, list_to_binary(L11), <<126>>])];
+                                _ ->
+                                    [list_to_binary([<<126>>, list_to_binary(L11), <<126>>])|List12]
+                            end
+                    end
+            end
+    end.
+    
+    
+    
 
