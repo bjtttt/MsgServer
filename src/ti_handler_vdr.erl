@@ -181,7 +181,7 @@ process_vdr_data(Socket, Data, State) ->
                                                                         {ok, WSUpdate} ->
                                                                             wsock_client:send(WSUpdate),
                                                                     
-                                                                            VDRResp = vdr_data_processor:create_gen_resp(Value, MsgIdx, ?T_GEN_RESP_OK),
+                                                                            VDRResp = vdr_data_processor:create_gen_resp(ID, MsgIdx, ?T_GEN_RESP_OK),
                                                                             send_data_to_vdr(Socket, VDRResp),
                                                 
                                                                             {ok, State#vdritem{id=Value, auth=Auth, msg2vdr=[], msg=[], req=[]}};
