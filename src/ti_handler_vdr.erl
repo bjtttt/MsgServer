@@ -160,31 +160,31 @@ process_vdr_data(Socket, Data, State) ->
                                                 1 ->
                                                     [Rec] = Recs,
                                                     case get_db_resp_record_field(Rec, list_to_binary("id")) of
-                                                        {<<"id">>, ID} ->
+                                                        {ok, {<<"id">>, Value}} ->
                                                             {Auth} = Msg,
                                                             
                                                             % Not tested yet.
                                                             IDSockList = ets:lookup(vdridsocktable, Auth),
                                                             disconn_socket_by_id(IDSockList),
-                                                            IDSock = #vdridsockitem{id=ID, socket=Socket, addr=State#vdritem.addr},
+                                                            IDSock = #vdridsockitem{id=Value, socket=Socket, addr=State#vdritem.addr},
                                                             ets:insert(vdridsocktable, IDSock),
                                                             SockVdrList = ets:lookup(vdrtable, Socket),
                                                             case length(SockVdrList) of
                                                                 1 ->
                                                                     [SockVdr] = SockVdrList,
-                                                                    ets:insert(vdridsocktable, SockVdr#vdritem{id=ID, auth=Auth}),
+                                                                    ets:insert(vdridsocktable, SockVdr#vdritem{id=Value, auth=Auth}),
                                                                     
                                                                     SqlUpdate = list_to_binary([<<"update device set is_online=1 where authen_code='">>, list_to_binary(Auth), <<"'">>]),
                                                                     send_sql_to_db(conn, SqlUpdate),
                                                                     
-                                                                    case wsock_data_parser:create_term_online([ID]) of
+                                                                    case wsock_data_parser:create_term_online([Value]) of
                                                                         {ok, WSUpdate} ->
                                                                             wsock_client:send(WSUpdate),
                                                                     
-                                                                            VDRResp = vdr_data_processor:create_gen_resp(ID, MsgIdx, ?T_GEN_RESP_OK),
+                                                                            VDRResp = vdr_data_processor:create_gen_resp(Value, MsgIdx, ?T_GEN_RESP_OK),
                                                                             send_data_to_vdr(Socket, VDRResp),
                                                 
-                                                                            {ok, State#vdritem{id=ID, auth=Auth, msg2vdr=[], msg=[], req=[]}};
+                                                                            {ok, State#vdritem{id=Value, auth=Auth, msg2vdr=[], msg=[], req=[]}};
                                                                         _ ->
                                                                             {error, wsmsgerror, State}
                                                                     end;
@@ -428,7 +428,7 @@ get_db_resp_record_field(Record, Field) ->
             {Key, Value} = H,
             if
                 Key == Field ->
-                    {Key, Value};
+                    {ok, {Key, Value}};
                 true ->
                     case T of
                         [] ->
