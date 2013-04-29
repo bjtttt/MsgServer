@@ -345,7 +345,7 @@ handle_info({tcp, Socket, Data}, connecting, StateData) ->
       %ets:insert(msgservertable, {wspid, ToWSPid}),
 
       {ok, Msg} = wsock_data_parser:create_init_msg(),
-      wsock_client:send(Msg),
+      wsock_client:send(Msg),%gen_tcp:send(StateData#data.socket, list_to_binary(Msg)),%wsock_client:send(Msg),
 
       [{apppid, AppPid}] = ets:lookup(msgservertable, apppid),
       [{wspid, WSPid}] = ets:lookup(msgservertable, wspid),

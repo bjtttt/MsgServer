@@ -38,6 +38,7 @@ handle_cast(_Msg, State) ->
 %%%
 %%%
 handle_info({tcp, Socket, Data}, State) ->
+    %Data = <<126,1,2,0,2,1,86,121,16,51,112,0,14,81,82,113,126>>,
     Msges = ti_common:split_msg_to_single(Data, 16#7e),
     case Msges of
         [] ->
@@ -167,7 +168,6 @@ safe_process_vdr_msg(Socket, Msg, State) ->
 %%%     {error, dberror/wserror/systemerror/vdrerror, State}  
 %%%
 process_vdr_data(Socket, Data, State) ->
-    %Data = <<126,1,2,0,2,1,86,121,16,51,112,0,14,81,82,113,126>>,
     VDRID = State#vdritem.id,
     case vdr_data_parser:process_data(State, Data) of
         {ok, HeadInfo, Msg, NewState} ->
