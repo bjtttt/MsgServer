@@ -294,11 +294,39 @@ is_string(Value) ->
     end.
 
 %%%
-%%%
+%%% Msg structure :
+%%%     Flag    : == 1 byte
+%%%     Head    : 11 or 15 bytes
+%%%     Body    : >= 0 bytes
+%%%     Parity  : == 1 byte
+%%%     Flag    : == 1 byte
 %%%
 split_msg_to_single(Msg, Tag) ->
     List = binary_to_list(Msg),
-    split_list(List, Tag).
+    Len = length(List),
+    if
+        Len < 15 ->
+            [];
+        true ->
+            HeadFlag = lists:nth(1, List),
+            HeadFlag1 = lists:nth(2, List),
+            TailFlag = lists:nth(Len, List),
+            TailFlag1 = lists:nth(Len-1, List),
+            if
+                HeadFlag == <<16#7e>> andalso TailFlag == <<16#7e>> andalso HeadFlag1 =/= <<16#7e>> andalso TailFlag1 =/= <<16#7e>> ->
+                    Mid = lists:sublist(List, 1, Len-2),
+                    Result = binary:replace(Mid, <<16#7e, 16#7e>>, <<16#ff>>, [global]),
+                    Index = string:str(Result, binary_to_list(<<16#7e>>)),
+                    if
+                        Index == 0 ->
+                            [];
+                        true ->
+                            split_list(List, Tag)
+                    end;
+                true ->
+                    []
+            end
+    end.
 
 %%%
 %%%

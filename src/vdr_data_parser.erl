@@ -22,7 +22,7 @@
 %%%     {ok, HeadInfo, Res, State}
 %%%     {ignore, HeadInfo, State}
 %%%     {warning, HeadInfo, ErrorType, State}
-%%%     {error, exception/dataerror, State}
+%%%     {error, exception/formaterror/parityerror, State}
 %%%
 process_data(State, Data) ->
     try do_process_data(State, Data)
@@ -38,7 +38,7 @@ process_data(State, Data) ->
 %%%     {ok, HeadInfo, Res, State}
 %%%     {ignore, HeadInfo, State}
 %%%     {warning, HeadInfo, ErrorType, State}
-%%%     {error, dataerror, State}
+%%%     {error, formaterror/parityerror, State}
 %%%
 %%% HeadInfo = {ID, MsgIdx, Tel, CryptoType}
 %%%
@@ -100,9 +100,9 @@ do_process_data(State, Data) ->
                                                                 {ok, Result} ->
                                                                     {ok, ID, MsgIdx, Result, NewState};
                                                                 {warning, msgerror} ->
-                                                                    {error, HeadInfo, ?P_GENRESP_ERRMSG, NewState};
+                                                                    {warning, HeadInfo, ?P_GENRESP_ERRMSG, NewState};
                                                                 {warning, unsupported} ->
-                                                                    {error, HeadInfo, ?P_GENRESP_NOTSUPPORT, NewState}
+                                                                    {warning, HeadInfo, ?P_GENRESP_NOTSUPPORT, NewState}
                                                             end;
                                                         {notcomplete, NewState} ->
                                                             {ignore, HeadInfo, NewState}
@@ -116,10 +116,10 @@ do_process_data(State, Data) ->
                     end;
                 CalcParity =/= Parity ->
                     ti_common:logerror("Parity error (calculated)~p:(data)~p from ~p~n", [CalcParity, Parity, State#vdritem.addr]),
-                    {error, dataerror, State}
+                    {error, parityerror, State}
             end;
         error ->
-            {error, dataerror, State}
+            {error, formaterror, State}
     end.
 
 %%%

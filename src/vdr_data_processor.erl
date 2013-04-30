@@ -28,7 +28,7 @@
 
 -export([parse_msg_body/2]).
 
--export([create_final_msg/4,
+-export([create_final_msg/3,
          create_gen_resp/3, 
          create_resend_subpack_req/3,
          create_reg_resp/3,
@@ -74,11 +74,11 @@
 %%%
 %%%
 %%%
-create_final_msg(ID, Tel, MsgIdx, Data) ->
+create_final_msg(ID, MsgIdx, Data) ->
     case Data of
         {ok, Msg} ->
             Len = byte_size(Msg),
-            Header = <<ID:16, 0:2, 0:1, 0:3, Len:10, Tel:48, MsgIdx:16>>,
+            Header = <<ID:16, 0:2, 0:1, 0:3, Len:10, 0:48, MsgIdx:16>>,
             HeaderBody = list_to_binary([Header, Msg]),
             Parity = vdr_data_parser:bxorbytelist(HeaderBody),
             MsgBody = list_to_binary([HeaderBody, Parity]),
