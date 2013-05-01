@@ -108,7 +108,17 @@ forceprintsocketinfo(Socket, Msg) ->
     {ok, {Address, _Port}} = ti_common:forcesafepeername(Socket),
     ti_common:loginfo(string:concat(Msg, " IP : ~p~n"), [Address]).
 
+%%%
+%%%
+%%%
 logerror(Format) ->
+    try do_log_error(Format)
+    catch
+        _:_ ->
+            ok
+    end.
+
+do_log_error(Format) ->
     [{display, Display}] = ets:lookup(msgservertable, display),
     case Display of
         1 ->
@@ -142,6 +152,13 @@ logerror(Format) ->
 %%% Data is a list, for example : [], [Msg] or [Msg1, Msg2]
 %%%
 logerror(Format, Data) ->
+    try do_log_error(Format, Data)
+    catch
+        _:_ ->
+            ok
+    end.
+    
+do_log_error(Format, Data) ->
     [{display, Display}] = ets:lookup(msgservertable, display),
     case Display of
         1 ->
@@ -172,7 +189,17 @@ logerror(Format, Data) ->
             ok
     end.
 
+%%%
+%%%
+%%%
 loginfo(Format) ->
+    try do_log_info(Format)
+    catch
+        _:_ ->
+            ok
+    end.
+
+do_log_info(Format) ->
     [{display, Display}] = ets:lookup(msgservertable, display),
     case Display of
         1 ->
@@ -207,6 +234,13 @@ loginfo(Format) ->
 %%% Data is a list, for example : [], [Msg] or [Msg1, Msg2]
 %%%
 loginfo(Format, Data) ->
+    try do_log_info(Format, Data)
+    catch
+        _:_ ->
+            ok
+    end.
+
+do_log_info(Format, Data) ->
     [{display, Display}] = ets:lookup(msgservertable, display),
     case Display of
         1 ->

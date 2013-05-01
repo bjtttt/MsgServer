@@ -37,11 +37,15 @@ handle_cast(_Msg, State) ->
 %%%
 %%%
 %%%
-handle_info({tcp, Socket, Data}, State) ->
-    _Data = <<126,1,2,0,2,1,86,121,16,51,112,0,14,81,82,113,126>>,
-    Msges = ti_common:split_msg_to_single(Data, 16#7e),
-    case Msges of
+handle_info({tcp, Socket, Data}, OriginalState) ->
+    % Update active time for VDR
+    DateTime = {erlang:date(), erlang:time()},
+    State = OriginalState#vdritem{acttime=DateTime},
+    %Data = <<126,1,2,0,2,1,86,121,16,51,112,0,14,81,82,113,126>>,
+    Messages = ti_common:split_msg_to_single(Data, 16#7e),
+    case Messages of
         [] ->
+            % Max 3 vdrerrors are allowed
             ErrorCount = State#vdritem.errorcount + 1,
             NewState = State#vdritem{errorcount=ErrorCount},
             if
@@ -52,8 +56,9 @@ handle_info({tcp, Socket, Data}, State) ->
                     {noreply, NewState}
             end;
         _ ->
-            case process_vdr_msges(Socket, Msges, State) of
+            case process_vdr_msges(Socket, Messages, State) of
                 {error, vdrerror, NewState} ->
+                    % Max 3 vdrerrors are allowed
                     ErrorCount = NewState#vdritem.errorcount + 1,
                     UpdatedState = NewState#vdritem{errorcount=ErrorCount},
                     if
@@ -178,9 +183,9 @@ process_vdr_data(Socket, Data, State) ->
                         16#100 ->
                             % Register VDR
                             %{Province, City, Producer, TermModel, TermID, LicColor, LicID} = Msg,
-                            % We should check whether fetch works or not
                             case create_sql_from_vdr(HeadInfo, Msg) of
                                 {ok, Sql} ->
+                                    % We should check whether fetch works or not
                                     _SqlResp = send_sql_to_db(conn, Sql),
                                     
                                     % Should check whether the registration is OK or not and send response accordingly
@@ -253,16 +258,16 @@ process_vdr_data(Socket, Data, State) ->
                                     end;
                                 _ ->
                                     % Authentication fails
-                                    {error, vdrerror, State}
+                                    {error, invaliderror, State}
                             end;
                         true ->
                             % Unauthorized/Unregistered VDR can only accept 16#100/16#102
-                            {error, vdrerror, State}
+                            {error, invaliderror, State}
                     end;
                 true ->
                     case ID of
                         16#1 ->     % VDR general response
-                            {_GwFlowIdx, _GwID, _GwRes} = Msg,
+                            {GwFlowIdx, GwID, GwRes} = Msg,
                             
                             % Process reponse from VDR here
 
@@ -395,7 +400,7 @@ process_vdr_data(Socket, Data, State) ->
             send_resp_to_vdr(16#8001, Socket, ID, MsgIdx, FlowIdx, ErrorType),
             
             {warning, NewState#vdritem{msgflownum=FlowIdx+1}};
-        {error, _ErrorType, NewState} ->
+        {error, _ErrorType, NewState} ->    % exception/parityerror/formaterror
             {error, vdrerror, NewState}
     end.
 
