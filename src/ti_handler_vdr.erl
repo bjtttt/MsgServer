@@ -130,7 +130,7 @@ code_change(_OldVsn, State, _Extra) ->
 %%% Return :
 %%%     {ok, State}
 %%%     {warning, State}
-%%%     {error, dberror/wserror/vdrerror/systemerror/exception/unknown, State}  
+%%%     {error, dberror/wserror/vdrerror/invaliderror/systemerror/exception/unknown, State}  
 %%%
 process_vdr_msges(Socket, Msges, State) ->
     [H|T] = Msges,
@@ -155,7 +155,7 @@ process_vdr_msges(Socket, Msges, State) ->
 %%% Return :
 %%%     {ok, State}
 %%%     {warning, State}
-%%%     {error, dberror/wserror/systemerror/vdrerror/exception, State}  
+%%%     {error, dberror/wserror/systemerror/vdrerror/invaliderror/exception, State}  
 %%%
 safe_process_vdr_msg(Socket, Msg, State) ->
     try process_vdr_data(Socket, Msg, State)
@@ -170,7 +170,7 @@ safe_process_vdr_msg(Socket, Msg, State) ->
 %%% Return :
 %%%     {ok, State}
 %%%     {warning, State}
-%%%     {error, dberror/wserror/systemerror/vdrerror/exception, State}  
+%%%     {error, dberror/wserror/systemerror/vdrerror/invaliderror/exception, State}  
 %%%
 process_vdr_data(Socket, Data, State) ->
     VDRID = State#vdritem.id,
@@ -215,13 +215,12 @@ process_vdr_data(Socket, Data, State) ->
                                                             {Auth} = Msg,
                                                             
                                                             % Not tested yet.
-                                                            IDSockList = ets:lookup(vdridsocktable, Auth),
+                                                            IDSockList = ets:lookup(vdridsocktable, Value),
                                                             disconn_socket_by_id(IDSockList),
                                                             IDSock = #vdridsockitem{id=Value, socket=Socket, addr=State#vdritem.addr},
                                                             ets:insert(vdridsocktable, IDSock),
                                                             SockVdrList = ets:lookup(vdrtable, Socket),
                                                             case length(SockVdrList) of
-                                                            %case 1 of                   % DEBUG only
                                                                 1 ->
                                                                     [SockVdr] = SockVdrList,
                                                                     ets:insert(vdridsocktable, SockVdr#vdritem{id=Value, auth=Auth}),
