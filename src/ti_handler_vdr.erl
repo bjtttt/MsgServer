@@ -38,7 +38,7 @@ handle_cast(_Msg, State) ->
 %%%
 %%%
 handle_info({tcp, Socket, Data}, State) ->
-    %Data = <<126,1,2,0,2,1,86,121,16,51,112,0,14,81,82,113,126>>,
+    _Data = <<126,1,2,0,2,1,86,121,16,51,112,0,14,81,82,113,126>>,
     Msges = ti_common:split_msg_to_single(Data, 16#7e),
     case Msges of
         [] ->
@@ -275,12 +275,37 @@ process_vdr_data(Socket, Data, State) ->
                             Auth = State#vdritem.auth,
                             Sql = create_sql_from_vdr(HeadInfo, {Auth}),
                             send_sql_to_db(conn, Sql),
+                            
                             % return error to terminate connection with VDR
                             {error, vdrerror, NewState};
-                        16#104 ->
-                            ok;
+                        16#104 ->   % VDR parameter query
+                            {RespIdx, ActLen, List} = Msg,
+                            
+                            % Process response from VDR here
+                            
+                            {ok, NewState};
+                        16#107 ->   % VDR property query
+                            {Type, ProId, Model, TerId, ICCID, HwVerLen, HwVer, FwVerLen, FwVer, GNSS, Prop} = Msg,
+                            
+                            % Process response from VDR here
+
+                            {ok, NewState};
+                        16#108 ->
+                            {Type, Res} = Msg,
+                            
+                            % Process response from VDR here
+                            
+                            {ok, NewState};
+                        16#200 ->
+                            {H, AppInfo} = Msg,
+                            [AlarmSym, State, Lat, Lon, Height, Speed, Direction, Time] = H,
+                            
+                            FlowIdx = State#vdritem.msgflownum,
+                            send_resp_to_vdr(16#8001, Socket, ID, MsgIdx, FlowIdx, ?T_GEN_RESP_OK),
+                            
+                            {ok, NewState#vdritem{msgflownum=FlowIdx+1}};
                         _ ->
-                            ok
+                            {ok, NewState}
                     end
                     %Sql = create_sql_from_vdr(HeadInfo, Msg),
                     %send_sql_to_db(conn, Sql),

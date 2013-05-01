@@ -536,27 +536,25 @@ parse_query_term_args_response(Bin) ->
 %%% Currently using byte_size
 %%%
 extract_term_args_resp(Bin) ->
-    Len = bit_size(Bin),
+    Len = byte_size(Bin),
     if
-        Len < ((4+1)*?LEN_BYTE) ->
+        Len < 4+1 ->
             [];
         true ->
             <<ID:?LEN_DWORD, Len:?LEN_BYTE, Tail/binary>> = Bin,
-            TailLen = bit_size(Tail),
+            TailLen = byte_size(Tail),
             if
                 Len > TailLen ->
                     [];
                 Len =< TailLen ->
-                    {Bin0, Bin1} = split_binary(Tail, Len*?LEN_BYTE),
-                    Arg =  convert_term_args_binary(ID, Len, Bin0),
+                    {Bin0, Bin1} = split_binary(Tail, Len),
+                    Arg = convert_term_args_binary(ID, Len, Bin0),
                     [Arg|extract_term_args_resp(Bin1)]
             end
     end.
 
 %%%
-%%% Len should be byte_size or bit_size????
-%%% Currently using byte_size
-%%% Has better format?
+%%%
 %%%
 convert_term_args_binary(ID, Len, Bin) ->
     if
@@ -978,15 +976,11 @@ parse_update_result_notification(Bin) ->
             <<Type:?LEN_BYTE, Res:?LEN_BYTE>> = Bin,
             if
                 Res >= 0, Res =< 2 ->
-                    case Type of
-                        0 ->
-                            {ok, {Type, Res}};
-                        12 ->
-                            {ok, {Type, Res}};
-                        52 ->
-                            {ok, {Type, Res}};
-                        _ ->
-                            {error, msgerr}
+                    if
+                        Type =/= 0 andalso Type =/= 12 andalso Type =/= 52 ->
+                            {error, msgerr};
+                        true ->
+                            {ok, {Type, Res}}
                     end;
                 true ->
                     {error, msgerr}
@@ -1018,13 +1012,13 @@ parse_position_info_report(Bin) ->
                     case AppInfo of
                         error ->
                             {error, msgerr};
-                        [] ->
-                            {ok, {H}};
+                        %[] ->
+                        %    {ok, {H}};
                         _ ->
                             {ok, {H, AppInfo}}
                     end;
                 Len == 0 ->
-                    {ok, {H}}
+                    {ok, {H, []}}
             end
     end.
 
