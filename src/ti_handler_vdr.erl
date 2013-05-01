@@ -272,16 +272,18 @@ process_vdr_data(Socket, Data, State) ->
 
                             {ok, NewState};                      
                         16#2 ->     % VDR pulse
+                            % Nothing to do here
                             %{} = Msg,
                             {ok, NewState};
                         16#3 ->     % VDR unregistration
                             %{} = Msg,
                             Auth = State#vdritem.auth,
-                            Sql = create_sql_from_vdr(HeadInfo, {Auth}),
+                            ID = State#vdritem.id,
+                            Sql = create_sql_from_vdr(HeadInfo, {ID, Auth}),
                             send_sql_to_db(conn, Sql),
                             
                             % return error to terminate connection with VDR
-                            {error, vdrerror, NewState};
+                            {error, invaliderror, NewState};
                         16#104 ->   % VDR parameter query
                             {RespIdx, ActLen, List} = Msg,
                             
@@ -484,8 +486,8 @@ create_sql_from_vdr(HeaderInfo, Msg) ->
             {Province, City, Producer, TermModel, TermID, LicColor, LicID} = Msg,
             {ok, ""};
         16#3    ->                          
-            {Auth} = Msg,
-            {ok, list_to_binary([<<"delete from device where authen_code='">>, list_to_binary(Auth), <<"'">>])};
+            {ID, Auth} = Msg,
+            {ok, list_to_binary([<<"delete from device where authen_code='">>, list_to_binary(Auth), <<"' or id='">>, list_to_binary(ID), <<"'">>])};
         16#102  ->
             {Auth} = Msg,
             {ok, list_to_binary([<<"select * from device where authen_code='">>, list_to_binary(Auth), <<"'">>])};
