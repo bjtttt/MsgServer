@@ -261,20 +261,34 @@ process_vdr_data(Socket, Data, State) ->
                     end;
                 true ->
                     case ID of
-                        16#1 ->
-                            {_VDRRespIdx, _VDRID, _VDRRes} = Msg;
-                        16#2 ->
-                            {} = Msg;
+                        16#1 ->     % VDR general response
+                            {_GwFlowIdx, _GwID, _GwRes} = Msg,
+                            
+                            % Process reponse from VDR here
+
+                            {ok, NewState};                      
+                        16#2 ->     % VDR pulse
+                            %{} = Msg,
+                            {ok, NewState};
+                        16#3 ->     % VDR unregistration
+                            %{} = Msg,
+                            Auth = State#vdritem.auth,
+                            Sql = create_sql_from_vdr(HeadInfo, {Auth}),
+                            send_sql_to_db(conn, Sql),
+                            % return error to terminate connection with VDR
+                            {error, vdrerror, NewState};
+                        16#104 ->
+                            ok;
                         _ ->
                             ok
-                    end,
-                    Sql = create_sql_from_vdr(HeadInfo, Msg),
-                    send_sql_to_db(conn, Sql),
+                    end
+                    %Sql = create_sql_from_vdr(HeadInfo, Msg),
+                    %send_sql_to_db(conn, Sql),
                     
-                    FlowIdx = State#vdritem.msgflownum,
-                    send_resp_to_vdr(16#8001, Socket, ID, MsgIdx, FlowIdx, ?T_GEN_RESP_OK),
+                    %FlowIdx = State#vdritem.msgflownum,
+                    %send_resp_to_vdr(16#8001, Socket, ID, MsgIdx, FlowIdx, ?T_GEN_RESP_OK),
 
-                    {ok, NewState#vdritem{msgflownum=FlowIdx+1}}
+                    %{ok, NewState#vdritem{msgflownum=FlowIdx+1}}
             end;
         {ignore, HeaderInfo, NewState} ->
             {ID, MsgIdx, _Tel, _CryptoType} = HeaderInfo,
@@ -373,7 +387,8 @@ create_sql_from_vdr(HeaderInfo, Msg) ->
             {Province, City, Producer, TermModel, TermID, LicColor, LicID} = Msg,
             {ok, ""};
         16#3    ->                          
-            {ok, ""};
+            {Auth} = Msg,
+            {ok, list_to_binary([<<"delete from device where authen_code='">>, list_to_binary(Auth), <<"'">>])};
         16#102  ->
             {Auth} = Msg,
             {ok, list_to_binary([<<"select * from device where authen_code='">>, list_to_binary(Auth), <<"'">>])};

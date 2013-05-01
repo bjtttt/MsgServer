@@ -515,7 +515,7 @@ create_query_specific_term_args(Count, IDList) ->
 %%% Currently using byte_size
 %%%
 parse_query_term_args_response(Bin) ->
-    Len = length(Bin),
+    Len = byte_size(Bin),
     if
         Len =< ((2+1)*?LEN_BYTE) ->
             {error, msgerr};
@@ -1023,36 +1023,133 @@ parse_position_info_report(Bin) ->
                         _ ->
                             {ok, {H, AppInfo}}
                     end;
-                    %<<AppID:?LEN_BYTE, AppLen:?LEN_BYTE, AppMsg/binary>> = Tail,
-                    %Len0 = byte_size(AppMsg),
-                    %if
-                    %    Len0 == AppLen ->
-                    %        {ok, {H, [AppID, AppLen, AppMsg]}};
-                    %    true ->
-                    %        {error, msgerr}
-                    %end;
                 Len == 0 ->
                     {ok, {H}}
             end
     end.
 
 get_appended_info(Bin) ->
-    Len = byte_size(Bin),
+    BinLen = byte_size(Bin),
     if
-        Len < 2 ->
+        BinLen < 2 ->
             [];
         true ->
-            <<ID:?LEN_BYTE, Len:?LEN_BYTE, Tail0/binary>> = Bin,
+            <<ID:?LEN_BYTE, Len:?LEN_BYTE, Tail/binary>> = Bin,
+            ActLen = byte_size(Tail),
             case ID of
                 16#1 ->
                     if
-                        Len == 4 ->
-                            ok;
+                        Len == 4 andalso Len == ActLen ->
+                            <<Res:32>> = Tail,
+                            [ID, Res];
                         true ->
                             error
                     end;
+                16#2 ->
+                    if
+                        Len == 2 andalso Len == ActLen ->
+                            <<Res:16>> = Tail,
+                            [ID, Res];
+                        true ->
+                            error
+                    end;
+                16#3 ->
+                    if
+                        Len == 2 andalso Len == ActLen ->
+                            <<Res:16>> = Tail,
+                            [ID, Res];
+                        true ->
+                            error
+                    end;
+                16#4 ->
+                    if
+                        Len == 2 andalso Len == ActLen ->
+                            <<Res:16>> = Tail,
+                            [ID, Res];
+                        true ->
+                            error
+                    end;
+                16#11 ->
+                    if
+                        Len == 1 andalso Len == ActLen ->
+                            <<Res:8>> = Tail,
+                            if
+                                Res == 0 ->
+                                    [ID, Res];
+                                true ->
+                                    error
+                            end;
+                        Len == 5 andalso Len == ActLen ->
+                            <<Res1:8, Res2:32>> = Tail,
+                            if
+                                Res1 == 0 ->
+                                    error;
+                                true ->
+                                    [ID, Res1, Res2]
+                            end;
+                        true ->
+                            error
+                    end;
+                16#12 ->
+                    if
+                        Len == 6 andalso Len == ActLen ->
+                            <<Res1:8, Res2:32, Res3:8>> = Tail,
+                            [ID, Res1, Res2, Res3];
+                        true ->
+                            error
+                    end;
+                16#13 ->
+                    if
+                        Len == 7 andalso Len == ActLen ->
+                            <<Res1:32, Res2:16, Res3:8>> = Tail,
+                            [ID, Res1, Res2, Res3];
+                        true ->
+                            error
+                    end;
+                16#25 ->
+                    if
+                        Len == 4 ->
+                            <<Res:32>> = Tail,
+                            [ID, Res];
+                        true ->
+                            error
+                    end;
+                16#2A ->
+                    if
+                        Len == 2 ->
+                            <<Res:16>> = Tail,
+                            [ID, Res];
+                        true ->
+                            error
+                    end;
+                16#2B ->
+                    if
+                        Len == 4 ->
+                            <<Res1:16, Res2:16>> = Tail,
+                            [ID, Res1, Res2];
+                        true ->
+                            error
+                    end;
+                16#30 ->
+                    if
+                        Len == 1 ->
+                            <<Res:8>> = Tail,
+                            [ID, Res];
+                        true ->
+                            error
+                    end;
+                16#31 ->
+                    if
+                        Len == 1 ->
+                            <<Res:8>> = Tail,
+                            [ID, Res];
+                        true ->
+                            error
+                    end;
+                16#E0 ->
+                    [];
                 _ ->
-                    error
+                    []
             end
     end.
 
