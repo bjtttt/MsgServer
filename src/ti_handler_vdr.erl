@@ -304,6 +304,74 @@ process_vdr_data(Socket, Data, State) ->
                             send_resp_to_vdr(16#8001, Socket, ID, MsgIdx, FlowIdx, ?T_GEN_RESP_OK),
                             
                             {ok, NewState#vdritem{msgflownum=FlowIdx+1}};
+                        16#201 ->
+                            {RespNum, PosMsg} = Msg,
+            
+                            {ok, NewState};
+                        16#301 ->
+                            {Id} = Msg,
+                            
+                            {ok, NewState};
+                        16#302 ->
+                            {Id} = Msg,
+                            
+                            {ok, NewState};
+                        16#303 ->
+                            {MsgType,POC} = Msg,
+                            
+                            {ok, NewState};
+                        16#500 ->
+                            {FlowNum, Resp} = Msg,
+                            
+                            {ok, NewState};
+                        16#700 ->
+                            {Number,OrderWord,DB} = Msg,
+                            
+                            {ok, NewState};
+                        16#701 ->
+                            {Length,Content} = Msg,
+                            
+                            {ok, NewState};
+                        16#702 ->
+                            {DrvState,Time,IcReadResult,NameLen,N,CerNum,OrgLen,O,Validity} = Msg,
+                            
+                            {ok, NewState};
+                        16#704 ->
+                            {Len,Type,Positions} = Msg,
+                            
+                            {ok, NewState};
+                        16#705 ->
+                            {Count, Time, Data} = Msg,
+                            
+                            {ok, NewState};
+                        16#800 ->
+                            {Id,Type,Code,EICode,PipeId} = Msg,
+                            
+                            {ok, NewState};
+                        16#801 ->
+                            {Id,Type,Code,EICode,PipeId,MsgBody,Pack} = Msg,
+                            
+                            {ok, NewState};
+                        16#805 ->
+                            {RespIdx, Res, ActLen, List} = Msg,
+                            
+                            {ok, NewState};
+                        16#802 ->
+                            {FlowNum, Len, Data} = Msg,
+                            
+                            {ok, NewState};
+                        16#900 ->
+                            {Type,Con} = Msg,
+                            
+                            {ok, NewState};
+                        16#901 ->
+                            {Len,Body} = Msg,
+                            
+                            {ok, NewState};
+                        16#A00 ->
+                            {E,N} = Msg,
+                            
+                            {ok, NewState};
                         _ ->
                             {ok, NewState}
                     end

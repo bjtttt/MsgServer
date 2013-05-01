@@ -1208,8 +1208,14 @@ get_event_binary(Events, IDLen, LenLen) ->
 %%% 0x0301
 %%%
 parse_event_report(Bin) ->
-    <<Id:8>> = Bin,
-    {ok,{Id}}.
+    Len = byte_size(Bin),
+    if
+        Len == 1 ->
+            <<Id:8>> = <<Bin:8>>,
+            {ok,{Id}};
+        true ->
+            {error, errmsg}
+    end.
 
 %%%
 %%% 0x8302
@@ -1224,8 +1230,14 @@ create_send_question(Symbol,QueLen,Que,Answers) ->
 %%% 0x0302
 %%%
 parse_question_resp(Bin) ->
-    <<Number:16,Id:8>> = Bin,
-    {ok,{Number,Id}}.
+    Len = byte_size(Bin),
+    if
+        Len == 3 ->
+            <<Number:16,Id:8>> = <<Bin:24>>,
+            {ok,{Number,Id}};
+        true ->
+            {error, msgerr}
+    end.
 
 %%%
 %%% 0x8303
@@ -1240,8 +1252,14 @@ create_msgmenu_settings(SetType,_Count,Msgs) ->
 %%% 0x0303
 %%%
 parse_msg_proorcancel(Bin) ->
-    <<MsgType:8,POC:8>> = Bin,
-    {ok,{MsgType,POC}}.
+    Len = byte_size(Bin),
+    if
+        Len == 2 ->
+            <<MsgType:8,POC:8>> = <<Bin:16>>,
+            {ok,{MsgType,POC}};
+        true ->
+            {error, msgerr}
+    end.
 
 %%%
 %%% 0x8304
