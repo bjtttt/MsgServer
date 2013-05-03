@@ -223,6 +223,7 @@ process_vdr_data(Socket, Data, State) ->
                                                                 _ ->
                                                                     case get_db_resp_record_field(<<"device">>, Rec, <<"authen_code">>) of
                                                                         {ok, {<<"device">>, <<"authen_code">>, Value}} ->
+                                                                            %case get_db_resp_record_field(<<"vehicle">>, Rec, <<"authen_code">>) of
                                                                             FlowIdx = State#vdritem.msgflownum,
                                                                             MsgBody = vdr_data_processor:create_reg_resp(MsgIdx, 0, list_to_binary(Value)),
                                                                             VDRResp = vdr_data_processor:create_final_msg(16#8100, FlowIdx, MsgBody),
