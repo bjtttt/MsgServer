@@ -270,7 +270,7 @@ parse_reg(Bin) ->
 
 %%%
 %%% 0x8100
-%%%     RespIdx     : WORD
+%%%     RespIdx     : VDR message index : WORD
 %%%     Res         : BYTE
 %%%                     0   - OK
 %%%                     1   - VEHICLE ALREADY REGISTERED

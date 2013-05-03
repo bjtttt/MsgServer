@@ -188,12 +188,19 @@ process_vdr_data(Socket, Data, State) ->
                                 {ok, Sql} ->
                                     % We should check whether fetch works or not
                                     SqlResp = send_sql_to_db(conn, Sql),
+                                    % 0 : ok
+                                    % 1 : vehicle registered
+                                    % 2 : no such vehicle in DB
+                                    % 3 : VDR registered
+                                    % 3 : no such VDR in DB
                                     case extract_db_resp(SqlResp) of
                                         {ok, empty} ->
                                             FlowIdx = State#vdritem.msgflownum,
                                             MsgBody = vdr_data_processor:create_reg_resp(MsgIdx, 4, empty),
                                             VDRResp = vdr_data_processor:create_final_msg(16#8100, FlowIdx, MsgBody),
                                             send_data_to_vdr(Socket, VDRResp),
+                                            
+                                            % return error to terminate VDR connection
                                             {error, dberror, State#vdritem{msgflownum=FlowIdx+1}};
                                         {ok, RecordPairs} ->
                                             FlowIdx = State#vdritem.msgflownum,
@@ -212,6 +219,8 @@ process_vdr_data(Socket, Data, State) ->
                         16#102 ->
                             % VDR Authentication
                             case create_sql_from_vdr(HeadInfo, Msg) of
+                            %Sql = "select * from device,vehicle where device.serial_no='abcdef' and vehicle.device_id=device.id",
+                            %case {ok, Sql} of
                                 {ok, Sql} ->
                                     SqlResp = send_sql_to_db(conn, Sql),
                                     case extract_db_resp(SqlResp) of
@@ -222,8 +231,8 @@ process_vdr_data(Socket, Data, State) ->
                                             case RecsLen of
                                                 1 ->
                                                     [Rec] = Recs,
-                                                    case get_db_resp_record_field(Rec, list_to_binary("id")) of
-                                                        {ok, {<<"id">>, Value}} ->
+                                                    case get_db_resp_record_field(<<"device">>, Rec, <<"id">>) of
+                                                        {ok, {<<"device">>, <<"id">>, Value}} ->
                                                             {Auth} = Msg,
                                                             
                                                             % Not tested yet.
@@ -628,12 +637,12 @@ compose_db_resp_record(ColDef, Res) ->
                 _ ->
                     [H1|T1] = ColDef,
                     [H2|T2] = Res,
-                    {_Tab, ColName, _Len, _Type} = H1,
+                    {Tab, ColName, _Len, _Type} = H1,
                     case T1 of
                         [] ->
-                            [{ColName, H2}];
+                            [{Tab, ColName, H2}];
                         _ ->
-                            [{ColName, H2}|compose_db_resp_record(T1, T2)]
+                            [{Tab, ColName, H2}|compose_db_resp_record(T1, T2)]
                     end
             end;
         true ->
@@ -643,22 +652,22 @@ compose_db_resp_record(ColDef, Res) ->
 %%%
 %%%
 %%%
-get_db_resp_record_field(Record, Field) ->
+get_db_resp_record_field(Table, Record, Field) ->
     case Record of
         [] ->
             error;
         _ ->
             [H|T] = Record,
-            {Key, Value} = H,
+            {Tab, Key, Value} = H,
             if
-                Key == Field ->
-                    {ok, {Key, Value}};
+                Table== Tab andalso Key == Field ->
+                    {ok, {Tab, Key, Value}};
                 true ->
                     case T of
                         [] ->
                             error;
                         _ ->
-                            get_db_resp_record_field(T, Field)
+                            get_db_resp_record_field(Table, T, Field)
                     end
             end
     end.                    
