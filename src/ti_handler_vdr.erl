@@ -172,6 +172,9 @@ safe_process_vdr_msg(Socket, Msg, State) ->
 %%%     {warning, State}
 %%%     {error, dberror/wserror/systemerror/vdrerror/invaliderror/exception, State}  
 %%%
+%%% MsgIdx  : VDR message index
+%%% FlowIdx : Gateway message flow index
+%%%
 process_vdr_data(Socket, Data, State) ->
     VDRID = State#vdritem.id,
     case vdr_data_parser:process_data(State, Data) of
@@ -186,7 +189,6 @@ process_vdr_data(Socket, Data, State) ->
                             %{Province, City, Producer, TermModel, TermID, LicColor, LicID} = Msg,
                             case create_sql_from_vdr(HeadInfo, Msg) of
                                 {ok, Sql} ->
-                                    % We should check whether fetch works or not
                                     SqlResp = send_sql_to_db(conn, Sql),
                                     % 0 : ok
                                     % 1 : vehicle registered
@@ -203,11 +205,40 @@ process_vdr_data(Socket, Data, State) ->
                                             % return error to terminate VDR connection
                                             {error, dberror, State#vdritem{msgflownum=FlowIdx+1}};
                                         {ok, RecordPairs} ->
-                                            FlowIdx = State#vdritem.msgflownum,
-                                            MsgBody = vdr_data_processor:create_reg_resp(MsgIdx, 0, empty),
-                                            VDRResp = vdr_data_processor:create_final_msg(16#8100, FlowIdx, MsgBody),
-                                            send_data_to_vdr(Socket, VDRResp),
-                                            {ok, State#vdritem{msgflownum=FlowIdx+1, msg2vdr=[], msg=[], req=[]}};
+                                            RecsLen = length(RecordPairs),
+                                            case RecsLen of
+                                                1 ->
+                                                    [Rec] = RecordPairs,
+                                                    case get_db_resp_record_field(<<"vehicle">>, Rec, <<"device_id">>) of
+                                                        {ok, {<<"vehicle">>, <<"device_id">>, Value}} ->
+                                                            case Value of
+                                                                undefined ->
+                                                                    FlowIdx = State#vdritem.msgflownum,
+                                                                    MsgBody = vdr_data_processor:create_reg_resp(MsgIdx, 2, empty),
+                                                                    VDRResp = vdr_data_processor:create_final_msg(16#8100, FlowIdx, MsgBody),
+                                                                    send_data_to_vdr(Socket, VDRResp),
+                                                                    
+                                                                    % return error to terminate VDR connection
+                                                                    {error, dberror, State#vdritem{msgflownum=FlowIdx+1}};
+                                                                _ ->
+                                                                    case get_db_resp_record_field(<<"device">>, Rec, <<"authen_code">>) of
+                                                                        {ok, {<<"device">>, <<"authen_code">>, Value}} ->
+                                                                            FlowIdx = State#vdritem.msgflownum,
+                                                                            MsgBody = vdr_data_processor:create_reg_resp(MsgIdx, 0, list_to_binary(Value)),
+                                                                            VDRResp = vdr_data_processor:create_final_msg(16#8100, FlowIdx, MsgBody),
+                                                                            send_data_to_vdr(Socket, VDRResp),
+                                                                            
+                                                                            {ok, State#vdritem{msgflownum=FlowIdx+1, msg2vdr=[], msg=[], req=[]}};
+                                                                        _ ->
+                                                                            {error, dberror, State}
+                                                                    end
+                                                                end;
+                                                        _ ->
+                                                            {error, dberror, State}
+                                                    end;
+                                                _ ->
+                                                    {error, dberror, State}
+                                            end;
                                         error ->
                                             {error, dberror, State};
                                         _ ->
@@ -508,8 +539,10 @@ create_sql_from_vdr(HeaderInfo, Msg) ->
             {ok, ""};
         16#100  ->          % Not complete, currently only use VDRID for query                     
             {_Province, _City, _Producer, _VDRModel, VDRID, _LicColor, _LicID} = Msg,
-            SQL = list_to_binary([<<"select * from device,vehicle where device.serial_no='">>, 
-                                 list_to_binary(VDRID), <<"' and vehicle.device_id=device.id">>]),
+            SQL = list_to_binary([<<"select * from device left join vehicle ">>, 
+                                  <<"on vehicle.device_id=device.id ">>, 
+                                  <<"where device.serial_no='">>,
+                                  list_to_binary(VDRID), <<"'">>]),
             {ok, SQL};
         16#3    ->                          
             {ID, Auth} = Msg,
