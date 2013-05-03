@@ -181,19 +181,31 @@ process_vdr_data(Socket, Data, State) ->
                 VDRID == undefined ->
                     case ID of
                         16#100 ->
+                            % Not complete
                             % Register VDR
                             %{Province, City, Producer, TermModel, TermID, LicColor, LicID} = Msg,
                             case create_sql_from_vdr(HeadInfo, Msg) of
                                 {ok, Sql} ->
                                     % We should check whether fetch works or not
-                                    _SqlResp = send_sql_to_db(conn, Sql),
-                                    
-                                    % Should check whether the registration is OK or not and send response accordingly
-                                    
-                                    FlowIdx = State#vdritem.msgflownum,
-                                    send_resp_to_vdr(16#8001, Socket, ID, MsgIdx, FlowIdx, ?T_GEN_RESP_OK),
-                                    
-                                    {ok, State#vdritem{msgflownum=FlowIdx+1, msg2vdr=[], msg=[], req=[]}};
+                                    SqlResp = send_sql_to_db(conn, Sql),
+                                    case extract_db_resp(SqlResp) of
+                                        {ok, empty} ->
+                                            FlowIdx = State#vdritem.msgflownum,
+                                            MsgBody = vdr_data_processor:create_reg_resp(MsgIdx, 4, empty),
+                                            VDRResp = vdr_data_processor:create_final_msg(16#8100, FlowIdx, MsgBody),
+                                            send_data_to_vdr(Socket, VDRResp),
+                                            {error, dberror, State#vdritem{msgflownum=FlowIdx+1}};
+                                        {ok, RecordPairs} ->
+                                            FlowIdx = State#vdritem.msgflownum,
+                                            MsgBody = vdr_data_processor:create_reg_resp(MsgIdx, 0, empty),
+                                            VDRResp = vdr_data_processor:create_final_msg(16#8100, FlowIdx, MsgBody),
+                                            send_data_to_vdr(Socket, VDRResp),
+                                            {ok, State#vdritem{msgflownum=FlowIdx+1, msg2vdr=[], msg=[], req=[]}};
+                                        error ->
+                                            {error, dberror, State};
+                                        _ ->
+                                            {error, dberror, State}
+                                    end;
                                 _ ->
                                     {error, vdrerror, State}
                             end;
@@ -281,7 +293,10 @@ process_vdr_data(Socket, Data, State) ->
                             ID = State#vdritem.id,
                             Sql = create_sql_from_vdr(HeadInfo, {ID, Auth}),
                             send_sql_to_db(conn, Sql),
-                            
+
+                            FlowIdx = State#vdritem.msgflownum,
+                            send_resp_to_vdr(16#8001, Socket, ID, MsgIdx, FlowIdx, ?T_GEN_RESP_OK),
+
                             % return error to terminate connection with VDR
                             {error, invaliderror, NewState};
                         16#104 ->   % VDR parameter query
@@ -426,7 +441,7 @@ send_resp_to_vdr(RespType, Socket, VDRMsgID, VDRMsgIdx, FlowIdx, Type) ->
         true ->
             MsgBody = vdr_data_processor:create_gen_resp(VDRMsgID, VDRMsgIdx, Type),
             VDRResp = vdr_data_processor:create_final_msg(RespType, FlowIdx, MsgBody),
-           send_data_to_vdr(Socket, VDRResp)
+            send_data_to_vdr(Socket, VDRResp)
     end.
 
 %%%
@@ -482,9 +497,11 @@ create_sql_from_vdr(HeaderInfo, Msg) ->
             {ok, ""};
         16#2    ->                          
             {ok, ""};
-        16#100  ->                          
-            {Province, City, Producer, TermModel, TermID, LicColor, LicID} = Msg,
-            {ok, ""};
+        16#100  ->          % Not complete, currently only use VDRID for query                     
+            {_Province, _City, _Producer, _VDRModel, VDRID, _LicColor, _LicID} = Msg,
+            SQL = list_to_binary([<<"select * from device,vehicle where device.serial_no='">>, 
+                                 list_to_binary(VDRID), <<"' and vehicle.device_id=device.id">>]),
+            {ok, SQL};
         16#3    ->                          
             {ID, Auth} = Msg,
             {ok, list_to_binary([<<"delete from device where authen_code='">>, list_to_binary(Auth), <<"' or id='">>, list_to_binary(ID), <<"'">>])};

@@ -249,8 +249,8 @@ create_resend_subpack_req(FlowIdx, Count, IDList) ->
 %%%     Province    : WORD
 %%%     City        : WORD
 %%%     Producer ID : BYTE[5]
-%%%     Term Model  : BYTE[20]
-%%%     Term ID     : BYTE[7]
+%%%     VDR Model   : BYTE[20]
+%%%     VDR ID      : BYTE[7]
 %%%     Lic Color   : BYTE
 %%%     Lic ID      : STRING
 %%%
@@ -260,9 +260,12 @@ parse_reg(Bin) ->
         Len =< ((2+2+5+20+7+1)*?LEN_BYTE) ->
             {error, msgerr};
         true ->
-            <<Province:?LEN_WORD, City:?LEN_WORD, Producer:(5*?LEN_BYTE), TermModel:(20*?LEN_BYTE), TermID:(7*?LEN_BYTE), LicColor:?LEN_BYTE, Tail/binary>> = Bin,
+            <<Province:?LEN_WORD, City:?LEN_WORD, Producer:(5*?LEN_BYTE), VDRModel:(20*?LEN_BYTE), VDRID:(7*?LEN_BYTE), LicColor:?LEN_BYTE, Tail/binary>> = Bin,
             LicID = binary_to_list(Tail),
-            {ok, {Province, City, Producer, TermModel, TermID, LicColor, LicID}}
+            ProducerStr = binary_to_list(<<Producer:(5*?LEN_BYTE)>>),
+            VDRModelStr = binary_to_list(<<VDRModel:(20*?LEN_BYTE)>>),
+            VDRIDStr = binary_to_list(<<VDRID:(7*?LEN_BYTE)>>),
+            {ok, {Province, City, ProducerStr, VDRModelStr, VDRIDStr, LicColor, LicID}}
     end.
 
 %%%
@@ -283,8 +286,13 @@ create_reg_resp(RespIdx, Res, AuthCode) ->
         Res > 4 ->
             error;
         true ->
-            Bin = list_to_binary(AuthCode),
-            {ok, <<RespIdx:?LEN_WORD, Res:?LEN_WORD, Bin/binary>>}
+            case AuthCode of
+                empty ->
+                    {ok, <<RespIdx:?LEN_WORD, Res:?LEN_WORD>>};
+                _ ->
+                    Bin = list_to_binary(AuthCode),
+                    {ok, <<RespIdx:?LEN_WORD, Res:?LEN_WORD, Bin/binary>>}
+            end
     end.
 
 %%%
