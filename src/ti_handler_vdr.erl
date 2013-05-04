@@ -225,10 +225,26 @@ process_vdr_data(Socket, Data, State) ->
                                                                         {ok, {<<"device">>, <<"reg_time">>, VDRRegTime}} ->
                                                                             case VDRRegTime of
                                                                                 undefined ->
+                                                                                    {Year, Month, Day} = erlang:date(),
+                                                                                    {Hour, Minute, Second} = erlang:time(),
+                                                                                    DateTime = integer_to_list(Year) ++ "-" ++ integer_to_list(Month) ++ "-" ++ integer_to_list(Day) ++ " "
+                                                                                                ++ integer_to_list(Hour) ++ ":" ++ integer_to_list(Minute) ++ ":" ++ integer_to_list(Second),
+                                                                                    DateTimeSql = list_to_binary([<<"update device set reg_time='">>, 
+                                                                                                                  list_to_binary(DateTime) , 
+                                                                                                                  <<"' where id=">>, 
+                                                                                                                  integer_to_binary(DeviceID)]),
+                                                                                    _DateTimeSqlResp = send_sql_to_db(conn, DateTimeSql),
+                                                                                    
                                                                                     case get_db_resp_record_field(<<"vehicle">>, Rec, <<"dev_install_time">>) of
                                                                                         {ok, {<<"vehicle">>, <<"dev_install_time">>, DevInstallTime}} ->
                                                                                             case DevInstallTime of
                                                                                                 undefined ->
+                                                                                                    DateTimeVehicleSql = list_to_binary([<<"update vehicle set dev_install_time='">>, 
+                                                                                                                                         list_to_binary(DateTime) , 
+                                                                                                                                         <<"' where device_id=">>, 
+                                                                                                                                         integer_to_binary(DeviceID)]),
+                                                                                                    _DateTimeVehicleSqlResp = send_sql_to_db(conn, DateTimeVehicleSql),
+                                                                                                    
                                                                                                     case get_db_resp_record_field(<<"device">>, Rec, <<"authen_code">>) of
                                                                                                         {ok, {<<"device">>, <<"authen_code">>, AuthenCode}} ->
                                                                                                             FlowIdx = State#vdritem.msgflownum,
