@@ -187,7 +187,7 @@ process_vdr_data(Socket, Data, State) ->
                             % Not complete
                             % Register VDR
                             %{Province, City, Producer, TermModel, TermID, LicColor, LicID} = Msg,
-                            case create_sql_from_vdr(HeadInfo, Msg) of
+                            case create_sql_from_vdr(HeadInfo, Msg, State) of
                                 {ok, Sql} ->
                                     SqlResp = send_sql_to_db(conn, Sql),
                                     % 0 : ok
@@ -297,7 +297,7 @@ process_vdr_data(Socket, Data, State) ->
                             end;
                         16#102 ->
                             % VDR Authentication
-                            case create_sql_from_vdr(HeadInfo, Msg) of
+                            case create_sql_from_vdr(HeadInfo, Msg, State) of
                             %Sql = "select * from device,vehicle where device.serial_no='abcdef' and vehicle.device_id=device.id",
                             %case {ok, Sql} of
                                 {ok, Sql} ->
@@ -382,7 +382,7 @@ process_vdr_data(Socket, Data, State) ->
                             %{} = Msg,
                             Auth = State#vdritem.auth,
                             ID = State#vdritem.id,
-                            Sql = create_sql_from_vdr(HeadInfo, {ID, Auth}),
+                            Sql = create_sql_from_vdr(HeadInfo, {ID, Auth}, State),
                             send_sql_to_db(conn, Sql),
 
                             FlowIdx = State#vdritem.msgflownum,
@@ -593,7 +593,7 @@ send_sql_to_db(PoolId, Msg) ->
 %%%     {error, iderror}
 %%%     error
 %%%
-create_sql_from_vdr(HeaderInfo, Msg) ->
+create_sql_from_vdr(HeaderInfo, Msg, State) ->
     {ID, _FlowNum, _TelNum, _CryptoType} = HeaderInfo,
     case ID of
         16#1    ->
@@ -625,11 +625,49 @@ create_sql_from_vdr(HeaderInfo, Msg) ->
         16#200  ->
             case Msg of
                 {H} ->
-                    [AlarmSym, State, Lat, Lon, Height, Speed, Direction, Time] = H,
-                    {ok, ""};
+                    [AlarmSym, StateFlag, Lat, Lon, Height, Speed, Direction, Time] = H,
+                    <<Year:8, Month:8, Day:8, Hour:8, Minute:8, Second:8>> = Time,
+                    YearS = list_to_binary(integer_to_list(Year)),
+                    MonthS = list_to_binary(integer_to_list(Month)),
+                    DayS = list_to_binary(integer_to_list(Day)),
+                    HourS = list_to_binary(integer_to_list(Hour)),
+                    MinuteS = list_to_binary(integer_to_list(Minute)),
+                    SecondS = list_to_binary(integer_to_list(Second)),
+                    TimeS = list_to_binary([YearS, <<"-">>, MonthS, <<"-">>, DayS, <<" ">>, HourS, <<":">>, MinuteS, <<":">>, SecondS]),
+                    VDRID = State#vdritem.id,
+                    SQL = list_to_binary([<<"insert into vehicle_position(id, gps_time, longitude, latitude, height, speed, direction, status_flag, alarm_flag) values (">>,
+                                          integer_to_list(VDRID), <<", ">>,
+                                          TimeS, <<", ">>,
+                                          integer_to_list(Lon), <<", ">>,
+                                          integer_to_list(Lat), <<", ">>,
+                                          integer_to_list(Speed), <<", ">>,
+                                          integer_to_list(Direction), <<", ">>,
+                                          integer_to_list(StateFlag), <<", ">>,
+                                          integer_to_list(AlarmSym), <<")">>]),
+                    {ok, SQL};
                 {H, AppInfo} ->
-                    [AlarmSym, State, Lat, Lon, Height, Speed, Direction, Time]= H,
-                    {ok, ""}
+                    [AlarmSym, StateFlag, Lat, Lon, Height, Speed, Direction, Time]= H,
+                    [ID, Len, Info] = AppInfo,
+                    [AlarmSym, StateFlag, Lat, Lon, Height, Speed, Direction, Time] = H,
+                    <<Year:8, Month:8, Day:8, Hour:8, Minute:8, Second:8>> = Time,
+                    YearS = list_to_binary(integer_to_list(Year)),
+                    MonthS = list_to_binary(integer_to_list(Month)),
+                    DayS = list_to_binary(integer_to_list(Day)),
+                    HourS = list_to_binary(integer_to_list(Hour)),
+                    MinuteS = list_to_binary(integer_to_list(Minute)),
+                    SecondS = list_to_binary(integer_to_list(Second)),
+                    TimeS = list_to_binary([YearS, <<"-">>, MonthS, <<"-">>, DayS, <<" ">>, HourS, <<":">>, MinuteS, <<":">>, SecondS]),
+                    VDRID = State#vdritem.id,
+                    SQL = list_to_binary([<<"insert into vehicle_position(id, gps_time, longitude, latitude, height, speed, direction, status_flag, alarm_flag) values (">>,
+                                          integer_to_list(VDRID), <<", ">>,
+                                          TimeS, <<", ">>,
+                                          integer_to_list(Lon), <<", ">>,
+                                          integer_to_list(Lat), <<", ">>,
+                                          integer_to_list(Speed), <<", ">>,
+                                          integer_to_list(Direction), <<", ">>,
+                                          integer_to_list(StateFlag), <<", ">>,
+                                          integer_to_list(AlarmSym), <<")">>]),
+                    {ok, SQL}
             end;
         16#201  ->                          
             {ok, ""};

@@ -998,10 +998,6 @@ parse_update_result_notification(Bin) ->
     end.
 
 %%%
-%%%  Not completed here.
-%%%
-
-%%%
 %%% 0x0200
 %%% Appended Information is a list, we should parse it here!!!
 %%%

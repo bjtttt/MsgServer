@@ -71,7 +71,9 @@
 %%%
 -record(vdritem, {  socket=undefined, 
                     id=undefined,
-                    auth=undefined, 
+                    auth=undefined,
+                    vehicleid=undefined,
+                    driverid=undefined,
                     pid=undefined, 
                     addr=undefined, 
                     acttime=undefined, 
