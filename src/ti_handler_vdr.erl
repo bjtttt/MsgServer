@@ -194,7 +194,7 @@ process_vdr_data(Socket, Data, State) ->
                                     % 1 : vehicle registered
                                     % 2 : no such vehicle in DB
                                     % 3 : VDR registered
-                                    % 3 : no such VDR in DB
+                                    % 4 : no such VDR in DB
                                     case extract_db_resp(SqlResp) of
                                         {ok, empty} ->
                                             FlowIdx = State#vdritem.msgflownum,
@@ -210,8 +210,8 @@ process_vdr_data(Socket, Data, State) ->
                                                 1 ->
                                                     [Rec] = RecordPairs,
                                                     case get_db_resp_record_field(<<"vehicle">>, Rec, <<"device_id">>) of
-                                                        {ok, {<<"vehicle">>, <<"device_id">>, Value}} ->
-                                                            case Value of
+                                                        {ok, {<<"vehicle">>, <<"device_id">>, DeviceID}} ->
+                                                            case DeviceID of
                                                                 undefined ->
                                                                     FlowIdx = State#vdritem.msgflownum,
                                                                     MsgBody = vdr_data_processor:create_reg_resp(MsgIdx, 2, empty),
@@ -221,19 +221,50 @@ process_vdr_data(Socket, Data, State) ->
                                                                     % return error to terminate VDR connection
                                                                     {error, dberror, State#vdritem{msgflownum=FlowIdx+1}};
                                                                 _ ->
-                                                                    case get_db_resp_record_field(<<"device">>, Rec, <<"authen_code">>) of
-                                                                        {ok, {<<"device">>, <<"authen_code">>, Value}} ->
-                                                                            %case get_db_resp_record_field(<<"vehicle">>, Rec, <<"authen_code">>) of
-                                                                            FlowIdx = State#vdritem.msgflownum,
-                                                                            MsgBody = vdr_data_processor:create_reg_resp(MsgIdx, 0, list_to_binary(Value)),
-                                                                            VDRResp = vdr_data_processor:create_final_msg(16#8100, FlowIdx, MsgBody),
-                                                                            send_data_to_vdr(Socket, VDRResp),
-                                                                            
-                                                                            {ok, State#vdritem{msgflownum=FlowIdx+1, msg2vdr=[], msg=[], req=[]}};
+                                                                    case get_db_resp_record_field(<<"device">>, Rec, <<"reg_time">>) of
+                                                                        {ok, {<<"device">>, <<"reg_time">>, VDRRegTime}} ->
+                                                                            case VDRRegTime of
+                                                                                undefined ->
+                                                                                    case get_db_resp_record_field(<<"vehicle">>, Rec, <<"dev_install_time">>) of
+                                                                                        {ok, {<<"vehicle">>, <<"dev_install_time">>, DevInstallTime}} ->
+                                                                                            case DevInstallTime of
+                                                                                                undefined ->
+                                                                                                    case get_db_resp_record_field(<<"device">>, Rec, <<"authen_code">>) of
+                                                                                                        {ok, {<<"device">>, <<"authen_code">>, AuthenCode}} ->
+                                                                                                            FlowIdx = State#vdritem.msgflownum,
+                                                                                                            MsgBody = vdr_data_processor:create_reg_resp(MsgIdx, 0, list_to_binary(AuthenCode)),
+                                                                                                            VDRResp = vdr_data_processor:create_final_msg(16#8100, FlowIdx, MsgBody),
+                                                                                                            send_data_to_vdr(Socket, VDRResp),
+                                                                                                            
+                                                                                                            {ok, State#vdritem{msgflownum=FlowIdx+1, msg2vdr=[], msg=[], req=[]}};
+                                                                                                        _ ->
+                                                                                                            {error, dberror, State}
+                                                                                                    end;
+                                                                                                _ ->
+                                                                                                    FlowIdx = State#vdritem.msgflownum,
+                                                                                                    MsgBody = vdr_data_processor:create_reg_resp(MsgIdx, 1, empty),
+                                                                                                    VDRResp = vdr_data_processor:create_final_msg(16#8100, FlowIdx, MsgBody),
+                                                                                                    send_data_to_vdr(Socket, VDRResp),
+                                                                                                    
+                                                                                                    % return error to terminate VDR connection
+                                                                                                    {error, dberror, State#vdritem{msgflownum=FlowIdx+1}}
+                                                                                            end;
+                                                                                        _ ->
+                                                                                            {error, dberror, State}
+                                                                                    end;
+                                                                                _ ->
+                                                                                    FlowIdx = State#vdritem.msgflownum,
+                                                                                    MsgBody = vdr_data_processor:create_reg_resp(MsgIdx, 3, empty),
+                                                                                    VDRResp = vdr_data_processor:create_final_msg(16#8100, FlowIdx, MsgBody),
+                                                                                    send_data_to_vdr(Socket, VDRResp),
+                                                                                    
+                                                                                    % return error to terminate VDR connection
+                                                                                    {error, dberror, State#vdritem{msgflownum=FlowIdx+1}}
+                                                                            end;
                                                                         _ ->
                                                                             {error, dberror, State}
                                                                     end
-                                                                end;
+                                                             end;
                                                         _ ->
                                                             {error, dberror, State}
                                                     end;
@@ -286,7 +317,10 @@ process_vdr_data(Socket, Data, State) ->
                                                                             wsock_client:send(WSUpdate),
                                                                     
                                                                             FlowIdx = State#vdritem.msgflownum,
-                                                                            send_resp_to_vdr(16#8001, Socket, ID, MsgIdx, FlowIdx, ?T_GEN_RESP_OK),
+                                                                            %send_resp_to_vdr(16#8001, Socket, ID, MsgIdx, FlowIdx, ?T_GEN_RESP_OK),
+                                                                            MsgBody = vdr_data_processor:create_gen_resp(ID, MsgIdx, ?T_GEN_RESP_OK),
+                                                                            VDRResp = vdr_data_processor:create_final_msg(16#8001, FlowIdx, MsgBody),
+                                                                            send_data_to_vdr(Socket, VDRResp),
                                                 
                                                                             {ok, State#vdritem{id=Value, auth=Auth, msgflownum=FlowIdx+1, msg2vdr=[], msg=[], req=[]}};
                                                                         _ ->
@@ -336,7 +370,10 @@ process_vdr_data(Socket, Data, State) ->
                             send_sql_to_db(conn, Sql),
 
                             FlowIdx = State#vdritem.msgflownum,
-                            send_resp_to_vdr(16#8001, Socket, ID, MsgIdx, FlowIdx, ?T_GEN_RESP_OK),
+                            %send_resp_to_vdr(16#8001, Socket, ID, MsgIdx, FlowIdx, ?T_GEN_RESP_OK),
+                            MsgBody = vdr_data_processor:create_gen_resp(ID, MsgIdx, ?T_GEN_RESP_OK),
+                            VDRResp = vdr_data_processor:create_final_msg(16#8001, FlowIdx, MsgBody),
+                            send_data_to_vdr(Socket, VDRResp),
 
                             % return error to terminate connection with VDR
                             {error, invaliderror, NewState};
@@ -363,7 +400,10 @@ process_vdr_data(Socket, Data, State) ->
                             [AlarmSym, State, Lat, Lon, Height, Speed, Direction, Time] = H,
                             
                             FlowIdx = State#vdritem.msgflownum,
-                            send_resp_to_vdr(16#8001, Socket, ID, MsgIdx, FlowIdx, ?T_GEN_RESP_OK),
+                            %send_resp_to_vdr(16#8001, Socket, ID, MsgIdx, FlowIdx, ?T_GEN_RESP_OK),
+                            MsgBody = vdr_data_processor:create_gen_resp(ID, MsgIdx, ?T_GEN_RESP_OK),
+                            VDRResp = vdr_data_processor:create_final_msg(16#8001, FlowIdx, MsgBody),
+                            send_data_to_vdr(Socket, VDRResp),
                             
                             {ok, NewState#vdritem{msgflownum=FlowIdx+1}};
                         16#201 ->
@@ -448,13 +488,19 @@ process_vdr_data(Socket, Data, State) ->
         {ignore, HeaderInfo, NewState} ->
             {ID, MsgIdx, _Tel, _CryptoType} = HeaderInfo,
             FlowIdx = NewState#vdritem.msgflownum,
-            send_resp_to_vdr(16#8001, Socket, ID, MsgIdx, FlowIdx, ?T_GEN_RESP_OK),
+            %send_resp_to_vdr(16#8001, Socket, ID, MsgIdx, FlowIdx, ?T_GEN_RESP_OK),
+            MsgBody = vdr_data_processor:create_gen_resp(ID, MsgIdx, ?T_GEN_RESP_OK),
+            VDRResp = vdr_data_processor:create_final_msg(16#8001, FlowIdx, MsgBody),
+            send_data_to_vdr(Socket, VDRResp),
             
             {ok, NewState#vdritem{msgflownum=FlowIdx+1}};
         {warning, HeaderInfo, ErrorType, NewState} ->
             {ID, MsgIdx, _Tel, _CryptoType} = HeaderInfo,
             FlowIdx = NewState#vdritem.msgflownum,
-            send_resp_to_vdr(16#8001, Socket, ID, MsgIdx, FlowIdx, ErrorType),
+            %send_resp_to_vdr(16#8001, Socket, ID, MsgIdx, FlowIdx, ErrorType),
+            MsgBody = vdr_data_processor:create_gen_resp(ID, MsgIdx, ErrorType),
+            VDRResp = vdr_data_processor:create_final_msg(16#8001, FlowIdx, MsgBody),
+            send_data_to_vdr(Socket, VDRResp),
             
             {warning, NewState#vdritem{msgflownum=FlowIdx+1}};
         {error, _ErrorType, NewState} ->    % exception/parityerror/formaterror
@@ -475,15 +521,15 @@ process_vdr_data(Socket, Data, State) ->
 %%%     ?T_GEN_RESP_ERRMSG
 %%%     ?T_GEN_RESP_NOTSUPPORT
 %%%
-send_resp_to_vdr(RespType, Socket, VDRMsgID, VDRMsgIdx, FlowIdx, Type) ->
-    if
-        Type =/= ?T_GEN_RESP_OK andalso Type =/= ?T_GEN_RESP_FAIL andalso Type =/= ?T_GEN_RESP_ERRMSG andalso Type =/= ?T_GEN_RESP_NOTSUPPORT ->
-            ok;
-        true ->
-            MsgBody = vdr_data_processor:create_gen_resp(VDRMsgID, VDRMsgIdx, Type),
-            VDRResp = vdr_data_processor:create_final_msg(RespType, FlowIdx, MsgBody),
-            send_data_to_vdr(Socket, VDRResp)
-    end.
+%send_resp_to_vdr(RespType, Socket, VDRMsgID, VDRMsgIdx, FlowIdx, Type) ->
+%    if
+%        Type =/= ?T_GEN_RESP_OK andalso Type =/= ?T_GEN_RESP_FAIL andalso Type =/= ?T_GEN_RESP_ERRMSG andalso Type =/= ?T_GEN_RESP_NOTSUPPORT ->
+%            ok;
+%        true ->
+%            MsgBody = vdr_data_processor:create_gen_resp(VDRMsgID, VDRMsgIdx, Type),
+%            VDRResp = vdr_data_processor:create_final_msg(RespType, FlowIdx, MsgBody),
+%            send_data_to_vdr(Socket, VDRResp)
+%    end.
 
 %%%
 %%% Diconnect socket and remove related entries from vdrtable and vdridsocktable
