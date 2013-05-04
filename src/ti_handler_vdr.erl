@@ -647,7 +647,7 @@ create_sql_from_vdr(HeaderInfo, Msg, State) ->
                     {ok, SQL};
                 {H, AppInfo} ->
                     [AlarmSym, StateFlag, Lat, Lon, Height, Speed, Direction, Time]= H,
-                    [ID, Len, Info] = AppInfo,
+                    [AiID, AiLen, AiValue] = AppInfo,
                     [AlarmSym, StateFlag, Lat, Lon, Height, Speed, Direction, Time] = H,
                     <<Year:8, Month:8, Day:8, Hour:8, Minute:8, Second:8>> = Time,
                     YearS = list_to_binary(integer_to_list(Year)),
