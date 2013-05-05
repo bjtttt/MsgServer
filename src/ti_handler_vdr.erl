@@ -204,15 +204,54 @@ process_vdr_data(Socket, Data, State) ->
                                             
                                             % return error to terminate VDR connection
                                             {error, dberror, State#vdritem{msgflownum=FlowIdx+1}};
-                                        {ok, RecordPairs} ->
-                                            RecsLen = length(RecordPairs),
-                                            case RecsLen of
-                                                1 ->
-                                                    [Rec] = RecordPairs,
-                                                    case get_db_resp_record_field(<<"vehicle">>, Rec, <<"device_id">>) of
-                                                        {ok, {<<"vehicle">>, <<"device_id">>, DeviceID}} ->
-                                                            case DeviceID of
-                                                                undefined ->
+                                        {ok, [Rec]} ->
+                                            % "id" is PK, so it cannot be null or undefined
+                                            {<<"device">>, <<"id">>, DeviceID} = get_record_field(<<"device">>, Rec, <<"id">>),
+                                            % "serial_no" is the query condition and NOT NULL & UNIQUE, so it cannot be null or empty
+                                            %{<<"device">>, <<"serial_no">>, SerialNo} = get_record_field(<<"device">>, Rec, <<"serial_no">>),
+                                            {<<"device">>, <<"reg_time">>, VDRRegTime} = get_record_field(<<"device">>, Rec, <<"reg_time">>),
+                                            if
+                                                VDRRegTime == undefined ->
+                                                    {Year, Month, Day} = erlang:date(),
+                                                    {Hour, Minute, Second} = erlang:time(),
+                                                    DateTime = integer_to_list(Year) ++ "-" ++ 
+                                                                   integer_to_list(Month) ++ "-" ++ 
+                                                                   integer_to_list(Day) ++ " " ++ 
+                                                                   integer_to_list(Hour) ++ ":" ++ 
+                                                                   integer_to_list(Minute) ++ ":" ++ 
+                                                                   integer_to_list(Second),
+                                                    VDRRegTimeSql = list_to_binary([<<"update device set reg_time='">>,
+                                                                                    list_to_binary(DateTime),
+                                                                                    <<"' where id=">>,
+                                                                                    integer_to_binary(DeviceID)]),
+                                                    % Should we check the update result?
+                                                    send_sql_to_db(conn, VDRRegTimeSql),
+                                                    
+                                                    {_Province, _City, _Producer, _VDRModel, _VDRSerialNo, _LicColor, LicID} = Msg,
+                                                    VehicleInfoSql = list_to_binary([<<"select * from vehicle where code='">>,
+                                                                                    list_to_binary(LicID),
+                                                                                    <<"'">>]),
+                                                    VehicleInfoRes = send_sql_to_db(conn, VehicleInfoSql),
+                                                    case extract_db_resp(VehicleInfoRes) of
+                                                        {ok, empty} ->
+                                                            FlowIdx = State#vdritem.msgflownum,
+                                                            MsgBody = vdr_data_processor:create_reg_resp(MsgIdx, 2, empty),
+                                                            VDRResp = vdr_data_processor:create_final_msg(16#8100, FlowIdx, MsgBody),
+                                                            send_data_to_vdr(Socket, VDRResp),
+                                                            
+                                                            % return error to terminate VDR connection
+                                                            {error, dberror, State#vdritem{msgflownum=FlowIdx+1}};
+                                                        {ok, [VehicleInfoRec]} ->
+                                                            % "id" is PK, so it cannot be null or undefined
+                                                            {<<"vehicle">>, <<"id">>, OriginalVehicleID} = get_record_field(<<"vehicle">>, VehicleInfoRec, <<"id">>),
+                                                            % "code" is NOT NULL & UNIQUE, so it cannot be null or empty
+                                                            {<<"vehicle">>, <<"code">>, OriginalVehicleCode} = get_record_field(<<"vehicle">>, VehicleInfoRec, <<"code">>),
+                                                            % It is from join query, so it can be undefined, however, it cannot be null
+                                                            {<<"vehicle">>, <<"id">>, VehicleID} = get_record_field(<<"vehicle">>, Rec, <<"id">>),
+                                                            % It is from join query, so it can be undefined, however, it cannot be null
+                                                            {<<"vehicle">>, <<"code">>, VehicleCode} = get_record_field(<<"vehicle">>, Rec, <<"code">>),
+                                                            if
+                                                                VehicleID == undefined orelse VehicleCode == undefined orelse VehicleID =/= OriginalVehicleID orelse VehicleCode =/= OriginalVehicleCode ->
                                                                     FlowIdx = State#vdritem.msgflownum,
                                                                     MsgBody = vdr_data_processor:create_reg_resp(MsgIdx, 2, empty),
                                                                     VDRResp = vdr_data_processor:create_final_msg(16#8100, FlowIdx, MsgBody),
@@ -220,76 +259,48 @@ process_vdr_data(Socket, Data, State) ->
                                                                     
                                                                     % return error to terminate VDR connection
                                                                     {error, dberror, State#vdritem{msgflownum=FlowIdx+1}};
-                                                                _ ->
-                                                                    case get_db_resp_record_field(<<"device">>, Rec, <<"reg_time">>) of
-                                                                        {ok, {<<"device">>, <<"reg_time">>, VDRRegTime}} ->
-                                                                            case VDRRegTime of
-                                                                                undefined ->
-                                                                                    {Year, Month, Day} = erlang:date(),
-                                                                                    {Hour, Minute, Second} = erlang:time(),
-                                                                                    DateTime = integer_to_list(Year) ++ "-" ++ integer_to_list(Month) ++ "-" ++ integer_to_list(Day) ++ " "
-                                                                                                ++ integer_to_list(Hour) ++ ":" ++ integer_to_list(Minute) ++ ":" ++ integer_to_list(Second),
-                                                                                    DateTimeSql = list_to_binary([<<"update device set reg_time='">>, 
-                                                                                                                  list_to_binary(DateTime) , 
-                                                                                                                  <<"' where id=">>, 
-                                                                                                                  integer_to_binary(DeviceID)]),
-                                                                                    _DateTimeSqlResp = send_sql_to_db(conn, DateTimeSql),
-                                                                                    
-                                                                                    case get_db_resp_record_field(<<"vehicle">>, Rec, <<"dev_install_time">>) of
-                                                                                        {ok, {<<"vehicle">>, <<"dev_install_time">>, DevInstallTime}} ->
-                                                                                            case DevInstallTime of
-                                                                                                undefined ->
-                                                                                                    DateTimeVehicleSql = list_to_binary([<<"update vehicle set dev_install_time='">>, 
-                                                                                                                                         list_to_binary(DateTime) , 
-                                                                                                                                         <<"' where device_id=">>, 
-                                                                                                                                         integer_to_binary(DeviceID)]),
-                                                                                                    _DateTimeVehicleSqlResp = send_sql_to_db(conn, DateTimeVehicleSql),
-                                                                                                    
-                                                                                                    case get_db_resp_record_field(<<"device">>, Rec, <<"authen_code">>) of
-                                                                                                        {ok, {<<"device">>, <<"authen_code">>, AuthenCode}} ->
-                                                                                                            FlowIdx = State#vdritem.msgflownum,
-                                                                                                            MsgBody = vdr_data_processor:create_reg_resp(MsgIdx, 0, list_to_binary(AuthenCode)),
-                                                                                                            VDRResp = vdr_data_processor:create_final_msg(16#8100, FlowIdx, MsgBody),
-                                                                                                            send_data_to_vdr(Socket, VDRResp),
-                                                                                                            
-                                                                                                            {ok, State#vdritem{msgflownum=FlowIdx+1, msg2vdr=[], msg=[], req=[]}};
-                                                                                                        _ ->
-                                                                                                            {error, dberror, State}
-                                                                                                    end;
-                                                                                                _ ->
-                                                                                                    FlowIdx = State#vdritem.msgflownum,
-                                                                                                    MsgBody = vdr_data_processor:create_reg_resp(MsgIdx, 1, empty),
-                                                                                                    VDRResp = vdr_data_processor:create_final_msg(16#8100, FlowIdx, MsgBody),
-                                                                                                    send_data_to_vdr(Socket, VDRResp),
-                                                                                                    
-                                                                                                    % return error to terminate VDR connection
-                                                                                                    {error, dberror, State#vdritem{msgflownum=FlowIdx+1}}
-                                                                                            end;
-                                                                                        _ ->
-                                                                                            {error, dberror, State}
-                                                                                    end;
-                                                                                _ ->
-                                                                                    FlowIdx = State#vdritem.msgflownum,
-                                                                                    MsgBody = vdr_data_processor:create_reg_resp(MsgIdx, 3, empty),
-                                                                                    VDRResp = vdr_data_processor:create_final_msg(16#8100, FlowIdx, MsgBody),
-                                                                                    send_data_to_vdr(Socket, VDRResp),
-                                                                                    
-                                                                                    % return error to terminate VDR connection
-                                                                                    {error, dberror, State#vdritem{msgflownum=FlowIdx+1}}
-                                                                            end;
-                                                                        _ ->
-                                                                            {error, dberror, State}
+                                                                true ->
+                                                                    {<<"vehicle">>, <<"dev_install_time">>, DevInstallTime} = get_record_field(<<"vehicle">>, Rec, <<"dev_install_time">>),
+                                                                    if
+                                                                        DevInstallTime == undefined ->
+                                                                            UpdateDevInstallTimeSql = list_to_binary([<<"update vehicle set dev_install_time='">>,
+                                                                                                                      list_to_binary(DateTime),
+                                                                                                                      <<"' where device_id=">>,
+                                                                                                                      integer_to_binary(DeviceID)]),
+                                                                            % Should we check the update result?
+                                                                            send_sql_to_db(conn, UpdateDevInstallTimeSql),
+                                                                            
+                                                                            {<<"device">>, <<"authen_code">>, AuthenCode} = get_record_field(<<"device">>, Rec, <<"authen_code">>),
+                                                                            FlowIdx = State#vdritem.msgflownum,
+                                                                            MsgBody = vdr_data_processor:create_reg_resp(MsgIdx, 0, list_to_binary(AuthenCode)),
+                                                                            VDRResp = vdr_data_processor:create_final_msg(16#8100, FlowIdx, MsgBody),
+                                                                            send_data_to_vdr(Socket, VDRResp),
+                                                                            
+                                                                            {ok, State#vdritem{msgflownum=FlowIdx+1, msg2vdr=[], msg=[], req=[]}};
+                                                                        true ->
+                                                                            FlowIdx = State#vdritem.msgflownum,
+                                                                            MsgBody = vdr_data_processor:create_reg_resp(MsgIdx, 1, empty),
+                                                                            VDRResp = vdr_data_processor:create_final_msg(16#8100, FlowIdx, MsgBody),
+                                                                            send_data_to_vdr(Socket, VDRResp),
+                                                                            
+                                                                            % return error to terminate VDR connection
+                                                                            {error, dberror, State#vdritem{msgflownum=FlowIdx+1}}
                                                                     end
                                                              end;
                                                         _ ->
                                                             {error, dberror, State}
                                                     end;
-                                                _ ->
-                                                    {error, dberror, State}
+                                                true ->
+                                                    FlowIdx = State#vdritem.msgflownum,
+                                                    MsgBody = vdr_data_processor:create_reg_resp(MsgIdx, 3, empty),
+                                                    VDRResp = vdr_data_processor:create_final_msg(16#8100, FlowIdx, MsgBody),
+                                                    send_data_to_vdr(Socket, VDRResp),
+                                                    
+                                                    % return error to terminate VDR connection
+                                                    {error, dberror, State#vdritem{msgflownum=FlowIdx+1}}
                                             end;
-                                        error ->
-                                            {error, dberror, State};
                                         _ ->
+                                            % 
                                             {error, dberror, State}
                                     end;
                                 _ ->
@@ -305,54 +316,45 @@ process_vdr_data(Socket, Data, State) ->
                                     case extract_db_resp(SqlResp) of
                                         {ok, empty} ->
                                             {error, dberror, State};
-                                        {ok, Recs} ->
-                                            RecsLen = length(Recs),
-                                            case RecsLen of
+                                        {ok, [Rec]} ->
+                                            % "id" is PK, so it cannot be null or empty
+                                            {<<"device">>, <<"id">>, VDRID} = get_record_field(<<"device">>, Rec, <<"id">>),
+                                            {<<"device">>, <<"authen_code">>, VDRAuthEnCode} = get_record_field(<<"device">>, Rec, <<"authen_code">>),
+                                            % "id" is PK, so it cannot be null or empty
+                                            {<<"vehicle">>, <<"id">>, VehicleID} = get_record_field(<<"vehicle">>, Rec, <<"id">>),
+                                            
+                                            % Not tested yet.
+                                            IDSockList = ets:lookup(vdridsocktable, VDRID),
+                                            disconn_socket_by_id(IDSockList),
+                                            IDSock = #vdridsockitem{id=VDRID, socket=Socket, addr=State#vdritem.addr},
+                                            ets:insert(vdridsocktable, IDSock),
+                                            SockVdrList = ets:lookup(vdrtable, Socket),
+                                            case length(SockVdrList) of
                                                 1 ->
-                                                    [Rec] = Recs,
-                                                    case get_db_resp_record_field(<<"device">>, Rec, <<"id">>) of
-                                                        {ok, {<<"device">>, <<"id">>, Value}} ->
-                                                            {Auth} = Msg,
-                                                            
-                                                            % Not tested yet.
-                                                            IDSockList = ets:lookup(vdridsocktable, Value),
-                                                            disconn_socket_by_id(IDSockList),
-                                                            IDSock = #vdridsockitem{id=Value, socket=Socket, addr=State#vdritem.addr},
-                                                            ets:insert(vdridsocktable, IDSock),
-                                                            SockVdrList = ets:lookup(vdrtable, Socket),
-                                                            case length(SockVdrList) of
-                                                                1 ->
-                                                                    [SockVdr] = SockVdrList,
-                                                                    ets:insert(vdridsocktable, SockVdr#vdritem{id=Value, auth=Auth}),
-                                                                    
-                                                                    SqlUpdate = list_to_binary([<<"update device set is_online=1 where authen_code='">>, list_to_binary(Auth), <<"'">>]),
-                                                                    send_sql_to_db(conn, SqlUpdate),
-                                                                    
-                                                                    case wsock_data_parser:create_term_online([Value]) of
-                                                                        {ok, WSUpdate} ->
-                                                                            wsock_client:send(WSUpdate),
-                                                                    
-                                                                            FlowIdx = State#vdritem.msgflownum,
-                                                                            %send_resp_to_vdr(16#8001, Socket, ID, MsgIdx, FlowIdx, ?T_GEN_RESP_OK),
-                                                                            MsgBody = vdr_data_processor:create_gen_resp(ID, MsgIdx, ?T_GEN_RESP_OK),
-                                                                            VDRResp = vdr_data_processor:create_final_msg(16#8001, FlowIdx, MsgBody),
-                                                                            send_data_to_vdr(Socket, VDRResp),
-                                                
-                                                                            {ok, State#vdritem{id=Value, auth=Auth, msgflownum=FlowIdx+1, msg2vdr=[], msg=[], req=[]}};
-                                                                        _ ->
-                                                                            {error, wserror, State}
-                                                                    end;
-                                                                _ ->
-                                                                    % vdrtable or vdridsocktable error
-                                                                    {error, systemerror, State}
-                                                            end;
+                                                    {Auth} = Msg,
+                                                    [SockVdr] = SockVdrList,
+                                                    ets:insert(vdridsocktable, SockVdr#vdritem{id=VDRID, auth=Auth}),
+                                                    
+                                                    SqlUpdate = list_to_binary([<<"update device set is_online=1 where authen_code='">>, list_to_binary(Auth), <<"'">>]),
+                                                    send_sql_to_db(conn, SqlUpdate),
+                                                    
+                                                    case wsock_data_parser:create_term_online([VDRID]) of
+                                                        {ok, WSUpdate} ->
+                                                            wsock_client:send(WSUpdate),
+                                                    
+                                                            FlowIdx = State#vdritem.msgflownum,
+                                                            %send_resp_to_vdr(16#8001, Socket, ID, MsgIdx, FlowIdx, ?T_GEN_RESP_OK),
+                                                            MsgBody = vdr_data_processor:create_gen_resp(ID, MsgIdx, ?T_GEN_RESP_OK),
+                                                            VDRResp = vdr_data_processor:create_final_msg(16#8001, FlowIdx, MsgBody),
+                                                            send_data_to_vdr(Socket, VDRResp),
+                                
+                                                            {ok, State#vdritem{id=VDRID, auth=Auth, msgflownum=FlowIdx+1, msg2vdr=[], msg=[], req=[]}};
                                                         _ ->
-                                                            % DB includes no "id" field in the device record
-                                                            {error, dberror, State}
+                                                            {error, wserror, State}
                                                     end;
                                                 _ ->
-                                                    % DB includes more than on records with the same authen_code 
-                                                    {error, dberror, State}
+                                                    % vdrtable or vdridsocktable error
+                                                    {error, systemerror, State}
                                             end;
                                         _ ->
                                             % DB includes no record with the given authen_code
@@ -600,19 +602,17 @@ create_sql_from_vdr(HeaderInfo, Msg, State) ->
             {ok, ""};
         16#2    ->                          
             {ok, ""};
-        16#100  ->          % Not complete, currently only use VDRID for query                     
-            {_Province, _City, _Producer, _VDRModel, VDRID, _LicColor, _LicID} = Msg,
-            SQL = list_to_binary([<<"select * from device left join vehicle ">>, 
-                                  <<"on vehicle.device_id=device.id ">>, 
-                                  <<"where device.serial_no='">>,
-                                  list_to_binary(VDRID), <<"'">>]),
+        16#100  ->          % Not complete, currently only use VDRSerialNo for query                     
+            {_Province, _City, _Producer, _VDRModel, VDRSerialNo, _LicColor, _LicID} = Msg,
+            SQL = list_to_binary([<<"select * from device left join vehicle on vehicle.device_id=device.id where device.serial_no='">>,
+                                  list_to_binary(VDRSerialNo), <<"'">>]),
             {ok, SQL};
         16#3    ->                          
             {ID, Auth} = Msg,
             {ok, list_to_binary([<<"delete from device where authen_code='">>, list_to_binary(Auth), <<"' or id='">>, list_to_binary(ID), <<"'">>])};
         16#102  ->
             {Auth} = Msg,
-            {ok, list_to_binary([<<"select * from device where authen_code='">>, list_to_binary(Auth), <<"'">>])};
+            {ok, list_to_binary([<<"select * from device left join vehicle on vehicle.device_id=device.id where device.authen_code='">>, list_to_binary(Auth), <<"'">>])};
         16#104  ->
             {RespIdx, ActLen, List} = Msg,
             {ok, ""};
@@ -650,6 +650,8 @@ create_sql_from_vdr(HeaderInfo, Msg, State) ->
                     [AiID, AiLen, AiValue] = AppInfo,
                     [AlarmSym, StateFlag, Lat, Lon, Height, Speed, Direction, Time] = H,
                     <<Year:8, Month:8, Day:8, Hour:8, Minute:8, Second:8>> = Time,
+                    {ServerYear, ServerMonth, ServerDay} = erlang:date(),
+                    {ServerHour, ServerMinute, ServerSecond} = erlang:time(),
                     YearS = list_to_binary(integer_to_list(Year)),
                     MonthS = list_to_binary(integer_to_list(Month)),
                     DayS = list_to_binary(integer_to_list(Day)),
@@ -657,10 +659,18 @@ create_sql_from_vdr(HeaderInfo, Msg, State) ->
                     MinuteS = list_to_binary(integer_to_list(Minute)),
                     SecondS = list_to_binary(integer_to_list(Second)),
                     TimeS = list_to_binary([YearS, <<"-">>, MonthS, <<"-">>, DayS, <<" ">>, HourS, <<":">>, MinuteS, <<":">>, SecondS]),
-                    VDRID = State#vdritem.id,
-                    SQL = list_to_binary([<<"insert into vehicle_position(id, gps_time, longitude, latitude, height, speed, direction, status_flag, alarm_flag) values (">>,
-                                          integer_to_list(VDRID), <<", ">>,
+                    ServerYearS = list_to_binary(integer_to_list(ServerYear)),
+                    ServerMonthS = list_to_binary(integer_to_list(ServerMonth)),
+                    ServerDayS = list_to_binary(integer_to_list(ServerDay)),
+                    ServerHourS = list_to_binary(integer_to_list(ServerHour)),
+                    ServerMinuteS = list_to_binary(integer_to_list(ServerMinute)),
+                    ServerSecondS = list_to_binary(integer_to_list(ServerSecond)),
+                    ServerTimeS = list_to_binary([ServerYearS, <<"-">>, ServerMonthS, <<"-">>, ServerDayS, <<" ">>, ServerHourS, <<":">>, ServerMinuteS, <<":">>, ServerSecondS]),
+                    VehicleID = State#vdritem.vehicleid,
+                    SQL = list_to_binary([<<"insert into vehicle_position(id, gps_time, server_time, longitude, latitude, height, speed, direction, status_flag, alarm_flag) values (">>,
+                                          integer_to_list(VehicleID), <<", ">>,
                                           TimeS, <<", ">>,
+                                          ServerTimeS, <<", ">>,
                                           integer_to_list(Lon), <<", ">>,
                                           integer_to_list(Lat), <<", ">>,
                                           integer_to_list(Speed), <<", ">>,
@@ -784,25 +794,24 @@ compose_db_resp_record(ColDef, Res) ->
     end.
 
 %%%
+%%% The caller should make sure of Record is not empty, which is not []
 %%%
+%%% Return  :
+%%%     null        : Cannot find this field in the response of SQL, which may mean DB table error
+%%%     undefined   : NULL in DB
 %%%
-get_db_resp_record_field(Table, Record, Field) ->
-    case Record of
-        [] ->
-            error;
-        _ ->
-            [H|T] = Record,
-            {Tab, Key, Value} = H,
-            if
-                Table== Tab andalso Key == Field ->
-                    {ok, {Tab, Key, Value}};
-                true ->
-                    case T of
-                        [] ->
-                            error;
-                        _ ->
-                            get_db_resp_record_field(Table, T, Field)
-                    end
+get_record_field(Table, Record, Field) ->
+    [H|T] = Record,
+    {Tab, Key, Value} = H,
+    if
+        Table == Tab andalso Key == Field ->
+            {Tab, Key, Value};
+        true ->
+            case T of
+                [] ->
+                    {Tab, Key, null};
+                _ ->
+                    get_record_field(Table, T, Field)
             end
     end.                    
 
