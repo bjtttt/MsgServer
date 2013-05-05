@@ -176,12 +176,12 @@ safe_process_vdr_msg(Socket, Msg, State) ->
 %%% FlowIdx : Gateway message flow index
 %%%
 process_vdr_data(Socket, Data, State) ->
-    VDRID = State#vdritem.id,
+    StateVDRID = State#vdritem.id,
     case vdr_data_parser:process_data(State, Data) of
         {ok, HeadInfo, Msg, NewState} ->
             {ID, MsgIdx, _Tel, _CryptoType} = HeadInfo,
             if
-                VDRID == undefined ->
+                StateVDRID == undefined ->
                     case ID of
                         16#100 ->
                             % Not complete
@@ -207,7 +207,7 @@ process_vdr_data(Socket, Data, State) ->
                                         {ok, [Rec]} ->
                                             % "id" is PK, so it cannot be null or undefined
                                             {<<"device">>, <<"id">>, DeviceID} = get_record_field(<<"device">>, Rec, <<"id">>),
-                                            % "serial_no" is the query condition and NOT NULL & UNIQUE, so it cannot be null or empty
+                                            % "serial_no" is the query condition and NOT NULL & UNIQUE, so it cannot be null or undefined
                                             %{<<"device">>, <<"serial_no">>, SerialNo} = get_record_field(<<"device">>, Rec, <<"serial_no">>),
                                             {<<"device">>, <<"reg_time">>, VDRRegTime} = get_record_field(<<"device">>, Rec, <<"reg_time">>),
                                             if
@@ -244,7 +244,7 @@ process_vdr_data(Socket, Data, State) ->
                                                         {ok, [VehicleInfoRec]} ->
                                                             % "id" is PK, so it cannot be null or undefined
                                                             {<<"vehicle">>, <<"id">>, OriginalVehicleID} = get_record_field(<<"vehicle">>, VehicleInfoRec, <<"id">>),
-                                                            % "code" is NOT NULL & UNIQUE, so it cannot be null or empty
+                                                            % "code" is NOT NULL & UNIQUE, so it cannot be null or undefined
                                                             {<<"vehicle">>, <<"code">>, OriginalVehicleCode} = get_record_field(<<"vehicle">>, VehicleInfoRec, <<"code">>),
                                                             % It is from join query, so it can be undefined, however, it cannot be null
                                                             {<<"vehicle">>, <<"id">>, VehicleID} = get_record_field(<<"vehicle">>, Rec, <<"id">>),
@@ -319,42 +319,59 @@ process_vdr_data(Socket, Data, State) ->
                                         {ok, [Rec]} ->
                                             % "id" is PK, so it cannot be null or empty
                                             {<<"device">>, <<"id">>, VDRID} = get_record_field(<<"device">>, Rec, <<"id">>),
-                                            {<<"device">>, <<"authen_code">>, VDRAuthEnCode} = get_record_field(<<"device">>, Rec, <<"authen_code">>),
-                                            % "id" is PK, so it cannot be null or empty
+                                            % "serial" is NOT NULL & UNIQUE, so it cannot be null or undefined
+                                            {<<"device">>, <<"serial_no">>, VDRSerialNo} = get_record_field(<<"device">>, Rec, <<"serial_no">>),
+                                            % "authen_code" is NOT NULL & UNIQUE, so it cannot be null or undefined
+                                            {<<"device">>, <<"authen_code">>, VDRAuthenCode} = get_record_field(<<"device">>, Rec, <<"authen_code">>),
+                                            % "id" is PK, so it cannot be null. However it can be undefined because vehicle table device_id may don't be euqual to device table id 
                                             {<<"vehicle">>, <<"id">>, VehicleID} = get_record_field(<<"vehicle">>, Rec, <<"id">>),
-                                            
-                                            % Not tested yet.
-                                            IDSockList = ets:lookup(vdridsocktable, VDRID),
-                                            disconn_socket_by_id(IDSockList),
-                                            IDSock = #vdridsockitem{id=VDRID, socket=Socket, addr=State#vdritem.addr},
-                                            ets:insert(vdridsocktable, IDSock),
-                                            SockVdrList = ets:lookup(vdrtable, Socket),
-                                            case length(SockVdrList) of
-                                                1 ->
-                                                    {Auth} = Msg,
-                                                    [SockVdr] = SockVdrList,
-                                                    ets:insert(vdridsocktable, SockVdr#vdritem{id=VDRID, auth=Auth}),
-                                                    
-                                                    SqlUpdate = list_to_binary([<<"update device set is_online=1 where authen_code='">>, list_to_binary(Auth), <<"'">>]),
-                                                    send_sql_to_db(conn, SqlUpdate),
-                                                    
-                                                    case wsock_data_parser:create_term_online([VDRID]) of
-                                                        {ok, WSUpdate} ->
-                                                            wsock_client:send(WSUpdate),
-                                                    
-                                                            FlowIdx = State#vdritem.msgflownum,
-                                                            %send_resp_to_vdr(16#8001, Socket, ID, MsgIdx, FlowIdx, ?T_GEN_RESP_OK),
-                                                            MsgBody = vdr_data_processor:create_gen_resp(ID, MsgIdx, ?T_GEN_RESP_OK),
-                                                            VDRResp = vdr_data_processor:create_final_msg(16#8001, FlowIdx, MsgBody),
-                                                            send_data_to_vdr(Socket, VDRResp),
-                                
-                                                            {ok, State#vdritem{id=VDRID, auth=Auth, msgflownum=FlowIdx+1, msg2vdr=[], msg=[], req=[]}};
+                                            % "id" is NOT NULL & UNIQUE, so it cannot be null. However it can be undefined because vehicle table device_id may don't be euqual to device table id 
+                                            {<<"vehicle">>, <<"code">>, VehicleCode} = get_record_field(<<"vehicle">>, Rec, <<"code">>),
+                                            if
+                                                VehicleID == undefined orelse VehicleCode==undefined ->
+                                                    {error, dberror, State};
+                                                true ->
+                                                    % Not tested yet.
+                                                    IDSockList = ets:lookup(vdridsocktable, VDRID),
+                                                    disconn_socket_by_id(IDSockList),
+                                                    SockVdrList = ets:lookup(vdrtable, Socket),
+                                                    case length(SockVdrList) of
+                                                        1 ->
+                                                            % "authen_code" is the query condition, so Auth should be equal to VDRAuthEnCode
+                                                            %{Auth} = Msg,
+                                                            [SockVdr] = SockVdrList,
+                                                            ets:insert(vdrtable, SockVdr#vdritem{id=VDRID, 
+                                                                                                 serialno=binary_to_list(VDRSerialNo), 
+                                                                                                 auth=binary_to_list(VDRAuthenCode),
+                                                                                                 vehicleid=VehicleID,
+                                                                                                 vehiclecode=binary_to_list(VehicleCode)}),
+                                                            ets:insert(vdridsocktable, #vdridsockitem{id=VDRID, socket=Socket, addr=State#vdritem.addr}),
+                                                            
+                                                            SqlUpdate = list_to_binary([<<"update device set is_online=1 where authen_code='">>, VDRAuthenCode, <<"'">>]),
+                                                            send_sql_to_db(conn, SqlUpdate),
+                                                            
+                                                            case wsock_data_parser:create_term_online([VDRID]) of
+                                                                {ok, WSUpdate} ->
+                                                                    wsock_client:send(WSUpdate),
+                                                            
+                                                                    FlowIdx = State#vdritem.msgflownum,
+                                                                    MsgBody = vdr_data_processor:create_gen_resp(ID, MsgIdx, ?T_GEN_RESP_OK),
+                                                                    VDRResp = vdr_data_processor:create_final_msg(16#8001, FlowIdx, MsgBody),
+                                                                    send_data_to_vdr(Socket, VDRResp),
+                                        
+                                                                    {ok, State#vdritem{id=VDRID, 
+                                                                                       serialno=binary_to_list(VDRSerialNo),
+                                                                                       auth=binary_to_list(VDRAuthenCode),
+                                                                                       vehicleid=VehicleID,
+                                                                                       vehiclecode=binary_to_list(VehicleCode),
+                                                                                       msgflownum=FlowIdx+1, msg2vdr=[], msg=[], req=[]}};
+                                                                _ ->
+                                                                    {error, wserror, State}
+                                                            end;
                                                         _ ->
-                                                            {error, wserror, State}
-                                                    end;
-                                                _ ->
-                                                    % vdrtable or vdridsocktable error
-                                                    {error, systemerror, State}
+                                                            % vdrtable or vdridsocktable error
+                                                            {error, systemerror, State}
+                                                    end
                                             end;
                                         _ ->
                                             % DB includes no record with the given authen_code
