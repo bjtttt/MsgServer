@@ -8,7 +8,8 @@
          removemsgfromlistbyflownum/2,
          combine_strings/1,
          combine_strings/2,
-         split_msg_to_single/2]).
+         split_msg_to_single/2,
+         is_string/1]).
 
 -export([set_sockopt/3]).
 
