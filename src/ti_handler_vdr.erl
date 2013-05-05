@@ -441,11 +441,12 @@ process_vdr_data(Socket, Data, State) ->
                             send_sql_to_db(conn, Sql),
                             
                             FlowIdx = NewState#vdritem.msgflownum,
+                            PreviousAlarm = NewState#vdritem.alarm,
                             
                             [H, _AppInfo] = Msg,
                             [AlarmSym, StateFlag, Lat, Lon, _Height, _Speed, _Direction, Time]= H,
                             if
-                                AlarmSym == 0 ->
+                                AlarmSym == PreviousAlarm ->
                                     ok;
                                 true ->
                                     <<Year:8, Month:8, Day:8, Hour:8, Minute:8, Second:8>> = Time,
@@ -469,7 +470,7 @@ process_vdr_data(Socket, Data, State) ->
                             VDRResp = vdr_data_processor:create_final_msg(16#8001, FlowIdx, MsgBody),
                             send_data_to_vdr(Socket, VDRResp),
                             
-                            {ok, NewState#vdritem{msgflownum=FlowIdx+1}};
+                            {ok, NewState#vdritem{msgflownum=FlowIdx+1, alarm=AlarmSym}};
                         16#201 ->
                             {_RespNum, _PosMsg} = Msg,
             

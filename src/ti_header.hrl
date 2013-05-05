@@ -77,6 +77,7 @@
                     vehiclecode=undefined,      % Actual vehicle code
                     driverid=undefined,         % DB driver ID, only valid in DB table
                     driverlicno=undefined,      % Actual driver license number
+                    alarm=0,
                     pid=undefined, 
                     addr=undefined, 
                     acttime=undefined, 
