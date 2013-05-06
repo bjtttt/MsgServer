@@ -230,7 +230,7 @@ process_vdr_data(Socket, Data, State) ->
                                                     VDRRegTimeSql = list_to_binary([<<"update device set reg_time='">>,
                                                                                     list_to_binary(DateTime),
                                                                                     <<"' where id=">>,
-                                                                                    integer_to_binary(DeviceID)]),
+                                                                                    ti_common:integer_to_binary(DeviceID)]),
                                                     % Should we check the update result?
                                                     send_sql_to_db(conn, VDRRegTimeSql),
                                                     
@@ -273,7 +273,7 @@ process_vdr_data(Socket, Data, State) ->
                                                                             UpdateDevInstallTimeSql = list_to_binary([<<"update vehicle set dev_install_time='">>,
                                                                                                                       list_to_binary(DateTime),
                                                                                                                       <<"' where device_id=">>,
-                                                                                                                      integer_to_binary(DeviceID)]),
+                                                                                                                      ti_common:integer_to_binary(DeviceID)]),
                                                                             % Should we check the update result?
                                                                             send_sql_to_db(conn, UpdateDevInstallTimeSql),
                                                                             
@@ -683,16 +683,16 @@ create_sql_from_vdr(HeaderInfo, Msg, State) ->
                     ServerTimeS = list_to_binary([ServerYearS, <<"-">>, ServerMonthS, <<"-">>, ServerDayS, <<" ">>, ServerHourS, <<":">>, ServerMinuteS, <<":">>, ServerSecondS]),
                     VehicleID = State#vdritem.vehicleid,
                     SQL = list_to_binary([<<"insert into vehicle_position(vehicle_id, gps_time, server_time, longitude, latitude, height, speed, direction, status_flag, alarm_flag) values (">>,
-                                          integer_to_binary(VehicleID), <<", '">>,
+                                          ti_common:integer_to_binary(VehicleID), <<", '">>,
                                           TimeS, <<"', '">>,
                                           ServerTimeS, <<"', ">>,
-                                          integer_to_binary(Lon), <<", ">>,
-                                          integer_to_binary(Lat), <<", ">>,
-                                          integer_to_binary(Height), <<", ">>,
-                                          integer_to_binary(Speed), <<", ">>,
-                                          integer_to_binary(Direction), <<", ">>,
-                                          integer_to_binary(StateFlag), <<", ">>,
-                                          integer_to_binary(AlarmSym), <<")">>]),
+                                          ti_common:integer_to_binary(Lon), <<", ">>,
+                                          ti_common:integer_to_binary(Lat), <<", ">>,
+                                          ti_common:integer_to_binary(Height), <<", ">>,
+                                          ti_common:integer_to_binary(Speed), <<", ">>,
+                                          ti_common:integer_to_binary(Direction), <<", ">>,
+                                          ti_common:integer_to_binary(StateFlag), <<", ">>,
+                                          ti_common:integer_to_binary(AlarmSym), <<")">>]),
                     {ok, SQL};
                 {H, AppInfo} ->
                     [AlarmSym, StateFlag, Lat, Lon, Height, Speed, Direction, Time]= H,
@@ -716,16 +716,16 @@ create_sql_from_vdr(HeaderInfo, Msg, State) ->
                     ServerTimeS = list_to_binary([ServerYearS, <<"-">>, ServerMonthS, <<"-">>, ServerDayS, <<" ">>, ServerHourS, <<":">>, ServerMinuteS, <<":">>, ServerSecondS]),
                     VehicleID = State#vdritem.vehicleid,
                     SQL = list_to_binary([<<"insert into vehicle_position(vehicle_id, gps_time, server_time, longitude, latitude, height, speed, direction, status_flag, alarm_flag) values (">>,
-                                          integer_to_binary(VehicleID), <<", '">>,
+                                          ti_common:integer_to_binary(VehicleID), <<", '">>,
                                           TimeS, <<"', '">>,
                                           ServerTimeS, <<"', ">>,
-                                          integer_to_binary(Lon), <<", ">>,
-                                          integer_to_binary(Lat), <<", ">>,
-                                          integer_to_binary(Height), <<", ">>,
-                                          integer_to_binary(Speed), <<", ">>,
-                                          integer_to_binary(Direction), <<", ">>,
-                                          integer_to_binary(StateFlag), <<", ">>,
-                                          integer_to_binary(AlarmSym), <<")">>]),
+                                          ti_common:integer_to_binary(Lon), <<", ">>,
+                                          ti_common:integer_to_binary(Lat), <<", ">>,
+                                          ti_common:integer_to_binary(Height), <<", ">>,
+                                          ti_common:integer_to_binary(Speed), <<", ">>,
+                                          ti_common:integer_to_binary(Direction), <<", ">>,
+                                          ti_common:integer_to_binary(StateFlag), <<", ">>,
+                                          ti_common:integer_to_binary(AlarmSym), <<")">>]),
                     {ok, SQL}
             end;
         16#201  ->                          

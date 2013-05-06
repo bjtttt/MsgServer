@@ -9,13 +9,20 @@
          combine_strings/1,
          combine_strings/2,
          split_msg_to_single/2,
-         is_string/1]).
+         is_string/1,
+		 integer_to_binary/1]).
 
 -export([set_sockopt/3]).
 
 -export([safepeername/1, forcesafepeername/1, printsocketinfo/2, forceprintsocketinfo/2]).
 
 -export([logerror/1, logerror/2, loginfo/1, loginfo/2]).
+
+%%%
+%%%
+%%%
+integer_to_binary(Integer) ->
+	list_to_binary(integer_to_list(Integer)).
 
 %%%
 %%% Convert number list to binary.
