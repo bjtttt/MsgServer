@@ -198,6 +198,7 @@ parse_gen_resp(Bin) ->
 %%%
 %%% 0x0801
 %%% Platform general response
+%%% Attention here : although ID is 1st parameter, it should be snd field of the message
 %%%     RespIdx : WORD
 %%%     RespID  : WORD
 %%%     Resp    : BYTE
