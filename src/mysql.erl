@@ -136,6 +136,8 @@
 	 code_change/3
 	]).
 
+-export([mysql_process/0]).
+
 %% Records
 -include("mysql.hrl").
 
@@ -194,6 +196,23 @@ log(Module, Line, _Level, FormatFun) ->
 
 
 %% External functions
+
+%%%%%%%%%%%%%%%%%%%%%
+%
+% Interface process
+%
+%%%%%%%%%%%%%%%%%%%%%
+mysql_process() ->
+    receive
+        {Pid, PoolId, Sql} ->
+            Result = mysql:fetch(PoolId, Sql),
+            Pid ! {Pid, Result},
+            mysql_process();
+        stop ->
+            ok;
+        _ ->
+            mysql_process()
+    end.
 
 %% @doc Starts the MySQL client gen_server process.
 %%

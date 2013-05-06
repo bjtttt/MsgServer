@@ -84,6 +84,8 @@
                     timeout=undefined,
                     msgflownum=undefined,
                     errorcount=undefined,
+                    wspid=undefined,
+                    dbpid=undefined,
                     msg2vdr=[],
                     msg=[], 
                     req=[]

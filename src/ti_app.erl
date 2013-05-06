@@ -61,6 +61,14 @@ start(StartType, StartArgs) ->
             case receive_db_ws_init_msg(false, false, 0) of
                 ok ->
                     mysql:connect(conn, DB, undefined, DBUid, DBPwd, DBName, true),
+                    
+                    WSPid = spawn(fun() -> wsock_client:wsock_client_process() end),
+                    DBPid = spawn(fun() -> mysql:mysql_process() end),
+                    ets:insert(msgservertable, {dbpid, DBPid}),
+                    ets:insert(msgservertable, {wspid, WSPid}),
+                    error_logger:info_msg("WS client process PID is ~p~n", [WSPid]),
+                    error_logger:info_msg("DB client process PID is ~p~n", [DBPid]),
+                    
                     %Result0 = mysql:fetch(conn, <<"select * from device">>),
                     %Result0,
                     %Result1 = mysql:fetch(conn, <<"select * from client">>),
@@ -87,6 +95,20 @@ start(StartType, StartArgs) ->
 %%%
 %%%
 stop(_State) ->
+    [{dbpid, DBPid}] = ets:lookup(msgservertable, dbpid),
+    case DBPid of
+        undefined ->
+            ok;
+        _ ->
+            DBPid ! stop
+    end,
+    [{wspid, WSPid}] = ets:lookup(msgservertable, wspid),
+    case WSPid of
+        undefined ->
+            ok;
+        _ ->
+            WSPid ! stop
+    end,
     error_logger:info_msg("Message server stops.~n"),
     ok.
 
