@@ -207,7 +207,7 @@ parse_gen_resp(Bin) ->
 %%%                 3 - NOT SUPPORTED
 %%%                 4 - ALARM ACK
 %%%
-create_gen_resp(FlowIdx, ID, Resp) ->
+create_gen_resp(ID, FlowIdx, Resp) ->
     {ok, <<FlowIdx:?LEN_WORD, ID:?LEN_WORD, Resp:?LEN_BYTE>>}.
 %create_gen_resp(FlowIdx, ID, Resp) ->
 %    if
