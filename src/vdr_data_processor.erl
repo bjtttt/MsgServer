@@ -1003,153 +1003,176 @@ parse_update_result_notification(Bin) ->
 %%% Appended Information is a list, we should parse it here!!!
 %%%
 parse_position_info_report(Bin) ->
-    Len = byte_size(Bin),
+    BinLen = byte_size(Bin),
+    MinLen = 4+4+4+4+2+2+2+6,
     if
-        Len < (4+4+4+4+2+2+2+6) ->
+        BinLen < MinLen ->
             {error, msgerr};
+        BinLen == MinLen ->
+            <<AlarmSym:?LEN_DWORD, State:?LEN_DWORD, Lat:?LEN_DWORD, Lon:?LEN_DWORD, Height:?LEN_WORD, Speed:?LEN_WORD, Direction:?LEN_WORD, Time:(6*?LEN_BYTE)>> = Bin,
+            H = [AlarmSym, State, Lat, Lon, Height, Speed, Direction, Time],
+            {ok, {H, []}};
         true ->
+            %Len = BinLen - MinLen,
             <<AlarmSym:?LEN_DWORD, State:?LEN_DWORD, Lat:?LEN_DWORD, Lon:?LEN_DWORD, Height:?LEN_WORD, Speed:?LEN_WORD, Direction:?LEN_WORD, Time:(6*?LEN_BYTE), Tail/binary>> = Bin,
             H = [AlarmSym, State, Lat, Lon, Height, Speed, Direction, Time],
-            Len = byte_size(Tail),
-            if
-        	    Len > 0 ->
-                    AppInfo = get_appended_info(Tail),
-                    case AppInfo of
-                        error ->
-                            {error, msgerr};
-                        %[] ->
-                        %    {ok, {H}};
-                        _ ->
-                            {ok, {H, AppInfo}}
-                    end;
-                Len == 0 ->
-                    {ok, {H, []}}
+            AppInfo = get_appended_info(Tail),
+            case AppInfo of
+                error ->
+                    {error, msgerr};
+                _ ->
+                    {ok, {H, AppInfo}}
             end
     end.
 
 get_appended_info(Bin) ->
     BinLen = byte_size(Bin),
     if
-        BinLen < 2 ->
+        BinLen == 0 ->
             [];
+        BinLen < 2 ->
+            error;
         true ->
             <<ID:?LEN_BYTE, Len:?LEN_BYTE, Tail/binary>> = Bin,
-            ActLen = byte_size(Tail),
-            case ID of
-                16#1 ->
-                    if
-                        Len == 4 andalso Len == ActLen ->
-                            <<Res:32>> = Tail,
-                            [ID, Res];
-                        true ->
-                            error
-                    end;
-                16#2 ->
-                    if
-                        Len == 2 andalso Len == ActLen ->
-                            <<Res:16>> = Tail,
-                            [ID, Res];
-                        true ->
-                            error
-                    end;
-                16#3 ->
-                    if
-                        Len == 2 andalso Len == ActLen ->
-                            <<Res:16>> = Tail,
-                            [ID, Res];
-                        true ->
-                            error
-                    end;
-                16#4 ->
-                    if
-                        Len == 2 andalso Len == ActLen ->
-                            <<Res:16>> = Tail,
-                            [ID, Res];
-                        true ->
-                            error
-                    end;
-                16#11 ->
-                    if
-                        Len == 1 andalso Len == ActLen ->
-                            <<Res:8>> = Tail,
-                            if
-                                Res == 0 ->
-                                    [ID, Res];
-                                true ->
-                                    error
-                            end;
-                        Len == 5 andalso Len == ActLen ->
-                            <<Res1:8, Res2:32>> = Tail,
-                            if
-                                Res1 == 0 ->
+            TailLen = byte_size(Tail),
+            if
+                Len > TailLen ->
+                    error;
+                Len == TailLen ->
+                    [get_one_appended_info(ID, Len, Tail)];
+                Len < TailLen ->
+                    ValLen = Len*?LEN_BYTE,
+                    <<Val:ValLen, BinTail/binary>> = Tail,
+                    case get_one_appended_info(ID, Len, <<Val:ValLen>>) of
+                        error ->
+                            error;
+                        OneAppInfo ->
+                            case get_appended_info(BinTail) of
+                                error ->
                                     error;
-                                true ->
-                                    [ID, Res1, Res2]
-                            end;
-                        true ->
-                            error
-                    end;
-                16#12 ->
-                    if
-                        Len == 6 andalso Len == ActLen ->
-                            <<Res1:8, Res2:32, Res3:8>> = Tail,
-                            [ID, Res1, Res2, Res3];
-                        true ->
-                            error
-                    end;
-                16#13 ->
-                    if
-                        Len == 7 andalso Len == ActLen ->
-                            <<Res1:32, Res2:16, Res3:8>> = Tail,
-                            [ID, Res1, Res2, Res3];
-                        true ->
-                            error
-                    end;
-                16#25 ->
-                    if
-                        Len == 4 ->
-                            <<Res:32>> = Tail,
-                            [ID, Res];
-                        true ->
-                            error
-                    end;
-                16#2A ->
-                    if
-                        Len == 2 ->
-                            <<Res:16>> = Tail,
-                            [ID, Res];
-                        true ->
-                            error
-                    end;
-                16#2B ->
-                    if
-                        Len == 4 ->
-                            <<Res1:16, Res2:16>> = Tail,
-                            [ID, Res1, Res2];
-                        true ->
-                            error
-                    end;
-                16#30 ->
-                    if
-                        Len == 1 ->
-                            <<Res:8>> = Tail,
-                            [ID, Res];
-                        true ->
-                            error
-                    end;
-                16#31 ->
-                    if
-                        Len == 1 ->
-                            <<Res:8>> = Tail,
-                            [ID, Res];
-                        true ->
-                            error
-                    end;
-                16#E0 ->
-                    [];
-                _ ->
-                    []
+                                AppInfos ->
+                                    [OneAppInfo|AppInfos]
+                            end
+                    end
             end
+    end.
+ 
+get_one_appended_info(ID, Len, Bin) ->
+    ActLen = byte_size(Bin),
+    case ID of
+        16#1 ->
+            if
+                Len == 4 andalso Len == ActLen ->
+                    <<Res:32>> = Bin,
+                    [ID, Res];
+                true ->
+                    error
+            end;
+        16#2 ->
+            if
+                Len == 2 andalso Len == ActLen ->
+                    <<Res:16>> = Bin,
+                    [ID, Res];
+                true ->
+                    error
+            end;
+        16#3 ->
+            if
+                Len == 2 andalso Len == ActLen ->
+                    <<Res:16>> = Bin,
+                    [ID, Res];
+                true ->
+                    error
+            end;
+        16#4 ->
+            if
+                Len == 2 andalso Len == ActLen ->
+                    <<Res:16>> = Bin,
+                    [ID, Res];
+                true ->
+                    error
+            end;
+        16#11 ->
+            if
+                Len == 1 andalso Len == ActLen ->
+                    <<Res:8>> = Bin,
+                    if
+                        Res == 0 ->
+                            [ID, Res];
+                        true ->
+                            error
+                    end;
+                Len == 5 andalso Len == ActLen ->
+                    <<Res1:8, Res2:32>> = Bin,
+                    if
+                        Res1 == 0 ->
+                            error;
+                        true ->
+                            [ID, Res1, Res2]
+                    end;
+                true ->
+                    error
+            end;
+        16#12 ->
+            if
+                Len == 6 andalso Len == ActLen ->
+                    <<Res1:8, Res2:32, Res3:8>> = Bin,
+                    [ID, Res1, Res2, Res3];
+                true ->
+                    error
+            end;
+        16#13 ->
+            if
+                Len == 7 andalso Len == ActLen ->
+                    <<Res1:32, Res2:16, Res3:8>> = Bin,
+                    [ID, Res1, Res2, Res3];
+                true ->
+                    error
+            end;
+        16#25 ->
+            if
+                Len == 4 ->
+                    <<Res:32>> = Bin,
+                    [ID, Res];
+                true ->
+                    error
+            end;
+        16#2A ->
+            if
+                Len == 2 ->
+                    <<Res:16>> = Bin,
+                    [ID, Res];
+                true ->
+                    error
+            end;
+        16#2B ->
+            if
+                Len == 4 ->
+                    <<Res1:16, Res2:16>> = Bin,
+                    [ID, Res1, Res2];
+                true ->
+                    error
+            end;
+        16#30 ->
+            if
+                Len == 1 ->
+                    <<Res:8>> = Bin,
+                    [ID, Res];
+                true ->
+                    error
+            end;
+        16#31 ->
+            if
+                Len == 1 ->
+                    <<Res:8>> = Bin,
+                    [ID, Res];
+                true ->
+                    error
+            end;
+        16#E0 ->
+            [];
+        _ ->
+            []
     end.
 
 %%%

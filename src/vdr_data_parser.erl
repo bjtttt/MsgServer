@@ -30,6 +30,7 @@
 %%%     ignore      : not complete message (maybe this state is not necessary)
 %%%
 process_data(State, Data) ->
+    %DataDebug = <<126,2,0,0,46,1,86,121,16,51,112,0,14,0,0,0,0,0,0,0,17,0,0,0,0,0,0,0,0,0,0,0,0,0,0,19,3,20,0,64,34,1,4,0,0,0,0,2,2,0,0,3,2,0,0,4,2,0,0,42,126>>,
     try do_process_data(State, Data)
     catch
         _:Why ->
