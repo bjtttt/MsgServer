@@ -46,19 +46,20 @@ handle_info({tcp, Socket, Data}, OriState) ->
     State = OriState#vdritem{acttime=DateTime},
     %DataDebug = <<126,1,2,0,2,1,86,121,16,51,112,0,14,81,82,113,126>>,
     %DataDebug = <<126,1,2,0,2,1,86,121,16,51,112,44,40,81,82,123,126>>,
-    Messages = ti_common:split_msg_to_single(Data, 16#7e),
+    DataDebug = <<"asdasdasdas">>,
+    Messages = ti_common:split_msg_to_single(DataDebug, 16#7e),
     case Messages of
         [] ->
             % Max 3 vdrerrors are allowed
             ErrCount = State#vdritem.errorcount + 1,
-            ti_common:loginfo("VDR (~p) data error count (max is 3) : ~p~n", [State#vdritem.addr, ErrCount]),
+            ti_common:loginfo("VDR (~p) data error (empty) count (max is 3) : ~p~n", [State#vdritem.addr, ErrCount]),
             if
                 ErrCount >= ?MAX_VDR_ERR_COUNT ->
                     {stop, vdrerror, State#vdritem{errorcount=ErrCount}};
                 true ->
                     inet:setopts(Socket, [{active, once}]),
                     {noreply, State#vdritem{errorcount=ErrCount}}
-            end;
+            end;    
         _ ->
             case process_vdr_msges(Socket, Messages, State) of
                 {error, vdrerror, NewState} ->
@@ -131,7 +132,7 @@ terminate(Reason, State) ->
         _:Ex ->
             ti_common:logerror("VDR (~p) : Exception when closing TCP : ~p~n", [State#vdritem.addr, Ex])
     end,
-    ti_common:loginfo("VDR (~p) : VDR handler process (~p) is terminated : ~p~n", [State#vdritem.addr, State#vdritem.pid, Reason]).
+    ti_common:loginfo("VDR (~p) is terminated : ~p~n", [State#vdritem.addr, Reason]).
 
 code_change(_OldVsn, State, _Extra) ->    
 	{ok, State}.
