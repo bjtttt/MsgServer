@@ -641,38 +641,38 @@ send_data_to_vdr(Socket, Msg, _State) ->
 %%%
 %%%
 %%%
-send_sql_to_db(PoolId, Msg, _State) ->
-    mysql:fetch(PoolId, Msg).
+send_sql_to_db(PoolId, Msg, State) ->
+    %mysql:fetch(PoolId, Msg).
     %gen_server:call(?MODULE, {fetch, PoolId, Msg}).
-    %case State#vdritem.dbpid of
-    %    undefined ->
-    %        ok;
-    %    DBPid ->
-    %        DBPid ! {State#vdritem.pid, PoolId, Msg},
-    %        Pid = State#vdritem.pid,
-    %        receive
-    %            {Pid, Result} ->
-    %                Result
-    %        end
-    %end.
+    case State#vdritem.dbpid of
+        undefined ->
+            ok;
+        DBPid ->
+            DBPid ! {State#vdritem.pid, PoolId, Msg},
+            Pid = State#vdritem.pid,
+            receive
+                {Pid, Result} ->
+                    Result
+            end
+    end.
 
 %%%
 %%%
 %%%
-send_msg_to_ws(Msg, _State) ->
-    wsock_client:send(Msg).
+send_msg_to_ws(Msg, State) ->
+    %wsock_client:send(Msg).
     %gen_server:call(?MODULE, {fetch, PoolId, Msg}).
-    %case State#vdritem.wspid of
-    %    undefined ->
-    %        ok;
-    %    WSPid ->
-    %        WSPid ! {State#vdritem.pid, Msg},
-    %        Pid = State#vdritem.pid,
-    %        receive
-    %            {Pid, wsok} ->
-    %                ok
-    %        end
-    %end.
+    case State#vdritem.wspid of
+        undefined ->
+            ok;
+        WSPid ->
+            WSPid ! {State#vdritem.pid, Msg},
+            Pid = State#vdritem.pid,
+            receive
+                {Pid, wsok} ->
+                    ok
+            end
+    end.
     
 
 %%%         
