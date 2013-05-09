@@ -11,6 +11,7 @@
          combine_strings/2,
          split_msg_to_single/2,
          is_string/1,
+         is_string_list/1,
 		 integer_to_binary/1]).
 
 -export([set_sockopt/3]).
@@ -392,11 +393,16 @@ combine_strings(List, HasComma) ->
             end
     end.
 
-%%%
-%%%
-%%%
-is_string(Value) ->
-    case is_list(Value) of
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%
+%   true only when Value is NOT an empty string
+%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+is_string(Value) when is_list(Value) ->
+    Len = length(Value),
+    if
+        Len =< 1 ->
+            false;
         true ->
             Fun = fun(X) ->
                           if X < 0 -> false; 
@@ -404,10 +410,33 @@ is_string(Value) ->
                              true -> true
                           end
                   end,
-            lists:all(Fun, Value);
-        _ ->
-            false
-    end.
+            lists:all(Fun, Value)
+    end;
+is_string(_Value) ->
+    false.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%
+%   true only when all strings in List are NOT an empty one
+%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+is_string_list(List) when is_list(List) ->
+    Len = length(List),
+    if
+        Len =< 1 ->
+            false;
+        true ->
+            Fun = fun(X) ->
+                          case is_string(X) of
+                              true -> true;
+                              %false -> false;
+                              _ -> false
+                          end
+                  end,
+            lists:all(Fun, List)
+    end;
+is_string_list(_List) ->
+    false.
 
 %%%
 %%% Msg structure :
