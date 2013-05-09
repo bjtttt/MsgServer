@@ -17,7 +17,7 @@
          create_init_msg/0,
          create_term_online/1,
          create_term_offline/1,
-         create_term_alarm/8,
+         %create_term_alarm/8,
          create_term_answer/3,
          create_vehicle_ctrl_answer/4,
          create_shot_resp/4]).
@@ -667,18 +667,18 @@ create_term_offline(List) ->
 %%% MID : 0x0200
 %%% List : [ID0, ID1, ID2, ...]
 %%%
-create_term_alarm(List, SN, Code, AF, SF, Lat, Long, T) ->
-    if
-        is_integer(SN) ->
-            MIDStr = "\"MID\":512",
-            SNStr = string:concat("\"SN\":", integer_to_list(SN)),
-            VIDListStr = string:concat(string:concat("\"LIST\":[",  create_list(["\"VID\""], List, false)), "]"),
-            DataListStr = string:concat(string:concat("\"DATA\":{",  create_list(["\"CODE\"", "\"AF\"", "\"SF\"", "\"LAT\"", "\"LONG\"", "\"T\""], [Code, AF, SF, Lat, Long, T], true)), "}"),
-			Body = ti_common:combine_strings([MIDStr, SNStr, VIDListStr, DataListStr]),
-            {ok, ti_common:combine_strings(["{", Body, "}"], false)};
-        true ->
-            error
-    end.
+%create_term_alarm(List, SN, Code, AF, SF, Lat, Long, T) ->
+%    if
+%        is_integer(SN) ->
+%            MIDStr = "\"MID\":512",
+%            SNStr = string:concat("\"SN\":", integer_to_list(SN)),
+%            VIDListStr = string:concat(string:concat("\"LIST\":[",  create_list(["\"VID\""], List, false)), "]"),
+%            DataListStr = string:concat(string:concat("\"DATA\":{",  create_list(["\"CODE\"", "\"AF\"", "\"SF\"", "\"LAT\"", "\"LONG\"", "\"T\""], [Code, AF, SF, Lat, Long, T], true)), "}"),
+%            Body = ti_common:combine_strings([MIDStr, SNStr, VIDListStr, DataListStr]),
+%            {ok, ti_common:combine_strings(["{", Body, "}"], false)};
+%        true ->
+%            error
+%    end.
 
 %%%
 %%% 0x0302
