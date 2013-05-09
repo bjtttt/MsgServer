@@ -84,7 +84,7 @@ handle_info({tcp, Socket, Data}, OriState) ->
             end
     end;
 handle_info({tcp_closed, _Socket}, State) ->    
-    ti_common:loginfo("VDR (~p) : TCP is closed~n"),
+    ti_common:loginfo("VDR (~p) : TCP is closed~n", State#vdritem.addr),
     % return stop will invoke terminate(Reason,State)
     % tcp_closed will be transfered as Reason
 	{stop, tcp_closed, State}; 
@@ -435,7 +435,7 @@ process_vdr_data(Socket, Data, State) ->
                                     FlowIdx = NewState#vdritem.msgflownum,
                                     MsgBody = vdr_data_processor:create_gen_resp(ID, MsgIdx, ?T_GEN_RESP_OK),
                                     VDRResp = vdr_data_processor:create_final_msg(16#8001, FlowIdx, MsgBody),
-                                    ti_common:loginfo("VDR (~p) response for 16#3 (ok) : ~p~n", [NewState#vdritem.addr, VDRResp]),
+                                    ti_common:loginfo("VDR (~p) response for 16#3 (Position) : ~p~n", [NewState#vdritem.addr, VDRResp]),
                                     send_data_to_vdr(Socket, VDRResp, NewState),
         
                                     % return error to terminate connection with VDR
