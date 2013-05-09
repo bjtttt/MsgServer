@@ -5,6 +5,7 @@
 -module(ti_common).
 
 -export([number_list_to_binary/2,
+         convert_bcd_integer/1,
          removemsgfromlistbyflownum/2,
          combine_strings/1,
          combine_strings/2,
@@ -23,6 +24,12 @@
 %%%
 integer_to_binary(Integer) ->
 	list_to_binary(integer_to_list(Integer)).
+
+%%%
+%%%
+%%%
+convert_bcd_integer(Number) ->
+    (Number div 16) * 10 + (Number rem 16).
 
 %%%
 %%% Convert number list to binary.

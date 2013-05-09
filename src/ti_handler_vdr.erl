@@ -40,13 +40,13 @@ handle_cast(_Msg, State) ->
 %%%
 %%%
 handle_info({tcp, Socket, Data}, OriState) ->
-    ti_common:loginfo("VDR (~p) : ~p~n", [OriState#vdritem.addr, Data]),
+    ti_common:loginfo("Data from VDR ~p (~p - ~p - ~p) : ~p~n", [OriState#vdritem.addr, OriState#vdritem.id, OriState#vdritem.serialno, OriState#vdritem.auth, Data]),
     % Update active time for VDR
     DateTime = {erlang:date(), erlang:time()},
     State = OriState#vdritem{acttime=DateTime},
     %DataDebug = <<126,1,2,0,2,1,86,121,16,51,112,0,14,81,82,113,126>>,
     %DataDebug = <<126,1,2,0,2,1,86,121,16,51,112,44,40,81,82,123,126>>,
-    %DataDebug = <<"asdasdasdas">>,
+    %DataDebug = <<126,2,0,0,46,1,86,121,16,51,112,0,2,0,0,0,0,0,0,0,17,0,0,0,0,0,0,0,0,0,0,0,0,0,0,19,3,36,25,18,68,1,4,0,0,0,0,2,2,0,0,3,2,0,0,4,2,0,0,59,126>>,
     Messages = ti_common:split_msg_to_single(Data, 16#7e),
     case Messages of
         [] ->
@@ -417,22 +417,32 @@ process_vdr_data(Socket, Data, State) ->
                         16#2 ->     % VDR pulse
                             % Nothing to do here
                             %{} = Msg,
-                            {ok, NewState};
+                            FlowIdx = NewState#vdritem.msgflownum,
+                            MsgBody = vdr_data_processor:create_gen_resp(ID, MsgIdx, ?T_GEN_RESP_OK),
+                            VDRResp = vdr_data_processor:create_final_msg(16#8100, FlowIdx, MsgBody),
+                            ti_common:loginfo("VDR (~p) response for 16#2 (Pulse) : ~p~n", [State#vdritem.addr, VDRResp]),
+                            send_data_to_vdr(Socket, VDRResp, NewState),
+
+                            {ok, NewState#vdritem{msgflownum=FlowIdx+1}};
                         16#3 ->     % VDR unregistration
                             %{} = Msg,
                             Auth = NewState#vdritem.auth,
                             ID = NewState#vdritem.id,
-                            Sql = create_sql_from_vdr(HeadInfo, {ID, Auth}, NewState),
-                            send_sql_to_db(conn, Sql, NewState),
-
-                            FlowIdx = NewState#vdritem.msgflownum,
-                            MsgBody = vdr_data_processor:create_gen_resp(ID, MsgIdx, ?T_GEN_RESP_OK),
-                            VDRResp = vdr_data_processor:create_final_msg(16#8001, FlowIdx, MsgBody),
-                            ti_common:loginfo("VDR (~p) response for 16#3 (ok) : ~p~n", [NewState#vdritem.addr, VDRResp]),
-                            send_data_to_vdr(Socket, VDRResp, NewState),
-
-                            % return error to terminate connection with VDR
-                            {error, invaliderror, NewState#vdritem{msgflownum=FlowIdx+1}};
+                            case create_sql_from_vdr(HeadInfo, {ID, Auth}, NewState) of
+                                {ok, Sql} ->
+                                    send_sql_to_db(conn, Sql, NewState),
+        
+                                    FlowIdx = NewState#vdritem.msgflownum,
+                                    MsgBody = vdr_data_processor:create_gen_resp(ID, MsgIdx, ?T_GEN_RESP_OK),
+                                    VDRResp = vdr_data_processor:create_final_msg(16#8001, FlowIdx, MsgBody),
+                                    ti_common:loginfo("VDR (~p) response for 16#3 (ok) : ~p~n", [NewState#vdritem.addr, VDRResp]),
+                                    send_data_to_vdr(Socket, VDRResp, NewState),
+        
+                                    % return error to terminate connection with VDR
+                                    {error, invaliderror, NewState#vdritem{msgflownum=FlowIdx+1}};
+                                _ ->
+                                    {error, invaliderror, NewState}
+                            end;
                         16#104 ->   % VDR parameter query
                             {_RespIdx, _ActLen, _List} = Msg,
                             
@@ -452,44 +462,48 @@ process_vdr_data(Socket, Data, State) ->
                             
                             {ok, NewState};
                         16#200 ->
-                            Sql = create_sql_from_vdr(HeadInfo, Msg, State),
-                            ti_common:loginfo("VDR (~p) DB : ~p~n", [NewState#vdritem.addr, Sql]),
-                            send_sql_to_db(conn, Sql, NewState),
-                            
-                            FlowIdx = NewState#vdritem.msgflownum,
-                            PreviousAlarm = NewState#vdritem.alarm,
-                            
-                            [H, _AppInfo] = Msg,
-                            [AlarmSym, StateFlag, Lat, Lon, _Height, _Speed, _Direction, Time]= H,
-                            if
-                                AlarmSym == PreviousAlarm ->
-                                    ok;
-                                true ->
-                                    <<Year:8, Month:8, Day:8, Hour:8, Minute:8, Second:8>> = Time,
-                                    YearS = list_to_binary(integer_to_list(Year)),
-                                    MonthS = list_to_binary(integer_to_list(Month)),
-                                    DayS = list_to_binary(integer_to_list(Day)),
-                                    HourS = list_to_binary(integer_to_list(Hour)),
-                                    MinuteS = list_to_binary(integer_to_list(Minute)),
-                                    SecondS = list_to_binary(integer_to_list(Second)),
-                                    TimeS = list_to_binary([YearS, <<"-">>, MonthS, <<"-">>, DayS, <<" ">>, HourS, <<":">>, MinuteS, <<":">>, SecondS]),
-                                    {ok, WSUpdate} = wsock_data_parser:create_term_alarm(NewState#vdritem.vehicleid,
-                                                                                         FlowIdx,
-                                                                                         NewState#vdritem.vehiclecode,
-                                                                                         AlarmSym, StateFlag,
-                                                                                         Lat, Lon,
-                                                                                         binary_to_list(TimeS)),
-                                    ti_common:loginfo("VDR (~p) WS : ~p~n", [NewState#vdritem.addr, WSUpdate]),
-                                    send_msg_to_ws(WSUpdate, NewState)
-                                    %wsock_client:send(WSUpdate)
-                            end,
-
-                            MsgBody = vdr_data_processor:create_gen_resp(ID, MsgIdx, ?T_GEN_RESP_OK),
-                            VDRResp = vdr_data_processor:create_final_msg(16#8001, FlowIdx, MsgBody),
-                            ti_common:loginfo("VDR (~p) response for 16#200 (ok) : ~p~n", [NewState#vdritem.addr, VDRResp]),
-                            send_data_to_vdr(Socket, VDRResp, NewState),
-                            
-                            {ok, NewState#vdritem{msgflownum=FlowIdx+1, alarm=AlarmSym}};
+                            case create_sql_from_vdr(HeadInfo, Msg, NewState) of
+                                {ok, Sql} ->
+                                    ti_common:loginfo("VDR (~p) DB : ~p~n", [NewState#vdritem.addr, Sql]),
+                                    send_sql_to_db(conn, Sql, NewState),
+                                    
+                                    FlowIdx = NewState#vdritem.msgflownum,
+                                    PreviousAlarm = NewState#vdritem.alarm,
+                                    
+                                    {H, _AppInfo} = Msg,
+                                    [AlarmSym, StateFlag, Lat, Lon, _Height, _Speed, _Direction, Time]= H,
+                                    if
+                                        AlarmSym == PreviousAlarm ->
+                                            ok;
+                                        true ->
+                                            <<Year:8, Month:8, Day:8, Hour:8, Minute:8, Second:8>> = <<Time:48>>,
+                                            YearS = ti_common:integer_to_binary(ti_common:convert_bcd_integer(Year)),
+                                            MonthS = ti_common:integer_to_binary(ti_common:convert_bcd_integer(Month)),
+                                            DayS = ti_common:integer_to_binary(ti_common:convert_bcd_integer(Day)),
+                                            HourS = ti_common:integer_to_binary(ti_common:convert_bcd_integer(Hour)),
+                                            MinuteS = ti_common:integer_to_binary(ti_common:convert_bcd_integer(Minute)),
+                                            SecondS = ti_common:integer_to_binary(ti_common:convert_bcd_integer(Second)),
+                                            TimeS = list_to_binary([YearS, <<"-">>, MonthS, <<"-">>, DayS, <<" ">>, HourS, <<":">>, MinuteS, <<":">>, SecondS]),
+                                            {ok, WSUpdate} = wsock_data_parser:create_term_alarm(NewState#vdritem.vehicleid,
+                                                                                                 FlowIdx,
+                                                                                                 NewState#vdritem.vehiclecode,
+                                                                                                 AlarmSym, StateFlag,
+                                                                                                 Lat, Lon,
+                                                                                                 binary_to_list(TimeS)),
+                                            ti_common:loginfo("VDR (~p) WS : ~p~n", [NewState#vdritem.addr, WSUpdate]),
+                                            send_msg_to_ws(WSUpdate, NewState)
+                                            %wsock_client:send(WSUpdate)
+                                    end,
+        
+                                    MsgBody = vdr_data_processor:create_gen_resp(ID, MsgIdx, ?T_GEN_RESP_OK),
+                                    VDRResp = vdr_data_processor:create_final_msg(16#8001, FlowIdx, MsgBody),
+                                    ti_common:loginfo("VDR (~p) response for 16#200 (ok) : ~p~n", [NewState#vdritem.addr, VDRResp]),
+                                    send_data_to_vdr(Socket, VDRResp, NewState),
+                                    
+                                    {ok, NewState#vdritem{msgflownum=FlowIdx+1, alarm=AlarmSym}};
+                                _ ->
+                                    {error, invaliderror, NewState}
+                            end;
                         16#201 ->
                             {_RespNum, _PosMsg} = Msg,
             
@@ -713,22 +727,36 @@ create_sql_from_vdr(HeaderInfo, Msg, State) ->
             case Msg of
                 {H} ->
                     [AlarmSym, StateFlag, Lat, Lon, Height, Speed, Direction, Time]= H,
-                    <<Year:8, Month:8, Day:8, Hour:8, Minute:8, Second:8>> = Time,
+                    <<YY:8, MMon:8, DD:8, HH:8, MMin:8, SS:8>> = <<Time:48>>,
+                    Year = ti_common:convert_bcd_integer(YY),
+                    Month = ti_common:convert_bcd_integer(MMon),
+                    Day = ti_common:convert_bcd_integer(DD),
+                    Hour = ti_common:convert_bcd_integer(HH),
+                    Minute = ti_common:convert_bcd_integer(MMin),
+                    Second = ti_common:convert_bcd_integer(SS),
                     {ServerYear, ServerMonth, ServerDay} = erlang:date(),
                     {ServerHour, ServerMinute, ServerSecond} = erlang:time(),
-                    YearS = list_to_binary(integer_to_list(Year)),
-                    MonthS = list_to_binary(integer_to_list(Month)),
-                    DayS = list_to_binary(integer_to_list(Day)),
-                    HourS = list_to_binary(integer_to_list(Hour)),
-                    MinuteS = list_to_binary(integer_to_list(Minute)),
-                    SecondS = list_to_binary(integer_to_list(Second)),
+                    YearS = ti_common:integer_to_binary(Year),
+                    MonthS = ti_common:integer_to_binary(Month),
+                    DayS = ti_common:integer_to_binary(Day),
+                    HourS = ti_common:integer_to_binary(Hour),
+                    MinuteS = ti_common:integer_to_binary(Minute),
+                    SecondS = ti_common:integer_to_binary(Second),
+                    {ServerYear, ServerMonth, ServerDay} = erlang:date(),
+                    {ServerHour, ServerMinute, ServerSecond} = erlang:time(),
+                    YearS = ti_common:integer_to_binary(Year),
+                    MonthS = ti_common:integer_to_binary(Month),
+                    DayS = ti_common:integer_to_binary(Day),
+                    HourS = ti_common:integer_to_binary(Hour),
+                    MinuteS = ti_common:integer_to_binary(Minute),
+                    SecondS = ti_common:integer_to_binary(Second),
                     TimeS = list_to_binary([YearS, <<"-">>, MonthS, <<"-">>, DayS, <<" ">>, HourS, <<":">>, MinuteS, <<":">>, SecondS]),
-                    ServerYearS = list_to_binary(integer_to_list(ServerYear)),
-                    ServerMonthS = list_to_binary(integer_to_list(ServerMonth)),
-                    ServerDayS = list_to_binary(integer_to_list(ServerDay)),
-                    ServerHourS = list_to_binary(integer_to_list(ServerHour)),
-                    ServerMinuteS = list_to_binary(integer_to_list(ServerMinute)),
-                    ServerSecondS = list_to_binary(integer_to_list(ServerSecond)),
+                    ServerYearS = ti_common:integer_to_binary(ServerYear),
+                    ServerMonthS = ti_common:integer_to_binary(ServerMonth),
+                    ServerDayS = ti_common:integer_to_binary(ServerDay),
+                    ServerHourS = ti_common:integer_to_binary(ServerHour),
+                    ServerMinuteS = ti_common:integer_to_binary(ServerMinute),
+                    ServerSecondS = ti_common:integer_to_binary(ServerSecond),
                     ServerTimeS = list_to_binary([ServerYearS, <<"-">>, ServerMonthS, <<"-">>, ServerDayS, <<" ">>, ServerHourS, <<":">>, ServerMinuteS, <<":">>, ServerSecondS]),
                     VehicleID = State#vdritem.vehicleid,
                     SQL = list_to_binary([<<"insert into vehicle_position(vehicle_id, gps_time, server_time, longitude, latitude, height, speed, direction, status_flag, alarm_flag) values (">>,
@@ -745,23 +773,29 @@ create_sql_from_vdr(HeaderInfo, Msg, State) ->
                     {ok, SQL};
                 {H, AppInfo} ->
                     [AlarmSym, StateFlag, Lat, Lon, Height, Speed, Direction, Time]= H,
-                    [_AiID, _AiLen, _AiValue] = AppInfo,
-                    <<Year:8, Month:8, Day:8, Hour:8, Minute:8, Second:8>> = Time,
+                    AppInfo,
+                    <<YY:8, MMon:8, DD:8, HH:8, MMin:8, SS:8>> = <<Time:48>>,
+                    Year = ti_common:convert_bcd_integer(YY),
+                    Month = ti_common:convert_bcd_integer(MMon),
+                    Day = ti_common:convert_bcd_integer(DD),
+                    Hour = ti_common:convert_bcd_integer(HH),
+                    Minute = ti_common:convert_bcd_integer(MMin),
+                    Second = ti_common:convert_bcd_integer(SS),
                     {ServerYear, ServerMonth, ServerDay} = erlang:date(),
                     {ServerHour, ServerMinute, ServerSecond} = erlang:time(),
-                    YearS = list_to_binary(integer_to_list(Year)),
-                    MonthS = list_to_binary(integer_to_list(Month)),
-                    DayS = list_to_binary(integer_to_list(Day)),
-                    HourS = list_to_binary(integer_to_list(Hour)),
-                    MinuteS = list_to_binary(integer_to_list(Minute)),
-                    SecondS = list_to_binary(integer_to_list(Second)),
+                    YearS = ti_common:integer_to_binary(Year),
+                    MonthS = ti_common:integer_to_binary(Month),
+                    DayS = ti_common:integer_to_binary(Day),
+                    HourS = ti_common:integer_to_binary(Hour),
+                    MinuteS = ti_common:integer_to_binary(Minute),
+                    SecondS = ti_common:integer_to_binary(Second),
                     TimeS = list_to_binary([YearS, <<"-">>, MonthS, <<"-">>, DayS, <<" ">>, HourS, <<":">>, MinuteS, <<":">>, SecondS]),
-                    ServerYearS = list_to_binary(integer_to_list(ServerYear)),
-                    ServerMonthS = list_to_binary(integer_to_list(ServerMonth)),
-                    ServerDayS = list_to_binary(integer_to_list(ServerDay)),
-                    ServerHourS = list_to_binary(integer_to_list(ServerHour)),
-                    ServerMinuteS = list_to_binary(integer_to_list(ServerMinute)),
-                    ServerSecondS = list_to_binary(integer_to_list(ServerSecond)),
+                    ServerYearS = ti_common:integer_to_binary(ServerYear),
+                    ServerMonthS = ti_common:integer_to_binary(ServerMonth),
+                    ServerDayS = ti_common:integer_to_binary(ServerDay),
+                    ServerHourS = ti_common:integer_to_binary(ServerHour),
+                    ServerMinuteS = ti_common:integer_to_binary(ServerMinute),
+                    ServerSecondS = ti_common:integer_to_binary(ServerSecond),
                     ServerTimeS = list_to_binary([ServerYearS, <<"-">>, ServerMonthS, <<"-">>, ServerDayS, <<" ">>, ServerHourS, <<":">>, ServerMinuteS, <<":">>, ServerSecondS]),
                     VehicleID = State#vdritem.vehicleid,
                     SQL = list_to_binary([<<"insert into vehicle_position(vehicle_id, gps_time, server_time, longitude, latitude, height, speed, direction, status_flag, alarm_flag) values (">>,
