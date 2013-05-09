@@ -40,7 +40,7 @@ handle_cast(_Msg, State) ->
 %%%
 %%%
 handle_info({tcp, Socket, Data}, OriState) ->
-    ti_common:loginfo("Data from VDR ~p (~p - ~p - ~p) : ~p~n", [OriState#vdritem.addr, OriState#vdritem.id, OriState#vdritem.serialno, OriState#vdritem.auth, Data]),
+    ti_common:loginfo("Data from VDR (~p) (id:~p, serialno:~p, authen_code:~p) : ~p~n", [OriState#vdritem.addr, OriState#vdritem.id, OriState#vdritem.serialno, OriState#vdritem.auth, Data]),
     % Update active time for VDR
     DateTime = {erlang:date(), erlang:time()},
     State = OriState#vdritem{acttime=DateTime},
@@ -49,13 +49,12 @@ handle_info({tcp, Socket, Data}, OriState) ->
     %DataDebug = <<126,1,2,0,2,1,86,121,16,51,112,44,40,81,82,123,126>>,
     %DataDebug = <<126,2,0,0,46,1,86,121,16,51,112,0,2,0,0,0,0,0,0,0,17,0,0,0,0,0,0,0,0,0,0,0,0,0,0,19,3,36,25,18,68,1,4,0,0,0,0,2,2,0,0,3,2,0,0,4,2,0,0,59,126>>,
     %DataDebug = <<126,2,0,0,46,1,86,121,16,51,112,3,44,0,8,0,0,0,0,0,17,0,0,0,0,0,0,0,0,0,0,0,0,0,0,19,3,36,35,85,35,1,4,0,0,0,0,2,2,0,0,3,2,0,0,4,2,0,0,4,126>>,
-    Messages = ti_common:split_msg_to_single(Data, 16#7e),
+    Msgs = ti_common:split_msg_to_single(Data, 16#7e),
     %Messages = ti_common:split_msg_to_single(DataDebug, 16#7e),
-    case Messages of
+    case Msgs of
         [] ->
-            % Max 3 vdrerrors are allowed
             ErrCount = State#vdritem.errorcount + 1,
-            ti_common:loginfo("VDR (~p) data error (empty) count (max is 3) : ~p~n", [State#vdritem.addr, ErrCount]),
+            ti_common:loginfo("VDR (~p) data empty : continous error count is ~p (max is 3)~n", [State#vdritem.addr, ErrCount]),
             if
                 ErrCount >= ?MAX_VDR_ERR_COUNT ->
                     {stop, vdrerror, State#vdritem{errorcount=ErrCount}};
@@ -64,11 +63,10 @@ handle_info({tcp, Socket, Data}, OriState) ->
                     {noreply, State#vdritem{errorcount=ErrCount}}
             end;    
         _ ->
-            case process_vdr_msges(Socket, Messages, State) of
+            case process_vdr_msges(Socket, Msgs, State) of
                 {error, vdrerror, NewState} ->
-                    % Max 3 vdrerrors are allowed
                     ErrCount = NewState#vdritem.errorcount + 1,
-                    ti_common:loginfo("VDR (~p) data error count (max is 3) : ~p~n", [NewState#vdritem.addr, ErrCount]),
+                    ti_common:loginfo("VDR (~p) data error : continous count is ~p (max is 3)~n", [NewState#vdritem.addr, ErrCount]),
                     if
                         ErrCount >= ?MAX_VDR_ERR_COUNT ->
                             {stop, vdrerror, NewState#vdritem{errorcount=ErrCount}};
@@ -87,9 +85,7 @@ handle_info({tcp, Socket, Data}, OriState) ->
             end
     end;
 handle_info({tcp_closed, _Socket}, State) ->    
-    ti_common:loginfo("VDR (~p) : TCP is closed~n", State#vdritem.addr),
-    % return stop will invoke terminate(Reason,State)
-    % tcp_closed will be transfered as Reason
+    ti_common:loginfo("VDR (~p) (id:~p, serialno:~p, authen_code:~p) : tcp_closed~n", [State#vdritem.addr, State#vdritem.id, State#vdritem.serialno, State#vdritem.auth]),
 	{stop, tcp_closed, State}; 
 handle_info(_Info, State) ->    
 	{noreply, State}. 
@@ -98,6 +94,7 @@ handle_info(_Info, State) ->
 %%% When VDR handler process is terminated, do the clean jobs here
 %%%
 terminate(Reason, State) ->
+    ti_common:loginfo("VDR (~p) (id:~p, serialno:~p, authen_code:~p) starts being terminated : ~p~n", [State#vdritem.addr, State#vdritem.id, State#vdritem.serialno, State#vdritem.auth, Reason]),
     ID = State#vdritem.id,
     Auth = State#vdritem.auth,
     _SerialNo = State#vdritem.serialno,
@@ -121,21 +118,22 @@ terminate(Reason, State) ->
         _ ->
             {ok, WSUpdate} = wsock_data_parser:create_term_offline([VehicleID]),
             send_msg_to_ws(WSUpdate, State)
-            %wsock_client:send(WSUpdate)
     end,
     case Auth of
         undefined ->
             ok;
         _ ->
-            Sql = list_to_binary([<<"update device set is_online=0 where authen_code='">>, list_to_binary(Auth), <<"'">>]),
+            Sql = list_to_binary([<<"update device set is_online=0 where authen_code='">>, 
+                                  list_to_binary(Auth), 
+                                  <<"'">>]),
             send_sql_to_db(conn, Sql, State)
     end,
 	try gen_tcp:close(State#vdritem.socket)
     catch
         _:Ex ->
-            ti_common:logerror("VDR (~p) : Exception when closing TCP : ~p~n", [State#vdritem.addr, Ex])
+            ti_common:logerror("VDR (~p) : exception when gen_tcp:close : ~p~n", [State#vdritem.addr, Ex])
     end,
-    ti_common:loginfo("VDR (~p) is terminated : ~p~n", [State#vdritem.addr, Reason]).
+    ti_common:loginfo("VDR (~p) (id:~p, serialno:~p, authen_code:~p) is terminated~n", [State#vdritem.addr, State#vdritem.id, State#vdritem.serialno, State#vdritem.auth]).
 
 code_change(_OldVsn, State, _Extra) ->    
 	{ok, State}.
@@ -194,8 +192,8 @@ process_vdr_data(Socket, Data, State) ->
         {ok, HeadInfo, Msg, NewState} ->
             {ID, MsgIdx, _Tel, _CryptoType} = HeadInfo,
             if
-                State#vdritem.id =/= undefined ->
-                    ti_common:loginfo("Unknown VDR (~p) msg ID : ~p~n", [NewState#vdritem.addr, ID]),
+                State#vdritem.id == undefined ->
+                    ti_common:loginfo("Unknown VDR (~p) MSG ID : ~p~n", [NewState#vdritem.addr, ID]),
                     case ID of
                         16#100 ->
                             % Not complete
@@ -409,7 +407,7 @@ process_vdr_data(Socket, Data, State) ->
                             {error, invaliderror, State}
                     end;
                 true ->
-                    ti_common:loginfo("VDR (~p) msg ID : ~p~n", [NewState#vdritem.addr, ID]),
+                    ti_common:loginfo("VDR (~p) (id:~p, serialno:~p, authen_code:~p) MSG ID : ~p~n", [NewState#vdritem.addr, NewState#vdritem.id, NewState#vdritem.serialno, NewState#vdritem.auth, ID]),
                     case ID of
                         16#1 ->     % VDR general response
                             {_GwFlowIdx, _GwID, _GwRes} = Msg,
