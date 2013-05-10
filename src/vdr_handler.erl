@@ -50,7 +50,7 @@ handle_info({tcp, Socket, Data}, OriState) ->
     %DataDebug = <<126,2,0,0,46,1,86,121,16,51,112,0,2,0,0,0,0,0,0,0,17,0,0,0,0,0,0,0,0,0,0,0,0,0,0,19,3,36,25,18,68,1,4,0,0,0,0,2,2,0,0,3,2,0,0,4,2,0,0,59,126>>,
     %DataDebug = <<126,2,0,0,46,1,86,121,16,51,112,3,44,0,8,0,0,0,0,0,17,0,0,0,0,0,0,0,0,0,0,0,0,0,0,19,3,36,35,85,35,1,4,0,0,0,0,2,2,0,0,3,2,0,0,4,2,0,0,4,126>>,
     Msgs = common:split_msg_to_single(Data, 16#7e),
-    %Messages = common:split_msg_to_single(DataDebug, 16#7e),
+    %Msgs = common:split_msg_to_single(DataDebug, 16#7e),
     case Msgs of
         [] ->
             ErrCount = State#vdritem.errorcount + 1,

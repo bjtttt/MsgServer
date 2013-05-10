@@ -416,7 +416,7 @@ combine_strings(_List, _HasComma) ->
 is_string(Value) when is_list(Value) ->
     Len = length(Value),
     if
-        Len =< 1 ->
+        Len < 1 ->
             false;
         true ->
             Fun = fun(X) ->
@@ -438,7 +438,7 @@ is_string(_Value) ->
 is_string_list(List) when is_list(List) ->
     Len = length(List),
     if
-        Len =< 1 ->
+        Len < 1 ->
             false;
         true ->
             Fun = fun(X) ->
