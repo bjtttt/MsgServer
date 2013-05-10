@@ -82,11 +82,11 @@ test_codec({Erl, Json, EofExpected}) ->
     %% We can test Erl -> Json -> Erl, but not Json -> Erl ->
     %% Json. However, we can test Json -> Erl.
     Bin = rfc4627:encode(Erl),
-    Len = length(Bin),
-    [H|T] = Bin,
+    _Len = length(Bin),
+    [_H|_T] = Bin,
     IsBool = is_binary(Bin),
     IsBool,
-    ABin = <<"123">>,
+    _ABin = <<"123">>,
     %BBin = <<Bin>>,
     {ok, Erl, []} = rfc4627:decode(Bin),
     {ok, Erl, Rest} = rfc4627:decode(Json),
