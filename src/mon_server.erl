@@ -26,10 +26,10 @@ start_link(PortMon) ->
         {ok, Pid} ->
             {ok, Pid};
         ignore ->
-            common:logerror("ti_sup:start_child_mon(~p) fails : ignore~n", [PortMon]),
+            common:logerror("mssup:start_child_mon(~p) fails : ignore~n", [PortMon]),
             ignore;
         {already_started, Pid} ->
-            common:logerror("ti_sup:start_child_mon(~p) fails : already_started : ~p~n", [PortMon, Pid]),
+            common:logerror("mssup:start_child_mon(~p) fails : already_started : ~p~n", [PortMon, Pid]),
             {already_started, Pid}
     end.
 
@@ -77,7 +77,7 @@ handle_info({inet_async, LSock, Ref, {ok, CSock}}, #serverstate{lsock=LSock, acc
         % New client connected
         % Spawn a new process using the simple_one_for_one supervisor.
         % Why it is "the simple_one_for_one supervisor"?
-        case ti_sup:start_child_mon(CSock) of
+        case mssup:start_child_mon(CSock) of
             {ok, Pid} ->
                 case gen_tcp:controlling_process(CSock, Pid) of
                     ok ->
@@ -85,11 +85,11 @@ handle_info({inet_async, LSock, Ref, {ok, CSock}}, #serverstate{lsock=LSock, acc
                         ok;
                     {error, Reason1} ->
                         common:logerror("Management server gen_server:controlling_process(Socket, PID : ~p) fails : ~p~n", [Pid, Reason1]),
-                        case ti_sup:stop_child_monr(Pid) of
+                        case mssup:stop_child_monr(Pid) of
                             ok ->
                                 ok;
                             {error, Reason2} ->
-                                common:logerror("Management server ti_sup:stop_child_mon(PID : ~p) fails : ~p~n", [Pid, Reason2])
+                                common:logerror("Management server mssup:stop_child_mon(PID : ~p) fails : ~p~n", [Pid, Reason2])
                         end
                 end;
             {ok, Pid, _Info} ->
@@ -99,19 +99,19 @@ handle_info({inet_async, LSock, Ref, {ok, CSock}}, #serverstate{lsock=LSock, acc
                         ok;
                     {error, Reason1} ->
                         common:logerror("Monitor server gen_server:controlling_process(Socket, PID : ~p) fails: ~p~n", [Pid, Reason1]),
-                         case ti_sup:stop_child_mon(Pid) of
+                         case mssup:stop_child_mon(Pid) of
                             ok ->
                                 ok;
                             {error, Reason2} ->
-                                common:logerror("Monitor server ti_sup:stop_child_mon(PID : ~p) fails : ~p~n", [Pid, Reason2])
+                                common:logerror("Monitor server mssup:stop_child_mon(PID : ~p) fails : ~p~n", [Pid, Reason2])
                         end
                 end;
             {error, already_present} ->
-                common:logerror("Monitor server ti_sup:start_child_man fails : already_present~n");
+                common:logerror("Monitor server mssup:start_child_man fails : already_present~n");
             {error, {already_started, Pid}} ->
-                common:logerror("Monitor server ti_sup:start_child_man fails : already_started PID : ~p~n", [Pid]);
+                common:logerror("Monitor server mssup:start_child_man fails : already_started PID : ~p~n", [Pid]);
             {error, Msg} ->
-                common:logerror("Monitor server ti_sup:start_child_man fails : ~p~n", [Msg])
+                common:logerror("Monitor server mssup:start_child_man fails : ~p~n", [Msg])
         end,
         %% Signal the network driver that we are ready to accept another connection        
         case prim_inet:async_accept(LSock, -1) of           

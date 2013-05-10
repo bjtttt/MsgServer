@@ -464,9 +464,9 @@ process_vdr_data(Socket, Data, State) ->
                             {ok, NewState};
                         16#200 ->
                             case create_sql_from_vdr(HeadInfo, Msg, NewState) of
-                                {ok, Sql} ->
-                                    common:loginfo("VDR (~p) DB : ~p~n", [NewState#vdritem.addr, Sql]),
-                                    send_sql_to_db(conn, Sql, NewState),
+                                {ok, Sqls} ->
+                                    %common:loginfo("VDR (~p) DB : ~p~n", [NewState#vdritem.addr, Sql]),
+                                    send_sqls_to_db(conn, Sqls, NewState),
                                     
                                     FlowIdx = NewState#vdritem.msgflownum,
                                     %PreviousAlarm = NewState#vdritem.alarm,
@@ -672,6 +672,38 @@ send_sql_to_db(PoolId, Msg, State) ->
             end
     end.
 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%
+%
+%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+send_sqls_to_db(PoolId, Msgs, State) ->
+    %mysql:fetch(PoolId, Msg).
+    %gen_server:call(?MODULE, {fetch, PoolId, Msg}).
+    case Msgs of
+        [] ->
+            ok;
+        _ ->
+            [H|T] = Msgs,
+            case State#vdritem.dbpid of
+                undefined ->
+                    ok;
+                DBPid ->
+                    DBPid ! {State#vdritem.pid, PoolId, H},
+                    Pid = State#vdritem.pid,
+                    receive
+                        {Pid, Result} ->
+                            Result
+                    end,
+                    case T of
+                        [] ->
+                            ok;
+                        _ ->
+                            send_sqls_to_db(PoolId, T, State)
+                    end
+            end
+    end.
+
 %%%
 %%%
 %%%
@@ -693,7 +725,7 @@ send_msg_to_ws(Msg, State) ->
 
 %%%         
 %%% Return :
-%%%     {ok, SQL}
+%%%     {ok, SQL|[SQL0, SQL1, ...]}
 %%%     {error, iderror}
 %%%     error
 %%%
@@ -760,7 +792,7 @@ create_sql_from_vdr(HeaderInfo, Msg, State) ->
                     ServerSecondS = common:integer_to_binary(ServerSecond),
                     ServerTimeS = list_to_binary([ServerYearS, <<"-">>, ServerMonthS, <<"-">>, ServerDayS, <<" ">>, ServerHourS, <<":">>, ServerMinuteS, <<":">>, ServerSecondS]),
                     VehicleID = State#vdritem.vehicleid,
-                    SQL = list_to_binary([<<"insert into vehicle_position(vehicle_id, gps_time, server_time, longitude, latitude, height, speed, direction, status_flag, alarm_flag) values (">>,
+                    SQL0 = list_to_binary([<<"insert into vehicle_position(vehicle_id, gps_time, server_time, longitude, latitude, height, speed, direction, status_flag, alarm_flag) values(">>,
                                           common:integer_to_binary(VehicleID), <<", '">>,
                                           TimeS, <<"', '">>,
                                           ServerTimeS, <<"', ">>,
@@ -771,7 +803,18 @@ create_sql_from_vdr(HeaderInfo, Msg, State) ->
                                           common:integer_to_binary(Direction), <<", ">>,
                                           common:integer_to_binary(StateFlag), <<", ">>,
                                           common:integer_to_binary(AlarmSym), <<")">>]),
-                    {ok, SQL};
+                    SQL1 = list_to_binary([<<"replace into vehicle_position_last(vehicle_id, gps_time, server_time, longitude, latitude, height, speed, direction, status_flag, alarm_flag) values(">>,
+                                          common:integer_to_binary(VehicleID), <<", '">>,
+                                          TimeS, <<"', '">>,
+                                          ServerTimeS, <<"', ">>,
+                                          common:integer_to_binary(Lon), <<", ">>,
+                                          common:integer_to_binary(Lat), <<", ">>,
+                                          common:integer_to_binary(Height), <<", ">>,
+                                          common:integer_to_binary(Speed), <<", ">>,
+                                          common:integer_to_binary(Direction), <<", ">>,
+                                          common:integer_to_binary(StateFlag), <<", ">>,
+                                          common:integer_to_binary(AlarmSym), <<")">>]),
+                    {ok, [SQL0, SQL1]};
                 {H, AppInfo} ->
                     [AlarmSym, StateFlag, Lat, Lon, Height, Speed, Direction, Time]= H,
                     AppInfo,
@@ -799,7 +842,7 @@ create_sql_from_vdr(HeaderInfo, Msg, State) ->
                     ServerSecondS = common:integer_to_binary(ServerSecond),
                     ServerTimeS = list_to_binary([ServerYearS, <<"-">>, ServerMonthS, <<"-">>, ServerDayS, <<" ">>, ServerHourS, <<":">>, ServerMinuteS, <<":">>, ServerSecondS]),
                     VehicleID = State#vdritem.vehicleid,
-                    SQL = list_to_binary([<<"insert into vehicle_position(vehicle_id, gps_time, server_time, longitude, latitude, height, speed, direction, status_flag, alarm_flag) values (">>,
+                    SQL0 = list_to_binary([<<"insert into vehicle_position(vehicle_id, gps_time, server_time, longitude, latitude, height, speed, direction, status_flag, alarm_flag) values(">>,
                                           common:integer_to_binary(VehicleID), <<", '">>,
                                           TimeS, <<"', '">>,
                                           ServerTimeS, <<"', ">>,
@@ -810,7 +853,18 @@ create_sql_from_vdr(HeaderInfo, Msg, State) ->
                                           common:integer_to_binary(Direction), <<", ">>,
                                           common:integer_to_binary(StateFlag), <<", ">>,
                                           common:integer_to_binary(AlarmSym), <<")">>]),
-                    {ok, SQL}
+                    SQL1 = list_to_binary([<<"replace into vehicle_position_last(vehicle_id, gps_time, server_time, longitude, latitude, height, speed, direction, status_flag, alarm_flag) values(">>,
+                                          common:integer_to_binary(VehicleID), <<", '">>,
+                                          TimeS, <<"', '">>,
+                                          ServerTimeS, <<"', ">>,
+                                          common:integer_to_binary(Lon), <<", ">>,
+                                          common:integer_to_binary(Lat), <<", ">>,
+                                          common:integer_to_binary(Height), <<", ">>,
+                                          common:integer_to_binary(Speed), <<", ">>,
+                                          common:integer_to_binary(Direction), <<", ">>,
+                                          common:integer_to_binary(StateFlag), <<", ">>,
+                                          common:integer_to_binary(AlarmSym), <<")">>]),
+                    {ok, [SQL0, SQL1]}
             end;
         16#201  ->                          
             {ok, ""};

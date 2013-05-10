@@ -27,7 +27,7 @@
 %%%                  | term()
 %%% 
 start_child_vdr(Socket, Addr) ->
-    case supervisor:start_child(ti_sup_handler_vdr, [Socket, Addr]) of
+    case supervisor:start_child(sup_vdr_handler, [Socket, Addr]) of
         {ok, Pid} ->
             {ok, Pid};
         {ok, Pid, Info} ->
@@ -35,11 +35,11 @@ start_child_vdr(Socket, Addr) ->
         {error, Reason} ->
             case Reason of
                 already_present ->
-                    common:logerror("ti_sup:start_child_vdr fails : already_present~n");
+                    common:logerror("mssup:start_child_vdr fails : already_present~n");
                 {already_strated, CPid} ->
-                    common:logerror("ti_sup:start_child_vdr fails : already_started PID : ~p~n", [CPid]);
+                    common:logerror("mssup:start_child_vdr fails : already_started PID : ~p~n", [CPid]);
                 Msg ->
-                    common:logerror("ti_sup:start_child_vdr fails : ~p~n", [Msg])
+                    common:logerror("mssup:start_child_vdr fails : ~p~n", [Msg])
             end,
             {error, Reason}
     end.                    
@@ -60,11 +60,11 @@ start_child_man(Socket) ->
         {error, Reason} ->
             case Reason of
                 already_present ->
-                    common:logerror("ti_sup:start_child_man fails : already_present~n");
+                    common:logerror("mssup:start_child_man fails : already_present~n");
                 {already_strated, CPid} ->
-                    common:logerror("ti_sup:start_child_man fails : already_started PID : ~p~n", [CPid]);
+                    common:logerror("mssup:start_child_man fails : already_started PID : ~p~n", [CPid]);
                 Msg ->
-                    common:logerror("ti_sup:start_child_man fails : ~p~n", [Msg])
+                    common:logerror("mssup:start_child_man fails : ~p~n", [Msg])
             end,
             {error, Reason}
     end.                    
@@ -77,7 +77,7 @@ start_child_man(Socket) ->
 %%%                  | term()
 %%% 
 start_child_mon(Socket) ->
-    case supervisor:start_child(ti_sup_handler_mon, [Socket]) of
+    case supervisor:start_child(sup_mon_handler, [Socket]) of
         {ok, Pid} ->
             {ok, Pid};
         {ok, Pid, Info} ->
@@ -85,11 +85,11 @@ start_child_mon(Socket) ->
         {error, Reason} ->
             case Reason of
                 already_present ->
-                    common:logerror("ti_sup:start_child_mon fails : already_present~n");
+                    common:logerror("mssup:start_child_mon fails : already_present~n");
                 {already_strated, CPid} ->
-                    common:logerror("ti_sup:start_child_mon fails : already_started PID : ~p~n", [CPid]);
+                    common:logerror("mssup:start_child_mon fails : already_started PID : ~p~n", [CPid]);
                 Msg ->
-                    common:logerror("ti_sup:start_child_mon fails : ~p~n", [Msg])
+                    common:logerror("mssup:start_child_mon fails : ~p~n", [Msg])
             end,
             {error, Reason}
     end.                    
@@ -110,11 +110,11 @@ start_child_db(DB, PortDB) ->
         {error, Reason} ->
             case Reason of
                 already_present ->
-                    common:logerror("ti_sup:start_child_db(~p:~p) fails : already_present~n", [DB, PortDB]);
+                    common:logerror("mssup:start_child_db(~p:~p) fails : already_present~n", [DB, PortDB]);
                 {already_strated, CPid} ->
-                    common:logerror("ti_sup:start_child_db(~p:~p) fails : already_started PID : ~p~n", [CPid, DB, PortDB]);
+                    common:logerror("mssup:start_child_db(~p:~p) fails : already_started PID : ~p~n", [CPid, DB, PortDB]);
                 Msg ->
-                    common:logerror("ti_sup:start_child_db(~p:~p) fails : ~p~n", [Msg, DB, PortDB])
+                    common:logerror("mssup:start_child_db(~p:~p) fails : ~p~n", [Msg, DB, PortDB])
             end,
             {error, Reason}
     end.                    
@@ -124,11 +124,11 @@ start_child_db(DB, PortDB) ->
 %%% {error, Error} : Error = not_found | simple_one_for_one
 %%%
 stop_child_vdr(Pid) ->
-    case supervisor:terminate_child(ti_sup_handler_vdr, Pid) of
+    case supervisor:terminate_child(sup_vdr_handler, Pid) of
         ok ->
             ok;
         {error, Reason} ->
-            common:logerror("ti_sup:stop_child_vdr(PID : ~p) fails : ~p~n", [Reason, Pid]),
+            common:logerror("mssup:stop_child_vdr(PID : ~p) fails : ~p~n", [Reason, Pid]),
             {error, Reason}
     end.
 %%%
@@ -140,7 +140,7 @@ stop_child_man(Pid) ->
         ok ->
             ok;
         {error, Reason} ->
-            common:logerror("ti_sup:stop_child_man(PID : ~p) fails : ~p~n", [Reason, Pid]),
+            common:logerror("mssup:stop_child_man(PID : ~p) fails : ~p~n", [Reason, Pid]),
             {error, Reason}
     end.
 %%%
@@ -148,11 +148,11 @@ stop_child_man(Pid) ->
 %%% {error, Error} : Error = not_found | simple_one_for_one
 %%%
 stop_child_mon(Pid) ->
-    case supervisor:terminate_child(ti_sup_handler_mon, Pid) of
+    case supervisor:terminate_child(sup_mon_handler, Pid) of
         ok ->
             ok;
         {error, Reason} ->
-            common:logerror("ti_sup:stop_child_mon fails(PID : ~p) : ~p~n", [Reason, Pid]),
+            common:logerror("mssup:stop_child_mon fails(PID : ~p) : ~p~n", [Reason, Pid]),
             {error, Reason}
     end.
 %%%
@@ -164,7 +164,7 @@ stop_child_db(Pid) ->
         ok ->
             ok;
         {error, Reason} ->
-            common:logerror("ti_sup:stop_child_db fails(PID : ~p) : ~p~n", [Reason, Pid]),
+            common:logerror("mssup:stop_child_db fails(PID : ~p) : ~p~n", [Reason, Pid]),
             {error, Reason}
     end.
 
@@ -181,16 +181,16 @@ start_link() ->
         {ok, Pid} ->
             {ok, Pid};
         ignore ->
-            common:logerror("ti_sup:start_link : ignore~n"),
+            common:logerror("mssup:start_link : ignore~n"),
             ignore;
         {error, Reason} ->
             case Reason of
                 {shutdown, Info} ->
-                    common:logerror("ti_sup:start_link fails : shutdown : ~p~n", [Info]);
+                    common:logerror("mssup:start_link fails : shutdown : ~p~n", [Info]);
                 {already_strated, CPid} ->
-                    common:logerror("ti_sup:start_link fails : already_started PID : ~p~n", [CPid]);
+                    common:logerror("mssup:start_link fails : already_started PID : ~p~n", [CPid]);
                 Msg ->
-                    common:logerror("ti_sup:start_link fails : ~p~n", [Msg])
+                    common:logerror("mssup:start_link fails : ~p~n", [Msg])
             end,
             {error, Reason}
     end.
@@ -215,8 +215,8 @@ init([]) ->
 				},
     % Process VDR communication
     VDRHandler = {
-				  ti_sup_handler_vdr,               % Id       = internal id
-				  {supervisor, start_link, [{local, ti_sup_handler_vdr}, ?MODULE, [vdr_handler]]},
+				  sup_vdr_handler,               % Id       = internal id
+				  {supervisor, start_link, [{local, sup_vdr_handler}, ?MODULE, [vdr_handler]]},
 				  permanent, 						% Restart  = permanent | transient | temporary
 				  ?TIME_TERMINATE_VDR, 				% Shutdown = brutal_kill | int() >= 0 | infinity
 				  supervisor, 				    	% Type     = worker | supervisor
@@ -233,8 +233,8 @@ init([]) ->
                 },
     % Process Monitor communication
     MonHandler = {
-                  ti_sup_handler_mon,               % Id       = internal id
-                  {supervisor, start_link, [{local, ti_sup_handler_mon}, ?MODULE, [mon_handler]]},
+                  sup_mon_handler,               % Id       = internal id
+                  {supervisor, start_link, [{local, sup_mon_handler}, ?MODULE, [mon_handler]]},
                   permanent,                        % Restart  = permanent | transient | temporary
                   ?TIME_TERMINATE_MON,              % Shutdown = brutal_kill | int() >= 0 | infinity
                   supervisor,                       % Type     = worker | supervisor

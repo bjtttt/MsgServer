@@ -780,43 +780,38 @@ create_list(IDList, List, IsOne) when is_list(IDList),
         Bool == true ->
             if
                 IDListLen == 1 ->
-                    [ID|_] = IDList,
-                    if
-                        ListLen < 1 ->
-                            "";
-                        true ->
-                            [Val|T] = List,
-                            case convert_variable_to_list(Val) of
-                                {ok, SVal} ->
-                                    case T of
-                                        [] ->
-                                            case IsOne of
-                                                true ->
-                                                    common:combine_strings([ID, ":", SVal], false);
-                                                _ ->
-                                                    common:combine_strings(["{", ID, ":", SVal, "}"], false)
-                                                end;
+                    [ID] = IDList,
+                    [Val|T] = List,
+                    case convert_variable_to_list(Val) of
+                        {ok, SVal} ->
+                            case T of
+                                [] ->
+                                    case IsOne of
+                                        true ->
+                                            common:combine_strings([ID, ":", SVal], false);
                                         _ ->
-                                            case IsOne of
-                                                true ->
-                                                    common:combine_strings(lists:append([ID, ":", SVal, ","], [create_list(IDList, T, IsOne)]), false);
-                                                _ ->
-                                                    common:combine_strings(lists:append(["{", ID, ":", SVal, "},"], [create_list(IDList, T, IsOne)]), false)
-                                            end
-                                    end;
-                                error ->
-                                    case T of
-                                        [] ->
-                                            [];
+                                            common:combine_strings(["{", ID, ":", SVal, "}"], false)
+                                        end;
+                                _ ->
+                                    case IsOne of
+                                        true ->
+                                            common:combine_strings(lists:append([ID, ":", SVal, ","], [create_list(IDList, T, IsOne)]), false);
                                         _ ->
-                                            create_list(IDList, T, IsOne)
+                                            common:combine_strings(lists:append(["{", ID, ":", SVal, "},"], [create_list(IDList, T, IsOne)]), false)
                                     end
+                            end;
+                        error ->
+                            case T of
+                                [] ->
+                                    [];
+                                _ ->
+                                    create_list(IDList, T, IsOne)
                             end
                     end;
                 IDListLen > 1 ->
                     if
                         IDListLen =/= ListLen ->
-                            "";
+                            [];
                         true ->
                             [ID|IDTail] = IDList,
                             [Val|ValTail] = List,
@@ -854,6 +849,15 @@ create_list(IDList, List, IsOne) when is_list(IDList),
 create_list(_IDList, _List, _IsOne) ->
     [].
 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%
+% Convert integer/float/string to string
+%
+% Return    :
+%       {ok, string}
+%       error
+%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 convert_variable_to_list(Variable) when is_integer(Variable) ->
     {ok, integer_to_list(Variable)};
 convert_variable_to_list(Variable) when is_float(Variable) ->

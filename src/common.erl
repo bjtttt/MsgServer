@@ -353,14 +353,27 @@ do_log_info(Format, RawData) ->
             end
     end.
 
-%%%
-%%% List must be string list.
-%%% Otherwise, an empty string will be returned.
-%%% combine_strings(List, HasComma = true)
-%%%
-combine_strings(List) ->
-    combine_strings(List, true).
-combine_strings(List, HasComma) ->
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%
+% List must be string list.
+% Otherwise, an empty string will be returned.
+% combine_strings(List, HasComma = true)
+%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+combine_strings(List) when is_list(List)->
+    combine_strings(List, true);
+combine_strings(_List) ->
+    [].
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%
+% List must be string list.
+% Otherwise, an empty string will be returned.
+% combine_strings(List, HasComma = true)
+%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+combine_strings(List, HasComma) when is_list(List),
+                                     is_boolean(HasComma) ->
     case List of
         [] ->
             "";
@@ -391,7 +404,9 @@ combine_strings(List, HasComma) ->
                 _ ->
                     ""
             end
-    end.
+    end;
+combine_strings(_List, _HasComma) ->
+    [].
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %

@@ -26,10 +26,10 @@ start_link(PortVDR) ->
         {ok, Pid} ->
             {ok, Pid};
         ignore ->
-            common:logerror("ti_sup:start_child_vdr(~p) fails : ignore~n", [PortVDR]),
+            common:logerror("mssup:start_child_vdr(~p) fails : ignore~n", [PortVDR]),
             ignore;
         {already_started, Pid} ->
-            common:logerror("ti_sup:start_child_vdr(~p) fails : already_started : ~p~n", [PortVDR, Pid]),
+            common:logerror("mssup:start_child_vdr(~p) fails : already_started : ~p~n", [PortVDR, Pid]),
             {already_started, Pid}
     end.
 
@@ -79,18 +79,18 @@ handle_info({inet_async, LSock, Ref, {ok, CSock}}, #serverstate{lsock=LSock, acc
         % Why it is "the simple_one_for_one supervisor"?
         case common:safepeername(CSock) of
             {ok, {Addr, _Port}} ->
-                case ti_sup:start_child_vdr(CSock, Addr) of
+                case mssup:start_child_vdr(CSock, Addr) of
                     {ok, Pid} ->
                         case gen_tcp:controlling_process(CSock, Pid) of
                             ok ->
                                 ok;
                             {error, Reason1} ->
                                 common:logerror("VDR server gen_server:controlling_process(Socket, PID : ~p) fails : ~p~n", [Pid, Reason1]),
-                                case ti_sup:stop_child_vdr(Pid) of
+                                case mssup:stop_child_vdr(Pid) of
                                     ok ->
                                         ok;
                                     {error, Reason2} ->
-                                        common:logerror("VDR server ti_sup:stop_child_vdr(PID : ~p) fails : ~p~n", [Pid, Reason2])
+                                        common:logerror("VDR server mssup:stop_child_vdr(PID : ~p) fails : ~p~n", [Pid, Reason2])
                                 end
                         end;
                     {ok, Pid, _Info} ->
@@ -100,22 +100,22 @@ handle_info({inet_async, LSock, Ref, {ok, CSock}}, #serverstate{lsock=LSock, acc
                                 ok;
                             {error, Reason1} ->
                                 common:logerror("VDR server gen_server:controlling_process(Socket, PID : ~p) fails: ~p~n", [Pid, Reason1]),
-                                 case ti_sup:stop_child_vdr(Pid) of
+                                 case mssup:stop_child_vdr(Pid) of
                                     ok ->
                                         ok;
                                     {error, Reason2} ->
-                                        common:logerror("VDR server ti_sup:stop_child_vdr(PID : ~p) fails : ~p~n", [Pid, Reason2])
+                                        common:logerror("VDR server mssup:stop_child_vdr(PID : ~p) fails : ~p~n", [Pid, Reason2])
                                 end
                         end;
                     {error, already_present} ->
-                        common:logerror("VDR server ti_sup:start_child_vdr fails : already_present~n");
+                        common:logerror("VDR server mssup:start_child_vdr fails : already_present~n");
                     {error, {already_started, Pid}} ->
-                        common:logerror("VDR server ti_sup:start_child_vdr fails : already_started PID : ~p~n", [Pid]);
+                        common:logerror("VDR server mssup:start_child_vdr fails : already_started PID : ~p~n", [Pid]);
                     {error, Msg} ->
-                        common:logerror("VDR server ti_sup:start_child_vdr fails : ~p~n", [Msg])
+                        common:logerror("VDR server mssup:start_child_vdr fails : ~p~n", [Msg])
                 end;
             {error, Err} ->
-                common:logerror("Stop ti_sup:start_child_vdr because cannot parse VDR socket : ~p~n", [Err])
+                common:logerror("Stop mssup:start_child_vdr because cannot parse VDR socket : ~p~n", [Err])
         end,
         %% Signal the network driver that we are ready to accept another connection        
 		case prim_inet:async_accept(LSock, -1) of	        

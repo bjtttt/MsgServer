@@ -52,7 +52,7 @@ start(StartType, StartArgs) ->
     ets:new(usertable,[set,public,named_table,{keypos,#user.id},{read_concurrency,true},{write_concurrency,true}]),
     ets:new(montable,[set,public,named_table,{keypos,#monitem.socket},{read_concurrency,true},{write_concurrency,true}]),
     common:loginfo("Tables are initialized.~n"),
-    case supervisor:start_link(ti_sup, []) of
+    case supervisor:start_link(mssup, []) of
         {ok, SupPid} ->
             ets:insert(msgservertable, {suppid, SupPid}),
             error_logger:info_msg("Message server starts~n"),
@@ -289,12 +289,12 @@ start_server(Port, PortMon) ->
 	case gen_tcp:listen(Port, [{active, true}]) of
 		{ok, LSock} ->
 			error_logger:info_msg("VDR starts listening.~n"),
-		    case ti_sup:start_link(LSock) of
+		    case mssup:start_link(LSock) of
 		        {ok, Pid} ->
 					error_logger:info_msg("VDR supervisor starts.~n"),
 					ets:insert(msgservertable,{suppid,Pid}),
 					ets:insert(msgservertable,{suplsock,LSock}),
-		            ti_sup:start_child(),
+		            mssup:start_child(),
 					% start monitor server
 					start_server_mon(PortMon);
 				ignore ->
