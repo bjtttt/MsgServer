@@ -26,15 +26,15 @@
 
 -module(ti_json_test).
 
--include("ti_header.hrl").
+-include("header.hrl").
  
 -export([test_all/0]).
 
 -define(RFC4627_FROM_RECORD(RName, R),
-    ti_rfc4627:from_record(R, RName, record_info(fields, RName))).
+    rfc4627:from_record(R, RName, record_info(fields, RName))).
 
 -define(RFC4627_TO_RECORD(RName, R),
-    ti_rfc4627:to_record(R, #RName{}, record_info(fields, RName))).
+    rfc4627:to_record(R, #RName{}, record_info(fields, RName))).
 
 -record(address, {number, street, town, country = <<"England">>}).
 
@@ -81,15 +81,15 @@ test_codec({Erl, Json}) ->
 test_codec({Erl, Json, EofExpected}) ->
     %% We can test Erl -> Json -> Erl, but not Json -> Erl ->
     %% Json. However, we can test Json -> Erl.
-    Bin = ti_rfc4627:encode(Erl),
+    Bin = rfc4627:encode(Erl),
     Len = length(Bin),
     [H|T] = Bin,
     IsBool = is_binary(Bin),
     IsBool,
     ABin = <<"123">>,
     %BBin = <<Bin>>,
-    {ok, Erl, []} = ti_rfc4627:decode(Bin),
-    {ok, Erl, Rest} = ti_rfc4627:decode(Json),
+    {ok, Erl, []} = rfc4627:decode(Bin),
+    {ok, Erl, Rest} = rfc4627:decode(Json),
     {at_eof, EofExpected} = {at_eof, (Rest == [])},
     passed.
 
@@ -102,27 +102,27 @@ test_unicode() ->
 test_unicode_encodings() ->
     ZWaterBass = [16#0000007A, 16#00006C34, 16#0001D11E],
     U32B = [0, 0, 16#00, 16#7A, 0, 0, 16#6C, 16#34, 0, 1, 16#D1, 16#1E]
-    = ti_rfc4627:unicode_encode({'utf-32be', ZWaterBass}),
+    = rfc4627:unicode_encode({'utf-32be', ZWaterBass}),
     U32L = [16#7A, 0, 0, 0, 16#34, 16#6C, 0, 0, 16#1E, 16#D1, 1, 0]
-    = ti_rfc4627:unicode_encode({'utf-32le', ZWaterBass}),
+    = rfc4627:unicode_encode({'utf-32le', ZWaterBass}),
     U32B_BOM = [0, 0, 16#FE, 16#FF, 0, 0, 16#00, 16#7A, 0, 0, 16#6C, 16#34, 0, 1, 16#D1, 16#1E]
-    = ti_rfc4627:unicode_encode({'utf-32', ZWaterBass}),
+    = rfc4627:unicode_encode({'utf-32', ZWaterBass}),
     U16L = [16#7A, 16#00, 16#34, 16#6C, 16#34, 16#D8, 16#1E, 16#DD]
-    = ti_rfc4627:unicode_encode({'utf-16le', ZWaterBass}),
+    = rfc4627:unicode_encode({'utf-16le', ZWaterBass}),
     U16B = [16#00, 16#7A, 16#6C, 16#34, 16#D8, 16#34, 16#DD, 16#1E]
-    = ti_rfc4627:unicode_encode({'utf-16be', ZWaterBass}),
+    = rfc4627:unicode_encode({'utf-16be', ZWaterBass}),
     U16B_BOM = [16#FE, 16#FF, 16#00, 16#7A, 16#6C, 16#34, 16#D8, 16#34, 16#DD, 16#1E]
-    = ti_rfc4627:unicode_encode({'utf-16', ZWaterBass}),
+    = rfc4627:unicode_encode({'utf-16', ZWaterBass}),
     U8 = [16#7A, 16#E6,16#B0,16#B4, 16#F0,16#9D,16#84,16#9E]
-    = ti_rfc4627:unicode_encode({'utf-8', ZWaterBass}),
-    {'utf-32be', ZWaterBass} = ti_rfc4627:unicode_decode(U32B),
-    {'utf-32le', ZWaterBass} = ti_rfc4627:unicode_decode(U32L),
-    {'utf-32', ZWaterBass} = ti_rfc4627:unicode_decode(U32B_BOM),
-    {'utf-16be', ZWaterBass} = ti_rfc4627:unicode_decode(U16B),
-    {'utf-16le', ZWaterBass} = ti_rfc4627:unicode_decode(U16L),
-    {'utf-16', ZWaterBass} = ti_rfc4627:unicode_decode(U16B_BOM),
-    {'utf-8', ZWaterBass} = ti_rfc4627:unicode_decode(U8),
-    {'utf-8', ZWaterBass} = ti_rfc4627:unicode_decode([16#EF,16#BB,16#BF]++U8),
+    = rfc4627:unicode_encode({'utf-8', ZWaterBass}),
+    {'utf-32be', ZWaterBass} = rfc4627:unicode_decode(U32B),
+    {'utf-32le', ZWaterBass} = rfc4627:unicode_decode(U32L),
+    {'utf-32', ZWaterBass} = rfc4627:unicode_decode(U32B_BOM),
+    {'utf-16be', ZWaterBass} = rfc4627:unicode_decode(U16B),
+    {'utf-16le', ZWaterBass} = rfc4627:unicode_decode(U16L),
+    {'utf-16', ZWaterBass} = rfc4627:unicode_decode(U16B_BOM),
+    {'utf-8', ZWaterBass} = rfc4627:unicode_decode(U8),
+    {'utf-8', ZWaterBass} = rfc4627:unicode_decode([16#EF,16#BB,16#BF]++U8),
     passed.
 
 test_unicode_json() ->
@@ -133,22 +133,22 @@ test_unicode_json() ->
     U8 = [16#7A, 16#E6,16#B0,16#B4, 16#F0,16#9D,16#84,16#9E],
     U8Bin = list_to_binary(U8),
     {utf8_decode, {ok, U8Bin, ""}} =
-    {utf8_decode, ti_rfc4627:decode("\"" ++ U8 ++ "\"")},
+    {utf8_decode, rfc4627:decode("\"" ++ U8 ++ "\"")},
     {utf16_decode, {ok, U8Bin, ""}} =
-    {utf16_decode, ti_rfc4627:decode(U16BQuote ++ U16B ++ U16BQuote)},
+    {utf16_decode, rfc4627:decode(U16BQuote ++ U16B ++ U16BQuote)},
     {utf32_decode, {ok, U8Bin, ""}} =
-    {utf32_decode, ti_rfc4627:decode(U32LQuote ++ U32L ++ U32LQuote)},
+    {utf32_decode, rfc4627:decode(U32LQuote ++ U32L ++ U32LQuote)},
     {u_escape_decode, {ok, U8Bin, ""}} =
-    {u_escape_decode, ti_rfc4627:decode("\"\\u007a\\u6c34\\ud834\\udd1e\"")},
+    {u_escape_decode, rfc4627:decode("\"\\u007a\\u6c34\\ud834\\udd1e\"")},
     {u_escape_decode, {ok, U8Bin, ""}} =
-    {u_escape_decode, ti_rfc4627:decode("\"z\\u6C34\\uD834\\uDD1E\"")},
+    {u_escape_decode, rfc4627:decode("\"z\\u6C34\\uD834\\uDD1E\"")},
     UnicodeKeyed = {obj, [{[16#C5], list_to_binary(xmerl_ucs:to_utf8([16#C5]))}]},
     {utf8_roundtrip, {ok, UnicodeKeyed, ""}} =
-    {utf8_roundtrip, ti_rfc4627:decode(ti_rfc4627:encode(UnicodeKeyed))},
+    {utf8_roundtrip, rfc4627:decode(rfc4627:encode(UnicodeKeyed))},
     {utf16_roundtrip, {ok, UnicodeKeyed, ""}} =
-    {utf16_roundtrip, ti_rfc4627:decode(ti_rfc4627:unicode_encode({'utf-16le', ti_rfc4627:encode_noauto(UnicodeKeyed)}))},
+    {utf16_roundtrip, rfc4627:decode(rfc4627:unicode_encode({'utf-16le', rfc4627:encode_noauto(UnicodeKeyed)}))},
     {utf32_roundtrip, {ok, UnicodeKeyed, ""}} =
-    {utf32_roundtrip, ti_rfc4627:decode(ti_rfc4627:unicode_encode({'utf-32be', ti_rfc4627:encode_noauto(UnicodeKeyed)}))},
+    {utf32_roundtrip, rfc4627:decode(rfc4627:unicode_encode({'utf-32be', rfc4627:encode_noauto(UnicodeKeyed)}))},
     passed.
 
 test_records() ->
@@ -160,7 +160,7 @@ test_records() ->
     A = ?RFC4627_TO_RECORD(address, {obj, [{"number", 6},
                        {"street", <<"Rufus Street">>},
                        {"town", <<"London">>}]}),
-    {ok, AEnc, []} = ti_rfc4627:decode(ti_rfc4627:encode(AEnc)),
+    {ok, AEnc, []} = rfc4627:decode(rfc4627:encode(AEnc)),
     passed.
 
 test_dict() ->
@@ -168,51 +168,51 @@ test_dict() ->
                        dict:append("c", 1,
                                    dict:store("b", <<"hello">>,
                                               dict:store("a", 123, dict:new())))),
-    {ok, Obj, ""} = ti_rfc4627:decode(ti_rfc4627:encode(Dict)),
-    {ok, 123} = ti_rfc4627:get_field(Obj, "a"),
-    {ok, <<"hello">>} = ti_rfc4627:get_field(Obj, "b"),
-    {ok, [1, 2]} = ti_rfc4627:get_field(Obj, "c"),
+    {ok, Obj, ""} = rfc4627:decode(rfc4627:encode(Dict)),
+    {ok, 123} = rfc4627:get_field(Obj, "a"),
+    {ok, <<"hello">>} = rfc4627:get_field(Obj, "b"),
+    {ok, [1, 2]} = rfc4627:get_field(Obj, "c"),
     passed.
 
 test_exclude() ->
     Dict = dict:store("c", 2,
                         dict:store("b", <<"hello">>,
                             dict:store("a", 123, dict:new()))),
-    {ok, Obj, ""} = ti_rfc4627:decode(ti_rfc4627:encode(Dict)),
-    Obj2 = ti_rfc4627:exclude_field(Obj, "a"),
-    true = ti_rfc4627:equiv({obj, [{"c", 2}, {"b", <<"hello">>}]}, Obj2),
-    Obj3 = ti_rfc4627:exclude_field(Obj2, "b"),
-    true = ti_rfc4627:equiv({obj, [{"c", 2}]}, Obj3),
-    Obj4 = ti_rfc4627:exclude_field(Obj3, "x"),
-    true = ti_rfc4627:equiv({obj, [{"c", 2}]}, Obj4),
-    Obj5 = ti_rfc4627:exclude_field(Obj3, "c"),
-    true = ti_rfc4627:equiv({obj, []}, Obj5),
+    {ok, Obj, ""} = rfc4627:decode(rfc4627:encode(Dict)),
+    Obj2 = rfc4627:exclude_field(Obj, "a"),
+    true = rfc4627:equiv({obj, [{"c", 2}, {"b", <<"hello">>}]}, Obj2),
+    Obj3 = rfc4627:exclude_field(Obj2, "b"),
+    true = rfc4627:equiv({obj, [{"c", 2}]}, Obj3),
+    Obj4 = rfc4627:exclude_field(Obj3, "x"),
+    true = rfc4627:equiv({obj, [{"c", 2}]}, Obj4),
+    Obj5 = rfc4627:exclude_field(Obj3, "c"),
+    true = rfc4627:equiv({obj, []}, Obj5),
     passed.
 
 test_equiv() ->
-    true = ti_rfc4627:equiv([1, 2], [1, 2]),
-    false = ti_rfc4627:equiv([1, 2], [2, 1]),
-    false = ti_rfc4627:equiv([1, 2], [1]),
-    false = ti_rfc4627:equiv([1], [1, 2]),
-    true = ti_rfc4627:equiv([], []),
-    false = ti_rfc4627:equiv([], [1]),
-    false = ti_rfc4627:equiv([1], []),
+    true = rfc4627:equiv([1, 2], [1, 2]),
+    false = rfc4627:equiv([1, 2], [2, 1]),
+    false = rfc4627:equiv([1, 2], [1]),
+    false = rfc4627:equiv([1], [1, 2]),
+    true = rfc4627:equiv([], []),
+    false = rfc4627:equiv([], [1]),
+    false = rfc4627:equiv([1], []),
 
-    true = ti_rfc4627:equiv({obj, [{"a", true}, {"b", 123}]}, {obj, [{"a", true}, {"b", 123}]}),
-    true = ti_rfc4627:equiv({obj, [{"a", true}, {"b", 123}]}, {obj, [{"b", 123}, {"a", true}]}),
-    false = ti_rfc4627:equiv({obj, [{"a", true}, {"b", 124}]}, {obj, [{"a", true}, {"b", 123}]}),
-    false = ti_rfc4627:equiv({obj, [{"b", 123}]}, {obj, [{"a", true}, {"b", 123}]}),
-    false = ti_rfc4627:equiv({obj, [{"a", true}, {"b", 123}]}, {obj, [{"b", 123}]}),
-    true = ti_rfc4627:equiv({obj, []}, {obj, []}),
-    false = ti_rfc4627:equiv({obj, []}, {obj, [{"a", true}, {"b", 123}]}),
+    true = rfc4627:equiv({obj, [{"a", true}, {"b", 123}]}, {obj, [{"a", true}, {"b", 123}]}),
+    true = rfc4627:equiv({obj, [{"a", true}, {"b", 123}]}, {obj, [{"b", 123}, {"a", true}]}),
+    false = rfc4627:equiv({obj, [{"a", true}, {"b", 124}]}, {obj, [{"a", true}, {"b", 123}]}),
+    false = rfc4627:equiv({obj, [{"b", 123}]}, {obj, [{"a", true}, {"b", 123}]}),
+    false = rfc4627:equiv({obj, [{"a", true}, {"b", 123}]}, {obj, [{"b", 123}]}),
+    true = rfc4627:equiv({obj, []}, {obj, []}),
+    false = rfc4627:equiv({obj, []}, {obj, [{"a", true}, {"b", 123}]}),
 
-    true = ti_rfc4627:equiv(<<"ab">>, <<"ab">>),
-    false = ti_rfc4627:equiv(<<"ab">>, <<"a">>),
-    true = ti_rfc4627:equiv(<<>>, <<>>),
+    true = rfc4627:equiv(<<"ab">>, <<"ab">>),
+    false = rfc4627:equiv(<<"ab">>, <<"a">>),
+    true = rfc4627:equiv(<<>>, <<>>),
 
     passed.
 
 test_eof_detection() ->
-    {error, unexpected_end_of_input} = ti_rfc4627:decode(""),
-    {error, syntax_error} = ti_rfc4627:decode("()"),
+    {error, unexpected_end_of_input} = rfc4627:decode(""),
+    {error, syntax_error} = rfc4627:decode("()"),
     passed.

@@ -4,7 +4,7 @@
 
 -module(mysql_msg_handler).
 
--include("ti_header.hrl").
+-include("header.hrl").
 
 %-export([vdr2db_msg_handler/0]).
 

@@ -6,7 +6,7 @@
 
 -module(vdr_data_parser).
 
--include("ti_header.hrl").
+-include("header.hrl").
 
 -export([process_data/2, bxorbytelist/1]).
 
@@ -34,7 +34,7 @@ process_data(State, Data) ->
     try do_process_data(State, Data)
     catch
         _:Why ->
-            ti_common:loginfo("Parsing VDR data exception : ~p~n", [Why]),
+            common:loginfo("Parsing VDR data exception : ~p~n", [Why]),
             {error, exception, State}
     end.
 
@@ -82,7 +82,7 @@ do_process_data(State, Data) ->
                                             {warning, HeadInfo, ?P_GENRESP_NOTSUPPORT, State}
                                     end;
                                 BodyLen =/= ActBodyLen ->
-                                    ti_common:logerror("Length error for msg (~p) from (~p) : (Field)~p:(Actual)~p~n", [MsgIdx, State#vdritem.addr, BodyLen, ActBodyLen]),
+                                    common:logerror("Length error for msg (~p) from (~p) : (Field)~p:(Actual)~p~n", [MsgIdx, State#vdritem.addr, BodyLen, ActBodyLen]),
                                     {warning, HeadInfo, ?P_GENRESP_ERRMSG, State}
                             end;
                         1 ->
@@ -92,15 +92,15 @@ do_process_data(State, Data) ->
                             <<Total:16,Index:16>> = <<PackInfo:32>>,
                             if
                                 Total =< 1 ->
-                                    ti_common:logerror("Total error for msg (~p) from (~p) : ~p~n", [MsgIdx, State#vdritem.addr, Total]),
+                                    common:logerror("Total error for msg (~p) from (~p) : ~p~n", [MsgIdx, State#vdritem.addr, Total]),
                                     {warning, HeadInfo, ?P_GENRESP_ERRMSG, State};
                                 Total > 1 ->
                                     if
                                         Index < 1 ->
-                                            ti_common:logerror("Index error for msg (~p) from (~p) : (Index)~p~n", [MsgIdx, State#vdritem.addr, Index]),
+                                            common:logerror("Index error for msg (~p) from (~p) : (Index)~p~n", [MsgIdx, State#vdritem.addr, Index]),
                                             {warning, HeadInfo, ?P_GENRESP_ERRMSG, State};
                                         Index > Total ->
-                                            ti_common:logerror("Index error for msg (~p) from (~p) : (Total)~p:(Index)~p~n", [MsgIdx, State#vdritem.addr, Total, Index]),
+                                            common:logerror("Index error for msg (~p) from (~p) : (Total)~p:(Index)~p~n", [MsgIdx, State#vdritem.addr, Total, Index]),
                                             {warning, HeadInfo, ?P_GENRESP_ERRMSG, State};
                                         Index =< Total ->
                                             if
@@ -119,14 +119,14 @@ do_process_data(State, Data) ->
                                                             {ignore, HeadInfo, NewState}
                                                     end;
                                                 BodyLen =/= ActBodyLen ->
-                                                    ti_common:logerror("Length error for msg (~p) from (~p) : (Field)~p:(Actual)~p~n", [MsgIdx, State#vdritem.addr, BodyLen, ActBodyLen]),
+                                                    common:logerror("Length error for msg (~p) from (~p) : (Field)~p:(Actual)~p~n", [MsgIdx, State#vdritem.addr, BodyLen, ActBodyLen]),
                                                     {warning, HeadInfo, ?P_GENRESP_ERRMSG, State}
                                             end
                                     end
                             end
                     end;
                 CalcParity =/= Parity ->
-                    ti_common:logerror("Parity error (calculated)~p:(data)~p from ~p~n", [CalcParity, Parity, State#vdritem.addr]),
+                    common:logerror("Parity error (calculated)~p:(data)~p from ~p~n", [CalcParity, Parity, State#vdritem.addr]),
                     {error, parityerror, State}
             end;
         error ->
@@ -167,7 +167,7 @@ restore_7d_7e_msg(State, Data) ->
             FinalResult = binary:replace(Result, <<125,2>>, <<126>>, [global]),
             {ok, FinalResult};
         true ->
-            ti_common:logerror("Wrong data head/tail from ~p~n: (Head)~p / (Tail)~p",[State#vdritem.addr, Head, Tail]),
+            common:logerror("Wrong data head/tail from ~p~n: (Head)~p / (Tail)~p",[State#vdritem.addr, Head, Tail]),
             error
     end.
 

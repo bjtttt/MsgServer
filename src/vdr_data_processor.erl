@@ -24,7 +24,7 @@
 
 -module(vdr_data_processor).
 
--include("ti_header.hrl").
+-include("header.hrl").
 
 -export([parse_msg_body/2]).
 
@@ -102,7 +102,7 @@ parse_msg_body(ID, Body) ->
     try do_parse_msg_body(ID, Body)
     catch
         _:Exception ->
-            ti_common:logerror("do_parse_msg_body(ID=~p, Body) exception : ~p~n", [ID, Exception]),
+            common:logerror("do_parse_msg_body(ID=~p, Body) exception : ~p~n", [ID, Exception]),
             {error, msgerr}
     end.
 
