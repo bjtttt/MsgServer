@@ -102,7 +102,7 @@ do_process_data(Data) ->
                                     {"SID", SID} = get_specific_entry(Content, "SID"),
                                     {"LIST", List} = get_specific_entry(Content, "LIST"),
                                     {"STATUS", Status} = get_specific_entry(Content, "STATUS"),
-                                    VIDList = get_list("VID", List),
+                                    VIDList = get_vid_list(List),
                                     LenVIDList = length(VIDList),
                                     case Status of
                                         0 ->
@@ -123,32 +123,13 @@ do_process_data(Data) ->
                                 true ->
                                     {error, length_error}
                             end;
-                        %16#4001 ->
-                        %    if
-                        %        Len == 4 ->
-                        %            {"SN", SN} = get_specific_entry(Content, "SN"),
-                        %            {"SID", SID} = get_specific_entry(Content, "SID"),
-                        %            {"STATUS", Status} = get_specific_entry(Content, "STATUS"),
-                        %            {ok, Mid, [SN, SID, Status]};
-                        %        true ->
-                        %            {error, length_error}
-                        %    end;
-                        %16#4002 ->
-                        %    if
-                        %        Len == 2 ->
-                        %            {"LIST", List} = get_specific_entry(Content, "LIST"),
-                        %            VIDList = get_list("VID", List),
-                        %            {ok, Mid, [VIDList]};
-                        %        true ->
-                        %            {error, length_error}
-                        %    end;
                         16#8103 ->
                             if
                                 Len == 4 ->
                                     {"LIST", List} = get_specific_entry(Content, "LIST"),
                                     {"SN", SN} = get_specific_entry(Content, "SN"),
                                     {"DATA", DATA} = get_specific_entry(Content, "DATA"),
-                                    VIDList = get_list("VID", List),
+                                    VIDList = get_vid_list(List),
                                     DataLen = length(DATA),
                                     if
                                         DataLen == 2 ->
@@ -167,7 +148,7 @@ do_process_data(Data) ->
                                     {"LIST", List} = get_specific_entry(Content, "LIST"),
                                     {"SN", SN} = get_specific_entry(Content, "SN"),
                                     {"DATA", DATA} = get_specific_entry(Content, "DATA"),
-                                    VIDList = get_list("VID", List),
+                                    VIDList = get_vid_list(List),
                                     DataLen = length(DATA),
                                     if
                                         DataLen == 2 ->
@@ -186,7 +167,7 @@ do_process_data(Data) ->
                                     {"LIST", List} = get_specific_entry(Content, "LIST"),
                                     {"SN", SN} = get_specific_entry(Content, "SN"),
                                     {"DATA", DATA} = get_specific_entry(Content, "DATA"),
-                                    VIDList = get_list("VID", List),
+                                    VIDList = get_vid_list(List),
                                     DataLen = length(DATA),
                                     if
                                         DataLen == 12 ->
@@ -215,9 +196,9 @@ do_process_data(Data) ->
                                     {"LIST", List} = get_specific_entry(Content, "LIST"),
                                     {"SN", SN} = get_specific_entry(Content, "SN"),
                                     {"DATA", DATA} = get_specific_entry(Content, "DATA"),
-                                    VIDList = get_list("VID", List),
+                                    VIDList = get_vid_list(List),
                                     [{"LIST", LIST}] = DATA,
-                                    DataList = get_list("ID", LIST),
+                                    DataList = get_vid_list(LIST),% MAYBE WRONG !!!!!! get_vid_list("ID", LIST),
                                     {ok, Mid, [SN, VIDList, DataList]};
                                 true ->
                                     {error, length_error}
@@ -230,7 +211,7 @@ do_process_data(Data) ->
                                     {"LIST", List} = get_specific_entry(Content, "LIST"),
                                     {"SN", SN} = get_specific_entry(Content, "SN"),
                                     {"DATA", DATA} = get_specific_entry(Content, "DATA"),
-                                    VIDList = get_list("VID", List),
+                                    VIDList = get_vid_list(List),
                                     DataLen = length(DATA),
                                     if
                                         DataLen == 2 ->
@@ -249,7 +230,7 @@ do_process_data(Data) ->
                                     {"LIST", List} = get_specific_entry(Content, "LIST"),
                                     {"SN", SN} = get_specific_entry(Content, "SN"),
                                     {"DATA", DATA} = get_specific_entry(Content, "DATA"),
-                                    VIDList = get_list("VID", List),
+                                    VIDList = get_vid_list(List),
                                     DataLen = length(DATA),
                                     if
                                         DataLen == 2 ->
@@ -268,7 +249,7 @@ do_process_data(Data) ->
                                     {"LIST", List} = get_specific_entry(Content, "LIST"),
                                     {"SN", SN} = get_specific_entry(Content, "SN"),
                                     {"DATA", DATA} = get_specific_entry(Content, "DATA"),
-                                    VIDList = get_list("VID", List),
+                                    VIDList = get_vid_list(List),
                                     DataLen = length(DATA),
                                     if
                                         DataLen == 5 ->
@@ -293,7 +274,7 @@ do_process_data(Data) ->
                         %            {"LIST", List} = ListPair,
                         %            {"SN", SN} = SNPair,
                         %            {"DATA", DATA} = DataPair,
-                        %            VIDList = get_list("VID", List),
+                        %            VIDList = get_vid_list(List),
                         %            DataLen = length(DATA),
                         %            if
                         %                DataLen == 1 ->
@@ -311,7 +292,7 @@ do_process_data(Data) ->
                                     {"LIST", List} = get_specific_entry(Content, "LIST"),
                                     {"SN", SN} = get_specific_entry(Content, "SN"),
                                     {"DATA", DATA} = get_specific_entry(Content, "DATA"),
-                                    VIDList = get_list("VID", List),
+                                    VIDList = get_vid_list(List),
                                     DataLen = length(DATA),
                                     if
                                         DataLen == 2 ->
@@ -330,7 +311,7 @@ do_process_data(Data) ->
                                     {"LIST", List} = get_specific_entry(Content, "LIST"),
                                     {"SN", SN} = get_specific_entry(Content, "SN"),
                                     {"DATA", DATA} = get_specific_entry(Content, "DATA"),
-                                    VIDList = get_list("VID", List),
+                                    VIDList = get_vid_list(List),
                                     DataLen = length(DATA),
                                     if
                                         DataLen == 2 ->
@@ -350,7 +331,7 @@ do_process_data(Data) ->
                                     {"LIST", List} = get_specific_entry(Content, "LIST"),
                                     {"SN", SN} = get_specific_entry(Content, "SN"),
                                     {"DATA", DATA} = get_specific_entry(Content, "DATA"),
-                                    VIDList = get_list("VID", List),
+                                    VIDList = get_vid_list(List),
                                     DataLen = length(DATA),
                                     if
                                         DataLen == 1 ->
@@ -373,7 +354,7 @@ do_process_data(Data) ->
                         %            {"STATUS", Status} = StatusPair,
                         %            {"LIST", List} = ListPair,
                         %            {"DATA", DATA} = DataPair,
-                        %            VIDList = get_list("VID", List),
+                        %            VIDList = get_vid_list(List),
                         %            DataLen = length(DATA),
                         %            case Status of
                         %                0 ->
@@ -406,7 +387,7 @@ do_process_data(Data) ->
                                     {"LIST", List} = get_specific_entry(Content, "LIST"),
                                     {"SN", SN} = get_specific_entry(Content, "SN"),
                                     {"DATA", DATA} = get_specific_entry(Content, "DATA"),
-                                    VIDList = get_list("VID", List),
+                                    VIDList = get_vid_list(List),
                                     DataLen = length(DATA),
                                     if
                                         DataLen == 10 ->
@@ -434,7 +415,7 @@ do_process_data(Data) ->
                                     {"LIST", List} = get_specific_entry(Content, "LIST"),
                                     {"STATUS", Status} = get_specific_entry(Content, "STATUS"),
                                     {"DATA", DATA} = get_specific_entry(Content, "DATA"),
-                                    VIDList = get_list("VID", List),
+                                    VIDList = get_vid_list(List),
                                     DataLen = length(DATA),
                                     case Status of
                                         0 ->
@@ -451,7 +432,7 @@ do_process_data(Data) ->
                                                 true ->
                                                     if
                                                         DataLen > 0 ->
-                                                            DataList = get_list("ID", DATA),
+                                                            DataList = get_vid_list(DATA),% MAYBE WRONG HERE !!!!!!! get_vid_list("ID", DATA),
                                                             {ok, Mid, [SN, VIDList, Status, DataList]};
                                                         true ->
                                                             {error, format_error}
@@ -467,7 +448,7 @@ do_process_data(Data) ->
                                     {"LIST", List} = get_specific_entry(Content, "LIST"),
                                     {"SN", SN} = get_specific_entry(Content, "SN"),
                                     {"DATA", DATA} = get_specific_entry(Content, "DATA"),
-                                    VIDList = get_list("VID", List),
+                                    VIDList = get_vid_list(List),
                                     DataLen = length(DATA),
                                     if
                                         DataLen == 4 ->
@@ -527,24 +508,18 @@ get_specific_entry(_List, ID) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %
-% ID        :
-% VIDList   : 
+% VIDList   : [{"VID":1},{"VID":2},...]
 %
 % Return    :
 %       [VID1, VID2, ...]|[]
 %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-get_list(ID, VIDList) when is_list(VIDList) ->
-    Len = length(VIDList),
-    if
-        Len < 1 ->
-            [];
-        true ->
-            [H|T] = VIDList,
-            {ID, VID} = H,
-            [VID|get_list(ID, T)]
-    end;
-get_list(_ID, _VIDList) ->
+get_vid_list(VIDList) when is_list(VIDList),
+                           length(VIDList) > 0 ->
+    [H|T] = VIDList,
+    {_ID, VID} = H,
+    [VID|get_vid_list(T)];
+get_vid_list(_VIDList) ->
     [].
 
 %%%
