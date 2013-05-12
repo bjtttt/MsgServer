@@ -192,8 +192,8 @@ do_process_data(Data) ->
                         16#8602 ->
                             if
                                 Len == 4 ->
-                                    {"LIST", List} = get_specific_entry(Content, "LIST"),
                                     {"SN", SN} = get_specific_entry(Content, "SN"),
+                                    {"LIST", List} = get_specific_entry(Content, "LIST"),
                                     {"DATA", DATA} = get_specific_entry(Content, "DATA"),
                                     VIDList = get_vid_list(List),
                                     DataLen = length(DATA),
@@ -226,11 +226,13 @@ do_process_data(Data) ->
                                     {"DATA", DATA} = get_specific_entry(Content, "DATA"),
                                     VIDList = get_vid_list(List),
                                     [{"LIST", LIST}] = DATA,
-                                    DataList = get_vid_list(LIST),% MAYBE WRONG !!!!!! get_vid_list("ID", LIST),
+                                    DataList = get_vid_list(LIST),
                                     {ok, Mid, [SN, VIDList, DataList]};
                                 true ->
                                     {error, length_error}
                             end;
+                        16#8105 ->
+                            {error, format_error};
                         16#8605 ->
                             {error, format_error};
                         16#8202 ->
@@ -536,7 +538,10 @@ get_specific_entry(_List, ID) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %
+% It can be use for the following similar list regardless of "VID", "ID" or the other key
+%
 % VIDList   : [{"VID":1},{"VID":2},...]
+%           : [{"ID":1},{"ID":2},...]
 %
 % Return    :
 %       [VID1, VID2, ...]|[]
