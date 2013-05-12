@@ -18,7 +18,8 @@
          create_init_msg/0,
          create_term_online/1,
          create_term_offline/1,
-         %create_term_alarm/8,
+         create_authen/1,
+         create_term_alarm/8,
          create_term_answer/3,
          create_vehicle_ctrl_answer/4,
          create_shot_resp/4]).
@@ -123,11 +124,38 @@ do_process_data(Data) ->
                                 true ->
                                     {error, length_error}
                             end;
+                        16#4001 ->
+                            if
+                                Len == 4 ->
+                                    {"SN", SN} = get_specific_entry(Content, "SN"),
+                                    {"SID", SID} = get_specific_entry(Content, "SID"),
+                                    {"STATUS", Status} = get_specific_entry(Content, "STATUS"),
+                                    {ok, Mid, [SN, SID, Status]};
+                                true ->
+                                    {error, length_error}
+                            end;
+                        16#4002 ->
+                            if
+                                Len == 2 ->
+                                    {"LIST", List} = get_specific_entry(Content, "LIST"),
+                                    VIDList = get_vid_list(List),
+                                    {ok, Mid, [VIDList]};
+                                true ->
+                                    {error, length_error}
+                            end;
+                        16#4003 ->
+                            if
+                                Len == 2 ->
+                                    {"TOKEN", Token} = get_specific_entry(Content, "TOKEN"),
+                                    {ok, Mid, Token};
+                                true ->
+                                    {error, length_error}
+                            end;
                         16#8103 ->
                             if
                                 Len == 4 ->
-                                    {"LIST", List} = get_specific_entry(Content, "LIST"),
                                     {"SN", SN} = get_specific_entry(Content, "SN"),
+                                    {"LIST", List} = get_specific_entry(Content, "LIST"),
                                     {"DATA", DATA} = get_specific_entry(Content, "DATA"),
                                     VIDList = get_vid_list(List),
                                     DataLen = length(DATA),
@@ -552,16 +580,16 @@ create_init_msg() ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %
-%   MID     : 0x0001
-%   SN      : Response flow index, the same as the websocket message flow index
-%   SID     : Response ID, the same as the websocket message ID
-%   STATUS  : Result, 0 ~ 3
+% MID       : 0x0001
+% SN        : Response flow index, the same as the websocket message flow index
+% SID       : Response ID, the same as the websocket message ID
+% STATUS    : Result, 0 ~ 3
 %               0   - success/ack
 %               1   - failure
 %               2   - message has error
 %               3   - not supported
-%   MSG     : (NA)
-%   List    : [ID0, ID1, ID2, ...]
+% MSG       : (NA)
+% List      : [ID0, ID1, ID2, ...]
 %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 create_gen_resp(SN, SID, List, MSG, STATUS) when is_integer(SN), 
@@ -588,7 +616,7 @@ create_gen_resp(_SN, _SID, _List, _MSG, _STATUS) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %
-%   MID     : 0x0002
+% MID   : 0x0002
 %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 create_pulse() ->
@@ -602,38 +630,54 @@ create_pulse() ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 create_term_online(List) ->
     MIDStr = "\"MID\":3",
-    VIDListStr = string:concat(string:concat("\"LIST\":[",  create_list(["\"VID\""], List, false)), "]"),
+    VIDListStr = common:combine_strings(["\"LIST\":[",  create_list(["\"VID\""], List, false), "]"]),
 	Body = common:combine_strings([MIDStr, VIDListStr]),
     {ok, common:combine_strings(["{", Body, "}"], false)}.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %
-%   MID     : 0x0004
-%   List    : [ID0, ID1, ID2, ...]
+% MID   : 0x0004
+% List  : [ID0, ID1, ID2, ...]
 %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 create_term_offline(List) ->
     MIDStr = "\"MID\":4",
-    VIDListStr = string:concat(string:concat("\"LIST\":[",  create_list(["\"VID\""], List, false)), "]"),
+    VIDListStr = common:combine_strings(["\"LIST\":[",  create_list(["\"VID\""], List, false), "]"]),
 	Body = common:combine_strings([MIDStr, VIDListStr]),
     {ok, common:combine_strings(["{", Body, "}"], false)}.
 
-%%%
-%%% MID : 0x0200
-%%% List : [ID0, ID1, ID2, ...]
-%%%
-%create_term_alarm(List, SN, Code, AF, SF, Lat, Long, T) ->
-%    if
-%        is_integer(SN) ->
-%            MIDStr = "\"MID\":512",
-%            SNStr = string:concat("\"SN\":", integer_to_list(SN)),
-%            VIDListStr = string:concat(string:concat("\"LIST\":[",  create_list(["\"VID\""], List, false)), "]"),
-%            DataListStr = string:concat(string:concat("\"DATA\":{",  create_list(["\"CODE\"", "\"AF\"", "\"SF\"", "\"LAT\"", "\"LONG\"", "\"T\""], [Code, AF, SF, Lat, Long, T], true)), "}"),
-%            Body = common:combine_strings([MIDStr, SNStr, VIDListStr, DataListStr]),
-%            {ok, common:combine_strings(["{", Body, "}"], false)};
-%        true ->
-%            error
-%    end.
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%
+% MID   : 0x0005
+% Token : it must be string
+%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+create_authen(Token) ->
+    MIDStr = "\"MID\":5",
+    case common:is_string(Token) of
+        true ->
+            {ok, common:combine_strings(["{", MIDStr, "\"TOKEN\":", Token, "}"], false)};
+        _ ->
+            {ok, common:combine_strings(["{", MIDStr, "\"TOKEN\":\"\"", "}"], false)}
+    end.            
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%
+% MID   : 0x0200
+% List  : [ID0, ID1, ID2, ...]
+% SN    : message flow index
+% CODE  : vehicle code
+%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+create_term_alarm(List, SN, Code, AF, SF, Lat, Long, T) when is_integer(SN)->
+    MIDStr = "\"MID\":512",
+    SNStr = string:concat("\"SN\":", integer_to_list(SN)),
+    VIDListStr = common:combine_strings(["\"LIST\":[",  create_list(["\"VID\""], List, false), "]"]),
+    DataListStr = common:combine_strings(["\"DATA\":{",  create_list(["\"CODE\"", "\"AF\"", "\"SF\"", "\"LAT\"", "\"LONG\"", "\"T\""], [Code, AF, SF, Lat, Long, T], true), "}"]),
+    Body = common:combine_strings([MIDStr, SNStr, VIDListStr, DataListStr]),
+    {ok, common:combine_strings(["{", Body, "}"], false)};
+create_term_alarm(_List, _SN, _Code, _AF, _SF, _Lat, _Long, _T) ->
+    error.
 
 %%%
 %%% 0x0302
