@@ -14,6 +14,7 @@
 -export([process_data/1]).
 
 -export([create_gen_resp/5,
+         create_pulse/0,
          create_init_msg/0,
          create_term_online/1,
          create_term_offline/1,
@@ -94,22 +95,6 @@ do_process_data(Data) ->
                     MidPair = lists:nth(1, Content),
                     {"MID", Mid} = MidPair,
                     case Mid of
-                        %"0x0001" ->
-                        %    if
-                        %        Len == 5 ->
-                        %            SNPair = lists:nth(2, Content),
-                        %            SIDPair = lists:nth(3, Content),
-                        %            ListPair = lists:nth(4, Content),
-                        %            StatusPair = lists:nth(5, Content),
-                        %            {"SN", SN} = SNPair,
-                        %            {"SID", SID} = SIDPair,
-                        %            {"LIST", List} = ListPair,
-                        %            {"STATUS", Status} = StatusPair,
-                        %            VIDList = get_list("VID", List),
-                        %            {ok, Mid, [SN, SID, VIDList, Status]};
-                        %        true ->
-                        %            {error, length_error}
-                        %    end;
                         16#8001 ->
                             if
                                 Len == 5 ->
@@ -138,63 +123,22 @@ do_process_data(Data) ->
                                 true ->
                                     {error, length_error}
                             end;
-                        16#4001 ->
-                            if
-                                Len == 4 ->
-                                    {"SN", SN} = get_specific_entry(Content, "SN"),
-                                    {"SID", SID} = get_specific_entry(Content, "SID"),
-                                    {"STATUS", Status} = get_specific_entry(Content, "STATUS"),
-                                    {ok, Mid, [SN, SID, Status]};
-                                true ->
-                                    {error, length_error}
-                            end;
-                        16#4002 ->
-                            if
-                                Len == 2 ->
-                                    {"LIST", List} = get_specific_entry(Content, "LIST"),
-                                    VIDList = get_list("VID", List),
-                                    {ok, Mid, [VIDList]};
-                                true ->
-                                    {error, length_error}
-                            end;
-                        %"0x0003" ->
-                        %    if
-                        %        Len == 2 ->
-                        %            ListPair = lists:nth(2, Content),
-                        %            {"LIST", List} = ListPair,
-                        %            VIDList = get_list("VID", List),
-                        %            {ok, Mid, [VIDList]};
-                        %        true ->
-                        %            {error, length_error}
-                        %    end;
-                        %"0x0004" ->
-                        %    if
-                        %        Len == 2 ->
-                        %            ListPair = lists:nth(2, Content),
-                        %            {"LIST", List} = ListPair,
-                        %            VIDList = get_list("VID", List),
-                        %            {ok, Mid, [VIDList]};
-                        %        true ->
-                        %            {error, length_error}
-                        %    end;
-                        %"0x0200" ->
+                        %16#4001 ->
                         %    if
                         %        Len == 4 ->
-                        %            ListPair = lists:nth(2, Content),
-                        %            SNPair = lists:nth(3, Content),
-                        %            DataPair = lists:nth(4, Content),
-                        %            {"LIST", List} = ListPair,
-                        %            {"SN", SN} = SNPair,
-                        %            {"DATA", DATA} = DataPair,
+                        %            {"SN", SN} = get_specific_entry(Content, "SN"),
+                        %            {"SID", SID} = get_specific_entry(Content, "SID"),
+                        %            {"STATUS", Status} = get_specific_entry(Content, "STATUS"),
+                        %            {ok, Mid, [SN, SID, Status]};
+                        %        true ->
+                        %            {error, length_error}
+                        %    end;
+                        %16#4002 ->
+                        %    if
+                        %        Len == 2 ->
+                        %            {"LIST", List} = get_specific_entry(Content, "LIST"),
                         %            VIDList = get_list("VID", List),
-                        %            DataLen = length(DATA),
-                        %            if
-                        %                DataLen == 6 ->
-                        %                    [{"CODE", Code}, {"AF", AF}, {"SF", SF}, {"LAT", LAT}, {"LONG", LONG}, {"T", T}] = DATA,
-                        %                    {ok, Mid, [VIDList, SN, [Code, AF, SF, LAT, LONG, T]]};
-                        %                true ->
-                        %                    {error, format_error}
-                        %            end;
+                        %            {ok, Mid, [VIDList]};
                         %        true ->
                         %            {error, length_error}
                         %    end;
@@ -546,10 +490,16 @@ do_process_data(Data) ->
             {error, Reason}
     end.
 
-%%%
-%%%
-%%%
-get_specific_entry(List, ID) ->
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%
+% List  :
+% ID    : 
+%
+% Return    :
+%       {ID, Value|null}
+%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+get_specific_entry(List, ID) when is_list(List) ->
     case List of
         [] ->
             {ID, null};
@@ -565,28 +515,26 @@ get_specific_entry(List, ID) ->
                                 HID == ID ->
                                     {ID, HValue};
                                 true ->
-                                    case T of
-                                        [] ->
-                                            {ID, null};
-                                        _ ->
-                                            get_specific_entry(T, ID)
-                                    end
+                                    get_specific_entry(T, ID)
                             end
                     end;
                 _ ->
-                    case T of
-                        [] ->
-                            {ID, null};
-                        _ ->
-                            get_specific_entry(T, ID)
-                    end
+                    get_specific_entry(T, ID)
             end
-    end.
+    end;
+get_specific_entry(_List, ID) ->
+    {ID, null}.
 
-%%%
-%%%
-%%%
-get_list(ID, VIDList) ->
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%
+% ID        :
+% VIDList   : 
+%
+% Return    :
+%       [VID1, VID2, ...]|[]
+%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+get_list(ID, VIDList) when is_list(VIDList) ->
     Len = length(VIDList),
     if
         Len < 1 ->
@@ -595,7 +543,9 @@ get_list(ID, VIDList) ->
             [H|T] = VIDList,
             {ID, VID} = H,
             [VID|get_list(ID, T)]
-    end.
+    end;
+get_list(_ID, _VIDList) ->
+    [].
 
 %%%
 %%%
@@ -617,13 +567,16 @@ get_phone_name_list(PhoneNameList) ->
             end
     end.
     
-%%%
-%%%
-%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%
+% When WS need authencation, another initialization message will be used.
+%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 create_init_msg() ->
     {ok, "{\"MID\":5, \"TOKEN\":\"anystring\"}"}.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%
 %   MID     : 0x0001
 %   SN      : Response flow index, the same as the websocket message flow index
 %   SID     : Response ID, the same as the websocket message ID
@@ -634,6 +587,7 @@ create_init_msg() ->
 %               3   - not supported
 %   MSG     : (NA)
 %   List    : [ID0, ID1, ID2, ...]
+%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 create_gen_resp(SN, SID, List, MSG, STATUS) when is_integer(SN), 
                                                  is_integer(STATUS), 
@@ -645,11 +599,11 @@ create_gen_resp(SN, SID, List, MSG, STATUS) when is_integer(SN),
     if
         BoolSID andalso BoolMSG ->
             VIDListStr = common:combine_strings(["\"LIST\":[",  create_list(["\"VID\""], List, false), "]"]),
-			Body = common:combine_strings(["\"MID\":1", 
-                                              "\"SN\":", integer_to_list(SN),
-                                              "\"SID\":", SID,
-                                              VIDListStr,
-                                              "\"STATUS\":", integer_to_list(STATUS)]),
+			Body = common:combine_strings(["\"MID\":1",
+                                           "\"SN\":", integer_to_list(SN),
+                                           "\"SID\":", SID,
+                                           VIDListStr,
+                                           "\"STATUS\":", integer_to_list(STATUS)]),
             {ok, common:combine_strings(["{", Body, "}"], false)};
         true ->
             error
@@ -657,20 +611,32 @@ create_gen_resp(SN, SID, List, MSG, STATUS) when is_integer(SN),
 create_gen_resp(_SN, _SID, _List, _MSG, _STATUS) ->
     error.
 
-%%%
-%%% MID : 0x0003
-%%% List : [ID0, ID1, ID2, ...]
-%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%
+%   MID     : 0x0002
+%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+create_pulse() ->
+    {ok, "{\"MID\":2}"}.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%
+%   MID     : 0x0003
+%   List    : [ID0, ID1, ID2, ...]
+%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 create_term_online(List) ->
     MIDStr = "\"MID\":3",
     VIDListStr = string:concat(string:concat("\"LIST\":[",  create_list(["\"VID\""], List, false)), "]"),
 	Body = common:combine_strings([MIDStr, VIDListStr]),
     {ok, common:combine_strings(["{", Body, "}"], false)}.
 
-%%%
-%%% MID : 0x0004
-%%% List : [ID0, ID1, ID2, ...]
-%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%
+%   MID     : 0x0004
+%   List    : [ID0, ID1, ID2, ...]
+%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 create_term_offline(List) ->
     MIDStr = "\"MID\":4",
     VIDListStr = string:concat(string:concat("\"LIST\":[",  create_list(["\"VID\""], List, false)), "]"),
