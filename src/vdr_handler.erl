@@ -524,32 +524,34 @@ process_vdr_data(Socket, Data, State) ->
                                     send_sqls_to_db(conn, Sqls, NewState),
                                     
                                     FlowIdx = NewState#vdritem.msgflownum,
-                                    %PreviousAlarm = NewState#vdritem.alarm,
+                                    PreviousAlarm = NewState#vdritem.alarm,
                                     
                                     {H, _AppInfo} = Msg,
-                                    [AlarmSym, _StateFlag, _Lat, _Lon, _Height, _Speed, _Direction, _Time]= H,
-                                    %if
-                                    %    AlarmSym == PreviousAlarm ->
-                                    %        ok;
-                                    %    true ->
-                                    %        <<Year:8, Month:8, Day:8, Hour:8, Minute:8, Second:8>> = <<Time:48>>,
-                                    %        YearS = common:integer_to_binary(common:convert_bcd_integer(Year)),
-                                    %        MonthS = common:integer_to_binary(common:convert_bcd_integer(Month)),
-                                    %        DayS = common:integer_to_binary(common:convert_bcd_integer(Day)),
-                                    %        HourS = common:integer_to_binary(common:convert_bcd_integer(Hour)),
-                                    %        MinuteS = common:integer_to_binary(common:convert_bcd_integer(Minute)),
-                                    %        SecondS = common:integer_to_binary(common:convert_bcd_integer(Second)),
-                                    %        TimeS = list_to_binary([YearS, <<"-">>, MonthS, <<"-">>, DayS, <<" ">>, HourS, <<":">>, MinuteS, <<":">>, SecondS]),
-                                    %        {ok, WSUpdate} = wsock_data_parser:create_term_alarm([NewState#vdritem.vehicleid],
-                                    %                                                             FlowIdx,
-                                    %                                                             NewState#vdritem.vehiclecode,
-                                    %                                                             AlarmSym, StateFlag,
-                                    %                                                             Lat, Lon,
-                                    %                                                             binary_to_list(TimeS)),
-                                    %        common:loginfo("VDR (~p) WS : ~p~n", [NewState#vdritem.addr, WSUpdate]),
-                                    %        send_msg_to_ws(WSUpdate, NewState)
-                                    %        %wsock_client:send(WSUpdate)
-                                    %end,
+                                    [AlarmSym, StateFlag, Lat, Lon, _Height, _Speed, _Direction, Time]= H,
+                                    if
+                                        AlarmSym == PreviousAlarm ->
+                                            ok;
+                                        true ->
+                                            <<Year:8, Month:8, Day:8, Hour:8, Minute:8, Second:8>> = <<Time:48>>,
+                                            YearS = common:integer_to_binary(common:convert_bcd_integer(Year)),
+                                            MonthS = common:integer_to_binary(common:convert_bcd_integer(Month)),
+                                            DayS = common:integer_to_binary(common:convert_bcd_integer(Day)),
+                                            HourS = common:integer_to_binary(common:convert_bcd_integer(Hour)),
+                                            MinuteS = common:integer_to_binary(common:convert_bcd_integer(Minute)),
+                                            SecondS = common:integer_to_binary(common:convert_bcd_integer(Second)),
+                                            TimeS = list_to_binary([YearS, <<"-">>, MonthS, <<"-">>, DayS, <<" ">>, HourS, <<":">>, MinuteS, <<":">>, SecondS]),
+                                            {ok, WSUpdate} = wsock_data_parser:create_term_alarm([NewState#vdritem.vehicleid],
+                                                                                                 FlowIdx,
+                                                                                                 NewState#vdritem.vehiclecode,
+                                                                                                 AlarmSym,
+                                                                                                 StateFlag,
+                                                                                                 Lat, 
+                                                                                                 Lon,
+                                                                                                 binary_to_list(TimeS)),
+                                            common:loginfo("VDR (~p) WS : ~p~n", [NewState#vdritem.addr, WSUpdate]),
+                                            send_msg_to_ws(WSUpdate, NewState)
+                                            %wsock_client:send(WSUpdate)
+                                    end,
         
                                     MsgBody = vdr_data_processor:create_gen_resp(ID, MsgIdx, ?T_GEN_RESP_OK),
                                     VDRResp = vdr_data_processor:create_final_msg(16#8001, FlowIdx, MsgBody),

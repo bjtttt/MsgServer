@@ -231,15 +231,13 @@ do_process_data(Data) ->
                                 true ->
                                     {error, length_error}
                             end;
-                        16#8105 ->
-                            {error, format_error};
-                        16#8605 ->
+                        16#8105 -> % Not implemented yet
                             {error, format_error};
                         16#8202 ->
                             if
                                 Len == 4 ->
-                                    {"LIST", List} = get_specific_entry(Content, "LIST"),
                                     {"SN", SN} = get_specific_entry(Content, "SN"),
+                                    {"LIST", List} = get_specific_entry(Content, "LIST"),
                                     {"DATA", DATA} = get_specific_entry(Content, "DATA"),
                                     VIDList = get_vid_list(List),
                                     DataLen = length(DATA),
@@ -629,7 +627,9 @@ create_pulse() ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %
-%   MID     : 0x0003
+% MID   : 0x0003
+%
+% Parmeter
 %   List    : [ID0, ID1, ID2, ...]
 %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -642,7 +642,9 @@ create_term_online(List) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %
 % MID   : 0x0004
-% List  : [ID0, ID1, ID2, ...]
+%
+% Parameter
+%   List    : [ID0, ID1, ID2, ...]
 %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 create_term_offline(List) ->
@@ -654,7 +656,9 @@ create_term_offline(List) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %
 % MID   : 0x0005
-% Token : it must be string
+%
+% Parameter
+%   Token   : it must be string
 %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 create_authen(Token) ->
@@ -669,9 +673,16 @@ create_authen(Token) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %
 % MID   : 0x0200
-% List  : [ID0, ID1, ID2, ...]
-% SN    : message flow index
-% CODE  : vehicle code
+%
+% Parameter
+%   List    : [ID0, ID1, ID2, ...]
+%   SN      : message flow index
+%   CODE    : vehicle code
+%   AF
+%   SF
+%   Lat
+%   Long
+%   T
 %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 create_term_alarm(List, SN, Code, AF, SF, Lat, Long, T) when is_integer(SN)->
