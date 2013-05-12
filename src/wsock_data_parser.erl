@@ -151,7 +151,7 @@ do_process_data(Data) ->
                                 true ->
                                     {error, length_error}
                             end;
-                        16#8103 ->
+                        16#8103 -> % Not process multi data parameters or multi string parameters
                             if
                                 Len == 4 ->
                                     {"SN", SN} = get_specific_entry(Content, "SN"),
