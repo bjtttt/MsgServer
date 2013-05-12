@@ -604,7 +604,7 @@ create_gen_resp(SN, SID, List, MSG, STATUS) when is_integer(SN),
     BoolMSG = common:is_string(MSG),
     if
         BoolSID andalso BoolMSG ->
-            VIDListStr = common:combine_strings(["\"LIST\":[",  create_list(["\"VID\""], List, false), "]"]),
+            VIDListStr = common:combine_strings(["\"LIST\":[",  create_list(["\"VID\""], List, false), "]"], false),
 			Body = common:combine_strings(["\"MID\":1",
                                            "\"SN\":", integer_to_list(SN),
                                            "\"SID\":", SID,
@@ -635,7 +635,7 @@ create_pulse() ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 create_term_online(List) ->
     MIDStr = "\"MID\":3",
-    VIDListStr = common:combine_strings(["\"LIST\":[",  create_list(["\"VID\""], List, false), "]"]),
+    VIDListStr = common:combine_strings(["\"LIST\":[",  create_list(["\"VID\""], List, false), "]"], false),
 	Body = common:combine_strings([MIDStr, VIDListStr]),
     {ok, common:combine_strings(["{", Body, "}"], false)}.
 
@@ -649,7 +649,7 @@ create_term_online(List) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 create_term_offline(List) ->
     MIDStr = "\"MID\":4",
-    VIDListStr = common:combine_strings(["\"LIST\":[",  create_list(["\"VID\""], List, false), "]"]),
+    VIDListStr = common:combine_strings(["\"LIST\":[",  create_list(["\"VID\""], List, false), "]"], false),
 	Body = common:combine_strings([MIDStr, VIDListStr]),
     {ok, common:combine_strings(["{", Body, "}"], false)}.
 
@@ -688,8 +688,8 @@ create_authen(Token) ->
 create_term_alarm(List, SN, Code, AF, SF, Lat, Long, T) when is_integer(SN)->
     MIDStr = "\"MID\":512",
     SNStr = string:concat("\"SN\":", integer_to_list(SN)),
-    VIDListStr = common:combine_strings(["\"LIST\":[",  create_list(["\"VID\""], List, false), "]"]),
-    DataListStr = common:combine_strings(["\"DATA\":{",  create_list(["\"CODE\"", "\"AF\"", "\"SF\"", "\"LAT\"", "\"LONG\"", "\"T\""], [Code, AF, SF, Lat, Long, T], true), "}"]),
+    VIDListStr = common:combine_strings(["\"LIST\":[",  create_list(["\"VID\""], List, false), "]"], false),
+    DataListStr = common:combine_strings(["\"DATA\":{",  create_list(["\"CODE\"", "\"AF\"", "\"SF\"", "\"LAT\"", "\"LONG\"", "\"T\""], [Code, AF, SF, Lat, Long, T], true), "}"], false),
     Body = common:combine_strings([MIDStr, SNStr, VIDListStr, DataListStr]),
     {ok, common:combine_strings(["{", Body, "}"], false)};
 create_term_alarm(_List, _SN, _Code, _AF, _SF, _Lat, _Long, _T) ->
