@@ -170,11 +170,11 @@ do_process_data(Data) ->
                                 true ->
                                     {error, length_error}
                             end;
-                        16#8203 ->
+                        16#8203 -> % Not process multi alarm data
                             if
                                 Len == 4 ->
-                                    {"LIST", List} = get_specific_entry(Content, "LIST"),
                                     {"SN", SN} = get_specific_entry(Content, "SN"),
+                                    {"LIST", List} = get_specific_entry(Content, "LIST"),
                                     {"DATA", DATA} = get_specific_entry(Content, "DATA"),
                                     VIDList = get_vid_list(List),
                                     DataLen = length(DATA),
