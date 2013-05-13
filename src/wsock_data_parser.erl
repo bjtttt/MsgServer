@@ -214,7 +214,7 @@ do_process_data(Data) ->
                                 Len == 4 ->
                                     {"LIST", List} = get_specific_entry(Content, "LIST"),
                                     {"SN", SN} = get_specific_entry(Content, "SN"),
-                                    {"DATA", DATA} = get_specific_entry(Content, "DATA"),
+                                    {"DATA", {obj, DATA}} = get_specific_entry(Content, "DATA"),
                                     VIDList = get_same_key_list(List),
                                     [{"LIST", LIST}] = DATA,
                                     DataList = get_same_key_list(LIST),
@@ -229,7 +229,7 @@ do_process_data(Data) ->
                                 Len == 4 ->
                                     {"SN", SN} = get_specific_entry(Content, "SN"),
                                     {"LIST", List} = get_specific_entry(Content, "LIST"),
-                                    {"DATA", DATA} = get_specific_entry(Content, "DATA"),
+                                    {"DATA", {obj, DATA}} = get_specific_entry(Content, "DATA"),
                                     VIDList = get_same_key_list(List),
                                     DataLen = length(DATA),
                                     if
