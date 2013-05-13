@@ -689,7 +689,7 @@ create_term_alarm(List, SN, Code, AF, SF, Lat, Long, T) when is_integer(SN)->
     MIDStr = "\"MID\":512",
     SNStr = string:concat("\"SN\":", integer_to_list(SN)),
     VIDListStr = common:combine_strings(["\"LIST\":[",  create_list(["\"VID\""], List, false), "]"], false),
-    DataListStr = common:combine_strings(["\"DATA\":{",  create_list(["\"CODE\"", "\"AF\"", "\"SF\"", "\"LAT\"", "\"LONG\"", "\"T\""], [Code, AF, SF, Lat, Long, T], true), "}"], false),
+    DataListStr = common:combine_strings(["\"DATA\":{",  create_list(["\"CODE\"", "\"AF\"", "\"SF\"", "\"LAT\"", "\"LONG\"", "\"T\""], [Code, AF, SF, Lat/1000000.0, Long/1000000.0, T], true), "}"], false),
     Body = common:combine_strings([MIDStr, SNStr, VIDListStr, DataListStr]),
     {ok, common:combine_strings(["{", Body, "}"], false)};
 create_term_alarm(_List, _SN, _Code, _AF, _SF, _Lat, _Long, _T) ->

@@ -12,7 +12,8 @@
          split_msg_to_single/2,
          is_string/1,
          is_string_list/1,
-		 integer_to_binary/1]).
+		 integer_to_binary/1,
+         float_to_binary/1]).
 
 -export([set_sockopt/3]).
 
@@ -24,7 +25,13 @@
 %%%
 %%%
 integer_to_binary(Integer) ->
-	list_to_binary(integer_to_list(Integer)).
+    list_to_binary(integer_to_list(Integer)).
+
+%%%
+%%%
+%%%
+float_to_binary(Float) ->
+    list_to_binary(float_to_list(Float)).
 
 %%%
 %%%
