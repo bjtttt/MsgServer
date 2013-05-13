@@ -103,7 +103,7 @@ do_process_data(Data) ->
                                     {"SID", SID} = get_specific_entry(Content, "SID"),
                                     {"LIST", List} = get_specific_entry(Content, "LIST"),
                                     {"STATUS", Status} = get_specific_entry(Content, "STATUS"),
-                                    VIDList = get_vid_list(List),
+                                    VIDList = get_same_key_list(List),
                                     LenVIDList = length(VIDList),
                                     case Status of
                                         0 ->
@@ -138,7 +138,7 @@ do_process_data(Data) ->
                             if
                                 Len == 2 ->
                                     {"LIST", List} = get_specific_entry(Content, "LIST"),
-                                    VIDList = get_vid_list(List),
+                                    VIDList = get_same_key_list(List),
                                     {ok, Mid, [VIDList]};
                                 true ->
                                     {error, length_error}
@@ -151,18 +151,18 @@ do_process_data(Data) ->
                                 true ->
                                     {error, length_error}
                             end;
-                        16#8103 -> % Not process multi data parameters or multi string parameters
+                        16#8103 ->
                             if
                                 Len == 4 ->
                                     {"SN", SN} = get_specific_entry(Content, "SN"),
                                     {"LIST", List} = get_specific_entry(Content, "LIST"),
-                                    {"DATA", DATA} = get_specific_entry(Content, "DATA"),
-                                    VIDList = get_vid_list(List),
+                                    {"DATA", {obj, DATA}} = get_specific_entry(Content, "DATA"),
+                                    VIDList = get_same_key_list(List),
                                     DataLen = length(DATA),
                                     if
                                         DataLen == 2 ->
-                                            {"ST", ST} = get_specific_entry(DATA, "ST"),
-                                            {"DT", DT} = get_specific_entry(DATA, "DT"),
+                                            {"ST", {obj, ST}} = get_specific_entry(DATA, "ST"),
+                                            {"DT", {obj, DT}} = get_specific_entry(DATA, "DT"),
                                             {ok, Mid, [SN, VIDList, [ST, DT]]};
                                         true ->
                                             {error, format_error}
@@ -170,13 +170,13 @@ do_process_data(Data) ->
                                 true ->
                                     {error, length_error}
                             end;
-                        16#8203 -> % Not process multi alarm data
+                        16#8203 ->
                             if
                                 Len == 4 ->
                                     {"SN", SN} = get_specific_entry(Content, "SN"),
                                     {"LIST", List} = get_specific_entry(Content, "LIST"),
-                                    {"DATA", DATA} = get_specific_entry(Content, "DATA"),
-                                    VIDList = get_vid_list(List),
+                                    {"DATA", {obj, DATA}} = get_specific_entry(Content, "DATA"),
+                                    VIDList = get_same_key_list(List),
                                     DataLen = length(DATA),
                                     if
                                         DataLen == 2 ->
@@ -194,24 +194,15 @@ do_process_data(Data) ->
                                 Len == 4 ->
                                     {"SN", SN} = get_specific_entry(Content, "SN"),
                                     {"LIST", List} = get_specific_entry(Content, "LIST"),
-                                    {"DATA", DATA} = get_specific_entry(Content, "DATA"),
-                                    VIDList = get_vid_list(List),
+                                    {"DATA", {obj, DATA}} = get_specific_entry(Content, "DATA"),
+                                    VIDList = get_same_key_list(List),
                                     DataLen = length(DATA),
                                     if
-                                        DataLen == 12 ->
+                                        DataLen == 2 ->
                                             {"FLAG", FLAG} = get_specific_entry(DATA, "FLAG"),
                                             {"LIST", LIST} = get_specific_entry(DATA, "LIST"),
-                                            {"ID", ID} = get_specific_entry(DATA, "ID"),
-                                            {"PROPERTY", PROPERTY} = get_specific_entry(DATA, "PROPERTY"),
-                                            {"LT_LAT", LT_LAT} = get_specific_entry(DATA, "LT_LAT"),
-                                            {"LT_LONG", LT_LONG} = get_specific_entry(DATA, "LT_LONG"),
-                                            {"RB_LAT", RB_LAT} = get_specific_entry(DATA, "RB_LAT"),
-                                            {"RB_LONG", RB_LONG} = get_specific_entry(DATA, "RB_LONG"),
-                                            {"ST", ST} = get_specific_entry(DATA, "ST"),
-                                            {"ET", ET} = get_specific_entry(DATA, "ET"),
-                                            {"MAX_S", MAX_S} = get_specific_entry(DATA, "MAX_S"),
-                                            {"LENGTH", LENGTH} = get_specific_entry(DATA, "LENGTH"),
-                                            {ok, Mid, [SN, VIDList, [FLAG, LIST, ID, PROPERTY, LT_LAT, LT_LONG, RB_LAT, RB_LONG, ST, ET, MAX_S, LENGTH]]};
+                                            RECT = get_rect_area_list(LIST),
+                                            {ok, Mid, [SN, VIDList, FLAG, RECT]};
                                         true ->
                                             {error, format_error}
                                     end;
@@ -224,22 +215,22 @@ do_process_data(Data) ->
                                     {"LIST", List} = get_specific_entry(Content, "LIST"),
                                     {"SN", SN} = get_specific_entry(Content, "SN"),
                                     {"DATA", DATA} = get_specific_entry(Content, "DATA"),
-                                    VIDList = get_vid_list(List),
+                                    VIDList = get_same_key_list(List),
                                     [{"LIST", LIST}] = DATA,
-                                    DataList = get_vid_list(LIST),
+                                    DataList = get_same_key_list(LIST),
                                     {ok, Mid, [SN, VIDList, DataList]};
                                 true ->
                                     {error, length_error}
                             end;
                         16#8105 -> % Not implemented yet
                             {error, format_error};
-                        16#8202 ->
+                        16#8202 -> % Stop here %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
                             if
                                 Len == 4 ->
                                     {"SN", SN} = get_specific_entry(Content, "SN"),
                                     {"LIST", List} = get_specific_entry(Content, "LIST"),
                                     {"DATA", DATA} = get_specific_entry(Content, "DATA"),
-                                    VIDList = get_vid_list(List),
+                                    VIDList = get_same_key_list(List),
                                     DataLen = length(DATA),
                                     if
                                         DataLen == 2 ->
@@ -258,7 +249,7 @@ do_process_data(Data) ->
                                     {"LIST", List} = get_specific_entry(Content, "LIST"),
                                     {"SN", SN} = get_specific_entry(Content, "SN"),
                                     {"DATA", DATA} = get_specific_entry(Content, "DATA"),
-                                    VIDList = get_vid_list(List),
+                                    VIDList = get_same_key_list(List),
                                     DataLen = length(DATA),
                                     if
                                         DataLen == 2 ->
@@ -277,7 +268,7 @@ do_process_data(Data) ->
                                     {"LIST", List} = get_specific_entry(Content, "LIST"),
                                     {"SN", SN} = get_specific_entry(Content, "SN"),
                                     {"DATA", DATA} = get_specific_entry(Content, "DATA"),
-                                    VIDList = get_vid_list(List),
+                                    VIDList = get_same_key_list(List),
                                     DataLen = length(DATA),
                                     if
                                         DataLen == 5 ->
@@ -302,7 +293,7 @@ do_process_data(Data) ->
                         %            {"LIST", List} = ListPair,
                         %            {"SN", SN} = SNPair,
                         %            {"DATA", DATA} = DataPair,
-                        %            VIDList = get_vid_list(List),
+                        %            VIDList = get_same_key_list(List),
                         %            DataLen = length(DATA),
                         %            if
                         %                DataLen == 1 ->
@@ -320,7 +311,7 @@ do_process_data(Data) ->
                                     {"LIST", List} = get_specific_entry(Content, "LIST"),
                                     {"SN", SN} = get_specific_entry(Content, "SN"),
                                     {"DATA", DATA} = get_specific_entry(Content, "DATA"),
-                                    VIDList = get_vid_list(List),
+                                    VIDList = get_same_key_list(List),
                                     DataLen = length(DATA),
                                     if
                                         DataLen == 2 ->
@@ -339,7 +330,7 @@ do_process_data(Data) ->
                                     {"LIST", List} = get_specific_entry(Content, "LIST"),
                                     {"SN", SN} = get_specific_entry(Content, "SN"),
                                     {"DATA", DATA} = get_specific_entry(Content, "DATA"),
-                                    VIDList = get_vid_list(List),
+                                    VIDList = get_same_key_list(List),
                                     DataLen = length(DATA),
                                     if
                                         DataLen == 2 ->
@@ -359,7 +350,7 @@ do_process_data(Data) ->
                                     {"LIST", List} = get_specific_entry(Content, "LIST"),
                                     {"SN", SN} = get_specific_entry(Content, "SN"),
                                     {"DATA", DATA} = get_specific_entry(Content, "DATA"),
-                                    VIDList = get_vid_list(List),
+                                    VIDList = get_same_key_list(List),
                                     DataLen = length(DATA),
                                     if
                                         DataLen == 1 ->
@@ -382,7 +373,7 @@ do_process_data(Data) ->
                         %            {"STATUS", Status} = StatusPair,
                         %            {"LIST", List} = ListPair,
                         %            {"DATA", DATA} = DataPair,
-                        %            VIDList = get_vid_list(List),
+                        %            VIDList = get_same_key_list(List),
                         %            DataLen = length(DATA),
                         %            case Status of
                         %                0 ->
@@ -415,7 +406,7 @@ do_process_data(Data) ->
                                     {"LIST", List} = get_specific_entry(Content, "LIST"),
                                     {"SN", SN} = get_specific_entry(Content, "SN"),
                                     {"DATA", DATA} = get_specific_entry(Content, "DATA"),
-                                    VIDList = get_vid_list(List),
+                                    VIDList = get_same_key_list(List),
                                     DataLen = length(DATA),
                                     if
                                         DataLen == 10 ->
@@ -443,7 +434,7 @@ do_process_data(Data) ->
                                     {"LIST", List} = get_specific_entry(Content, "LIST"),
                                     {"STATUS", Status} = get_specific_entry(Content, "STATUS"),
                                     {"DATA", DATA} = get_specific_entry(Content, "DATA"),
-                                    VIDList = get_vid_list(List),
+                                    VIDList = get_same_key_list(List),
                                     DataLen = length(DATA),
                                     case Status of
                                         0 ->
@@ -460,7 +451,7 @@ do_process_data(Data) ->
                                                 true ->
                                                     if
                                                         DataLen > 0 ->
-                                                            DataList = get_vid_list(DATA),% MAYBE WRONG HERE !!!!!!! get_vid_list("ID", DATA),
+                                                            DataList = get_same_key_list(DATA),% MAYBE WRONG HERE !!!!!!! get_same_key_list("ID", DATA),
                                                             {ok, Mid, [SN, VIDList, Status, DataList]};
                                                         true ->
                                                             {error, format_error}
@@ -476,7 +467,7 @@ do_process_data(Data) ->
                                     {"LIST", List} = get_specific_entry(Content, "LIST"),
                                     {"SN", SN} = get_specific_entry(Content, "SN"),
                                     {"DATA", DATA} = get_specific_entry(Content, "DATA"),
-                                    VIDList = get_vid_list(List),
+                                    VIDList = get_same_key_list(List),
                                     DataLen = length(DATA),
                                     if
                                         DataLen == 4 ->
@@ -538,19 +529,60 @@ get_specific_entry(_List, ID) ->
 %
 % It can be use for the following similar list regardless of "VID", "ID" or the other key
 %
-% VIDList   : [{"VID":1},{"VID":2},...]
-%           : [{"ID":1},{"ID":2},...]
+% List  : [{obj, [{KEY:VALUE1}]}, {obj, [{KEY:VALUE2}]},...]
 %
 % Return    :
-%       [VID1, VID2, ...]|[]
+%       [Value1, Value2, ...]|[]
 %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-get_vid_list(VIDList) when is_list(VIDList),
-                           length(VIDList) > 0 ->
-    [H|T] = VIDList,
-    {_ID, VID} = H,
-    [VID|get_vid_list(T)];
-get_vid_list(_VIDList) ->
+get_same_key_list(List) when is_list(List),
+                             length(List) > 0 ->
+    [H|T] = List,
+    {obj, [{_ID, Value}]} = H,
+    [Value|get_same_key_list(T)];
+get_same_key_list(_List) ->
+    [].
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%
+%
+% List  : [{obj, [{KEY:VALUE1}]}, {obj, [{KEY:VALUE2}]},...]
+%
+% Return    :
+%       [Value1, Value2, ...]|[]
+%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+get_rect_area_list(List) when is_list(List),
+                              length(List) > 1 ->
+    [H|T] = List,
+    {obj, DATA} = H,
+    {"ID", ID} = get_specific_entry(DATA, "ID"),
+    {"PROPERTY", PROPERTY} = get_specific_entry(DATA, "PROPERTY"),
+    {"LT_LAT", LT_LAT} = get_specific_entry(DATA, "LT_LAT"),
+    {"LT_LONG", LT_LONG} = get_specific_entry(DATA, "LT_LONG"),
+    {"RB_LAT", RB_LAT} = get_specific_entry(DATA, "RB_LAT"),
+    {"RB_LONG", RB_LONG} = get_specific_entry(DATA, "RB_LONG"),
+    {"ST", ST} = get_specific_entry(DATA, "ST"),
+    {"ET", ET} = get_specific_entry(DATA, "ET"),
+    {"MAX_S", MAX_S} = get_specific_entry(DATA, "MAX_S"),
+    {"LENGTH", LENGTH} = get_specific_entry(DATA, "LENGTH"),
+    [[ID, PROPERTY, LT_LAT, LT_LONG, RB_LAT, RB_LONG, ST, ET,MAX_S, LENGTH]|get_rect_area_list(T)];
+get_rect_area_list(List) when is_list(List),
+                              length(List) == 1 ->
+    [H] = List,
+    {obj, DATA} = H,
+    {"ID", ID} = get_specific_entry(DATA, "ID"),
+    {"PROPERTY", PROPERTY} = get_specific_entry(DATA, "PROPERTY"),
+    {"LT_LAT", LT_LAT} = get_specific_entry(DATA, "LT_LAT"),
+    {"LT_LONG", LT_LONG} = get_specific_entry(DATA, "LT_LONG"),
+    {"RB_LAT", RB_LAT} = get_specific_entry(DATA, "RB_LAT"),
+    {"RB_LONG", RB_LONG} = get_specific_entry(DATA, "RB_LONG"),
+    {"ST", ST} = get_specific_entry(DATA, "ST"),
+    {"ET", ET} = get_specific_entry(DATA, "ET"),
+    {"MAX_S", MAX_S} = get_specific_entry(DATA, "MAX_S"),
+    {"LENGTH", LENGTH} = get_specific_entry(DATA, "LENGTH"),
+    [[ID, PROPERTY, LT_LAT, LT_LONG, RB_LAT, RB_LONG, ST, ET,MAX_S, LENGTH]];
+get_rect_area_list(_List) ->
     [].
 
 %%%
