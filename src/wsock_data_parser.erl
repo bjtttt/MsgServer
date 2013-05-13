@@ -224,7 +224,7 @@ do_process_data(Data) ->
                             end;
                         16#8105 -> % Not implemented yet
                             {error, format_error};
-                        16#8202 -> % Stop here %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+                        16#8202 ->
                             if
                                 Len == 4 ->
                                     {"SN", SN} = get_specific_entry(Content, "SN"),
@@ -248,7 +248,7 @@ do_process_data(Data) ->
                                 Len == 4 ->
                                     {"LIST", List} = get_specific_entry(Content, "LIST"),
                                     {"SN", SN} = get_specific_entry(Content, "SN"),
-                                    {"DATA", DATA} = get_specific_entry(Content, "DATA"),
+                                    {"DATA", {obj, DATA}} = get_specific_entry(Content, "DATA"),
                                     VIDList = get_same_key_list(List),
                                     DataLen = length(DATA),
                                     if
@@ -267,44 +267,43 @@ do_process_data(Data) ->
                                 Len == 4 ->
                                     {"LIST", List} = get_specific_entry(Content, "LIST"),
                                     {"SN", SN} = get_specific_entry(Content, "SN"),
-                                    {"DATA", DATA} = get_specific_entry(Content, "DATA"),
+                                    {"DATA", {obj, DATA}} = get_specific_entry(Content, "DATA"),
                                     VIDList = get_same_key_list(List),
                                     DataLen = length(DATA),
                                     if
-                                        DataLen == 5 ->
+                                        DataLen == 3 ->
                                             {"FLAG", FLAG} = get_specific_entry(DATA, "FLAG"),
                                             {"QUES", QUES} = get_specific_entry(DATA, "QUES"),
                                             {"ALIST", ALIST} = get_specific_entry(DATA, "ALIST"),
-                                            {"ID", ID} = get_specific_entry(DATA, "ID"),
-                                            {"AN", AN} = get_specific_entry(DATA, "AN"),
-                                            {ok, Mid, [SN, VIDList, [FLAG, QUES, ALIST, ID, AN]]};
+                                            IDAns = get_answer_list(ALIST),
+                                            {ok, Mid, [SN, VIDList, [FLAG, QUES, IDAns]]};
                                         true ->
                                             {error, format_error}
                                     end;
                                 true ->
                                     {error, length_error}
                             end;
-                        %"0x0302" ->
-                        %    if
-                        %        Len == 4 ->
-                        %            SNPair = lists:nth(2, Content),
-                        %            ListPair = lists:nth(3, Content),
-                        %            DataPair = lists:nth(4, Content),
-                        %            {"LIST", List} = ListPair,
-                        %            {"SN", SN} = SNPair,
-                        %            {"DATA", DATA} = DataPair,
-                        %            VIDList = get_same_key_list(List),
-                        %            DataLen = length(DATA),
-                        %            if
-                        %                DataLen == 1 ->
-                        %                    [{"ID", ID}] = DATA,
-                        %                    {ok, Mid, [SN, VIDList, [ID]]};
-                        %                true ->
-                        %                    {error, format_error}
-                        %            end;
-                        %        true ->
-                        %            {error, length_error}
-                        %    end;
+                        16#302 -> %%%%%%%%%%%%%%%%%%%%%%%%%%%% Stop here
+                            if
+                                Len == 4 ->
+                                    SNPair = lists:nth(2, Content),
+                                    ListPair = lists:nth(3, Content),
+                                    DataPair = lists:nth(4, Content),
+                                    {"LIST", List} = ListPair,
+                                    {"SN", SN} = SNPair,
+                                    {"DATA", DATA} = DataPair,
+                                    VIDList = get_same_key_list(List),
+                                    DataLen = length(DATA),
+                                    if
+                                        DataLen == 1 ->
+                                            [{"ID", ID}] = DATA,
+                                            {ok, Mid, [SN, VIDList, [ID]]};
+                                        true ->
+                                            {error, format_error}
+                                    end;
+                                true ->
+                                    {error, length_error}
+                            end;
                         16#8400 ->
                             if
                                 Len == 4 ->
@@ -553,7 +552,7 @@ get_same_key_list(_List) ->
 %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 get_rect_area_list(List) when is_list(List),
-                              length(List) > 1 ->
+                              length(List) > 0 ->
     [H|T] = List,
     {obj, DATA} = H,
     {"ID", ID} = get_specific_entry(DATA, "ID"),
@@ -566,23 +565,35 @@ get_rect_area_list(List) when is_list(List),
     {"ET", ET} = get_specific_entry(DATA, "ET"),
     {"MAX_S", MAX_S} = get_specific_entry(DATA, "MAX_S"),
     {"LENGTH", LENGTH} = get_specific_entry(DATA, "LENGTH"),
-    [[ID, PROPERTY, LT_LAT, LT_LONG, RB_LAT, RB_LONG, ST, ET,MAX_S, LENGTH]|get_rect_area_list(T)];
-get_rect_area_list(List) when is_list(List),
-                              length(List) == 1 ->
-    [H] = List,
-    {obj, DATA} = H,
-    {"ID", ID} = get_specific_entry(DATA, "ID"),
-    {"PROPERTY", PROPERTY} = get_specific_entry(DATA, "PROPERTY"),
-    {"LT_LAT", LT_LAT} = get_specific_entry(DATA, "LT_LAT"),
-    {"LT_LONG", LT_LONG} = get_specific_entry(DATA, "LT_LONG"),
-    {"RB_LAT", RB_LAT} = get_specific_entry(DATA, "RB_LAT"),
-    {"RB_LONG", RB_LONG} = get_specific_entry(DATA, "RB_LONG"),
-    {"ST", ST} = get_specific_entry(DATA, "ST"),
-    {"ET", ET} = get_specific_entry(DATA, "ET"),
-    {"MAX_S", MAX_S} = get_specific_entry(DATA, "MAX_S"),
-    {"LENGTH", LENGTH} = get_specific_entry(DATA, "LENGTH"),
-    [[ID, PROPERTY, LT_LAT, LT_LONG, RB_LAT, RB_LONG, ST, ET,MAX_S, LENGTH]];
+    case T of
+        [] ->
+            [[ID, PROPERTY, LT_LAT, LT_LONG, RB_LAT, RB_LONG, ST, ET,MAX_S, LENGTH]];
+        _ ->
+        [[ID, PROPERTY, LT_LAT, LT_LONG, RB_LAT, RB_LONG, ST, ET,MAX_S, LENGTH]|get_rect_area_list(T)]
+    end;
 get_rect_area_list(_List) ->
+    [].
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%
+%
+% List  : [{obj,[{"ID",1},{"AN",<<"ANS1">>}]}, {obj,[{"ID",2},{"AN",<<"ANS2">>}, ...]
+%
+% Return    :
+%       [[ID1, Ans1], [ID2, Ans2], ...]|[]
+%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+get_answer_list(List) when is_list(List),
+                           length(List) > 0 ->
+    [H|T] = List,
+    {obj, [{"ID", ID},{"AN", AN}]} = H,
+    case T of
+        [] ->
+            [[ID, AN]];
+        _ ->
+            [[ID, AN]|get_answer_list(T)]
+    end;
+get_answer_list(_List) ->
     [].
 
 %%%
