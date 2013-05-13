@@ -539,20 +539,20 @@ process_vdr_data(Socket, Data, State) ->
                                             HourS = common:integer_to_binary(common:convert_bcd_integer(Hour)),
                                             MinuteS = common:integer_to_binary(common:convert_bcd_integer(Minute)),
                                             SecondS = common:integer_to_binary(common:convert_bcd_integer(Second)),
-                                            TimeS = list_to_binary([YearS, <<"-">>, MonthS, <<"-">>, DayS, <<" ">>, HourS, <<":">>, MinuteS, <<":">>, SecondS])%,
-                                            %{ok, WSUpdate} = wsock_data_parser:create_term_alarm([NewState#vdritem.vehicleid],
-                                            %                                                     FlowIdx,
-                                            %                                                     NewState#vdritem.vehiclecode,
-                                            %                                                     AlarmSym,
-                                            %                                                     StateFlag,
-                                            %                                                     Lat, 
-                                            %                                                     Lon,
-                                            %                                                     binary_to_list(TimeS)),
-                                            %common:loginfo("VDR (~p) WS : ~p~n", [NewState#vdritem.addr, WSUpdate]),
-                                            %send_msg_to_ws(WSUpdate, NewState)
-                                            %%wsock_client:send(WSUpdate)
+                                            TimeS = list_to_binary([<<"\"">>, YearS, <<"-">>, MonthS, <<"-">>, DayS, <<" ">>, HourS, <<":">>, MinuteS, <<":">>, SecondS, <<"\"">>]),
+                                            
+                                            {ok, WSUpdate} = wsock_data_parser:create_term_alarm([NewState#vdritem.vehicleid],
+                                                                                                 FlowIdx,
+                                                                                                 common:combine_strings(["\"", NewState#vdritem.vehiclecode, "\""], false),
+                                                                                                 AlarmSym,
+                                                                                                 StateFlag,
+                                                                                                 Lat, 
+                                                                                                 Lon,
+                                                                                                 binary_to_list(TimeS)),
+                                            common:loginfo("VDR (~p) WS : ~p~n", [NewState#vdritem.addr, WSUpdate]),
+                                            send_msg_to_ws(WSUpdate, NewState) %wsock_client:send(WSUpdate)
                                     end,
-        
+
                                     MsgBody = vdr_data_processor:create_gen_resp(ID, MsgIdx, ?T_GEN_RESP_OK),
                                     VDRResp = vdr_data_processor:create_final_msg(16#8001, FlowIdx, MsgBody),
                                     common:loginfo("VDR (~p) response for 16#200 (ok) : ~p~n", [NewState#vdritem.addr, VDRResp]),

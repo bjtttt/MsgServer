@@ -822,16 +822,16 @@ create_list(IDList, List, IsOne) when is_list(IDList),
                                         [] ->
                                             case IsOne of
                                                 true ->
-                                                    common:combine_strings([ID, ":", SVal]);
+                                                    common:combine_strings([ID, ":", SVal], false);
                                                 _ ->
-                                                    common:combine_strings(["{", ID, ":", SVal, "}"])
+                                                    common:combine_strings(["{", ID, ":", SVal, "}"], false)
                                                 end;
                                         _ ->
                                             case IsOne of
                                                 true ->
-                                                    common:combine_strings(lists:append([ID, ":", SVal, ","], [create_list(IDTail, ValTail, IsOne)]));
+                                                    common:combine_strings(lists:append([ID, ":", SVal, ","], [create_list(IDTail, ValTail, IsOne)]), false);
                                                 _ ->
-                                                    common:combine_strings(lists:append(["{", ID, ":", SVal, "},"], [create_list(IDTail, ValTail, IsOne)]))
+                                                    common:combine_strings(lists:append(["{", ID, ":", SVal, "},"], [create_list(IDTail, ValTail, IsOne)]), false)
                                             end
                                     end;
                                 error ->
