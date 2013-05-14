@@ -50,7 +50,7 @@ process_wsock_message(Type, Msg) ->
         binary ->
             {error, binaryerror};
         text ->
-            Ret = do_process_data(Msg),
+            Ret = process_data(Msg),
             connect_ws_to_vdr(Ret),
             Ret;
         _ ->
@@ -224,7 +224,7 @@ do_process_data(Data) ->
                                 true ->
                                     {error, length_error}
                             end;
-                        16#8105 -> % Not implemented yet
+                        16#8105 ->
                             if
                                 Len == 4 ->
                                     {"SN", SN} = get_specific_entry(Content, "SN"),
@@ -426,7 +426,49 @@ do_process_data(Data) ->
 connect_ws_to_vdr(Msg) ->
     case Msg of
         {ok, Mid, Res} ->
-            ok;
+            case Mid of
+                16#8001 ->
+                    ok;
+                16#4001 ->
+                    ok;
+                16#4002 ->
+                    ok;
+                16#4003 ->
+                    ok;
+                16#8103 ->
+                    {ok, Mid, [SN, VIDList, [ST, DT]]} = Res,
+                    SDT = ST ++ DT,
+                    Count = length(SDT),
+                    SDTBin = vdr_data_processor:create_set_term_args(length(SDT), SDT),
+                    MsgBody = list_to_binary([<<Count:?LEN_BYTE>>, SDTBin]),
+                    ok;
+                16#8203 ->
+                    ok;
+                16#8602 ->
+                    ok;
+                16#8603 ->
+                    ok;
+                16#8105 ->
+                    ok;
+                16#8202 ->
+                    ok;
+                16#8300 ->
+                    ok;
+                16#8302 ->
+                    ok;
+                16#8400 ->
+                    ok;
+                16#8401 ->
+                    ok;
+                16#8500 ->
+                    ok;
+                16#8801 ->
+                    ok;
+                16#8804 ->
+                    ok;
+                _ -> % Impossible
+                    ok
+            end;
         _ ->
             ok
     end.

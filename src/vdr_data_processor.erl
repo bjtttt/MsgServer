@@ -321,17 +321,24 @@ parse_check_auth(Bin) ->
 %%% 0x8103
 %%%     Count   : BYTE
 %%%     ArgList : [[ID0, Value0], [ID1, Value1], [ID2, Value2], ...]
+%%%               [{ID0, Value0}, {ID1, Value1}, {ID2, Value2}, ...]
 %%%               T-L-V : DWORD-BYTE-L*8
 %%%
-create_set_term_args(Count, ArgList) ->
-    Len = length(ArgList),
+create_set_term_args(Count, ArgList) when is_list(ArgList),
+                                          Count == length(ArgList) ->
+    [H|_T] = ArgList,
     if
-        Len == Count ->
+        is_tuple(H) == true ->
+            Bin = list_to_binary([compose_term_args_binary(ID, Value) || {ID, Value} <- ArgList]),
+            {ok, <<Count:?LEN_BYTE,Bin/binary>>};
+        is_list(H) == true ->
             Bin = list_to_binary([compose_term_args_binary(ID, Value) || [ID, Value] <- ArgList]),
-            {ok, <<Len:?LEN_BYTE,Bin/binary>>};
+            {ok, <<Count:?LEN_BYTE,Bin/binary>>};
         true ->
             error
-    end.
+    end;
+create_set_term_args(_Count, _ArgList) ->
+    error.
 
 %%%
 %%% ActLen should be bit_size or byte_size ?????
