@@ -223,7 +223,27 @@ do_process_data(Data) ->
                                     {error, length_error}
                             end;
                         16#8105 -> % Not implemented yet
-                            {error, format_error};
+                            if
+                                Len == 4 ->
+                                    {"SN", SN} = get_specific_entry(Content, "SN"),
+                                    {"LIST", List} = get_specific_entry(Content, "LIST"),
+                                    {"DATA", {obj, DATA}} = get_specific_entry(Content, "DATA"),
+                                    VIDList = get_same_key_list(List),
+                                    DataLen = length(DATA),
+                                    if
+                                        DataLen == 1 ->
+                                            {"CMD", CMD} = get_specific_entry(DATA, "CMD"),
+                                            {ok, Mid, [SN, VIDList, {CMD}]};
+                                        DataLen == 2 ->
+                                            {"CMD", CMD} = get_specific_entry(DATA, "CMD"),
+                                            {"PARAM", PARAM} = get_specific_entry(DATA, "PARAM"),
+                                            {ok, Mid, [SN, VIDList, {CMD, PARAM}]};
+                                        true ->
+                                            {error, format_error}
+                                    end;
+                                true ->
+                                    {error, length_error}
+                            end;
                         16#8202 ->
                             if
                                 Len == 4 ->
