@@ -50,7 +50,9 @@ process_wsock_message(Type, Msg) ->
         binary ->
             {error, binaryerror};
         text ->
-            do_process_data(Msg);
+            Ret = do_process_data(Msg),
+            connect_ws_to_vdr(Ret),
+            Ret;
         _ ->
             {error, typeerror}
     end.
@@ -75,15 +77,15 @@ process_data(Data) ->
             {error, exception, Why}
     end.
 
-%%%
-%%% Maybe State is useless
-%%%
-%%% Return :
-%%%     {ok, Mid, Res}
-%%%     {error, length_error}
-%%%     {error, format_error}
-%%%     {error, Reason}
-%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%
+% Return    :
+%     {ok, Mid, Res}
+%     {error, length_error}
+%     {error, format_error}
+%     {error, Reason}
+%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 do_process_data(Data) ->
     case rfc4627:decode(Data) of
         {ok, Erl, _Rest} ->
@@ -414,6 +416,19 @@ do_process_data(Data) ->
             end;
         {error, Reason} ->
             {error, Reason}
+    end.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%
+%
+%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+connect_ws_to_vdr(Msg) ->
+    case Msg of
+        {ok, Mid, Res} ->
+            ok;
+        _ ->
+            ok
     end.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
