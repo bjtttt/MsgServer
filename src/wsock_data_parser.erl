@@ -283,33 +283,12 @@ do_process_data(Data) ->
                                 true ->
                                     {error, length_error}
                             end;
-                        16#302 -> %%%%%%%%%%%%%%%%%%%%%%%%%%%% Stop here
-                            if
-                                Len == 4 ->
-                                    SNPair = lists:nth(2, Content),
-                                    ListPair = lists:nth(3, Content),
-                                    DataPair = lists:nth(4, Content),
-                                    {"LIST", List} = ListPair,
-                                    {"SN", SN} = SNPair,
-                                    {"DATA", DATA} = DataPair,
-                                    VIDList = get_same_key_list(List),
-                                    DataLen = length(DATA),
-                                    if
-                                        DataLen == 1 ->
-                                            [{"ID", ID}] = DATA,
-                                            {ok, Mid, [SN, VIDList, [ID]]};
-                                        true ->
-                                            {error, format_error}
-                                    end;
-                                true ->
-                                    {error, length_error}
-                            end;
                         16#8400 ->
                             if
                                 Len == 4 ->
-                                    {"LIST", List} = get_specific_entry(Content, "LIST"),
                                     {"SN", SN} = get_specific_entry(Content, "SN"),
-                                    {"DATA", DATA} = get_specific_entry(Content, "DATA"),
+                                    {"LIST", List} = get_specific_entry(Content, "LIST"),
+                                    {"DATA", {obj, DATA}} = get_specific_entry(Content, "DATA"),
                                     VIDList = get_same_key_list(List),
                                     DataLen = length(DATA),
                                     if
@@ -326,9 +305,9 @@ do_process_data(Data) ->
                         16#8401 ->
                             if
                                 Len == 4 ->
-                                    {"LIST", List} = get_specific_entry(Content, "LIST"),
                                     {"SN", SN} = get_specific_entry(Content, "SN"),
-                                    {"DATA", DATA} = get_specific_entry(Content, "DATA"),
+                                    {"LIST", List} = get_specific_entry(Content, "LIST"),
+                                    {"DATA", {obj, DATA}} = get_specific_entry(Content, "DATA"),
                                     VIDList = get_same_key_list(List),
                                     DataLen = length(DATA),
                                     if
@@ -346,9 +325,9 @@ do_process_data(Data) ->
                         16#8500 ->
                             if
                                 Len == 4 ->
-                                    {"LIST", List} = get_specific_entry(Content, "LIST"),
                                     {"SN", SN} = get_specific_entry(Content, "SN"),
-                                    {"DATA", DATA} = get_specific_entry(Content, "DATA"),
+                                    {"LIST", List} = get_specific_entry(Content, "LIST"),
+                                    {"DATA", {obj, DATA}} = get_specific_entry(Content, "DATA"),
                                     VIDList = get_same_key_list(List),
                                     DataLen = length(DATA),
                                     if
@@ -361,50 +340,12 @@ do_process_data(Data) ->
                                 true ->
                                     {error, length_error}
                             end;
-                        %"0x0500" ->
-                        %    if
-                        %        Len == 5 ->
-                        %            SNPair = lists:nth(2, Content),
-                        %            StatusPair = lists:nth(3, Content),
-                        %            ListPair = lists:nth(4, Content),
-                        %            DataPair = lists:nth(5, Content),
-                        %            {"SN", SN} = SNPair,
-                        %            {"STATUS", Status} = StatusPair,
-                        %            {"LIST", List} = ListPair,
-                        %            {"DATA", DATA} = DataPair,
-                        %            VIDList = get_same_key_list(List),
-                        %            DataLen = length(DATA),
-                        %            case Status of
-                        %                0 ->
-                        %                    if
-                        %                        DataLen =/= 0 ->
-                        %                            {error, format_error};
-                        %                        true ->
-                        %                            {ok, Mid, [SN, Status, VIDList, []]}
-                        %                    end;
-                        %                _ ->
-                        %                    if
-                        %                        DataLen == 0 ->
-                        %                            {error, format_error};
-                        %                        true ->
-                        %                            if
-                        %                                DataLen == 1 ->
-                        %                                    [{"FLAG", FLAG}] = DATA,
-                        %                                    {ok, Mid, [SN, Status, VIDList, FLAG]};
-                        %                                true ->
-                        %                                    {error, format_error}
-                        %                            end
-                        %                    end
-                        %            end;
-                        %        true ->
-                        %            {error, length_error}
-                        %    end;
                         16#8801 ->
                             if
                                 Len == 4 ->
-                                    {"LIST", List} = get_specific_entry(Content, "LIST"),
                                     {"SN", SN} = get_specific_entry(Content, "SN"),
-                                    {"DATA", DATA} = get_specific_entry(Content, "DATA"),
+                                    {"LIST", List} = get_specific_entry(Content, "LIST"),
+                                    {"DATA", {obj, DATA}} = get_specific_entry(Content, "DATA"),
                                     VIDList = get_same_key_list(List),
                                     DataLen = length(DATA),
                                     if
@@ -426,55 +367,21 @@ do_process_data(Data) ->
                                 true ->
                                     {error, length_error}
                             end;
-                        16#805 ->
-                            if
-                                Len == 5->
-                                    {"SN", SN} = get_specific_entry(Content, "SN"),
-                                    {"LIST", List} = get_specific_entry(Content, "LIST"),
-                                    {"STATUS", Status} = get_specific_entry(Content, "STATUS"),
-                                    {"DATA", DATA} = get_specific_entry(Content, "DATA"),
-                                    VIDList = get_same_key_list(List),
-                                    DataLen = length(DATA),
-                                    case Status of
-                                        0 ->
-                                            if
-                                                DataLen =/= 0 ->
-                                                    {error, format_error};
-                                                true ->
-                                                    {ok, Mid, [SN, Status, VIDList, []]}
-                                            end;
-                                        _ ->
-                                            if
-                                                DataLen == 0 ->
-                                                    {error, format_error};
-                                                true ->
-                                                    if
-                                                        DataLen > 0 ->
-                                                            DataList = get_same_key_list(DATA),% MAYBE WRONG HERE !!!!!!! get_same_key_list("ID", DATA),
-                                                            {ok, Mid, [SN, VIDList, Status, DataList]};
-                                                        true ->
-                                                            {error, format_error}
-                                                    end
-                                            end
-                                    end;
-                                true ->
-                                    {error, length_error}
-                            end;
                         16#8804 ->
                             if
                                 Len == 4 ->
-                                    {"LIST", List} = get_specific_entry(Content, "LIST"),
                                     {"SN", SN} = get_specific_entry(Content, "SN"),
-                                    {"DATA", DATA} = get_specific_entry(Content, "DATA"),
+                                    {"LIST", List} = get_specific_entry(Content, "LIST"),
+                                    {"DATA", {obj, DATA}} = get_specific_entry(Content, "DATA"),
                                     VIDList = get_same_key_list(List),
                                     DataLen = length(DATA),
                                     if
                                         DataLen == 4 ->
                                             {"CMD", CMD} = get_specific_entry(DATA, "CMD"),
-                                            {"TIME", TIME} = get_specific_entry(DATA, "TIME"),
-                                            {"FLAG", FLAG} = get_specific_entry(DATA, "FLAG"),
+                                            {"SF", SF} = get_specific_entry(DATA, "SF"),
+                                            {"T", T} = get_specific_entry(DATA, "T"),
                                             {"FREQ", FREQ} = get_specific_entry(DATA, "FREQ"),
-                                            {ok, Mid, [SN, VIDList, [CMD, TIME, FLAG, FREQ]]};
+                                            {ok, Mid, [SN, VIDList, [CMD, SF, T, FREQ]]};
                                         true ->
                                             {error, format_error}
                                     end;
@@ -576,7 +483,6 @@ get_rect_area_list(_List) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %
-%
 % List  : [{obj,[{"ID",1},{"AN",<<"ANS1">>}]}, {obj,[{"ID",2},{"AN",<<"ANS2">>}, ...]
 %
 % Return    :
@@ -596,25 +502,37 @@ get_answer_list(List) when is_list(List),
 get_answer_list(_List) ->
     [].
 
-%%%
-%%%
-%%%
-get_phone_name_list(PhoneNameList) ->
-    Len = length(PhoneNameList),
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%
+%
+%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+get_phone_name_list(List) when is_list(List),
+                               length(List) > 0 ->
+    [H|T] = List,
+    {obj, DATA} = H,
+    Len = length(DATA),
     if
-        Len < 1 ->
-            [];
+        Len == 3 ->
+            {"FLAG", FLAG} = get_specific_entry(DATA, "FLAG"),
+            {"PHONE", PHONE} = get_specific_entry(DATA, "PHONE"),
+            {"NAME", NAME} = get_specific_entry(DATA, "NAME"),
+            case T of
+                [] ->
+                    [[FLAG, PHONE, NAME]];
+                _ ->
+                    [[FLAG, PHONE, NAME]|get_phone_name_list(T)]
+            end;
         true ->
-            [H|T] = PhoneNameList,
-            Len = length(H),
-            if
-                Len == 3 ->
-                    [{"FLAG", FLAG}, {"PHONE", PHONE}, {"NAME", NAME}] = H,
-                    [[FLAG, PHONE, NAME]|get_phone_name_list(T)];
-                true ->
+            case T of
+                [] ->
+                    [];
+                _ ->
                     get_phone_name_list(T)
             end
-    end.
+    end;
+get_phone_name_list(_List) ->
+    [].
     
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %
@@ -738,69 +656,89 @@ create_term_alarm(List, SN, Code, AF, SF, Lat, Long, T) when is_integer(SN)->
 create_term_alarm(_List, _SN, _Code, _AF, _SF, _Lat, _Long, _T) ->
     error.
 
-%%%
-%%% 0x0302
-%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%
+% MID   : 0x0302
+%
+% SN        :
+% List      : VDR list
+% IDList    : Answer ID list
+%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 create_term_answer(SN, List, IDList) ->
     if
         is_integer(SN) ->
             MIDStr = "\"MID\":770",
             SNStr = string:concat("\"SN\":", integer_to_list(SN)),
-            VIDListStr = string:concat(string:concat("\"LIST\":[",  create_list(["\"VID\""], List, false)), "]"),
-            DataListStr = string:concat(string:concat("\"DATA\":{",  create_list(["\"ID\""], IDList, true)), "}"),
+            VIDListStr = common:combine_strings(["\"LIST\":[",  create_list(["\"VID\""], List, false), "]"], false),
+            DataListStr = common:combine_strings(["\"DATA\":{",  create_list(["\"ID\""], IDList, true), "}"], false),
 			Body = common:combine_strings([MIDStr, SNStr, VIDListStr, DataListStr]),
             {ok, common:combine_strings(["{", Body, "}"], false)};
         true ->
             error
     end.
 
-%%%
-%%% 0x0500
-%%%
-create_vehicle_ctrl_answer(SN, Status, List, DataList) ->
-    if
-        is_integer(SN) andalso is_integer(Status) andalso Status >= 0 andalso Status =< 3 ->
-            MIDStr = "\"MID\":1280",
-            SNStr = string:concat("\"SN\":", integer_to_list(SN)),
-            StatusStr = string:concat("\"STATUS\":", integer_to_list(Status)),
-            VIDListStr = string:concat(string:concat("\"LIST\":[",  create_list(["\"VID\""], List, false)), "]"),
-            case Status of
-                1 ->
-                    DataListStr = string:concat(string:concat("\"DATA\":{",  create_list(["\"FLAG\""], DataList, true)), "}"),
-					Body = common:combine_strings([MIDStr, SNStr, StatusStr, VIDListStr, DataListStr]),
-                    {ok, common:combine_strings(["{", Body, "}"], false)};
-                _ ->
-                    DataListStr = "\"DATA\":{}",
-					Body = common:combine_strings([MIDStr, SNStr, StatusStr, VIDListStr, DataListStr]),
-                    {ok, common:combine_strings(["{", Body, "}"], false)}
-            end;
-        true ->
-            error
-    end.
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%
+% MID   : 0x0500
+%
+% SN        :
+% Status    :
+% List      : VDR list
+% IDList    : Answer ID list
+%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+create_vehicle_ctrl_answer(SN, Status, List, DataList) when is_integer(SN),
+                                                            is_integer(Status),
+                                                            Status >= 0,
+                                                            Status =< 3 ->
+    MIDStr = "\"MID\":1280",
+    SNStr = string:concat("\"SN\":", integer_to_list(SN)),
+    StatusStr = string:concat("\"STATUS\":", integer_to_list(Status)),
+    VIDListStr = common:combine_strings(["\"LIST\":[",  create_list(["\"VID\""], List, false), "]"], false),
+    case Status of
+        1 ->
+            DataListStr = common:combine_strings(["\"DATA\":{",  create_list(["\"FLAG\""], DataList, true), "}"], false),
+			Body = common:combine_strings([MIDStr, SNStr, StatusStr, VIDListStr, DataListStr]),
+            {ok, common:combine_strings(["{", Body, "}"], false)};
+        _ ->
+            DataListStr = "\"DATA\":{}",
+			Body = common:combine_strings([MIDStr, SNStr, StatusStr, VIDListStr, DataListStr]),
+            {ok, common:combine_strings(["{", Body, "}"], false)}
+    end;
+create_vehicle_ctrl_answer(_SN, _Status, _List, _DataList) ->
+    error.
 
-%%%
-%%% 0x0805
-%%%
-create_shot_resp(SN, List, Status, IDList) ->
-    if
-        is_integer(SN) andalso is_integer(Status) andalso Status >= 0 andalso Status =< 3 ->
-            MIDStr = "\"MID\":2053",
-            SNStr = string:concat("\"SN\":", integer_to_list(SN)),
-            VIDListStr = string:concat(string:concat("\"LIST\":[",  create_list(["\"VID\""], List, false)), "]"),
-            StatusStr = string:concat("\"STATUS\":", integer_to_list(Status)),
-            case Status of
-                0 ->
-                    DataListStr = string:concat(string:concat("\"DATA\":[",  create_list(["\"ID\""], IDList, false)), "]"),
-					Body = common:combine_strings([MIDStr, SNStr, StatusStr, VIDListStr, DataListStr]),
-                    {ok, common:combine_strings(["{", Body, "}"], false)};
-                _ ->
-                    DataListStr = "\"DATA\":[]",
-					Body = common:combine_strings([MIDStr, SNStr, StatusStr, VIDListStr, DataListStr]),
-                    {ok, common:combine_strings(["{", Body, "}"], false)}
-            end;
-        true ->
-            error
-    end.
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%
+% MID   : 0x0805
+%
+% SN        :
+% List      : VDR list
+% Status    :
+% Data      : ID list
+%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+create_shot_resp(SN, List, Status, IDList) when is_integer(SN),
+                                                is_integer(Status),
+                                                Status >= 0,
+                                                Status =< 3 ->
+    MIDStr = "\"MID\":2053",
+    SNStr = string:concat("\"SN\":", integer_to_list(SN)),
+    VIDListStr = common:combine_strings(["\"LIST\":[",  create_list(["\"VID\""], List, false), "]"], false),
+    StatusStr = string:concat("\"STATUS\":", integer_to_list(Status)),
+    case Status of
+        0 ->
+            DataListStr = common:combine_strings(["\"DATA\":[",  create_list(["\"ID\""], IDList, false), "]"], false),
+			Body = common:combine_strings([MIDStr, SNStr, StatusStr, VIDListStr, DataListStr]),
+            {ok, common:combine_strings(["{", Body, "}"], false)};
+        _ ->
+            DataListStr = "\"DATA\":[]",
+			Body = common:combine_strings([MIDStr, SNStr, StatusStr, VIDListStr, DataListStr]),
+            {ok, common:combine_strings(["{", Body, "}"], false)}
+    end;
+create_shot_resp(_SN, _List, _Status, _IDList) ->
+    error.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %
