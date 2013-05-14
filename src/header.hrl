@@ -78,7 +78,8 @@
                     driverid=undefined,         % DB driver ID, only valid in DB table
                     driverlicno=undefined,      % Actual driver license number
                     alarm=0,
-                    pid=undefined, 
+                    pid=undefined,
+                    vdrpid=undefined,
                     addr=undefined, 
                     acttime=undefined, 
                     timeout=undefined,
