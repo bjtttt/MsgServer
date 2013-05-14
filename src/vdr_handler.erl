@@ -220,12 +220,11 @@ process_vdr_data(Socket, Data, State) ->
                                         {ok, empty} -> % No vehicle and no VDR. However, only reply no vehicle here.
                                             FlowIdx = NewState#vdritem.msgflownum,
                                             MsgBody = vdr_data_processor:create_reg_resp(MsgIdx, 2, empty),
-                                            VDRResp = vdr_data_processor:create_final_msg(16#8100, FlowIdx, MsgBody),
-                                            common:loginfo("VDR registration response (no such vechile in DB) : ~p~n", [NewState#vdritem.addr, VDRResp]),
-                                            send_data_to_vdr(VDRResp, NewState),
+                                            common:loginfo("~p sends VDR registration response (no such vechile in DB) : ~p~n", [NewState#vdritem.pid, MsgBody]),
+                                            NewFlowIdx = send_data_to_vdr(16#8100, FlowIdx, MsgBody, NewState),
                                             
                                             % return error to terminate VDR connection
-                                            {error, dberror, NewState#vdritem{msgflownum=FlowIdx+1}};
+                                            {error, dberror, NewState#vdritem{msgflownum=NewFlowIdx}};
                                         {ok, [Rec]} ->
                                             % "id" is PK, so it cannot be null or undefined
                                             {<<"device">>, <<"id">>, DeviceID} = get_record_field(<<"device">>, Rec, <<"id">>),
@@ -246,21 +245,19 @@ process_vdr_data(Socket, Data, State) ->
                                                         VehicleID == undefined ->
                                                             FlowIdx = NewState#vdritem.msgflownum,
                                                             MsgBody = vdr_data_processor:create_reg_resp(MsgIdx, 2, empty),
-                                                            VDRResp = vdr_data_processor:create_final_msg(16#8100, FlowIdx, MsgBody),
-                                                            common:loginfo("VDR registration response (no such vechile in DB) : ~p~n", [NewState#vdritem.addr, VDRResp]),
-                                                            send_data_to_vdr(VDRResp, NewState),
+                                                            common:loginfo("~p sends VDR registration response (no such vechile in DB) : ~p~n", [NewState#vdritem.pid, MsgBody]),
+                                                            NewFlowIdx = send_data_to_vdr(16#8100, FlowIdx, MsgBody, NewState),
                                                             
                                                             % return error to terminate VDR connection
-                                                            {error, dberror, NewState#vdritem{msgflownum=FlowIdx+1}};
+                                                            {error, dberror, NewState#vdritem{msgflownum=NewFlowIdx}};
                                                         true -> % DeviceID == undefined ->
                                                             FlowIdx = NewState#vdritem.msgflownum,
                                                             MsgBody = vdr_data_processor:create_reg_resp(MsgIdx, 4, empty),
-                                                            VDRResp = vdr_data_processor:create_final_msg(16#8100, FlowIdx, MsgBody),
-                                                            common:loginfo("VDR registration response (no such VDR in DB) : ~p~n", [NewState#vdritem.addr, VDRResp]),
-                                                            send_data_to_vdr(VDRResp, NewState),
+                                                            common:loginfo("~p sends VDR registration response (no such VDR in DB) : ~p~n", [NewState#vdritem.pid, MsgBody]),
+                                                            NewFlowIdx = send_data_to_vdr(16#8100, FlowIdx, MsgBody, NewState),
                                                             
                                                             % return error to terminate VDR connection
-                                                            {error, dberror, NewState#vdritem{msgflownum=FlowIdx+1}}
+                                                            {error, dberror, NewState#vdritem{msgflownum=NewFlowIdx}}
                                                     end;
                                                 VehicleDeviceID =/= undefined andalso DeviceVehicleID =/= undefined -> % Vehicle registered and VDR registered
                                                     if
@@ -748,16 +745,17 @@ disconn_socket_by_id(IDSockList) ->
 %%%
 %%%
 %%%
-send_data_to_vdr(Msg, State) ->
+send_data_to_vdr(ID, FlowIdx, MsgBody, State) ->
     case State#vdritem.vdrpid of
         undefined ->
-            ok;
+            FlowIdx;
         VDRPid ->
-            VDRPid ! {State#vdritem.pid, Msg},
+            Msg = vdr_data_processor:create_final_msg(ID, FlowIdx, MsgBody),
             Pid = State#vdritem.pid,
+            VDRPid ! {Pid, Msg},
             receive
-                {Pid, Result} ->
-                    Result
+                {Pid, vdrok} ->
+                    FlowIdx+1
             end
     end.
     %gen_tcp:send(Socket, Msg).
@@ -765,9 +763,9 @@ send_data_to_vdr(Msg, State) ->
 
 data2vdr_process(Socket) ->
     receive
-        {Pid, VDRMsg} ->
-            common:loginfo("~p Received to VDR msg from ~p : ~p~n", [self(), Pid, VDRMsg]),
-            gen_tcp:send(Socket, VDRMsg),
+        {Pid, Msg} ->
+            common:loginfo("~p Receives MSG to VDR from ~p : ~p~n", [self(), Pid, Msg]),
+            gen_tcp:send(Socket, Msg),
             Pid ! {Pid, vdrok},
             data2vdr_process(Socket);
         stop ->
