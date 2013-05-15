@@ -482,6 +482,33 @@ connect_ws_to_vdr(Msg) ->
             ok
     end.
 
+send_msg_to_vdrs(VDRList, Msg) when is_list(VDRList),
+                                    length(VDRList) > 0,
+                                    is_binary(Msg) ->
+    [H|T] = VDRList,
+    send_msg_to_vdr(H, Msg),
+    case T of
+        [] ->
+            ok;
+        _ ->
+            send_msg_to_vdrs(T, Msg)
+    end;
+send_msg_to_vdrs(_VDRList, _Msg) ->
+    ok.
+
+send_msg_to_vdr(VDR, Msg) when is_binary(Msg) ->
+    SockList = ets:lookup(vdridsocktable, VDR),
+    case length(SockList) of
+        1 ->
+            [Socket] = SockList,
+            VDRItemList = ets:lookup(vdridsocktable, VDR);
+        %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% not complete
+        _ ->
+            ok
+    end;
+send_msg_to_vdr(_VDR, _Msg) ->
+    ok.
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %
 % List  :
