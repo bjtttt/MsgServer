@@ -12,6 +12,10 @@
          split_msg_to_single/2,
          is_string/1,
          is_string_list/1,
+         is_integer_string/1,
+         is_oct_integer_string/1,
+         is_hex_integer_string/1,
+         convert_word_hex_string_to_integer/1,
 		 integer_to_binary/1,
          float_to_binary/1]).
 
@@ -436,6 +440,88 @@ is_string(Value) when is_list(Value) ->
     end;
 is_string(_Value) ->
     false.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%
+%   true only when Value is NOT an empty integer string
+%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+is_integer_string(Value) when is_list(Value) ->
+    Len = length(Value),
+    if
+        Len < 1 ->
+            false;
+        true ->
+            Fun = fun(X) ->
+                          if X < 48 orelse X > 57 -> 
+                                 if
+                                     X == 88 orelse X == 120 ->
+                                         true;
+                                     true ->
+                                         false
+                                 end;                                     
+                             true -> true
+                          end
+                  end,
+            lists:all(Fun, Value)
+    end;
+is_integer_string(_Value) ->
+    false.
+
+is_oct_integer_string(Value) when is_list(Value) ->
+    Len = length(Value),
+    if
+        Len < 1 ->
+            false;
+        true ->
+            Fun = fun(X) ->
+                          if 
+                              X < 48 orelse X > 57 -> 
+                                false;
+                              true -> true
+                          end
+                  end,
+            lists:all(Fun, Value)
+    end;
+is_oct_integer_string(_Value) ->
+    false.
+
+is_hex_integer_string(Value) when is_list(Value) ->
+    case is_integer_string(Value) of
+        true ->
+            Strs = string:tokens(Value, "xX"),
+            case length(Strs) of
+                2 ->
+                    true;
+                _ ->
+                    false
+            end;
+        _ ->
+            false
+    end;
+is_hex_integer_string(_Value) ->
+    false.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%
+% WordHexString : 32 bit
+%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+convert_word_hex_string_to_integer(WordHexStr) when is_list(WordHexStr) ->
+    case is_hex_integer_string(WordHexStr) of
+        true ->
+            [_Pre, Value] = string:tokens(WordHexStr, "xX"),
+            Hex = list_to_integer(Value),
+            First = Hex div 1000,
+            Second = Hex div 100,
+            Third = Hex div 10,
+            Fourth = Hex rem 10,
+            First * 16 * 16 * 16 + Second * 16 * 16 + Third * 16 + Fourth;
+        _ ->
+            0
+    end;
+convert_word_hex_string_to_integer(_WordHexStr) ->
+    0.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %

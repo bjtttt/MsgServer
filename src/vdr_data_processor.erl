@@ -345,157 +345,170 @@ create_set_term_args(_Count, _ArgList) ->
 %%% Currently using byte_size
 %%% Has better format?
 %%%
-compose_term_args_binary(ID, Value) ->
-    Len = bit_size(Value),
-    if
-        Len < 1 ->
-            if
-                ID > 16#7, ID =< 16#F ->
-                    <<ID:?LEN_DWORD, 0:?LEN_BYTE>>;
-                ID > 16#1D, ID =< 16#1F ->
-                    <<ID:?LEN_DWORD, 0:?LEN_BYTE>>;
-                ID > 16#22, ID =< 16#26 ->
-                    <<ID:?LEN_DWORD, 0:?LEN_BYTE>>;
-                ID > 16#29, ID =< 16#2B ->
-                    <<ID:?LEN_DWORD, 0:?LEN_BYTE>>;
-                ID > 16#31, ID =< 16#3F ->
-                    <<ID:?LEN_DWORD, 0:?LEN_BYTE>>;
-                ID > 16#49, ID =< 16#4F ->
-                    <<ID:?LEN_DWORD, 0:?LEN_BYTE>>;
-                ID > 16#5E, ID =< 16#63 ->
-                    <<ID:?LEN_DWORD, 0:?LEN_BYTE>>;
-                ID > 16#65, ID =< 16#6F ->
-                    <<ID:?LEN_DWORD, 0:?LEN_BYTE>>;
-                ID > 16#74, ID =< 16#7F ->
-                    <<ID:?LEN_DWORD, 0:?LEN_BYTE>>;
-                ID > 16#F000, ID =< 16#FFFF ->
-                    <<ID:?LEN_DWORD, 0:?LEN_BYTE>>;
-                true ->
-                    <<>>
-            end;
+compose_term_args_binary(ID, Value) when is_list(ID) ->
+    case common:is_oct_integer_string(ID) of
         true ->
-            if
-                ID >= 16#0, ID =< 16#7 ->
-                    ActLen = ?LEN_DWORD_BYTE,
-                    <<ID:?LEN_DWORD, ActLen:?LEN_BYTE, Value:?LEN_DWORD>>;
-                ID >= 16#8, ID =< 16#F ->                    % Impossible, the same to the other items whose length is 0.
-                    <<ID:?LEN_DWORD, 0:?LEN_BYTE>>;
-                ID >= 16#10, ID =< 16#17 ->
-                    Bin = list_to_binary(Value),
-                    ActLen = byte_size(Bin),
-                    list_to_binary([<<ID:?LEN_DWORD>>, <<ActLen:?LEN_BYTE>>, Bin]);
-                ID >= 16#18, ID =< 16#19 ->
-                    ActLen = ?LEN_DWORD_BYTE,
-                    <<ID:?LEN_DWORD, ActLen:?LEN_BYTE, Value:?LEN_DWORD>>;
-                ID == 16#1A ->
-                    Bin = list_to_binary(Value),
-                    ActLen = byte_size(Bin),
-                    list_to_binary([<<ID:?LEN_DWORD>>, <<ActLen:?LEN_BYTE>>, Bin]);
-                ID >= 16#1B, ID =< 16#1C ->
-                    ActLen = ?LEN_DWORD_BYTE,
-                    <<ID:?LEN_DWORD, ActLen:?LEN_BYTE, Value:?LEN_DWORD>>;
-                ID == 16#1D ->
-                    Bin = list_to_binary(Value),
-                    ActLen = byte_size(Bin),
-                    list_to_binary([<<ID:?LEN_DWORD>>, <<ActLen:?LEN_BYTE>>, Bin]);
-                ID >= 16#1E, ID =< 16#1F ->                    % Impossible, the same to the other items whose length is 0.
-                    <<ID:?LEN_DWORD, 0:?LEN_BYTE>>;
-                ID >= 16#20, ID =< 16#22 ->
-                    ActLen = ?LEN_DWORD_BYTE,
-                    <<ID:?LEN_DWORD, ActLen:?LEN_BYTE, Value:?LEN_DWORD>>;
-                ID >= 16#23, ID =< 16#26 ->                    % Impossible, the same to the other items whose length is 0.
-                    <<ID:?LEN_DWORD, 0:?LEN_BYTE>>;
-                ID >= 16#27, ID =< 16#29 ->
-                    ActLen = ?LEN_DWORD_BYTE,
-                    <<ID:?LEN_DWORD, ActLen:?LEN_BYTE, Value:?LEN_DWORD>>;
-                ID >= 16#2A, ID =< 16#2B ->                    % Impossible, the same to the other items whose length is 0.
-                    <<ID:?LEN_DWORD, 0:?LEN_BYTE>>;
-                ID >= 16#2C, ID =< 16#30 ->
-                    ActLen = ?LEN_DWORD_BYTE,
-                    <<ID:?LEN_DWORD, ActLen:?LEN_BYTE, Value:?LEN_DWORD>>;
-                ID == 16#31 ->
-                    ActLen = ?LEN_WORD_BYTE,
-                    <<ID:?LEN_DWORD, ActLen:?LEN_BYTE, Value:?LEN_DWORD>>;
-                ID >= 16#32, ID =< 16#3F ->                    % Impossible, the same to the other items whose length is 0.
-                    <<ID:?LEN_DWORD, 0:?LEN_BYTE>>;
-                ID >= 16#40, ID =< 16#44 ->
-                    Bin = list_to_binary(Value),
-                    ActLen = byte_size(Bin),
-                    list_to_binary([<<ID:?LEN_DWORD>>, <<ActLen:?LEN_BYTE>>, Bin]);
-                ID >= 16#45, ID =< 16#47 ->
-                    ActLen = ?LEN_DWORD_BYTE,
-                    <<ID:?LEN_DWORD, ActLen:?LEN_BYTE, Value:?LEN_DWORD>>;
-                ID >= 16#48, ID =< 16#49 ->
-                    Bin = list_to_binary(Value),
-                    ActLen = byte_size(Bin),
-                    list_to_binary([<<ID:?LEN_DWORD>>, <<ActLen:?LEN_BYTE>>, Bin]);
-                ID >= 16#4A, ID =< 16#4F ->                    % Impossible, the same to the other items whose length is 0.
-                    <<ID:?LEN_DWORD, 0:?LEN_BYTE>>;
-                ID >= 16#50, ID =< 16#5A ->
-                    ActLen = ?LEN_DWORD_BYTE,
-                    <<ID:?LEN_DWORD, ActLen:?LEN_BYTE, Value:?LEN_DWORD>>;
-                ID >= 16#5B, ID =< 16#5E ->
-                    ActLen = ?LEN_WORD_BYTE,
-                    <<ID:?LEN_DWORD, ActLen:?LEN_BYTE, Value:?LEN_DWORD>>;
-                ID >= 16#5F, ID =< 16#63 ->                    % Impossible, the same to the other items whose length is 0.
-                    <<ID:?LEN_DWORD, 0:?LEN_BYTE>>;
-                ID >= 16#64, ID =< 16#65 ->
-                    ActLen = ?LEN_DWORD_BYTE,
-                    <<ID:?LEN_DWORD, ActLen:?LEN_BYTE, Value:?LEN_DWORD>>;
-                ID >= 16#66, ID =< 16#6F ->                    % Impossible, the same to the other items whose length is 0.
-                    <<ID:?LEN_DWORD, 0:?LEN_BYTE>>;
-                ID >= 16#70, ID =< 16#74 ->
-                    ActLen = ?LEN_DWORD_BYTE,
-                    <<ID:?LEN_DWORD, ActLen:?LEN_BYTE, Value:?LEN_DWORD>>;
-                ID >= 16#75, ID =< 16#7F ->                    % Impossible, the same to the other items whose length is 0.
-                    <<ID:?LEN_DWORD, 0:?LEN_BYTE>>;
-                ID == 16#80 ->
-                    ActLen = ?LEN_DWORD_BYTE,
-                    <<ID:?LEN_DWORD, ActLen:?LEN_BYTE, Value:?LEN_DWORD>>;
-                ID >= 16#81, ID =< 16#82 ->
-                    ActLen = ?LEN_WORD_BYTE,
-                    <<ID:?LEN_DWORD, ActLen:?LEN_BYTE, Value:?LEN_DWORD>>;
-                ID == 16#83 ->
-                    Bin = list_to_binary(Value),
-                    ActLen = byte_size(Bin),
-                    list_to_binary([<<ID:?LEN_DWORD>>, <<ActLen:?LEN_BYTE>>, Bin]);
-                ID == 16#84 ->
-                    ActLen = ?LEN_BYTE_BYTE,
-                    <<ID:?LEN_DWORD, ActLen:?LEN_BYTE, Value:?LEN_DWORD>>;
-                ID >= 16#90, ID =< 16#92 ->
-                    ActLen = ?LEN_BYTE_BYTE,
-                    <<ID:?LEN_DWORD, ActLen:?LEN_BYTE, Value:?LEN_DWORD>>;
-                ID == 16#93 ->
-                    ActLen = ?LEN_DWORD_BYTE,
-                    <<ID:?LEN_DWORD, ActLen:?LEN_BYTE, Value:?LEN_DWORD>>;
-                ID == 16#94 ->
-                    ActLen = ?LEN_BYTE_BYTE,
-                    <<ID:?LEN_DWORD, ActLen:?LEN_BYTE, Value:?LEN_DWORD>>;
-                ID == 16#95 ->
-                    ActLen = ?LEN_DWORD_BYTE,
-                    <<ID:?LEN_DWORD, ActLen:?LEN_BYTE, Value:?LEN_DWORD>>;
-                ID == 16#100 ->
-                    ActLen = ?LEN_DWORD_BYTE,
-                    <<ID:?LEN_DWORD, ActLen:?LEN_BYTE, Value:?LEN_DWORD>>;
-                ID == 16#101 ->
-                    ActLen = ?LEN_WORD_BYTE,
-                    <<ID:?LEN_DWORD, ActLen:?LEN_BYTE, Value:?LEN_DWORD>>;
-                ID == 16#102 ->
-                    ActLen = ?LEN_DWORD_BYTE,
-                    <<ID:?LEN_DWORD, ActLen:?LEN_BYTE, Value:?LEN_DWORD>>;
-                ID == 16#103 ->
-                    ActLen = ?LEN_WORD_BYTE,
-                    <<ID:?LEN_DWORD, ActLen:?LEN_BYTE, Value:?LEN_DWORD>>;
-                ID >= 16#110, ID =< 16#1FF ->
-                    ActLen = 8*?LEN_BYTE_BYTE,
-                    <<ID:?LEN_DWORD, ActLen:?LEN_BYTE, Value:?LEN_DWORD>>;
-                ID >= 16#F000, ID =< 16#FFFF ->                    % Impossible, the same to the other items whose length is 0.
-                    <<ID:?LEN_DWORD, 0:?LEN_BYTE>>;
+            IDInt = list_to_integer(ID),
+            compose_term_args_binary(IDInt, Value);
+        _ ->
+            case common:is_hex_integer_string(ID) of
                 true ->
+                    IDInt = common:convert_word_hex_string_to_integer(ID),
+                    compose_term_args_binary(IDInt, Value);
+                _ ->
                     <<>>
             end
-    end.
-
+    end;
+compose_term_args_binary(ID, Value) when is_integer(ID) ->
+    if
+        ID > 16#7, ID =< 16#F ->
+            <<ID:?LEN_DWORD, 0:?LEN_BYTE>>;
+        ID > 16#1D, ID =< 16#1F ->
+            <<ID:?LEN_DWORD, 0:?LEN_BYTE>>;
+        ID > 16#22, ID =< 16#26 ->
+            <<ID:?LEN_DWORD, 0:?LEN_BYTE>>;
+        ID > 16#29, ID =< 16#2B ->
+            <<ID:?LEN_DWORD, 0:?LEN_BYTE>>;
+        ID > 16#31, ID =< 16#3F ->
+            <<ID:?LEN_DWORD, 0:?LEN_BYTE>>;
+        ID > 16#49, ID =< 16#4F ->
+            <<ID:?LEN_DWORD, 0:?LEN_BYTE>>;
+        ID > 16#5E, ID =< 16#63 ->
+            <<ID:?LEN_DWORD, 0:?LEN_BYTE>>;
+        ID > 16#65, ID =< 16#6F ->
+            <<ID:?LEN_DWORD, 0:?LEN_BYTE>>;
+        ID > 16#74, ID =< 16#7F ->
+            <<ID:?LEN_DWORD, 0:?LEN_BYTE>>;
+        ID > 16#F000, ID =< 16#FFFF ->
+            <<ID:?LEN_DWORD, 0:?LEN_BYTE>>;
+        %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+        ID >= 16#0, ID =< 16#7 ->
+            ActLen = ?LEN_DWORD_BYTE,
+            <<ID:?LEN_DWORD, ActLen:?LEN_BYTE, Value:?LEN_DWORD>>;
+        ID >= 16#8, ID =< 16#F ->                    % Impossible, the same to the other items whose length is 0.
+            <<ID:?LEN_DWORD, 0:?LEN_BYTE>>;
+        ID >= 16#10, ID =< 16#17 ->
+            case is_binary(Value) of
+                true ->
+                    ActLen = byte_size(Value),
+                    list_to_binary([<<ID:?LEN_DWORD>>, <<ActLen:?LEN_BYTE>>, Value]);
+                _ ->
+                    Bin = list_to_binary(Value),
+                    ActLen = byte_size(Bin),
+                    list_to_binary([<<ID:?LEN_DWORD>>, <<ActLen:?LEN_BYTE>>, Bin])
+                end;
+        ID >= 16#18, ID =< 16#19 ->
+            ActLen = ?LEN_DWORD_BYTE,
+            <<ID:?LEN_DWORD, ActLen:?LEN_BYTE, Value:?LEN_DWORD>>;
+        ID == 16#1A ->
+            Bin = list_to_binary(Value),
+            ActLen = byte_size(Bin),
+            list_to_binary([<<ID:?LEN_DWORD>>, <<ActLen:?LEN_BYTE>>, Bin]);
+        ID >= 16#1B, ID =< 16#1C ->
+            ActLen = ?LEN_DWORD_BYTE,
+            <<ID:?LEN_DWORD, ActLen:?LEN_BYTE, Value:?LEN_DWORD>>;
+        ID == 16#1D ->
+            Bin = list_to_binary(Value),
+            ActLen = byte_size(Bin),
+            list_to_binary([<<ID:?LEN_DWORD>>, <<ActLen:?LEN_BYTE>>, Bin]);
+        ID >= 16#1E, ID =< 16#1F ->                    % Impossible, the same to the other items whose length is 0.
+            <<ID:?LEN_DWORD, 0:?LEN_BYTE>>;
+        ID >= 16#20, ID =< 16#22 ->
+            ActLen = ?LEN_DWORD_BYTE,
+            <<ID:?LEN_DWORD, ActLen:?LEN_BYTE, Value:?LEN_DWORD>>;
+        ID >= 16#23, ID =< 16#26 ->                    % Impossible, the same to the other items whose length is 0.
+            <<ID:?LEN_DWORD, 0:?LEN_BYTE>>;
+        ID >= 16#27, ID =< 16#29 ->
+            ActLen = ?LEN_DWORD_BYTE,
+            <<ID:?LEN_DWORD, ActLen:?LEN_BYTE, Value:?LEN_DWORD>>;
+        ID >= 16#2A, ID =< 16#2B ->                    % Impossible, the same to the other items whose length is 0.
+            <<ID:?LEN_DWORD, 0:?LEN_BYTE>>;
+        ID >= 16#2C, ID =< 16#30 ->
+            ActLen = ?LEN_DWORD_BYTE,
+            <<ID:?LEN_DWORD, ActLen:?LEN_BYTE, Value:?LEN_DWORD>>;
+        ID == 16#31 ->
+            ActLen = ?LEN_WORD_BYTE,
+            <<ID:?LEN_DWORD, ActLen:?LEN_BYTE, Value:?LEN_DWORD>>;
+        ID >= 16#32, ID =< 16#3F ->                    % Impossible, the same to the other items whose length is 0.
+            <<ID:?LEN_DWORD, 0:?LEN_BYTE>>;
+        ID >= 16#40, ID =< 16#44 ->
+            Bin = list_to_binary(Value),
+            ActLen = byte_size(Bin),
+            list_to_binary([<<ID:?LEN_DWORD>>, <<ActLen:?LEN_BYTE>>, Bin]);
+        ID >= 16#45, ID =< 16#47 ->
+            ActLen = ?LEN_DWORD_BYTE,
+            <<ID:?LEN_DWORD, ActLen:?LEN_BYTE, Value:?LEN_DWORD>>;
+        ID >= 16#48, ID =< 16#49 ->
+            Bin = list_to_binary(Value),
+            ActLen = byte_size(Bin),
+            list_to_binary([<<ID:?LEN_DWORD>>, <<ActLen:?LEN_BYTE>>, Bin]);
+        ID >= 16#4A, ID =< 16#4F ->                    % Impossible, the same to the other items whose length is 0.
+            <<ID:?LEN_DWORD, 0:?LEN_BYTE>>;
+        ID >= 16#50, ID =< 16#5A ->
+            ActLen = ?LEN_DWORD_BYTE,
+            <<ID:?LEN_DWORD, ActLen:?LEN_BYTE, Value:?LEN_DWORD>>;
+        ID >= 16#5B, ID =< 16#5E ->
+            ActLen = ?LEN_WORD_BYTE,
+            <<ID:?LEN_DWORD, ActLen:?LEN_BYTE, Value:?LEN_DWORD>>;
+        ID >= 16#5F, ID =< 16#63 ->                    % Impossible, the same to the other items whose length is 0.
+            <<ID:?LEN_DWORD, 0:?LEN_BYTE>>;
+        ID >= 16#64, ID =< 16#65 ->
+            ActLen = ?LEN_DWORD_BYTE,
+            <<ID:?LEN_DWORD, ActLen:?LEN_BYTE, Value:?LEN_DWORD>>;
+        ID >= 16#66, ID =< 16#6F ->                    % Impossible, the same to the other items whose length is 0.
+            <<ID:?LEN_DWORD, 0:?LEN_BYTE>>;
+        ID >= 16#70, ID =< 16#74 ->
+            ActLen = ?LEN_DWORD_BYTE,
+            <<ID:?LEN_DWORD, ActLen:?LEN_BYTE, Value:?LEN_DWORD>>;
+        ID >= 16#75, ID =< 16#7F ->                    % Impossible, the same to the other items whose length is 0.
+            <<ID:?LEN_DWORD, 0:?LEN_BYTE>>;
+        ID == 16#80 ->
+            ActLen = ?LEN_DWORD_BYTE,
+            <<ID:?LEN_DWORD, ActLen:?LEN_BYTE, Value:?LEN_DWORD>>;
+        ID >= 16#81, ID =< 16#82 ->
+            ActLen = ?LEN_WORD_BYTE,
+            <<ID:?LEN_DWORD, ActLen:?LEN_BYTE, Value:?LEN_DWORD>>;
+        ID == 16#83 ->
+            Bin = list_to_binary(Value),
+            ActLen = byte_size(Bin),
+            list_to_binary([<<ID:?LEN_DWORD>>, <<ActLen:?LEN_BYTE>>, Bin]);
+        ID == 16#84 ->
+            ActLen = ?LEN_BYTE_BYTE,
+            <<ID:?LEN_DWORD, ActLen:?LEN_BYTE, Value:?LEN_DWORD>>;
+        ID >= 16#90, ID =< 16#92 ->
+            ActLen = ?LEN_BYTE_BYTE,
+            <<ID:?LEN_DWORD, ActLen:?LEN_BYTE, Value:?LEN_DWORD>>;
+        ID == 16#93 ->
+            ActLen = ?LEN_DWORD_BYTE,
+            <<ID:?LEN_DWORD, ActLen:?LEN_BYTE, Value:?LEN_DWORD>>;
+        ID == 16#94 ->
+            ActLen = ?LEN_BYTE_BYTE,
+            <<ID:?LEN_DWORD, ActLen:?LEN_BYTE, Value:?LEN_DWORD>>;
+        ID == 16#95 ->
+            ActLen = ?LEN_DWORD_BYTE,
+            <<ID:?LEN_DWORD, ActLen:?LEN_BYTE, Value:?LEN_DWORD>>;
+        ID == 16#100 ->
+            ActLen = ?LEN_DWORD_BYTE,
+            <<ID:?LEN_DWORD, ActLen:?LEN_BYTE, Value:?LEN_DWORD>>;
+        ID == 16#101 ->
+            ActLen = ?LEN_WORD_BYTE,
+            <<ID:?LEN_DWORD, ActLen:?LEN_BYTE, Value:?LEN_DWORD>>;
+        ID == 16#102 ->
+            ActLen = ?LEN_DWORD_BYTE,
+            <<ID:?LEN_DWORD, ActLen:?LEN_BYTE, Value:?LEN_DWORD>>;
+        ID == 16#103 ->
+            ActLen = ?LEN_WORD_BYTE,
+            <<ID:?LEN_DWORD, ActLen:?LEN_BYTE, Value:?LEN_DWORD>>;
+        ID >= 16#110, ID =< 16#1FF ->
+            ActLen = 8*?LEN_BYTE_BYTE,
+            <<ID:?LEN_DWORD, ActLen:?LEN_BYTE, Value:?LEN_DWORD>>;
+        ID >= 16#F000, ID =< 16#FFFF ->                    % Impossible, the same to the other items whose length is 0.
+            <<ID:?LEN_DWORD, 0:?LEN_BYTE>>;
+        true ->
+            <<>>
+    end;
+compose_term_args_binary(_ID, _Value) ->
+    <<>>.
 
 %%%
 %%% 0x8104

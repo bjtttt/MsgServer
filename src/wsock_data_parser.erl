@@ -8,10 +8,11 @@
 
 -include("header.hrl").
 
--export([process_wsock_message/2]).%,
+-export([process_wsock_message/1,
+         process_wsock_message/2]).%,
          %tows_msg_handler/0]).
 
--export([process_data/1]).
+%-export([process_data/1]).
 
 -export([create_gen_resp/5,
          create_pulse/0,
@@ -45,6 +46,8 @@
 %%%
 %%%
 %%%
+process_wsock_message(Msg) ->
+    process_wsock_message(text, Msg).
 process_wsock_message(Type, Msg) ->
     case Type of
         binary ->
@@ -436,12 +439,18 @@ connect_ws_to_vdr(Msg) ->
                 16#4003 ->
                     ok;
                 16#8103 ->
-                    {ok, Mid, [SN, VIDList, [ST, DT]]} = Res,
+                    [SN, VIDList, [ST, DT]] = Res,
                     SDT = ST ++ DT,
                     Count = length(SDT),
                     SDTBin = vdr_data_processor:create_set_term_args(length(SDT), SDT),
-                    MsgBody = list_to_binary([<<Count:?LEN_BYTE>>, SDTBin]),
-                    ok;
+                    case SDTBin of
+                        {ok, VDRBin} ->
+                            %common:loginfo("WS (~p) sends VDR (~p) response for 16#200 (ok) : ~p~n", [self(), NewState#vdritem.addr, MsgBody]),
+                            %NewFlowIdx = send_data_to_vdr(16#8001, FlowIdx, MsgBody, NewState),
+                            ok;
+                        _ ->
+                            ok
+                    end;
                 16#8203 ->
                     ok;
                 16#8602 ->
