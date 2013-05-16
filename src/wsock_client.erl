@@ -53,6 +53,7 @@
 wsock_client_process() ->
     receive
         {Pid, WSMsg} ->
+            common:loginfo("WS Client receives from ~p : ~p~n", [Pid, WSMsg]),
             wsock_client:send(WSMsg),
             Pid ! {Pid, wsok},
             wsock_client_process();

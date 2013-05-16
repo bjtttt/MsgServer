@@ -166,10 +166,25 @@ do_process_data(Data) ->
                                     VIDList = get_same_key_list(List),
                                     DataLen = length(DATA),
                                     if
-                                        DataLen == 2 ->
-                                            {"ST", {obj, ST}} = get_specific_entry(DATA, "ST"),
-                                            {"DT", {obj, DT}} = get_specific_entry(DATA, "DT"),
-                                            {ok, Mid, [SN, VIDList, [ST, DT]]};
+                                        DataLen == 2 orelse DataLen == 1 orelse DataLen == 0 ->
+                                            {"ST", STPart} = get_specific_entry(DATA, "ST"),
+                                            {"DT", DTPart} = get_specific_entry(DATA, "DT"),
+                                            case STPart of
+                                                {obj, ST} ->
+                                                    case DTPart of
+                                                        {obj, DT} ->
+                                                            {ok, Mid, [SN, VIDList, [ST, DT]]};
+                                                        _ ->
+                                                            {ok, Mid, [SN, VIDList, [ST, []]]}
+                                                    end;
+                                                _ ->
+                                                    case DTPart of
+                                                        {obj, DT} ->
+                                                            {ok, Mid, [SN, VIDList, [[], DT]]};
+                                                        _ ->
+                                                            {ok, Mid, [SN, VIDList, [[], []]]}
+                                                    end
+                                            end;
                                         true ->
                                             {error, format_error}
                                     end;
@@ -513,7 +528,7 @@ send_msg_to_vdr(VDR, Msg) when is_binary(Msg) ->
         1 ->
             [VDRSock] = VDRSockList,
             common:loginfo("WS Server : Gateway WS delegation ~p sends msg to VDR (~p) : ~p~n", [self(), VDRSock#vdridsockitem.addr, Msg]),
-            NewFlowIdx = vdr_handler:send_data_to_vdr(16#8103, VDRSock#vdridsockitem.msgflownum, Msg, VDRSock#vdridsockitem.vdrpid),
+            NewFlowIdx = vdr_handler:send_data_to_vdr(16#8103, VDRSock#vdridsockitem.msgflownum, {ok, Msg}, VDRSock#vdridsockitem.vdrpid),
             ets:insert(vdridsocktable, VDRSock#vdridsockitem{msgflownum=NewFlowIdx});
         _ ->
             common:loginfo("WS Server : Cannot find VDRID in vdridsock table~n"),

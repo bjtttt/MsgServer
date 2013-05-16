@@ -201,7 +201,10 @@ process_vdr_data(Socket, Data, State) ->
     VDRPid = State#vdritem.vdrpid,
     case vdr_data_parser:process_data(State, Data) of
         {ok, HeadInfo, Msg, NewState} ->
-            {ID, MsgIdx, _Tel, _CryptoType} = HeadInfo,
+            {ID, MsgIdx, Tel, _CryptoType} = HeadInfo,
+            common:loginfo("VDR (~p) MSG ID : ~p~n", [NewState#vdritem.addr, ID]),
+            common:loginfo("VDR (~p) MSG Index : ~p~n", [NewState#vdritem.addr, MsgIdx]),
+            common:loginfo("VDR (~p) MSG Tel : ~p~n", [NewState#vdritem.addr, Tel]),
             if
                 State#vdritem.id == undefined ->
                     common:loginfo("Unknown VDR (~p) MSG ID : ~p~n", [NewState#vdritem.addr, ID]),
@@ -418,7 +421,7 @@ process_vdr_data(Socket, Data, State) ->
                                                                                                  auth=binary_to_list(VDRAuthenCode),
                                                                                                  vehicleid=VehicleID,
                                                                                                  vehiclecode=binary_to_list(VehicleCode)}),
-                                                            common:loginfo("Insert VDRIDSocket : VehicleID (~p)~n", [VDRID]),
+                                                            common:loginfo("Insert VDRIDSocket : VehicleID (~p)~n", [VehicleID]),
                                                             ets:insert(vdridsocktable, #vdridsockitem{id=VehicleID, socket=Socket, addr=State#vdritem.addr, vdrpid=VDRPid}),
                                                             
                                                             SqlUpdate = list_to_binary([<<"update device set is_online=1 where authen_code='">>, VDRAuthenCode, <<"'">>]),
@@ -465,9 +468,10 @@ process_vdr_data(Socket, Data, State) ->
                     common:loginfo("VDR (~p) (id:~p, serialno:~p, authen_code:~p) MSG ID : ~p~n", [NewState#vdritem.addr, NewState#vdritem.id, NewState#vdritem.serialno, NewState#vdritem.auth, ID]),
                     case ID of
                         16#1 ->     % VDR general response
-                            {_GwFlowIdx, _GwID, _GwRes} = Msg,
+                            {RespFlowIdx, RespID, Res} = Msg,
                             
                             % Process reponse from VDR here
+                            common:loginfo("Gateway (~p) receives VDR (~p) general response for 16#1 : RespFlowIdx (~p), RespID (~p), Res (~p)~n", [State#vdritem.pid, State#vdritem.addr, RespFlowIdx, RespID, Res]),
 
                             {ok, NewState};                      
                         16#2 ->     % VDR pulse
@@ -475,7 +479,7 @@ process_vdr_data(Socket, Data, State) ->
                             %{} = Msg,
                             FlowIdx = NewState#vdritem.msgflownum,
                             MsgBody = vdr_data_processor:create_gen_resp(ID, MsgIdx, ?T_GEN_RESP_OK),
-                            common:loginfo("~p sends VDR (~p) response for 16#2 (Pulse) : ~p~n", [State#vdritem.pid, State#vdritem.addr, MsgBody]),
+                            common:loginfo("Gateway (~p) sends VDR (~p) response for 16#2 (Pulse) : ~p~n", [State#vdritem.pid, State#vdritem.addr, MsgBody]),
                             NewFlowIdx = send_data_to_vdr(16#8100, FlowIdx, MsgBody, VDRPid),
 
                             {ok, NewState#vdritem{msgflownum=NewFlowIdx}};
@@ -726,7 +730,7 @@ send_data_to_vdr(ID, FlowIdx, MsgBody, VDRPid) ->
             FlowIdx;
         _ ->
             Pid = self(),
-            common:loginfo("~p send_data_to_vdr : ID (~p), FlowIdx (~p)~n", [Pid, ID, FlowIdx]),
+            common:loginfo("~p send_data_to_vdr : ID (~p), FlowIdx (~p), MsgBody (~p)~n", [Pid, ID, FlowIdx, MsgBody]),
             Msg = vdr_data_processor:create_final_msg(ID, FlowIdx, MsgBody),
             VDRPid ! {Pid, Msg},
             %receive
