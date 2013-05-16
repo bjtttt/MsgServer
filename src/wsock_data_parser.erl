@@ -90,6 +90,7 @@ process_data(Data) ->
 %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 do_process_data(Data) ->
+    common:loginfo("WS Server MSG : ~p~n", [Data]),
     case rfc4627:decode(Data) of
         {ok, Erl, _Rest} ->
             {obj, Content} = Erl,
@@ -448,7 +449,7 @@ connect_ws_to_vdr(Msg) ->
                             [{wspid, WSPid}] = ets:lookup(msgservertable, wspid),
                             case wsock_data_parser:create_gen_resp(SN, 16#8103, VIDList, ?P_GENRESP_OK) of
                                 {ok, WSResp} ->
-                                    common:loginfo("Gateway response (16#8103) to WS (~p) : ~p~n", [WSResp, WSPid]),
+                                    common:loginfo("WS Server : gateway send response (16#8103) to WS (~p) : ~p~n", [WSResp, WSPid]),
                                     Pid = self(),
                                     WSPid ! {Pid, WSResp},
                                     receive
@@ -507,19 +508,15 @@ send_msg_to_vdrs(_VDRList, _Msg) ->
     ok.
 
 send_msg_to_vdr(VDR, Msg) when is_binary(Msg) ->
-    SockList = ets:lookup(vdridsocktable, VDR),
-    case length(SockList) of
+    VDRSockList = ets:lookup(vdridsocktable, VDR),
+    case length(VDRSockList) of
         1 ->
-            [Socket] = SockList,
-            VDRList = ets:lookup(vdrtable, Socket),
-            case length(VDRList) of
-                1 ->
-                    [VDR] = VDRList,
-                    vdr_handler:send_data_to_vdr(16#8103, VDR#vdritem.msgflownum, Msg, VDR);
-                _ ->
-                    ok
-            end;
+            [VDRSock] = VDRSockList,
+            common:loginfo("WS Server : Gateway WS delegation ~p sends msg to VDR (~p) : ~p~n", [self(), VDRSock#vdridsockitem.addr, Msg]),
+            NewFlowIdx = vdr_handler:send_data_to_vdr(16#8103, VDRSock#vdridsockitem.msgflownum, Msg, VDRSock#vdridsockitem.vdrpid),
+            ets:insert(vdridsocktable, VDRSock#vdridsockitem{msgflownum=NewFlowIdx});
         _ ->
+            common:loginfo("WS Server : Cannot find VDRID in vdridsock table~n"),
             ok
     end;
 send_msg_to_vdr(_VDR, _Msg) ->

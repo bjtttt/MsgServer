@@ -60,6 +60,8 @@
 -define(OPEN, 1).
 -define(CLOSED, 2).
 
+-define(WS2VDRFREQ, 10).
+
 %%%
 %%% There is only one super user, name is super, password is super.
 %%% 
@@ -80,11 +82,10 @@
                     alarm=0,
                     pid=undefined,
                     vdrpid=undefined,
-                    wsvdrpid=undefined,
                     addr=undefined, 
                     acttime=undefined, 
                     timeout=undefined,
-                    msgflownum=0,
+                    msgflownum=1,
                     errorcount=0,
                     wspid=undefined,
                     dbpid=undefined,
@@ -93,9 +94,11 @@
                     req=[]
                  }).
 
--record(vdridsockitem, {    id=undefined,
+-record(vdridsockitem, {    id=undefined,           % Vehicle ID
                             socket=undefined,
-                            addr=undefined
+                            addr=undefined,
+                            vdrpid=undefined,
+                            msgflownum=?WS2VDRFREQ
                        }).
 
 %%%
