@@ -6,7 +6,8 @@
 
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2, code_change/3]).
 
--export([process_vdr_data/3]).
+-export([process_vdr_data/3,
+         send_data_to_vdr/4]).
 
 -include("header.hrl").
 -include("mysql.hrl").
@@ -18,20 +19,29 @@ init([Socket, Addr]) ->
     process_flag(trap_exit, true),
     Pid = self(),
     VDRPid = spawn(fun() -> data2vdr_process(Socket) end),
+    %WSVDRPid = spawn(fun() -> transfer_msg_ws2vdr_process() end),
     common:loginfo("Data to VDR PID : ~p~n", [VDRPid]),
     [{dbpid, DBPid}] = ets:lookup(msgservertable, dbpid),
     [{wspid, WSPid}] = ets:lookup(msgservertable, wspid),
+    %State = #vdritem{socket=Socket, pid=Pid, vdrpid=VDRPid, wsvdrpid=WSVDRPid, addr=Addr, msgflownum=0, errorcount=0, dbpid=DBPid, wspid=WSPid},
     State = #vdritem{socket=Socket, pid=Pid, vdrpid=VDRPid, addr=Addr, msgflownum=0, errorcount=0, dbpid=DBPid, wspid=WSPid},
     ets:insert(vdrtable, State), 
     inet:setopts(Socket, [{active, once}]),
 	{ok, State}.
 
+%handle_call({test, Msg}, _From, State) ->
+%    common:loginfo("handle_call : test : ~p~n", [Msg]),
+%    {noreply, ok, State};
 handle_call({fetch, PoolId, Msg}, _From, State) ->
     Resp = mysql:fetch(PoolId, Msg),
     {noreply, {ok, Resp}, State};
 handle_call(_Request, _From, State) ->
+    %common:loginfo("handle_call : none : none~n"),
     {noreply, ok, State}.
 
+%handle_cast({test, Msg}, State) ->
+%    common:loginfo("handle_cast : test : ~p~n", [Msg]),
+%    {noreply, ok, State};
 handle_cast({send, Socket, Msg}, State) ->
     gen_tcp:send(Socket, Msg),
     {noreply, State};
@@ -45,7 +55,9 @@ handle_info({tcp, Socket, Data}, OriState) ->
     common:loginfo("Data from VDR (~p) (id:~p, serialno:~p, authen_code:~p) : ~p~n", [OriState#vdritem.addr, OriState#vdritem.id, OriState#vdritem.serialno, OriState#vdritem.auth, Data]),
     % Update active time for VDR
     DateTime = {erlang:date(), erlang:time()},
+    %TableState = ets:lookup(vdrtable, Socket),
     State = OriState#vdritem{acttime=DateTime},
+    %State = OriState#vdritem{acttime=DateTime,msgflownum=TableState#vdritem.msgflownum},
     %State = OriState#vdritem{acttime=DateTime, vehicleid=1},
     %DataDebug = <<126,1,2,0,2,1,86,121,16,51,112,0,14,81,82,113,126>>,
     %DataDebug = <<126,1,2,0,2,1,86,121,16,51,112,44,40,81,82,123,126>>,
@@ -704,9 +716,11 @@ update_reg_install_time(DeviceID, DeviceRegTime, VehicleID, VehicleDeviceInstall
 %            send_data_to_vdr(Socket, VDRResp)
 %    end.
 
-%%%
-%%% Diconnect socket and remove related entries from vdrtable and vdridsocktable
-%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%
+% Diconnect socket and remove related entries from vdrtable and vdridsocktable
+%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 disconn_socket_by_id(IDSockList) ->
     case IDSockList of
         [] ->
@@ -730,31 +744,54 @@ disconn_socket_by_id(IDSockList) ->
             end
     end.
            
-%%%
-%%%
-%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%
+%
+%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 send_data_to_vdr(ID, FlowIdx, MsgBody, State) ->
     case State#vdritem.vdrpid of
         undefined ->
             FlowIdx;
         VDRPid ->
+            common:loginfo("send_data_to_vdr : ID (~p), FlowIdx (~p)~n", [ID, FlowIdx]),
             Msg = vdr_data_processor:create_final_msg(ID, FlowIdx, MsgBody),
             Pid = State#vdritem.pid,
             VDRPid ! {Pid, Msg},
-            receive
-                {Pid, vdrok} ->
-                    FlowIdx+1
-            end
+            %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% Test
+            %WSVDRPid = State#vdritem.wsvdrpid,
+            %WSVDRPid ! {Pid, "ABCABCABCABCABCABCABCABCABCABCABCABCABCABCABCABCABCABCABCABC"},
+            %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% Test
+            %ets:insert(vdrtable, State#vdritem{msgflownum=FlowIdx+1}),
+            FlowIdx+1
+            %receive
+            %    {Pid, vdrok} ->
+            %        FlowIdx+1
+            %end
     end.
-    %gen_tcp:send(Socket, Msg).
-    %gen_server:cast(?MODULE, {send, Socket, Msg}).
 
+%transfer_msg_ws2vdr_process() ->
+%    receive
+%        {_Pid, Msg} ->
+%            common:loginfo("call : test : ~p~n", [Msg]),
+%            gen_server:call(?MODULE, {test, Msg}),
+%            common:loginfo("end call : test : ~p~n", [Msg]),
+%            transfer_msg_ws2vdr_process();
+%        stop ->
+%            ok
+%    end.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%
+%
+%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 data2vdr_process(Socket) ->
     receive
         {Pid, Msg} ->
             common:loginfo("~p Receives MSG to VDR from ~p : ~p~n", [self(), Pid, Msg]),
             gen_tcp:send(Socket, Msg),
-            Pid ! {Pid, vdrok},
+            %Pid ! {Pid, vdrok},
             data2vdr_process(Socket);
         stop ->
             ok;
@@ -768,8 +805,6 @@ data2vdr_process(Socket) ->
 %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 send_sql_to_db(PoolId, Msg, State) ->
-    %mysql:fetch(PoolId, Msg).
-    %gen_server:call(?MODULE, {fetch, PoolId, Msg}).
     case State#vdritem.dbpid of
         undefined ->
             ok;
@@ -788,8 +823,6 @@ send_sql_to_db(PoolId, Msg, State) ->
 %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 send_sqls_to_db(PoolId, Msgs, State) ->
-    %mysql:fetch(PoolId, Msg).
-    %gen_server:call(?MODULE, {fetch, PoolId, Msg}).
     case Msgs of
         [] ->
             ok;
@@ -820,8 +853,6 @@ send_sqls_to_db(PoolId, Msgs, State) ->
 %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 send_msg_to_ws(Msg, State) ->
-    %wsock_client:send(Msg).
-    %gen_server:call(?MODULE, {fetch, PoolId, Msg}).
     case State#vdritem.wspid of
         undefined ->
             ok;

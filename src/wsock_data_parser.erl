@@ -14,7 +14,7 @@
 
 %-export([process_data/1]).
 
--export([create_gen_resp/5,
+-export([create_gen_resp/4,
          create_pulse/0,
          create_init_msg/0,
          create_term_online/1,
@@ -441,13 +441,23 @@ connect_ws_to_vdr(Msg) ->
                 16#8103 ->
                     [SN, VIDList, [ST, DT]] = Res,
                     SDT = ST ++ DT,
-                    Count = length(SDT),
                     SDTBin = vdr_data_processor:create_set_term_args(length(SDT), SDT),
                     case SDTBin of
                         {ok, VDRBin} ->
-                            %common:loginfo("WS (~p) sends VDR (~p) response for 16#200 (ok) : ~p~n", [self(), NewState#vdritem.addr, MsgBody]),
-                            %NewFlowIdx = send_data_to_vdr(16#8001, FlowIdx, MsgBody, NewState),
-                            ok;
+                            send_msg_to_vdrs(VIDList, VDRBin),
+                            [{wspid, WSPid}] = ets:lookup(msgservertable, wspid),
+                            case wsock_data_parser:create_gen_resp(SN, 16#8103, VIDList, ?P_GENRESP_OK) of
+                                {ok, WSResp} ->
+                                    common:loginfo("Gateway response (16#8103) to WS (~p) : ~p~n", [WSResp, WSPid]),
+                                    Pid = self(),
+                                    WSPid ! {Pid, WSResp},
+                                    receive
+                                        {Pid, wsok} ->
+                                            ok
+                                    end;
+                               _ ->
+                                    ok
+                            end;
                         _ ->
                             ok
                     end;
@@ -501,8 +511,14 @@ send_msg_to_vdr(VDR, Msg) when is_binary(Msg) ->
     case length(SockList) of
         1 ->
             [Socket] = SockList,
-            VDRItemList = ets:lookup(vdridsocktable, VDR);
-        %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% not complete
+            VDRList = ets:lookup(vdrtable, Socket),
+            case length(VDRList) of
+                1 ->
+                    [VDR] = VDRList,
+                    vdr_handler:send_data_to_vdr(16#8103, VDR#vdritem.msgflownum, Msg, VDR);
+                _ ->
+                    ok
+            end;
         _ ->
             ok
     end;
@@ -665,19 +681,17 @@ create_init_msg() ->
 %               1   - failure
 %               2   - message has error
 %               3   - not supported
-% MSG       : (NA)
 % List      : [ID0, ID1, ID2, ...]
 %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-create_gen_resp(SN, SID, List, MSG, STATUS) when is_integer(SN), 
-                                                 is_integer(STATUS), 
-                                                 STATUS >=0, 
-                                                 STATUS =< 3, 
-                                                 is_list(List) ->
+create_gen_resp(SN, SID, List, STATUS) when is_integer(SN), 
+                                            is_integer(STATUS), 
+                                            STATUS >=0, 
+                                            STATUS =< 3, 
+                                            is_list(List) ->
     BoolSID = common:is_string(SID),
-    BoolMSG = common:is_string(MSG),
     if
-        BoolSID andalso BoolMSG ->
+        BoolSID ->
             VIDListStr = common:combine_strings(["\"LIST\":[",  create_list(["\"VID\""], List, false), "]"], false),
 			Body = common:combine_strings(["\"MID\":1",
                                            "\"SN\":", integer_to_list(SN),
@@ -688,7 +702,7 @@ create_gen_resp(SN, SID, List, MSG, STATUS) when is_integer(SN),
         true ->
             error
     end;
-create_gen_resp(_SN, _SID, _List, _MSG, _STATUS) ->
+create_gen_resp(_SN, _SID, _List, _STATUS) ->
     error.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
