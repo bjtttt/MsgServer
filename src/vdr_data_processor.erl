@@ -321,13 +321,18 @@ parse_check_auth(Bin) ->
             {ok, {Auth}}
     end.
 
-%%%
-%%% 0x8103
-%%%     Count   : BYTE
-%%%     ArgList : [[ID0, Value0], [ID1, Value1], [ID2, Value2], ...]
-%%%               [{ID0, Value0}, {ID1, Value1}, {ID2, Value2}, ...]
-%%%               T-L-V : DWORD-BYTE-L*8
-%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%
+% 0x8103
+%     Count   : BYTE
+%     ArgList : [[ID0, Value0], [ID1, Value1], [ID2, Value2], ...]
+%               [{ID0, Value0}, {ID1, Value1}, {ID2, Value2}, ...]
+%               T-L-V : DWORD-BYTE-L*8
+%
+% Return    :
+%       {ok, Bin} | error
+%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 create_set_term_args(Count, ArgList) when is_list(ArgList),
                                           Count == length(ArgList) ->
     [H|_T] = ArgList,

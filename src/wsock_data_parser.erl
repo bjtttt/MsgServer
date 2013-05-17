@@ -468,13 +468,8 @@ connect_ws_to_vdr(Msg) ->
                 16#8203 ->
                     [SN, VIDList, [ASN, TYPE]] = Res,
                     Bin = vdr_data_processor:create_man_confirm_alarm(ASN, TYPE),
-                    case Bin of
-                        {ok, MsgBin} ->
-                            send_msg_to_vdrs(VIDList, MsgBin),
-                            send_resp_to_ws(SN, 16#8203, VIDList, ?P_GENRESP_OK);
-                        _ ->
-                            send_resp_to_ws(SN, 16#8203, VIDList, ?P_GENRESP_ERRMSG)
-                    end;
+                    send_msg_to_vdrs(VIDList, Bin),
+                    send_resp_to_ws(SN, 16#8203, VIDList, ?P_GENRESP_OK);
                 16#8602 ->
                     [SN, VIDList, FLAG, RECT] = Res,
                     Bin = vdr_data_processor:create_set_rect_area(FLAG, RECT),
