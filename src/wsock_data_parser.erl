@@ -460,11 +460,11 @@ connect_ws_to_vdr(Msg) ->
                     SDTBin = vdr_data_processor:create_set_term_args(length(SDT), SDT),
                     case SDTBin of
                         {ok, VDRBin} ->
-                            send_msg_to_vdrs(VIDList, VDRBin),
+                            send_msg_to_vdrs(VIDList, VDRBin),%, SN, 16#8103),
                             [{wspid, WSPid}] = ets:lookup(msgservertable, wspid),
                             case wsock_data_parser:create_gen_resp(SN, 16#8103, VIDList, ?P_GENRESP_OK) of
                                 {ok, WSResp} ->
-                                    common:loginfo("WS Server : gateway send response (16#8103) to WS (~p) : ~p~n", [WSResp, WSPid]),
+                                    common:loginfo("WS Client : gateway send response (16#8103) to WS (~p) : ~p~n", [WSResp, WSPid]),
                                     Pid = self(),
                                     WSPid ! {Pid, WSResp},
                                     receive
@@ -478,8 +478,29 @@ connect_ws_to_vdr(Msg) ->
                             ok
                     end;
                 16#8203 ->
-                    ok;
+                    [SN, VIDList, [ASN, TYPE]] = Res,
+                    Bin = vdr_data_processor:create_man_confirm_alarm(ASN, TYPE),
+                    case Bin of
+                        {ok, MsgBin} ->
+                            send_msg_to_vdrs(VIDList, MsgBin),
+                            [{wspid, WSPid}] = ets:lookup(msgservertable, wspid),
+                            case wsock_data_parser:create_gen_resp(SN, 16#8203, VIDList, ?P_GENRESP_OK) of
+                                {ok, WSResp} ->
+                                    common:loginfo("WS Client : gateway send response (16#8203) to WS (~p) : ~p~n", [WSResp, WSPid]),
+                                    Pid = self(),
+                                    WSPid ! {Pid, WSResp},
+                                    receive
+                                        {Pid, wsok} ->
+                                            ok
+                                    end;
+                               _ ->
+                                    ok
+                            end;
+                        _ ->
+                            ok
+                    end;
                 16#8602 ->
+                    [SN, VIDList, FLAG, RECT] = Res,
                     ok;
                 16#8603 ->
                     ok;

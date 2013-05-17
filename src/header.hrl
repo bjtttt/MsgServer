@@ -82,6 +82,7 @@
                     alarm=0,
                     pid=undefined,
                     vdrpid=undefined,
+                    respwspid=undefined,
                     addr=undefined, 
                     acttime=undefined, 
                     timeout=undefined,
@@ -98,6 +99,7 @@
                             socket=undefined,
                             addr=undefined,
                             vdrpid=undefined,
+                            respwspid=undefined,
                             msgflownum=?WS2VDRFREQ
                        }).
 

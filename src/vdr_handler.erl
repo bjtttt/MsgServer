@@ -19,10 +19,11 @@ init([Sock, Addr]) ->
     process_flag(trap_exit, true),
     Pid = self(),
     VDRPid = spawn(fun() -> data2vdr_process(Sock) end),
+    RespWSPid = spawn(fun() -> resp2ws_process([]) end),
     common:loginfo("Data to VDR PID : ~p~n", [VDRPid]),
     [{dbpid, DBPid}] = ets:lookup(msgservertable, dbpid),
     [{wspid, WSPid}] = ets:lookup(msgservertable, wspid),
-    State = #vdritem{socket=Sock, pid=Pid, vdrpid=VDRPid, addr=Addr, msgflownum=1, errorcount=0, dbpid=DBPid, wspid=WSPid},
+    State = #vdritem{socket=Sock, pid=Pid, vdrpid=VDRPid, respwspid=RespWSPid, addr=Addr, msgflownum=1, errorcount=0, dbpid=DBPid, wspid=WSPid},
     ets:insert(vdrtable, State), 
     inet:setopts(Sock, [{active, once}]),
 	{ok, State}.
@@ -408,8 +409,8 @@ process_vdr_data(Socket, Data, State) ->
                                                     {error, dberror, State};
                                                 true ->
                                                     % Not tested yet.
-                                                    IDSockList = ets:lookup(vdridsocktable, VDRID),
-                                                    disconn_socket_by_id(IDSockList),
+                                                    VehcileIDSockList = ets:lookup(vdridsocktable, VehicleID),
+                                                    disconn_socket_by_id(VehcileIDSockList),
                                                     SockVdrList = ets:lookup(vdrtable, Socket),
                                                     case length(SockVdrList) of
                                                         1 ->
@@ -422,7 +423,7 @@ process_vdr_data(Socket, Data, State) ->
                                                                                                  vehicleid=VehicleID,
                                                                                                  vehiclecode=binary_to_list(VehicleCode)}),
                                                             common:loginfo("Insert VDRIDSocket : VehicleID (~p)~n", [VehicleID]),
-                                                            ets:insert(vdridsocktable, #vdridsockitem{id=VehicleID, socket=Socket, addr=State#vdritem.addr, vdrpid=VDRPid}),
+                                                            ets:insert(vdridsocktable, #vdridsockitem{id=VehicleID, socket=Socket, addr=State#vdritem.addr, vdrpid=VDRPid, respwspid=SockVdr#vdritem.respwspid}),
                                                             
                                                             SqlUpdate = list_to_binary([<<"update device set is_online=1 where authen_code='">>, VDRAuthenCode, <<"'">>]),
                                                             send_sql_to_db(conn, SqlUpdate, State),
@@ -769,6 +770,17 @@ data2vdr_process(Socket) ->
             ok;
         _ ->
             data2vdr_process(Socket)
+    end.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%
+%
+%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+resp2ws_process(List) ->
+    receive
+        _ ->
+            resp2ws_process(List)
     end.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
