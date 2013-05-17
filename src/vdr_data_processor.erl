@@ -1419,7 +1419,7 @@ create_del_circle_area(Count,IDs) ->
 create_set_rect_area(Type, Items) ->
     Len = length(Items),
     ItemsBin = get_rect_area_entries(Items),
-    <<Type:8,Len:8,ItemsBin/binary>>.
+    list_to_binary([<<Type:8,Len:8>>,ItemsBin]).
     
 get_rect_area_entries(Items) ->
     case Items of
@@ -1428,14 +1428,66 @@ get_rect_area_entries(Items) ->
         _ ->
             [H|T] = Items,
             [ID,Property,LeftTopLat,LeftTopLon,RightBotLat,RightBotLon,StartTime,StopTime,MaxSpeed,ExceedTime] = H,
+            StartTimeBin = convert_datetime_to_bcd(StartTime),
+            StopTimeBin = convert_datetime_to_bcd(StopTime),
+            Bin = list_to_binary([<<ID:32,Property:16,LeftTopLat:32,LeftTopLon:32,RightBotLat:32,RightBotLon:32>>,StartTimeBin,StopTimeBin,<<MaxSpeed:32,ExceedTime:8>>]),
             case T of
                 [] ->
-                    [<<ID:32,Property:16,LeftTopLat:32,LeftTopLon:32,RightBotLat:32,RightBotLon:32,StartTime:48,StopTime:48,MaxSpeed:32,ExceedTime:8>>];
+                    [Bin];
                 _ ->
-                    [<<ID:32,Property:16,LeftTopLat:32,LeftTopLon:32,RightBotLat:32,RightBotLon:32,StartTime:48,StopTime:48,MaxSpeed:32,ExceedTime:8>>|get_rect_area_entries(T)]
+                    [Bin|get_rect_area_entries(T)]
             end
     end.
-    
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%
+% DateTime  : "YY-MM-DD hh:mm:ss"
+%           : <<"YY-MM-DD hh:mm:ss">>
+% Otherwise, "01-01-01 01:01:01" will be used
+%
+% Return    :
+%       [1,1,1,1,1,1] and each number >= 0 and =< 99
+%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+convert_datetime_to_bcd(DateTime) when is_binary(DateTime) ->
+    DateTimeList = binary_to_list(DateTime),
+    convert_datetime_to_bcd(DateTimeList);
+convert_datetime_to_bcd(DateTime) when is_list(DateTime) ->
+    case common:is_string(DateTime) of
+        true ->
+            DateTimeList = string:tokens(DateTime, " -:"),
+            list_to_binary(convert_string_list_to_integer_list(DateTimeList));
+        _ ->
+            DateTimeList = string:tokens("01-01-01 01:01:01", " -:"),
+            list_to_binary(convert_string_list_to_integer_list(DateTimeList))
+    end;
+convert_datetime_to_bcd(_DateTime) ->
+    convert_datetime_to_bcd("01-01-01 01:01:01").
+
+convert_string_list_to_integer_list(List) when is_list(List),
+                                               length(List) == 6 ->
+    [YY,MM,DD,Hh,Mm,Ss] = List,
+    YYInt = get_2_number_integer_from_oct_string(YY),
+    MMInt = get_2_number_integer_from_oct_string(MM),
+    DDInt = get_2_number_integer_from_oct_string(DD),
+    HhInt = get_2_number_integer_from_oct_string(Hh),
+    MmInt = get_2_number_integer_from_oct_string(Mm),
+    SsInt = get_2_number_integer_from_oct_string(Ss),
+    [YYInt, MMInt, DDInt, HhInt, MmInt, SsInt];
+convert_string_list_to_integer_list(_List) ->
+    [1,1,1,1,1,1].
+
+get_2_number_integer_from_oct_string(Oct) when is_list(Oct),
+                                               length(Oct) > 0 ->
+    case common:is_oct_integer_string(Oct) of
+        true ->
+            Num = list_to_integer(Oct),
+            Num rem 100;
+        _ ->
+            1
+    end;
+get_2_number_integer_from_oct_string(_Oct) ->
+    1.
 
 %%%
 %%%0x8603

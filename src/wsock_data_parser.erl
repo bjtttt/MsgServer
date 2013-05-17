@@ -485,7 +485,7 @@ connect_ws_to_vdr(Msg) ->
                         1 ->
                             {CMD} = CMDPAR,
                             if
-                                CMD == 1 orelse CMD == 2 ->
+                                CMD > 2 andalso CMD < 8->
                                     Bin = vdr_data_processor:create_term_ctrl(CMD, ""),
                                     send_msg_to_vdrs(VIDList, Bin),
                                     send_resp_to_ws(SN, 16#8105, VIDList, ?P_GENRESP_OK);
@@ -495,7 +495,7 @@ connect_ws_to_vdr(Msg) ->
                         2 ->
                             {CMD, PAR} = CMDPAR,
                             if
-                                CMD > 2 andalso CMD < 8 andalso is_list(PAR)->
+                                CMD == 1 orelse CMD == 2 andalso is_list(PAR) ->
                                     Bin = vdr_data_processor:create_term_ctrl(CMD, PAR),
                                     send_msg_to_vdrs(VIDList, Bin),
                                     send_resp_to_ws(SN, 16#8105, VIDList, ?P_GENRESP_OK);
