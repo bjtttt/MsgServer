@@ -51,7 +51,7 @@
          create_car_con/1,
          create_set_circle_area/11,
          create_del_circle_area/2,
-         create_set_rect_area/3,
+         create_set_rect_area/2,
          create_del_rect_area/2,
          create_set_polygon_area/8,
          create_del_polygon_area/2,
@@ -1402,10 +1402,16 @@ create_del_circle_area(Count,IDs) ->
             end
     end.
 
-%%%
-%%% 0x8602
-%%%
-create_set_rect_area(Type,_Count,Items) ->
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%
+% 0x8602
+%
+% Type  :
+% Items : [RECT1, RECT2, ...]
+%           RECT = [ID,Property,LeftTopLat,LeftTopLon,RightBotLat,RightBotLon,StartTime,StopTime,MaxSpeed,ExceedTime]
+%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+create_set_rect_area(Type, Items) ->
     Len = length(Items),
     ItemsBin = get_rect_area_entries(Items),
     <<Type:8,Len:8,ItemsBin/binary>>.
@@ -1416,10 +1422,10 @@ get_rect_area_entries(Items) ->
             <<>>;
         _ ->
             [H|T] = Items,
-            {ID,Property,LeftTopLat,LeftTopLon,RightBotLat,RightBotLon,StartTime,StopTime,MaxSpeed,ExceedTime} = H,
+            [ID,Property,LeftTopLat,LeftTopLon,RightBotLat,RightBotLon,StartTime,StopTime,MaxSpeed,ExceedTime] = H,
             case T of
                 [] ->
-                    <<ID:32,Property:16,LeftTopLat:32,LeftTopLon:32,RightBotLat:32,RightBotLon:32,StartTime:48,StopTime:48,MaxSpeed:32,ExceedTime:8>>;
+                    [<<ID:32,Property:16,LeftTopLat:32,LeftTopLon:32,RightBotLat:32,RightBotLon:32,StartTime:48,StopTime:48,MaxSpeed:32,ExceedTime:8>>];
                 _ ->
                     [<<ID:32,Property:16,LeftTopLat:32,LeftTopLon:32,RightBotLat:32,RightBotLon:32,StartTime:48,StopTime:48,MaxSpeed:32,ExceedTime:8>>|get_rect_area_entries(T)]
             end

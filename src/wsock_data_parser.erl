@@ -461,19 +461,7 @@ connect_ws_to_vdr(Msg) ->
                     case SDTBin of
                         {ok, VDRBin} ->
                             send_msg_to_vdrs(VIDList, VDRBin),%, SN, 16#8103),
-                            [{wspid, WSPid}] = ets:lookup(msgservertable, wspid),
-                            case wsock_data_parser:create_gen_resp(SN, 16#8103, VIDList, ?P_GENRESP_OK) of
-                                {ok, WSResp} ->
-                                    common:loginfo("WS Client : gateway send response (16#8103) to WS (~p) : ~p~n", [WSResp, WSPid]),
-                                    Pid = self(),
-                                    WSPid ! {Pid, WSResp},
-                                    receive
-                                        {Pid, wsok} ->
-                                            ok
-                                    end;
-                               _ ->
-                                    ok
-                            end;
+                            send_resp_to_ws(SN, 16#8103, VIDList, ?P_GENRESP_OK);
                         _ ->
                             ok
                     end;
@@ -483,27 +471,19 @@ connect_ws_to_vdr(Msg) ->
                     case Bin of
                         {ok, MsgBin} ->
                             send_msg_to_vdrs(VIDList, MsgBin),
-                            [{wspid, WSPid}] = ets:lookup(msgservertable, wspid),
-                            case wsock_data_parser:create_gen_resp(SN, 16#8203, VIDList, ?P_GENRESP_OK) of
-                                {ok, WSResp} ->
-                                    common:loginfo("WS Client : gateway send response (16#8203) to WS (~p) : ~p~n", [WSResp, WSPid]),
-                                    Pid = self(),
-                                    WSPid ! {Pid, WSResp},
-                                    receive
-                                        {Pid, wsok} ->
-                                            ok
-                                    end;
-                               _ ->
-                                    ok
-                            end;
+                            send_resp_to_ws(SN, 16#8203, VIDList, ?P_GENRESP_OK);
                         _ ->
                             ok
                     end;
                 16#8602 ->
                     [SN, VIDList, FLAG, RECT] = Res,
-                    ok;
+                    Bin = vdr_data_processor:create_set_rect_area(FLAG, RECT),
+                    send_msg_to_vdrs(VIDList, Bin),
+                    send_resp_to_ws(SN, 16#8602, VIDList, ?P_GENRESP_OK);
                 16#8603 ->
-                    ok;
+                    [SN, VIDList, DataList] = Res,
+                    send_del_rect_areas_msg_to_vdr(VIDList, DataList),
+                    send_resp_to_ws(SN, 16#8603, VIDList, ?P_GENRESP_OK);
                 16#8105 ->
                     ok;
                 16#8202 ->
@@ -529,6 +509,53 @@ connect_ws_to_vdr(Msg) ->
             ok
     end.
 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%
+%
+%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+send_resp_to_ws(SN, ID, VIDList, Type) ->
+    [{wspid, WSPid}] = ets:lookup(msgservertable, wspid),
+    case wsock_data_parser:create_gen_resp(SN, ID, VIDList, Type) of
+        {ok, WSResp} ->
+            common:loginfo("WS Client : gateway send response for ws msg (~p) to WS (~p) : ~p~n", [ID, WSPid, WSResp]),
+            Pid = self(),
+            WSPid ! {Pid, WSResp},
+            receive
+                {Pid, wsok} ->
+                    ok
+            end;
+       _ ->
+            ok
+    end.
+    
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%
+%
+%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+send_del_rect_areas_msg_to_vdr(VIDList, DataList) when is_list(VIDList),
+                                                       length(VIDList) > 0,
+                                                       is_list(DataList),
+                                                       length(DataList) > 125 ->
+    {H, T} = lists:split(125, DataList),
+    send_del_rect_areas_msg_to_vdr(VIDList, H),
+    send_del_rect_areas_msg_to_vdr(VIDList, T),
+    ok;
+send_del_rect_areas_msg_to_vdr(VIDList, DataList) when is_list(VIDList),
+                                                       length(VIDList) > 0,
+                                                       is_list(DataList),
+                                                       length(DataList) =< 125 ->
+    Bin = vdr_data_processor:create_del_rect_area(length(DataList), DataList),
+    send_msg_to_vdrs(VIDList, Bin);
+send_del_rect_areas_msg_to_vdr(_VIDList, _DataList) ->
+    ok.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%
+%
+%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 send_msg_to_vdrs(VDRList, Msg) when is_list(VDRList),
                                     length(VDRList) > 0,
                                     is_binary(Msg) ->
@@ -543,6 +570,11 @@ send_msg_to_vdrs(VDRList, Msg) when is_list(VDRList),
 send_msg_to_vdrs(_VDRList, _Msg) ->
     ok.
 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%
+%
+%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 send_msg_to_vdr(VDR, Msg) when is_binary(Msg) ->
     VDRSockList = ets:lookup(vdridsocktable, VDR),
     case length(VDRSockList) of
@@ -636,9 +668,9 @@ get_rect_area_list(List) when is_list(List),
     {"LENGTH", LENGTH} = get_specific_entry(DATA, "LENGTH"),
     case T of
         [] ->
-            [[ID, PROPERTY, LT_LAT, LT_LONG, RB_LAT, RB_LONG, ST, ET,MAX_S, LENGTH]];
+            [[ID, PROPERTY, LT_LAT, LT_LONG, RB_LAT, RB_LONG, ST, ET, MAX_S, LENGTH]];
         _ ->
-        [[ID, PROPERTY, LT_LAT, LT_LONG, RB_LAT, RB_LONG, ST, ET,MAX_S, LENGTH]|get_rect_area_list(T)]
+        [[ID, PROPERTY, LT_LAT, LT_LONG, RB_LAT, RB_LONG, ST, ET, MAX_S, LENGTH]|get_rect_area_list(T)]
     end;
 get_rect_area_list(_List) ->
     [].
