@@ -908,8 +908,8 @@ convert_term_args_binary(ID, Len, Bin) ->
 
 %%%
 %%% 0x8105
-%%% CmdType : BYTE
-%%% CmdArg  : STRING
+%%% Type : BYTE
+%%% Arg  : STRING
 %%%
 create_term_ctrl(Type, Arg) ->
     if

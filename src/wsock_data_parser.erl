@@ -463,7 +463,7 @@ connect_ws_to_vdr(Msg) ->
                             send_msg_to_vdrs(VIDList, VDRBin),%, SN, 16#8103),
                             send_resp_to_ws(SN, 16#8103, VIDList, ?P_GENRESP_OK);
                         _ ->
-                            ok
+                            send_resp_to_ws(SN, 16#8103, VIDList, ?P_GENRESP_ERRMSG)
                     end;
                 16#8203 ->
                     [SN, VIDList, [ASN, TYPE]] = Res,
@@ -473,7 +473,7 @@ connect_ws_to_vdr(Msg) ->
                             send_msg_to_vdrs(VIDList, MsgBin),
                             send_resp_to_ws(SN, 16#8203, VIDList, ?P_GENRESP_OK);
                         _ ->
-                            ok
+                            send_resp_to_ws(SN, 16#8203, VIDList, ?P_GENRESP_ERRMSG)
                     end;
                 16#8602 ->
                     [SN, VIDList, FLAG, RECT] = Res,
@@ -485,7 +485,31 @@ connect_ws_to_vdr(Msg) ->
                     send_del_rect_areas_msg_to_vdr(VIDList, DataList),
                     send_resp_to_ws(SN, 16#8603, VIDList, ?P_GENRESP_OK);
                 16#8105 ->
-                    ok;
+                    [SN, VIDList, CMDPAR] = Res,
+                    case tuple_size(CMDPAR) of
+                        1 ->
+                            {CMD} = CMDPAR,
+                            if
+                                CMD == 1 orelse CMD == 2 ->
+                                    Bin = vdr_data_processor:create_term_ctrl(CMD, ""),
+                                    send_msg_to_vdrs(VIDList, Bin),
+                                    send_resp_to_ws(SN, 16#8105, VIDList, ?P_GENRESP_OK);
+                                true ->
+                                    send_resp_to_ws(SN, 16#8105, VIDList, ?P_GENRESP_ERRMSG)
+                            end;
+                        2 ->
+                            {CMD, PAR} = CMDPAR,
+                            if
+                                CMD > 2 andalso CMD < 8 andalso is_list(PAR)->
+                                    Bin = vdr_data_processor:create_term_ctrl(CMD, PAR),
+                                    send_msg_to_vdrs(VIDList, Bin),
+                                    send_resp_to_ws(SN, 16#8105, VIDList, ?P_GENRESP_OK);
+                                true ->
+                                    send_resp_to_ws(SN, 16#8105, VIDList, ?P_GENRESP_ERRMSG)
+                            end;
+                        _ ->
+                            send_resp_to_ws(SN, 16#8105, VIDList, ?P_GENRESP_ERRMSG)
+                    end;
                 16#8202 ->
                     ok;
                 16#8300 ->
