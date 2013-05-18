@@ -459,11 +459,11 @@ connect_ws_to_vdr(Msg) ->
                     SDT = ST ++ DT,
                     SDTBin = vdr_data_processor:create_set_term_args(length(SDT), SDT),
                     case SDTBin of
-                        {ok, VDRBin} ->
-                            send_msg_to_vdrs(VIDList, VDRBin),%, SN, 16#8103),
-                            send_resp_to_ws(SN, 16#8103, VIDList, ?P_GENRESP_OK);
+                        <<>> ->
+                            send_resp_to_ws(SN, 16#8103, VIDList, ?P_GENRESP_ERRMSG);
                         _ ->
-                            send_resp_to_ws(SN, 16#8103, VIDList, ?P_GENRESP_ERRMSG)
+                            send_msg_to_vdrs(VIDList, SDTBin),%, SN, 16#8103),
+                            send_resp_to_ws(SN, 16#8103, VIDList, ?P_GENRESP_OK)
                     end;
                 16#8203 ->
                     [SN, VIDList, [ASN, TYPE]] = Res,
@@ -770,7 +770,7 @@ create_init_msg() ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 create_gen_resp(SN, SID, List, STATUS) when is_integer(SN), 
                                             is_integer(STATUS), 
-                                            STATUS >=0, 
+                                            STATUS >= 0, 
                                             STATUS =< 3, 
                                             is_list(List) ->
     BoolSID = common:is_string(SID),

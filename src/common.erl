@@ -13,8 +13,9 @@
          is_string/1,
          is_string_list/1,
          is_integer_string/1,
-         is_oct_integer_string/1,
+         is_dec_integer_string/1,
          is_hex_integer_string/1,
+         is_dec_list/1,
          convert_word_hex_string_to_integer/1,
 		 integer_to_binary/1,
          float_to_binary/1]).
@@ -443,7 +444,8 @@ is_string(_Value) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %
-%   true only when Value is NOT an empty integer string
+% true only when Value is NOT an empty integer string
+% For example, "81", "8A" and "0x8B" is false
 %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 is_integer_string(Value) when is_list(Value) ->
@@ -468,7 +470,29 @@ is_integer_string(Value) when is_list(Value) ->
 is_integer_string(_Value) ->
     false.
 
-is_oct_integer_string(Value) when is_list(Value) ->
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%
+%
+%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+is_dec_list(List) when is_list(List),
+                       length(List) > 0 ->
+    
+    Fun = fun(X) ->
+                  case is_integer(X) of
+                      true -> true;
+                      _ -> false
+                  end
+          end,
+    lists:all(Fun, List).
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%
+% Check whether "NNNN", "NN" or any string like this format to be a valid decimal string or not.
+% For example, "81" is true while "8A" is false
+%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+is_dec_integer_string(Value) when is_list(Value) ->
     Len = length(Value),
     if
         Len < 1 ->
@@ -483,17 +507,24 @@ is_oct_integer_string(Value) when is_list(Value) ->
                   end,
             lists:all(Fun, Value)
     end;
-is_oct_integer_string(_Value) ->
+is_dec_integer_string(_Value) ->
     false.
 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%
+% Check whether "NNNN", "NN" or any string like this format to be a valid hex string or not.
+% For example, "81" and "8A" are both true
+%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 is_hex_integer_string(Value) when is_list(Value) ->
     case is_integer_string(Value) of
         true ->
-            Strs = string:tokens(Value, "xX"),
-            case length(Strs) of
-                2 ->
+            Lenx = length(string:tokens(Value, "0x")),
+            LenX = length(string:tokens(Value, "0x")),
+            if
+                Lenx == 1 orelse LenX == 1 ->
                     true;
-                _ ->
+                true ->
                     false
             end;
         _ ->

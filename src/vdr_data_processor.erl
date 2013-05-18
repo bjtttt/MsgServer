@@ -92,7 +92,7 @@ create_final_msg(ID, MsgIdx, Data) ->
             MsgBody4 = binary:replace(MsgBody3, <<255, 1, 255, 2, 255, 3, 255, 4, 255, 5, 255>>, <<125, 2>>, [global]),
             list_to_binary([<<126>>, MsgBody4, <<126>>]);
         _ ->
-            <<"">>
+            <<>>
     end.
 
 %%%
@@ -171,17 +171,19 @@ do_parse_msg_body(ID, Body) ->
             {error, unsupported}
     end.
 
-%%%
-%%% 0x0001
-%%% Terminal general response
-%%%     RespIdx : WORD
-%%%     RespID  : WORD
-%%%     Res     : BYTE
-%%%                 0   - SUCCESS/ACK
-%%%                 1   - FAIL
-%%%                 2   - MSG ERR
-%%%                 3   - NOT SUPPORTED
-%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%
+% 0x0001
+% Terminal general response
+%     RespIdx : WORD
+%     RespID  : WORD
+%     Res     : BYTE
+%                 0   - SUCCESS/ACK
+%                 1   - FAIL
+%                 2   - MSG ERR
+%                 3   - NOT SUPPORTED
+%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 parse_gen_resp(Bin) ->
     Len = bit_size(Bin),
     if
@@ -199,66 +201,81 @@ parse_gen_resp(Bin) ->
             {error, msgerr}
     end.
 
-%%%
-%%% 0x0801
-%%% Platform general response
-%%% Attention here : although ID is 1st parameter, it should be snd field of the message
-%%%     RespIdx : WORD
-%%%     RespID  : WORD
-%%%     Resp    : BYTE
-%%%                 0 - SUCCESS/ACK
-%%%                 1 - FAIL
-%%%                 2 - MSG ERR
-%%%                 3 - NOT SUPPORTED
-%%%                 4 - ALARM ACK
-%%%
-create_gen_resp(ID, FlowIdx, Resp) ->
-    {ok, <<FlowIdx:?LEN_WORD, ID:?LEN_WORD, Resp:?LEN_BYTE>>}.
-%create_gen_resp(FlowIdx, ID, Resp) ->
-%    if
-%        Resp < 0 ->
-%            error;
-%        Resp > 4 ->
-%            error;
-%        true ->
-%            {ok, <<FlowIdx:?LEN_WORD, ID:?LEN_WORD, Resp:?LEN_BYTE>>}
-%    end.
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%
+% 0x0801
+% Platform general response
+% Attention here : although ID is 1st parameter, it should be snd field of the message
+%     RespIdx : WORD
+%     RespID  : WORD
+%     Resp    : BYTE
+%                   0 - SUCCESS/ACK
+%                   1 - FAIL
+%                   2 - MSG ERR
+%                   3 - NOT SUPPORTED
+%                   4 - ALARM ACK
+%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+create_gen_resp(ID, FlowIdx, Resp) when is_integer(ID),
+                                        is_integer(FlowIdx),
+                                        is_integer(Resp),
+                                        Resp >= 0,
+                                        Resp =< 5 ->
+    <<FlowIdx:?LEN_WORD, ID:?LEN_WORD, Resp:?LEN_BYTE>>;
+create_gen_resp(_ID, _FlowIdx, _Resp) ->
+    <<>>.
 
-%%%
-%%% 0x0002
-%%% Terminal pulse
-%%% 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%
+% 0x0002
+% Terminal pulse
+% 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 parse_pulse(_Bin) ->
     {ok, {}}.
 
-%%%
-%%% 0x0803
-%%% Platform sub-package resending request
-%%%     OriMsgIdx   : WORD      - The index of the first sub-package of the original message
-%%%     Count       : BYTE(n)   - The count of the whole sub-packages which are needed to be resent.
-%%%     IDList      : BYTE(2*n) - [ID0, ID1, ID2, ID3, ...]
-%%%
-create_resend_subpack_req(FlowIdx, Count, IDList) ->
-    Bin = list_to_binary([<<X:?LEN_WORD>> || X <- IDList]),
-    Len = length(IDList),
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%
+% 0x0803
+% Platform sub-package resending request
+%     OriMsgIdx   : WORD      - The index of the first sub-package of the original message
+%     Count       : BYTE(n)   - The count of the whole sub-packages which are needed to be resent.
+%     IDList      : BYTE(2*n) - [ID0, ID1, ID2, ID3, ...]
+%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+create_resend_subpack_req(FlowIdx, Count, IDList) when is_integer(FlowIdx),
+												       is_integer(Count),
+												       is_list(IDList) ->
+    IsDecList = common:is_dec_list(IDList),
     if
-        Len == Count ->
-            {ok, <<FlowIdx:?LEN_WORD, Len:?LEN_BYTE, Bin/binary>>};
+        IsDecList == true ->
+            Bin = list_to_binary([<<X:?LEN_WORD>> || X <- IDList]),
+            Len = length(IDList),
+            if
+                Len == Count ->
+                    {ok, <<FlowIdx:?LEN_WORD, Len:?LEN_BYTE, Bin/binary>>};
+                true ->
+                    <<>>
+            end;
         true ->
-            error
-    end.
-
-%%%
-%%% 0x0100
-%%% Terminal registration
-%%%     Province    : WORD
-%%%     City        : WORD
-%%%     Producer ID : BYTE[5]
-%%%     VDR Model   : BYTE[20]
-%%%     VDR ID      : BYTE[7]
-%%%     Lic Color   : BYTE
-%%%     Lic ID      : STRING
-%%%
+            <<>>
+    end;
+create_resend_subpack_req(_FlowIdx, _Count, _IDList) ->
+	<<>>.
+	
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%
+% 0x0100
+% Terminal registration
+%     Province    : WORD
+%     City        : WORD
+%     Producer ID : BYTE[5]
+%     VDR Model   : BYTE[20]
+%     VDR ID      : BYTE[7]
+%     Lic Color   : BYTE
+%     Lic ID      : STRING
+%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 parse_reg(Bin) ->
     Len = bit_size(Bin),
     if
@@ -273,44 +290,56 @@ parse_reg(Bin) ->
             {ok, {Province, City, ProducerStr, VDRModelStr, VDRIDStr, LicColor, LicID}}
     end.
 
-%%%
-%%% 0x8100
-%%%     RespIdx     : VDR message index : WORD
-%%%     Res         : BYTE
-%%%                     0   - OK
-%%%                     1   - VEHICLE ALREADY REGISTERED
-%%%                     2   - NO SUCH VEHICLE IN DATABASE
-%%%                     3   - TERM ALREADY REGISTERED
-%%%                     4   - NO SUCH TERM IN DATABASE
-%%%     AuthCode    : STRING
-%%%
-create_reg_resp(RespIdx, Res, AuthCode) ->
-    if
-        Res < 0 ->
-            error;
-        Res > 4 ->
-            error;
-        true ->
-            case AuthCode of
-                empty ->
-                    {ok, <<RespIdx:?LEN_WORD, Res:?LEN_WORD>>};
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%
+% 0x8100
+%     RespIdx     : VDR message index : WORD
+%     Res         : BYTE
+%                     0   - OK
+%                     1   - VEHICLE ALREADY REGISTERED
+%                     2   - NO SUCH VEHICLE IN DATABASE
+%                     3   - TERM ALREADY REGISTERED
+%                     4   - NO SUCH TERM IN DATABASE
+%     AuthCode    : STRING
+%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+create_reg_resp(RespIdx, Res, AuthCode) when is_integer(RespIdx),
+											 is_integer(Res),
+											 Res >= 0,
+											 Res =< 4,
+											 is_list(AuthCode) ->
+	case AuthCode of
+		empty ->
+			<<RespIdx:?LEN_WORD, Res:?LEN_WORD>>;
+		_ ->
+            case common:is_string(AuthCode) of
+                true ->
+        			Bin = list_to_binary(AuthCode),
+        			<<RespIdx:?LEN_WORD, Res:?LEN_WORD, Bin/binary>>;
                 _ ->
-                    Bin = list_to_binary(AuthCode),
-                    {ok, <<RespIdx:?LEN_WORD, Res:?LEN_WORD, Bin/binary>>}
+                    <<>>
             end
-    end.
+    end;
+create_reg_resp(_RespIdx, _Res, _AuthCode) ->
+	<<>>.
 
-%%%
-%%% 0x0003
-%%% Terminal unregistation
-%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%
+% 0x0003
+% Terminal unregistation
+%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 parse_unreg(_Bin) ->
     {ok, {}}.
 
-%%%
-%%% 0x0102
-%%%     Auth    : STRING
-%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%
+% 0x0102
+%
+% Return    :
+%     Auth : STRING
+%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 parse_check_auth(Bin) ->
     Len = bit_size(Bin),
     if
@@ -344,16 +373,18 @@ create_set_term_args(Count, ArgList) when is_list(ArgList),
             Bin = list_to_binary([compose_term_args_binary(ID, Value) || [ID, Value] <- ArgList]),
             {ok, <<Count:?LEN_BYTE,Bin/binary>>};
         true ->
-            error
+            <<>>
     end;
 create_set_term_args(_Count, _ArgList) ->
-    error.
+    <<>>.
 
-%%%
-%%% ActLen should be bit_size or byte_size ?????
-%%% Currently using byte_size
-%%% Has better format?
-%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%
+% ActLen should be bit_size or byte_size ?????
+% Currently using byte_size
+% Has better format?
+%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 compose_term_args_binary(ID, Value) when is_list(ID) ->
     case common:is_oct_integer_string(ID) of
         true ->
@@ -519,39 +550,42 @@ compose_term_args_binary(ID, Value) when is_integer(ID) ->
 compose_term_args_binary(_ID, _Value) ->
     <<>>.
 
-%%%
-%%% 0x8104
-%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%
+% 0x8104
+%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 create_term_query_args() ->
-    {ok, <<>>}.
+    <<>>.
 
-%%%
-%%% 0x8106
-%%%     Count   : BYTE(n)
-%%%     IDList  : BYTE[4*n]
-%%%                 [ID0, ID1, ID2, ...]
-%%%
-create_query_specific_term_args(Count, IDList) ->
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%
+% 0x8106
+%     Count   : BYTE(n) - useless
+%     IDList  : BYTE[4*n]
+%                 [ID0, ID1, ID2, ...]
+%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+create_query_specific_term_args(_Count, IDList) when is_list(IDList) ->
     Len = length(IDList),
-    if
-        Count == Len ->
-            Bin = list_to_binary([<<ID:?LEN_DWORD>> || [ID] <- IDList]),
-            {ok,<<Len:8,Bin/binary>>};
-        true ->
-            error
-    end.
+    Bin = list_to_binary([<<ID:?LEN_DWORD>> || [ID] <- IDList]),
+    <<Len:8,Bin/binary>>;
+create_query_specific_term_args(_Count, _IDList) ->
+    <<>>.
 
-%%%
-%%% 0x0104
-%%% Result:
-%%%     RespIdx : WORD
-%%%     Count   : BYTE
-%%%     ArgList : [[ID0, Value0], [ID1, Value1], [ID2, Value2], ...]
-%%%               T-L-V : DWORD-BYTE-L*8
-%%%
-%%% Len should be byte_size or bit_size????
-%%% Currently using byte_size
-%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%
+% 0x0104
+% Result:
+%     RespIdx : WORD
+%     Count   : BYTE
+%     ArgList : [[ID0, Value0], [ID1, Value1], [ID2, Value2], ...]
+%               T-L-V : DWORD-BYTE-L*8
+%
+% Len should be byte_size or bit_size????
+% Currently using byte_size
+%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 parse_query_term_args_response(Bin) ->
     Len = byte_size(Bin),
     if
@@ -569,10 +603,12 @@ parse_query_term_args_response(Bin) ->
             end
     end.
 
-%%%
-%%% Len should be byte_size or bit_size????
-%%% Currently using byte_size
-%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%
+% Len should be byte_size or bit_size????
+% Currently using byte_size
+%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 extract_term_args_resp(Bin) ->
     Len = byte_size(Bin),
     if
@@ -591,9 +627,11 @@ extract_term_args_resp(Bin) ->
             end
     end.
 
-%%%
-%%%
-%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%
+%
+%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 convert_term_args_binary(ID, Len, Bin) ->
     if
         ID >= 16#0, ID =< 16#7 ->
@@ -911,43 +949,46 @@ convert_term_args_binary(ID, Len, Bin) ->
             []
     end.    
 
-%%%
-%%% 0x8105
-%%% Type : BYTE
-%%% Arg  : STRING
-%%%
-create_term_ctrl(Type, Arg) ->
-    if
-        Type >= 1, Type =< 2 ->
-            Bin = list_to_binary(Arg),
-            {ok, <<Type:8, Bin/binary>>};
-        Type >=3, Type =< 7 ->
-            {ok, <<Type:8>>};
-        true ->
-            error
-    end.
-    %case Type of
-    %    1 ->
-    %        List = re:split(Args, ";", [{return, list}]),
-    %        Bin = list_to_binary(List),
-    %        <<Type:8,Bin/binary>>;
-    %    2 ->
-    %        List = re:split(Args, ";", [{return, list}]),
-    %        Bin = list_to_binary(List),
-    %        <<Type:8,Bin/binary>>;
-    %    _ ->
-    %        <<Type:8>>
-    %end.
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%
+% 0x8105
+% Type : BYTE
+% Arg  : STRING
+%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+create_term_ctrl(Type, Arg) when is_integer(Type),
+                                 Type > 0,
+                                 Type < 3,
+                                 is_list(Arg),
+                                 length(Arg) > 0 ->
+    Bin = list_to_binary(Arg),
+    <<Type:8, Bin/binary>>;
+create_term_ctrl(Type, Arg) when is_integer(Type),
+                                 Type > 0,
+                                 Type < 3,
+                                 is_list(Arg),
+                                 length(Arg) < 1 ->
+    <<Type:8>>;
+create_term_ctrl(Type, _Arg) when is_integer(Type),
+                                 Type > 2,
+                                 Type < 8 ->
+    <<Type:8>>;
+create_term_ctrl(_Type, _Arg) ->
+    <<>>.
 
-%%%
-%%% 0x8107
-%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%
+% 0x8107
+%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 create_query_term_property() ->
-    {ok, <<>>}.
+    <<>>.
 
-%%%
-%%% 0x0107
-%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%
+% 0x0107
+%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 parse_query_term_prop_response(Bin) ->
     Len = byte_size(Bin),
     if
@@ -974,39 +1015,43 @@ parse_query_term_prop_response(Bin) ->
             end
     end.
 
-%%%
-%%% 0x8108
-%%% Type        : BYTE
-%%% ProID       : BYTE[5]
-%%% VerLen      : BYTE
-%%% Ver         : STRING
-%%% UpgradeLen  : DWORD
-%%% UpgradeData :
-%%%
-%%% I don't know whether it is correct to process BYTE[n] by list_to_binary
-%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%
+% 0x8108
+% Type        : BYTE
+% ProID       : BYTE[5]
+% VerLen      : BYTE
+% Ver         : STRING
+% UpgradeLen  : DWORD
+% UpgradeData :
+%
+% I don't know whether it is correct to process BYTE[n] by list_to_binary
+%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 create_update_packet(Type, ProID, VerLen, Ver, UpgradeLen, UpgradeData) ->
     Len0 = length(Ver),
     if
         VerLen =/= Len0 ->
-            error;
+            <<>>;
         true ->
             Len1 = byte_size(UpgradeData),
             if
                 Len1 =/= UpgradeLen ->
-                    error;
+                    <<>>;
                 true ->
                     %ProIDBin = list_to_binary(ProID),
                     VerBin = list_to_binary(Ver),
                     %UpgradeDataBin = list_to_binary(UpgradeData),
                     Bin = list_to_binary([<<Type:?LEN_BYTE>>, ProID, <<VerLen:?LEN_BYTE>>, VerBin, <<UpgradeLen:?LEN_DWORD>>, UpgradeData]),
-                    {ok, Bin}
+                    Bin
             end
     end.
 
-%%%
-%%% 0x0108
-%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%
+% 0x0108
+%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 parse_update_result_notification(Bin) ->
     Len = byte_size(Bin),
     if
@@ -1027,10 +1072,12 @@ parse_update_result_notification(Bin) ->
             {error, msgerr}
     end.
 
-%%%
-%%% 0x0200
-%%% Appended Information is a list, we should parse it here!!!
-%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%
+% 0x0200
+% Appended Information is a list, we should parse it here!!!
+%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 parse_position_info_report(Bin) ->
     BinLen = byte_size(Bin),
     MinLen = 4+4+4+4+2+2+2+6,
@@ -1054,6 +1101,11 @@ parse_position_info_report(Bin) ->
             end
     end.
 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%
+%
+%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 get_appended_info(Bin) ->
     BinLen = byte_size(Bin),
     if
@@ -1085,7 +1137,12 @@ get_appended_info(Bin) ->
                     end
             end
     end.
- 
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%
+%
+%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 get_one_appended_info(ID, Len, Bin) ->
     ActLen = byte_size(Bin),
     case ID of
@@ -1204,48 +1261,65 @@ get_one_appended_info(ID, Len, Bin) ->
             []
     end.
 
-%%%
-%%% 0x8201
-%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%
+% 0x8201
+%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 create_position_search() ->
     <<>>.
 
-%%%
-%%% 0x0201
-%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%
+% 0x0201
+%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 parse_query_position_response(Bin) ->       
     <<RespNum:16,PosMsgResp/binary>> = Bin,
     {ok, {PosMsg}} = parse_position_info_report(PosMsgResp),
     {ok, {RespNum, PosMsg}}.
 
-%%%
-%%% 0x8202
-%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%
+% 0x8202
+%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 create_tmp_position_track_control(Interval, PosTraValidity) ->
     <<Interval:16,PosTraValidity:32>>.
 
-%%%
-%%% 0x8203
-%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%
+% 0x8203
+%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 create_man_confirm_alarm(Number,Type) ->
     <<Number:16,Type:32>>.
 
-%%%
-%%% 0x8300
-%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%
+% 0x8300
+%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 create_txt_send(Symbol,TextMsg) ->
     TM = list_to_binary(TextMsg),
     <<Symbol:8,TM/binary>>.
 
-%%%
-%%% 0x8301
-%%% Events : [[ID0, Len0, Con0], [ID1, Len1, Con1], [ID2, Len2, Con2], ...]
-%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%
+% 0x8301
+% Events : [[ID0, Len0, Con0], [ID1, Len1, Con1], [ID2, Len2, Con2], ...]
+%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 create_set_event(Type,_Count,Events) ->
     Len = length(Events),
     EventsBin = get_event_binary(Events, 8, 8),
     <<Type:8,Len:8,EventsBin/binary>>.
 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%
+%
+%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 get_event_binary(Events, IDLen, LenLen) ->
     case Events of
         [] ->
@@ -1261,9 +1335,11 @@ get_event_binary(Events, IDLen, LenLen) ->
             end
     end.
 
-%%%
-%%% 0x0301
-%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%
+% 0x0301
+%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 parse_event_report(Bin) ->
     Len = byte_size(Bin),
     if
@@ -1274,18 +1350,22 @@ parse_event_report(Bin) ->
             {error, errmsg}
     end.
 
-%%%
-%%% 0x8302
-%%% Answers : [[ID0, Len0, Con0], [ID1, Len1, Con1], [ID2, Len2, Con2], ...]
-%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%
+% 0x8302
+% Answers : [[ID0, Len0, Con0], [ID1, Len1, Con1], [ID2, Len2, Con2], ...]
+%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 create_send_question(Symbol,QueLen,Que,Answers) -> 
     Q = term_to_binary(Que),
     Ans = get_event_binary(Answers, 8, 16),
     <<Symbol:8,QueLen:8,Q/binary,Ans/binary>>.
 
-%%%
-%%% 0x0302
-%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%
+% 0x0302
+%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 parse_question_resp(Bin) ->
     Len = byte_size(Bin),
     if
@@ -1296,18 +1376,22 @@ parse_question_resp(Bin) ->
             {error, msgerr}
     end.
 
-%%%
-%%% 0x8303
-%%% Msgs : [[ID0, Len0, Con0], [ID1, Len1, Con1], [ID2, Len2, Con2], ...]
-%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%
+% 0x8303
+% Msgs : [[ID0, Len0, Con0], [ID1, Len1, Con1], [ID2, Len2, Con2], ...]
+%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 create_msgmenu_settings(SetType,_Count,Msgs) ->
     Len = length(Msgs),
     MsgsBin = get_event_binary(Msgs, 8, 16),
     <<SetType:8,Len:8,MsgsBin/binary>>.
 
-%%%
-%%% 0x0303
-%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%
+% 0x0303
+%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 parse_msg_proorcancel(Bin) ->
     Len = byte_size(Bin),
     if
@@ -1318,16 +1402,20 @@ parse_msg_proorcancel(Bin) ->
             {error, msgerr}
     end.
 
-%%%
-%%% 0x8304
-%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%
+% 0x8304
+%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 create_msg_service(Type,Len,Con) ->
     ConBin = term_to_binary(Con),
     <<Type:8,Len:16,ConBin/binary>>.
 
-%%%
-%%% 0x8400
-%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%
+% 0x8400
+%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 create_tel_callback(Symbol,Number) ->
     Len = length(Number),
     if
@@ -1340,14 +1428,20 @@ create_tel_callback(Symbol,Number) ->
             <<Symbol:8,N/binary>>
     end.
 
-%%%
-%%% 0x8401
-%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%
+% 0x8401
+%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 create_tel_note(Type,_Count,Items) ->
     Len = length(Items),
     ItemsBin = get_tel_book_entries(Items),
     <<Type:8,Len:8,ItemsBin/binary>>.
 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%
+%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 get_tel_book_entries(Items) ->
     case Items of
         [] ->
@@ -1363,33 +1457,41 @@ get_tel_book_entries(Items) ->
             end
     end.
     
-%%%
-%%% 0x8500
-%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%
+% 0x8500
+%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 create_car_con(Symbol) ->
     <<Symbol:8>>.
 
-%%%
-%%% 0x0500
-%%% Definition is not complete in document.
-%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%
+% 0x0500
+% Definition is not complete in document.
+%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 parse_car_con_response(Msg) ->
     <<FlowNum:16,M/binary>> = Msg,
     {ok, Resp} = parse_position_info_report(M),
     {ok,{FlowNum, Resp}}.
 
-%%%
-%%% 0x8600
-%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%
+% 0x8600
+%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 create_set_circle_area(SetArr,AreaCount,AreaId,AreaArr,Latitude,Longitude,Radius,Stime,Etime,Hspeed,OSTime) ->
     St = list_to_binary(Stime),
     Et = list_to_binary(Etime),
     <<SetArr:8,AreaCount:8,AreaId:32,AreaArr:16,Latitude:32,Longitude:32,Radius:32,St:48,Et:48,Hspeed:16,OSTime:8>>.
 
-%%%
-%%% 0x8601
-%%% IDs : [ID0, Id1, Id2, ...]
-%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%
+% 0x8601
+% IDs : [ID0, Id1, Id2, ...]
+%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 create_del_circle_area(Count,IDs) ->
     if
         Count == 0 ->
@@ -1421,6 +1523,10 @@ create_set_rect_area(Type, Items) ->
     ItemsBin = get_rect_area_entries(Items),
     list_to_binary([<<Type:8,Len:8>>,ItemsBin]).
     
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%
+%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 get_rect_area_entries(Items) ->
     case Items of
         [] ->
@@ -1464,6 +1570,12 @@ convert_datetime_to_bcd(DateTime) when is_list(DateTime) ->
 convert_datetime_to_bcd(_DateTime) ->
     convert_datetime_to_bcd("01-01-01 01:01:01").
 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%
+% Convert ["NN", "NN", "NN", "NN", "NN", "NN"] to [NN, NN, NN, NN, NN, NN]
+% It is for DateTime format
+%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 convert_string_list_to_integer_list(List) when is_list(List),
                                                length(List) == 6 ->
     [YY,MM,DD,Hh,Mm,Ss] = List,
@@ -1477,9 +1589,15 @@ convert_string_list_to_integer_list(List) when is_list(List),
 convert_string_list_to_integer_list(_List) ->
     [1,1,1,1,1,1].
 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%
+% Convert "NN" to NN and MAX is 99, which means "132" will be converted to 32.
+% If "NN" is not a valid decimal, return 1
+%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 get_2_number_integer_from_oct_string(Oct) when is_list(Oct),
                                                length(Oct) > 0 ->
-    case common:is_oct_integer_string(Oct) of
+    case common:is_dec_integer_string(Oct) of
         true ->
             Num = list_to_integer(Oct),
             Num rem 100;
@@ -1489,10 +1607,12 @@ get_2_number_integer_from_oct_string(Oct) when is_list(Oct),
 get_2_number_integer_from_oct_string(_Oct) ->
     1.
 
-%%%
-%%%0x8603
-%%% IDs : [ID0, Id1, Id2, ...]
-%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%
+% 0x8603
+% IDs : [ID0, Id1, Id2, ...]
+%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 create_del_rect_area(Count, IDs) ->
     if
         Count == 0 ->
@@ -1510,15 +1630,21 @@ create_del_rect_area(Count, IDs) ->
             end
     end.
 
-%%%
-%%% 0x8604
-%%% Points : [[Lat0, Lon0], [Lat1, Lon1], [Lat2, Lon2], ...]
-%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%
+% 0x8604
+% Points : [[Lat0, Lon0], [Lat1, Lon1], [Lat2, Lon2], ...]
+%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 create_set_polygon_area(Id,Prop,StartTime,StopTime,MaxSpeed,OSTime,_PointsCount,Points) ->
     Len = length(Points),
     PointsBin = get_polygon_area_point_entries(Points),
     <<Id:32,Prop:16,StartTime:48,StopTime:48,MaxSpeed:16,OSTime:8,Len:16,PointsBin/binary>>.
 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%
+%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 get_polygon_area_point_entries(Items) ->
     case Items of
         [] ->
@@ -1534,10 +1660,12 @@ get_polygon_area_point_entries(Items) ->
             end
     end.                                   
     
-%%%
-%%% 0x8605
-%%% IDs : [ID0, Id1, Id2, ...]
-%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%
+% 0x8605
+% IDs : [ID0, Id1, Id2, ...]
+%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 create_del_polygon_area(Count, IDs) ->
     if
         Count == 0 ->
@@ -1555,14 +1683,20 @@ create_del_polygon_area(Count, IDs) ->
             end
     end.
 
-%%%
-%%% 0x8606
-%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%
+% 0x8606
+%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 create_set_lines(ID, Prop, StartTime, StopTime, _PointsCount, Points) ->
     Len = length(Points),
     PointsBin = get_lines_point_entries(Points),
     <<ID:32,Prop:16,StartTime:48,StopTime:48,Len:16,PointsBin/binary>>.
 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%
+%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 get_lines_point_entries(Items) ->
     case Items of
         [] ->
@@ -1578,10 +1712,12 @@ get_lines_point_entries(Items) ->
             end
     end.                                   
     
-%%%
-%%% 0x8607
-%%% IDs : [ID0, Id1, Id2, ...]
-%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%
+% 0x8607
+% IDs : [ID0, Id1, Id2, ...]
+%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 create_del_lines(Count, IDs) ->
     if
         Count == 0 ->
@@ -1599,44 +1735,56 @@ create_del_lines(Count, IDs) ->
             end
     end.
 
-%%%
-%%% 0x8700
-%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%
+% 0x8700
+%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 create_record_collect_cmd(OrderWord,DataBlock) ->
     DB = term_to_binary(DataBlock),
     <<OrderWord:8,DB/binary>>.
 
-%%%
-%%% 0x0700
-%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%
+% 0x0700
+%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 parse_record_upload(Bin) ->
     <<Number:16,OrderWord:8,DataBlock/binary>>=Bin,
     DB = binary_to_list(DataBlock),
     {ok,{Number,OrderWord,DB}}.
 
-%%%
-%%% 0x8701
-%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%
+% 0x8701
+%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 create_record_args_send(OrderWord,DataBlock) ->
     DB = list_to_binary(DataBlock),
     <<OrderWord:8,DB/binary>>.
 
-%%%
-%%% 0x0701
-%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%
+% 0x0701
+%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 parse_electron_invoice_report(Bin) ->
     <<Length:32,Content/binary>> = Bin,
     {ok,{Length,Content}}.
 
-%%%
-%%% 0x8702
-%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%
+% 0x8702
+%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 create_report_driver_id_request() ->
     <<>>.
 
-%%%
-%%% 0x0702
-%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%
+% 0x0702
+%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 parse_driver_id_report(Bin) ->
     <<State:8,Time:48,IcReadResult:8,NameLen:8,Tail0/binary>> = Bin,
     NameBinLen = NameLen * 8,
@@ -1647,15 +1795,21 @@ parse_driver_id_report(Bin) ->
     O=binary_to_list(Org),
     {ok,{State,Time,IcReadResult,NameLen,N,CerNum,OrgLen,O,Validity}}.
 
-%%%
-%%% 0x0704
-%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%
+% 0x0704
+%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 parse_position_data_batch_update(Bin) ->
     <<_Count:32, Type:8, Tail/binary>> = Bin,
     Positions = get_position_data_entries(Tail),
     Len = length(Positions),
     {ok, {Len,Type,Positions}}.
 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%
+%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 get_position_data_entries(Bin) ->
     Len = bit_size(Bin),
     if
@@ -1675,14 +1829,20 @@ get_position_data_entries(Bin) ->
             end
     end.                    
 
-%%%
-%%% 0x0705
-%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%
+% 0x0705
+%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 parse_CAN_data_update(Bin) ->
     <<Count:32, Time:40, Tail/binary>> = Bin,
     Data = get_CAN_data_entries(Tail),
     {ok, {Count, Time, Data}}.
 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%
+%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 get_CAN_data_entries(Bin) ->
     Len = bit_size(Bin),
     if
@@ -1699,37 +1859,47 @@ get_CAN_data_entries(Bin) ->
             end
     end.                    
 
-%%%
-%%% 0x0800
-%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%
+% 0x0800
+%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 parse_multi_media_event_update(Bin) ->
     <<Id:32,Type:8,Code:8,EICode:8,PipeId:8>> = Bin,
     {ok,{Id,Type,Code,EICode,PipeId}}.
 
-%%%
-%%% 0x0801
-%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%
+% 0x0801
+%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 parse_multi_media_data_update(Bin) ->
     <<Id:32,Type:8,Code:8,EICode:8,PipeId:8,MsgBody:(28*8),Pack/binary>> = Bin,
     {ok,{Id,Type,Code,EICode,PipeId,MsgBody,Pack}}.
 
-%%%
-%%% 0x8800
-%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%
+% 0x8800
+%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 create_multimedia_data_reply(Id,_Count,IDs) ->
     Len = length(IDs),
     IL=term_to_binary(IDs),
     <<Id:32,Len:8,IL/binary>>.
 
-%%%
-%%% 0x8801
-%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%
+% 0x8801
+%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 create_imm_photo_cmd(PipeId,Order,Time,SaveSymbol,DisRate,Quality,Bri,Contrast,Sat,Chroma) ->
     <<PipeId:8,Order:16,Time:16,SaveSymbol:8,DisRate:8,Quality:8,Bri:8,Contrast:8,Sat:8,Chroma:8>>.
 
-%%%
-%%% 0x0805
-%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%
+% 0x0805
+%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 parse_imm_photo_cmd_response(Bin) ->
     Len = bit_size(Bin),
     if
@@ -1768,6 +1938,10 @@ parse_imm_photo_cmd_response(Bin) ->
         end
     end.
 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%
+%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 get_list_from_bin(Bin, ItemWidth) ->
     Len = bit_size(Bin),
     if
@@ -1784,21 +1958,29 @@ get_list_from_bin(Bin, ItemWidth) ->
             end
     end.
 
-%%%
-%%% 0x8802
-%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%
+% 0x8802
+%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 create_stomuldata_search(MediaType,PipeId,EvenCode,StartTime,EndTime) ->
     <<MediaType:8,PipeId:8,EvenCode:8,StartTime:48,EndTime:48>>.
 
-%%%
-%%% 0x0802
-%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%
+% 0x0802
+%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 parse_stomuldata_response(Bin) ->
     <<FlowNum:16, _Count:16, Tail/binary>> = Bin,
     Data = get_stomuldata_entries(Tail),
     Len = length(Data),
     {ok, {FlowNum, Len, Data}}.
 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%
+%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 get_stomuldata_entries(Bin) ->
     Len = bit_size(Bin),
     if
@@ -1810,56 +1992,72 @@ get_stomuldata_entries(Bin) ->
             [[ID,Type,ChID,EventCoding,Resp]|get_stomuldata_entries(Tail)]
     end.
 
-%%%
-%%% 0x8803
-%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%
+% 0x8803
+%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 create_stomuldata_update(MediaType,PipeId,EventCode,StartTime,EndTime,Del) ->
     <<MediaType:8,PipeId:8,EventCode:8,StartTime:48,EndTime:48,Del:8>>.
 
-%%%
-%%% 0x8804
-%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%
+% 0x8804
+%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 create_record_start_order(RecordCode,RecordTime,SaveSymbol,VoiceSamplingRate) ->
     <<RecordCode:8,RecordTime:16,SaveSymbol:8,VoiceSamplingRate:8>>.
 
-%%%
-%%% 0x8805
-%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%
+% 0x8805
+%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 create_sinstomuldatasea_update_order(MediaId,DelSymbol) ->
     <<MediaId:32,DelSymbol:8>>.
 
-%%%
-%%%0x8900
-%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%
+%0x8900
+%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 create_data_dl_transparent(MsgType,MsgCon) ->
     MC = term_to_binary(MsgCon),
     % Not complete
     <<MsgType:8,MC/binary>>.
 
-%%%
-%%%0x9000
-%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%
+% 0x9000
+%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 parse_data_ul_transparent(Bin) ->
     <<Type:8,Con/binary>> = Bin,
     {ok,{Type,Con}}.
 
-%%%
-%%% 0x0901
-%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%
+% 0x0901
+%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 parse_data_compress_update(Bin) ->
     <<Len:32,Body/binary>> = Bin,
     {ok,{Len,Body}}.
 
-%%%
-%%% 0x8a00
-%%% Byte array to binary????
-%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%
+% 0x8a00
+% Byte array to binary????
+%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 create_platform_rsa(E,N) ->
     <<E:32,N/binary>>.
 
-%%%
-%%% 0x0a00
-%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%
+% 0x0a00
+%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 parse_term_rsa(Bin) ->
     <<E:32,N/binary>> = Bin,
     {ok,{E,N}}.

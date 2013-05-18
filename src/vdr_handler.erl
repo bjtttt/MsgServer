@@ -286,7 +286,7 @@ process_vdr_data(Socket, Data, State) ->
                                                         true ->
                                                             FlowIdx = NewState#vdritem.msgflownum,
                                                             MsgBody = vdr_data_processor:create_reg_resp(MsgIdx, 0, list_to_binary(DeviceAuthenCode)),
-                                                            common:loginfo("VDR registration response (ok) : ~p~n", [NewState#vdritem.pid, MsgBody]),
+                                                            common:loginfo("~p sends VDR registration response (ok) : ~p~n", [NewState#vdritem.pid, MsgBody]),
                                                             NewFlowIdx = send_data_to_vdr(16#8100, FlowIdx, MsgBody, VDRPid),
                                                             
                                                             update_reg_install_time(DeviceID, DeviceRegTime, VehicleID, VehicleDeviceInstallTime, NewState),        
@@ -724,6 +724,9 @@ disconn_socket_by_id(IDSockList) ->
 % Pid       :
 % VDRPid    :
 %
+% Return	: the next message index
+%		10,20,30,40,... is for the index of the message from WS to VDR
+%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 send_data_to_vdr(ID, FlowIdx, MsgBody, VDRPid) ->
     case VDRPid of
@@ -733,25 +736,30 @@ send_data_to_vdr(ID, FlowIdx, MsgBody, VDRPid) ->
             Pid = self(),
             common:loginfo("~p send_data_to_vdr : ID (~p), FlowIdx (~p), MsgBody (~p)~n", [Pid, ID, FlowIdx, MsgBody]),
             Msg = vdr_data_processor:create_final_msg(ID, FlowIdx, MsgBody),
-            VDRPid ! {Pid, Msg},
-            %receive
-            %    {Pid, vdrok} ->
-            %        FlowIdx + 1
-            %end
-            NewFlowIdx = FlowIdx + 1,
-            NewFlowIdxRem = NewFlowIdx rem ?WS2VDRFREQ,
-            case NewFlowIdxRem of
-                0 ->
-                    NewFlowIdx + 1;
-                _ ->
-                    FlowIdxRem = FlowIdx rem ?WS2VDRFREQ,
-                    case FlowIdxRem of
-                        0 ->
-                            FlowIdx + ?WS2VDRFREQ;
-                        _ ->
-                            NewFlowIdx
-                    end
-            end
+			if
+				Msg == <<>> ->
+					common:loginfo("~p send_data_to_vdr NULL final message : ID (~p), FlowIdx (~p), MsgBody (~p)~n", [Pid, ID, FlowIdx, MsgBody]),
+				Msg =/= <<>> ->
+					VDRPid ! {Pid, Msg},
+					%receive
+					%    {Pid, vdrok} ->
+					%        FlowIdx + 1
+					%end
+					NewFlowIdx = FlowIdx + 1,
+					NewFlowIdxRem = NewFlowIdx rem ?WS2VDRFREQ,
+					case NewFlowIdxRem of
+						0 ->
+							NewFlowIdx + 1;
+						_ ->
+							FlowIdxRem = FlowIdx rem ?WS2VDRFREQ,
+							case FlowIdxRem of
+								0 ->
+									FlowIdx + ?WS2VDRFREQ;
+								_ ->
+									NewFlowIdx
+							end
+					end
+			end
     end.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
