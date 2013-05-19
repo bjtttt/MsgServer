@@ -580,7 +580,8 @@ connect_ws_to_vdr(Msg) ->
                             send_resp_to_ws(SN, 16#8500, VIDList, ?P_GENRESP_ERRMSG);
                         _ ->
                             send_msg_to_vdrs(VIDList, Bin),
-                            send_resp_to_ws(SN, 16#8500, VIDList, ?P_GENRESP_OK)
+                            send_resp_to_ws(SN, 16#8500, VIDList, ?P_GENRESP_OK),
+                            update_vdrs_ws2vdr_msg_id_flowidx(16#8500, SN, VIDList)
                     end;
                 16#8801 ->
                     [SN, VIDList, [ID, CMD, T, SF, R, Q, B, CO, S, CH]] = Res,
@@ -590,7 +591,8 @@ connect_ws_to_vdr(Msg) ->
                             send_resp_to_ws(SN, 16#8801, VIDList, ?P_GENRESP_ERRMSG);
                         _ ->
                             send_msg_to_vdrs(VIDList, Bin),
-                            send_resp_to_ws(SN, 16#8801, VIDList, ?P_GENRESP_OK)
+                            send_resp_to_ws(SN, 16#8801, VIDList, ?P_GENRESP_OK),
+                            update_vdrs_ws2vdr_msg_id_flowidx(16#8801, SN, VIDList)
                     end;
                 16#8804 ->
                     [SN, VIDList, [CMD, T, SF, FREQ]] = Res,
