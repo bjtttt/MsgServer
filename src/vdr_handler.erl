@@ -44,7 +44,7 @@ handle_cast(_Msg, State) ->
 %%%
 %%%
 handle_info({tcp, Socket, Data}, OriState) ->
-    common:loginfo("Data from VDR (~p) (id:~p, serialno:~p, authen_code:~p) : ~p~n", [OriState#vdritem.addr, OriState#vdritem.id, OriState#vdritem.serialno, OriState#vdritem.auth, Data]),
+    common:loginfo("Data from VDR (~p) (id:~p, serialno:~p, authen_code:~p, vehicleid:~p, vehiclecode:~p) : ~p~n", [OriState#vdritem.addr, OriState#vdritem.id, OriState#vdritem.serialno, OriState#vdritem.auth, OriState#vdritem.vehicleid, OriState#vdritem.vehiclecode, Data]),
     % Update active time for VDR
     DateTime = {erlang:date(), erlang:time()},
     State = OriState#vdritem{acttime=DateTime},
@@ -98,7 +98,7 @@ handle_info(_Info, State) ->
 %%% When VDR handler process is terminated, do the clean jobs here
 %%%
 terminate(Reason, State) ->
-    common:loginfo("VDR (~p) (id:~p, serialno:~p, authen_code:~p) starts being terminated : ~p~n", [State#vdritem.addr, State#vdritem.id, State#vdritem.serialno, State#vdritem.auth, Reason]),
+    common:loginfo("VDR (~p) (id:~p, serialno:~p, authen_code:~p, vehicleid:~p, vehiclecode:~p) starts being terminated : ~p~n", [State#vdritem.addr, State#vdritem.id, State#vdritem.serialno, State#vdritem.auth, State#vdritem.vehicleid, State#vdritem.vehiclecode, Reason]),
     ID = State#vdritem.id,
     Auth = State#vdritem.auth,
     _SerialNo = State#vdritem.serialno,
@@ -144,7 +144,7 @@ terminate(Reason, State) ->
         _:Ex ->
             common:logerror("VDR (~p) : exception when gen_tcp:close : ~p~n", [State#vdritem.addr, Ex])
     end,
-    common:loginfo("VDR (~p) (id:~p, serialno:~p, authen_code:~p) is terminated~n", [State#vdritem.addr, State#vdritem.id, State#vdritem.serialno, State#vdritem.auth]).
+    common:loginfo("VDR (~p) (id:~p, serialno:~p, authen_code:~p, vehicleid:~p, vehiclecode:~p) is terminated~n", [State#vdritem.addr, State#vdritem.id, State#vdritem.serialno, State#vdritem.auth, State#vdritem.vehicleid, State#vdritem.vehiclecode]).
 
 code_change(_OldVsn, State, _Extra) ->    
 	{ok, State}.
@@ -462,11 +462,12 @@ process_vdr_data(Socket, Data, State) ->
                                     {error, invaliderror, State}
                             end;
                         true ->
+                            common:loginfo("Invalid common message from unknown/unregistered/unauthenticated VDR (~p) (id:~p, serialno:~p, authen_code:~p, vehicleid:~p, vehiclecode:~p) MSG ID : ~p~n", [NewState#vdritem.addr, NewState#vdritem.id, NewState#vdritem.serialno, NewState#vdritem.auth, NewState#vdritem.vehicleid, NewState#vdritem.vehiclecode, ID]),
                             % Unauthorized/Unregistered VDR can only accept 16#100/16#102
                             {error, invaliderror, State}
                     end;
                 true ->
-                    common:loginfo("VDR (~p) (id:~p, serialno:~p, authen_code:~p) MSG ID : ~p~n", [NewState#vdritem.addr, NewState#vdritem.id, NewState#vdritem.serialno, NewState#vdritem.auth, ID]),
+                    common:loginfo("VDR (~p) (id:~p, serialno:~p, authen_code:~p, vehicleid:~p, vehiclecode:~p) MSG ID : ~p~n", [NewState#vdritem.addr, NewState#vdritem.id, NewState#vdritem.serialno, NewState#vdritem.auth, NewState#vdritem.vehicleid, NewState#vdritem.vehiclecode, ID]),
                     case ID of
                         16#1 ->     % VDR general response
                             {RespFlowIdx, RespID, Res} = Msg,
@@ -633,7 +634,8 @@ process_vdr_data(Socket, Data, State) ->
                             
                             {ok, NewState};
                         _ ->
-                            {ok, NewState}
+                            common:loginfo("Invalid registration/authentication Invalid message from registered/authenticated VDR (~p) (id:~p, serialno:~p, authen_code:~p, vehicleid:~p, vehiclecode:~p) MSG ID : ~p~n", [NewState#vdritem.addr, NewState#vdritem.id, NewState#vdritem.serialno, NewState#vdritem.auth, NewState#vdritem.vehicleid, NewState#vdritem.vehiclecode, ID]),
+                            {error, invaliderror, NewState}
                     end
             end;
         {ignore, HeaderInfo, NewState} ->
