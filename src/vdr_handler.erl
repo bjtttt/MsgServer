@@ -44,7 +44,8 @@ handle_cast(_Msg, State) ->
 %%%
 %%%
 handle_info({tcp, Socket, Data}, OriState) ->
-    common:loginfo("Data from VDR (~p) (id:~p, serialno:~p, authen_code:~p, vehicleid:~p, vehiclecode:~p) : ~p~n", [OriState#vdritem.addr, OriState#vdritem.id, OriState#vdritem.serialno, OriState#vdritem.auth, OriState#vdritem.vehicleid, OriState#vdritem.vehiclecode, Data]),
+    common:loginfo("Data from VDR (~p) (id:~p, serialno:~p, authen_code:~p, vehicleid:~p, vehiclecode:~p)~n", [OriState#vdritem.addr, OriState#vdritem.id, OriState#vdritem.serialno, OriState#vdritem.auth, OriState#vdritem.vehicleid, OriState#vdritem.vehiclecode]),
+    common:loginfo("Data : ~p~n", [Data]),
     % Update active time for VDR
     DateTime = {erlang:date(), erlang:time()},
     State = OriState#vdritem{acttime=DateTime},
