@@ -80,7 +80,6 @@
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 create_final_msg(ID, MsgIdx, Data) ->
     common:logerror("Enter create_final_msg(ID, MsgIdx, Data) : ~p, ~p, ~p~n", [ID, MsgIdx, Data]),
-    common:logerror("Enter create_final_msg(ID, MsgIdx, Data) : ~p, ~p, ~p~n", [ID, MsgIdx, Data]),
     Len = byte_size(Data),
     Header = <<ID:16, 0:2, 0:1, 0:3, Len:10, 0:48, MsgIdx:16>>,
     HeaderBody = list_to_binary([Header, Data]),

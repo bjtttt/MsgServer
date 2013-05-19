@@ -554,7 +554,7 @@ process_vdr_data(Socket, Data, State) ->
                                                                                                  Lat, 
                                                                                                  Lon,
                                                                                                  binary_to_list(TimeS)),
-                                            common:loginfo("VDR (~p) WS : ~p~n", [NewState#vdritem.addr, WSUpdate]),
+                                            common:loginfo("VDR (~p) WS Alarm for 0x200: ~p~n", [NewState#vdritem.addr, WSUpdate]),
                                             send_msg_to_ws(WSUpdate, NewState) %wsock_client:send(WSUpdate)
                                     end,
 
@@ -575,9 +575,45 @@ process_vdr_data(Socket, Data, State) ->
                             
                             {ok, NewState};
                         16#302 ->
-                            {_Id} = Msg,
-                            
-                            {ok, NewState};
+                            {AnswerID} = Msg,
+
+                            FlowIdx = NewState#vdritem.msgflownum,
+
+                            VehicleID = NewState#vdritem.vehicleid,                            
+                            Res = ets:lookup(vdridsocktable, VehicleID),
+                            case length(Res) of
+                                1 ->
+                                    [VSock] = Res,
+                                    MsgList = VSock#vdridsockitem.msgws2vdr,
+                                    TargetList = [{WSID, WSFlowIdx} || {WSID, WSFlowIdx} <- MsgList, WSID == 16#8302],
+                                    case length(TargetList) of
+                                        1 ->
+                                            [{_TargetWSID, TargetWSFlowIdx}] = TargetList,
+                                            {ok, WSUpdate} = wsock_data_parser:create_term_answer(TargetWSFlowIdx,
+                                                                                                  [NewState#vdritem.vehicleid],
+                                                                                                  [AnswerID]),
+                                            common:loginfo("VDR (~p) WS answer for WS request 0x8302: ~p~n", [NewState#vdritem.addr, WSUpdate]),
+                                            send_msg_to_ws(WSUpdate, NewState),
+
+                                            MsgBody = vdr_data_processor:create_gen_resp(ID, MsgIdx, ?T_GEN_RESP_OK),
+                                            common:loginfo("~p sends VDR (~p) response for 16#302 (ok) : ~p~n", [State#vdritem.pid, NewState#vdritem.addr, MsgBody]),
+                                            NewFlowIdx = send_data_to_vdr(16#8001, FlowIdx, MsgBody, VDRPid),
+                                            
+                                            {ok, NewState#vdritem{msgflownum=NewFlowIdx}};
+                                        _ ->
+                                            MsgBody = vdr_data_processor:create_gen_resp(ID, MsgIdx, ?T_GEN_RESP_FAIL),
+                                            common:loginfo("~p sends VDR (~p) response for 16#302 (fail because of no platform flow index) : ~p~n", [State#vdritem.pid, NewState#vdritem.addr, MsgBody]),
+                                            NewFlowIdx = send_data_to_vdr(16#8001, FlowIdx, MsgBody, VDRPid),
+                                            
+                                            {ok, NewState#vdritem{msgflownum=NewFlowIdx}}
+                                    end;
+                                _ ->
+                                    MsgBody = vdr_data_processor:create_gen_resp(ID, MsgIdx, ?T_GEN_RESP_FAIL),
+                                    common:loginfo("~p sends VDR (~p) response for 16#302 (fail because of no exact one vehicleidsocket item) : ~p~n", [State#vdritem.pid, NewState#vdritem.addr, MsgBody]),
+                                    NewFlowIdx = send_data_to_vdr(16#8001, FlowIdx, MsgBody, VDRPid),
+                                    
+                                    {ok, NewState#vdritem{msgflownum=NewFlowIdx}}
+                            end;
                         16#303 ->
                             {_MsgType, _POC} = Msg,
                             

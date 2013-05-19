@@ -548,7 +548,8 @@ connect_ws_to_vdr(Msg) ->
                             send_resp_to_ws(SN, 16#8302, VIDList, ?P_GENRESP_ERRMSG);
                         _ ->
                             send_msg_to_vdrs(VIDList, Bin),
-                            send_resp_to_ws(SN, 16#8302, VIDList, ?P_GENRESP_OK)
+                            send_resp_to_ws(SN, 16#8302, VIDList, ?P_GENRESP_OK),
+                            update_vdrs_ws2vdr_msg_id_flowidx(16#8302, SN, VIDList)
                     end;
                 16#8400 ->
                     [SN, VIDList, [FLAG, PHONE]] = Res,
@@ -607,6 +608,44 @@ connect_ws_to_vdr(Msg) ->
         _ ->
             ok
     end.
+
+update_vdrs_ws2vdr_msg_id_flowidx(ID, FlowIdx, VIDList) when is_integer(ID),
+                                                             is_integer(FlowIdx),
+                                                             is_list(VIDList),
+                                                             length(VIDList) > 0 ->
+    [H|T] = VIDList,
+    update_vdr_ws2vdr_msg_id_flowidx(ID, FlowIdx, H),
+    case T of
+        [] ->
+            ok;
+        _ ->
+            update_vdrs_ws2vdr_msg_id_flowidx(ID, FlowIdx, T)
+    end;
+update_vdrs_ws2vdr_msg_id_flowidx(_ID, _FlowIdx, _VIDList) ->
+    ok.
+
+update_vdr_ws2vdr_msg_id_flowidx(ID, FlowIdx, VID) when is_integer(ID),
+                                                        is_integer(FlowIdx),
+                                                        is_integer(VID) ->
+    Res = ets:lookup(vdridsocktable, VID),
+    case length(Res) of
+        1 ->
+            [VSock] = Res,
+            MsgList = update_ws2vdrmsglist(VSock#vdridsockitem.msgws2vdr, ID, FlowIdx),
+            ets:insert(vdridsocktable, VSock#vdridsockitem{msgws2vdr=MsgList});
+        _ ->
+            ok
+    end.
+
+update_ws2vdrmsglist(List, ID, FlowIdx) when is_integer(ID),
+                                             is_integer(FlowIdx),
+                                             is_list(List) ->
+    NewList = [{OldID, OldFlowIdx} || {OldID, OldFlowIdx} <- List, OldID =/= ID],
+    NewList ++ [ID, FlowIdx];
+update_ws2vdrmsglist(List, _ID, _FlowIdx) when is_list(List) ->
+    List;
+update_ws2vdrmsglist(_List, _ID, _FlowIdx) ->
+    [].
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %
@@ -690,7 +729,7 @@ send_msg_to_vdr(VDR, Msg) when is_binary(Msg) ->
         1 ->
             [VDRSock] = VDRSockList,
             common:loginfo("WS Server : Gateway WS delegation ~p sends msg to VDR (~p) : ~p~n", [self(), VDRSock#vdridsockitem.addr, Msg]),
-            NewFlowIdx = vdr_handler:send_data_to_vdr(16#8103, VDRSock#vdridsockitem.msgflownum, {ok, Msg}, VDRSock#vdridsockitem.vdrpid),
+            NewFlowIdx = vdr_handler:send_data_to_vdr(16#8103, VDRSock#vdridsockitem.msgflownum, Msg, VDRSock#vdridsockitem.vdrpid),
             ets:insert(vdridsocktable, VDRSock#vdridsockitem{msgflownum=NewFlowIdx});
         _ ->
             common:loginfo("WS Server : Cannot find VDRID in vdridsock table~n"),

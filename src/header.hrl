@@ -100,7 +100,8 @@
                             addr=undefined,
                             vdrpid=undefined,
                             respwspid=undefined,
-                            msgflownum=?WS2VDRFREQ
+                            msgflownum=?WS2VDRFREQ,
+                            msgws2vdr=[]            % [{MsgID, WSFlowIdx}, ...] only one item for one MsgID
                        }).
 
 %%%
