@@ -422,7 +422,7 @@ do_process_data(Data) ->
                                             {"SF", SF} = get_specific_entry(DATA, "SF"),
                                             {"T", T} = get_specific_entry(DATA, "T"),
                                             {"FREQ", FREQ} = get_specific_entry(DATA, "FREQ"),
-                                            {ok, Mid, [SN, VIDList, [CMD, SF, T, FREQ]]};
+                                            {ok, Mid, [SN, VIDList, [CMD, T, SF, FREQ]]};
                                         true ->
                                             {error, format_error}
                                     end;
@@ -592,8 +592,8 @@ connect_ws_to_vdr(Msg) ->
                             send_resp_to_ws(SN, 16#8801, VIDList, ?P_GENRESP_OK)
                     end;
                 16#8804 ->
-                    [SN, VIDList, [CMD, SF, T, FREQ] = Res,
-                    Bin = vdr_data_processor:create_record_start_order(CMD, SF, T, FREQ),
+                    [SN, VIDList, [CMD, T, SF, FREQ]] = Res,
+                    Bin = vdr_data_processor:create_record_start_order(CMD, T, SF, FREQ),
                     case Bin of
                         <<>> ->
                             send_resp_to_ws(SN, 16#8804, VIDList, ?P_GENRESP_ERRMSG);
