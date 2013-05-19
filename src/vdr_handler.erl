@@ -585,10 +585,10 @@ process_vdr_data(Socket, Data, State) ->
                                 1 ->
                                     [VSock] = Res,
                                     MsgList = VSock#vdridsockitem.msgws2vdr,
-                                    TargetList = [{WSID, WSFlowIdx} || {WSID, WSFlowIdx} <- MsgList, WSID == 16#8302],
+                                    TargetList = [{WSID, WSFlowIdx, WSValue} || {WSID, WSFlowIdx, WSValue} <- MsgList, WSID == 16#8302],
                                     case length(TargetList) of
                                         1 ->
-                                            [{_TargetWSID, TargetWSFlowIdx}] = TargetList,
+                                            [{_TargetWSID, TargetWSFlowIdx, _WSValue}] = TargetList,
                                             {ok, WSUpdate} = wsock_data_parser:create_term_answer(TargetWSFlowIdx,
                                                                                                   [VehicleID],
                                                                                                   [AnswerID]),
@@ -621,7 +621,7 @@ process_vdr_data(Socket, Data, State) ->
                         16#500 ->
                             {_FlowNum, Resp} = Msg,
                             {Info, _AppInfo} = Resp,
-                            [_AlarmSym, State, _Lat, _Lon, _Height, _Speed, _Direction, _Time] = Info,
+                            [_AlarmSym, InfoState, _Lat, _Lon, _Height, _Speed, _Direction, _Time] = Info,
 
                             FlowIdx = NewState#vdritem.msgflownum,
 
@@ -631,15 +631,18 @@ process_vdr_data(Socket, Data, State) ->
                                 1 ->
                                     [VSock] = Res,
                                     MsgList = VSock#vdridsockitem.msgws2vdr,
-                                    TargetList = [{WSID, WSFlowIdx} || {WSID, WSFlowIdx} <- MsgList, WSID == 16#8302],
+                                    TargetList = [{WSID, WSFlowIdx, WSValue} || {WSID, WSFlowIdx, WSValue} <- MsgList, WSID == 16#8302],
                                     case length(TargetList) of
                                         1 ->
-                                            [{_TargetWSID, TargetWSFlowIdx}] = TargetList,
-                                            % Not complete here
+                                            [{_TargetWSID, TargetWSFlowIdx, WSValue}] = TargetList,
+                                            FlagBit = WSValue band 1,
+                                            ResBit = InfoState band 16#1000,
+                                            NewResBit = ResBit bsr 12,
+                                            % Not very clear about the latest parameter
                                             {ok, WSUpdate} = wsock_data_parser:create_vehicle_ctrl_answer(TargetWSFlowIdx,
-                                                                                                          0,
+                                                                                                          FlagBit bxor NewResBit,
                                                                                                           [VehicleID],
-                                                                                                          []),
+                                                                                                          [InfoState]),
                                             common:loginfo("VDR (~p) WS answer for WS request 0x8500: ~p~n", [NewState#vdritem.addr, WSUpdate]),
                                             send_msg_to_ws(WSUpdate, NewState),
 
@@ -701,10 +704,10 @@ process_vdr_data(Socket, Data, State) ->
                                 1 ->
                                     [VSock] = Res,
                                     MsgList = VSock#vdridsockitem.msgws2vdr,
-                                    TargetList = [{WSID, WSFlowIdx} || {WSID, WSFlowIdx} <- MsgList, WSID == 16#8302],
+                                    TargetList = [{WSID, WSFlowIdx, WSValue} || {WSID, WSFlowIdx, WSValue} <- MsgList, WSID == 16#8302],
                                     case length(TargetList) of
                                         1 ->
-                                            [{_TargetWSID, TargetWSFlowIdx}] = TargetList,
+                                            [{_TargetWSID, TargetWSFlowIdx, _WSValue}] = TargetList,
                                             {ok, WSUpdate} = wsock_data_parser:create_shot_resp(TargetWSFlowIdx,
                                                                                                 [VehicleID],
                                                                                                 Res,

@@ -549,7 +549,7 @@ connect_ws_to_vdr(Msg) ->
                         _ ->
                             send_msg_to_vdrs(16#8302, VIDList, Bin),
                             send_resp_to_ws(SN, 16#8302, VIDList, ?P_GENRESP_OK),
-                            update_vdrs_ws2vdr_msg_id_flowidx(16#8302, SN, VIDList)
+                            update_vdrs_ws2vdr_msg_id_flowidx(16#8302, SN, VIDList, null)
                     end;
                 16#8400 ->
                     [SN, VIDList, [FLAG, PHONE]] = Res,
@@ -581,7 +581,7 @@ connect_ws_to_vdr(Msg) ->
                         _ ->
                             send_msg_to_vdrs(16#8500, VIDList, Bin),
                             send_resp_to_ws(SN, 16#8500, VIDList, ?P_GENRESP_OK),
-                            update_vdrs_ws2vdr_msg_id_flowidx(16#8500, SN, VIDList)
+                            update_vdrs_ws2vdr_msg_id_flowidx(16#8500, SN, VIDList, FLAG)
                     end;
                 16#8801 ->
                     [SN, VIDList, [ID, CMD, T, SF, R, Q, B, CO, S, CH]] = Res,
@@ -592,7 +592,7 @@ connect_ws_to_vdr(Msg) ->
                         _ ->
                             send_msg_to_vdrs(16#8801, VIDList, Bin),
                             send_resp_to_ws(SN, 16#8801, VIDList, ?P_GENRESP_OK),
-                            update_vdrs_ws2vdr_msg_id_flowidx(16#8801, SN, VIDList)
+                            update_vdrs_ws2vdr_msg_id_flowidx(16#8801, SN, VIDList, null)
                     end;
                 16#8804 ->
                     [SN, VIDList, [CMD, T, SF, FREQ]] = Res,
@@ -611,42 +611,42 @@ connect_ws_to_vdr(Msg) ->
             ok
     end.
 
-update_vdrs_ws2vdr_msg_id_flowidx(ID, FlowIdx, VIDList) when is_integer(ID),
-                                                             is_integer(FlowIdx),
-                                                             is_list(VIDList),
-                                                             length(VIDList) > 0 ->
+update_vdrs_ws2vdr_msg_id_flowidx(ID, FlowIdx, Value, VIDList) when is_integer(ID),
+                                                                    is_integer(FlowIdx),
+                                                                    is_list(VIDList),
+                                                                    length(VIDList) > 0 ->
     [H|T] = VIDList,
-    update_vdr_ws2vdr_msg_id_flowidx(ID, FlowIdx, H),
+    update_vdr_ws2vdr_msg_id_flowidx(ID, FlowIdx, Value, H),
     case T of
         [] ->
             ok;
         _ ->
-            update_vdrs_ws2vdr_msg_id_flowidx(ID, FlowIdx, T)
+            update_vdrs_ws2vdr_msg_id_flowidx(ID, FlowIdx, Value, T)
     end;
-update_vdrs_ws2vdr_msg_id_flowidx(_ID, _FlowIdx, _VIDList) ->
+update_vdrs_ws2vdr_msg_id_flowidx(_ID, _FlowIdx, _Value, _VIDList) ->
     ok.
 
-update_vdr_ws2vdr_msg_id_flowidx(ID, FlowIdx, VID) when is_integer(ID),
-                                                        is_integer(FlowIdx),
-                                                        is_integer(VID) ->
+update_vdr_ws2vdr_msg_id_flowidx(ID, FlowIdx, Value, VID) when is_integer(ID),
+                                                               is_integer(FlowIdx),
+                                                               is_integer(VID) ->
     Res = ets:lookup(vdridsocktable, VID),
     case length(Res) of
         1 ->
             [VSock] = Res,
-            MsgList = update_ws2vdrmsglist(VSock#vdridsockitem.msgws2vdr, ID, FlowIdx),
+            MsgList = update_ws2vdrmsglist(VSock#vdridsockitem.msgws2vdr, ID, FlowIdx, Value),
             ets:insert(vdridsocktable, VSock#vdridsockitem{msgws2vdr=MsgList});
         _ ->
             ok
     end.
 
-update_ws2vdrmsglist(List, ID, FlowIdx) when is_integer(ID),
+update_ws2vdrmsglist(List, ID, Value, FlowIdx) when is_integer(ID),
                                              is_integer(FlowIdx),
                                              is_list(List) ->
-    NewList = [{OldID, OldFlowIdx} || {OldID, OldFlowIdx} <- List, OldID =/= ID],
-    NewList ++ [ID, FlowIdx];
-update_ws2vdrmsglist(List, _ID, _FlowIdx) when is_list(List) ->
+    NewList = [{OldID, OldFlowIdx, OldValue} || {OldID, OldFlowIdx, OldValue} <- List, OldID =/= ID],
+    NewList ++ [{ID, FlowIdx, Value}];
+update_ws2vdrmsglist(List, _ID, _Value, _FlowIdx) when is_list(List) ->
     List;
-update_ws2vdrmsglist(_List, _ID, _FlowIdx) ->
+update_ws2vdrmsglist(_List, _ID, _Value, _FlowIdx) ->
     [].
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -1027,7 +1027,7 @@ create_term_answer(SN, List, IDList) ->
 % SN        :
 % Status    :
 % List      : VDR list
-% IDList    : Answer ID list
+% DataList  : Data list
 %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 create_vehicle_ctrl_answer(SN, Status, List, DataList) when is_integer(SN),
