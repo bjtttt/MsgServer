@@ -80,6 +80,7 @@
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 create_final_msg(ID, MsgIdx, Data) ->
     common:logerror("Enter create_final_msg(ID, MsgIdx, Data) : ~p, ~p, ~p~n", [ID, MsgIdx, Data]),
+    common:logerror("Enter create_final_msg(ID, MsgIdx, Data) : ~p, ~p, ~p~n", [ID, MsgIdx, Data]),
     Len = byte_size(Data),
     Header = <<ID:16, 0:2, 0:1, 0:3, Len:10, 0:48, MsgIdx:16>>,
     HeaderBody = list_to_binary([Header, Data]),
@@ -90,7 +91,8 @@ create_final_msg(ID, MsgIdx, Data) ->
     MsgBody3 = binary:replace(MsgBody2, <<255, 1, 255, 2, 255, 3, 255, 4, 255, 5, 255>>, <<125, 1>>, [global]),
     MsgBody4 = binary:replace(MsgBody3, <<255, 1, 255, 2, 255, 3, 255, 4, 255, 5, 255>>, <<125, 2>>, [global]),
     FinalBin = list_to_binary([<<126>>, MsgBody4, <<126>>]),
-    common:logerror("Exit create_final_msg(ID, MsgIdx, Data) : ~p~n", [FinalBin]),
+    common:logerror("Exit create_final_msg(ID, MsgIdx, Data) with MSG~n"),
+    common:logerror("MSG : ~p~n", [FinalBin]),
     FinalBin.
 
 %%%

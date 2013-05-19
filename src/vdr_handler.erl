@@ -773,7 +773,8 @@ send_data_to_vdr(ID, FlowIdx, MsgBody, VDRPid) ->
 data2vdr_process(Socket) ->
     receive
         {Pid, Msg} ->
-            common:loginfo("~p Receives MSG to VDR from ~p : ~p~n", [self(), Pid, Msg]),
+            common:loginfo("~p Receives MSG to VDR from ~p~n", [self(), Pid]),
+            common:loginfo("MSG : ~p~n", [Msg]),
             gen_tcp:send(Socket, Msg),
             %Pid ! {Pid, vdrok},
             data2vdr_process(Socket);
