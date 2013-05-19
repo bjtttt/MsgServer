@@ -487,8 +487,12 @@ connect_ws_to_vdr(Msg) ->
                     end;
                 16#8603 ->
                     [SN, VIDList, DataList] = Res,
-                    send_del_rect_areas_msg_to_vdr(VIDList, DataList),
-                    send_resp_to_ws(SN, 16#8603, VIDList, ?P_GENRESP_OK);
+                    case send_del_rect_areas_msg_to_vdr(VIDList, DataList) of
+                        ok ->
+                            send_resp_to_ws(SN, 16#8603, VIDList, ?P_GENRESP_OK);
+                        _ ->
+                            send_resp_to_ws(SN, 16#8603, VIDList, ?P_GENRESP_ERRMSG)
+                    end;
                 16#8105 ->
                     [SN, VIDList, CMDPAR] = Res,
                     case tuple_size(CMDPAR) of
@@ -520,25 +524,83 @@ connect_ws_to_vdr(Msg) ->
                     Bin = vdr_data_processor:create_tmp_position_track_control(ITERVAL, LENGTH),
                     case Bin of
                         <<>> ->
-                            send_resp_to_ws(SN, 16#8105, VIDList, ?P_GENRESP_ERRMSG);
+                            send_resp_to_ws(SN, 16#8202, VIDList, ?P_GENRESP_ERRMSG);
                         _ ->
                             send_msg_to_vdrs(VIDList, Bin),
                             send_resp_to_ws(SN, 16#8202, VIDList, ?P_GENRESP_OK)
                     end;
                 16#8300 ->
-                    ok;
+                    [SN, VIDList, [FLAG, TEXT]] = Res,
+                    Bin = vdr_data_processor:create_txt_send(FLAG, TEXT),
+                    case Bin of
+                        <<>> ->
+                            send_resp_to_ws(SN, 16#8300, VIDList, ?P_GENRESP_ERRMSG);
+                        _ ->
+                            send_msg_to_vdrs(VIDList, Bin),
+                            send_resp_to_ws(SN, 16#8300, VIDList, ?P_GENRESP_OK)
+                    end;
                 16#8302 ->
-                    ok;
+                    [SN, VIDList, [FLAG, QUES, IDAns]] = Res,
+                    QuesSize = byte_size(QUES),
+                    Bin = vdr_data_processor:create_send_question(FLAG, QuesSize, QUES, IDAns),
+                    case Bin of
+                        <<>> ->
+                            send_resp_to_ws(SN, 16#8302, VIDList, ?P_GENRESP_ERRMSG);
+                        _ ->
+                            send_msg_to_vdrs(VIDList, Bin),
+                            send_resp_to_ws(SN, 16#8302, VIDList, ?P_GENRESP_OK)
+                    end;
                 16#8400 ->
-                    ok;
+                    [SN, VIDList, [FLAG, PHONE]] = Res,
+                    Bin = vdr_data_processor:create_tel_callback(FLAG, PHONE),
+                    case Bin of
+                        <<>> ->
+                            send_resp_to_ws(SN, 16#8400, VIDList, ?P_GENRESP_ERRMSG);
+                        _ ->
+                            send_msg_to_vdrs(VIDList, Bin),
+                            send_resp_to_ws(SN, 16#8400, VIDList, ?P_GENRESP_OK)
+                    end;
                 16#8401 ->
-                    ok;
+                    [SN, VIDList, [TYPE, PhoneNameList]] = Res,
+                    PNLen = length(PhoneNameList),
+                    Bin = vdr_data_processor:create_tel_note(TYPE, PNLen, PhoneNameList),
+                    case Bin of
+                        <<>> ->
+                            send_resp_to_ws(SN, 16#8401, VIDList, ?P_GENRESP_ERRMSG);
+                        _ ->
+                            send_msg_to_vdrs(VIDList, Bin),
+                            send_resp_to_ws(SN, 16#8401, VIDList, ?P_GENRESP_OK)
+                    end;
                 16#8500 ->
-                    ok;
+                    [SN, VIDList, FLAG] = Res,
+                    Bin = vdr_data_processor:create_car_con(FLAG),
+                    case Bin of
+                        <<>> ->
+                            send_resp_to_ws(SN, 16#8500, VIDList, ?P_GENRESP_ERRMSG);
+                        _ ->
+                            send_msg_to_vdrs(VIDList, Bin),
+                            send_resp_to_ws(SN, 16#8500, VIDList, ?P_GENRESP_OK)
+                    end;
                 16#8801 ->
-                    ok;
+                    [SN, VIDList, [ID, CMD, T, SF, R, Q, B, CO, S, CH]] = Res,
+                    Bin = vdr_data_processor:create_imm_photo_cmd(ID, CMD, T, SF, R, Q, B, CO, S, CH),
+                    case Bin of
+                        <<>> ->
+                            send_resp_to_ws(SN, 16#8801, VIDList, ?P_GENRESP_ERRMSG);
+                        _ ->
+                            send_msg_to_vdrs(VIDList, Bin),
+                            send_resp_to_ws(SN, 16#8801, VIDList, ?P_GENRESP_OK)
+                    end;
                 16#8804 ->
-                    ok;
+                    [SN, VIDList, [CMD, SF, T, FREQ] = Res,
+                    Bin = vdr_data_processor:create_record_start_order(CMD, SF, T, FREQ),
+                    case Bin of
+                        <<>> ->
+                            send_resp_to_ws(SN, 16#8804, VIDList, ?P_GENRESP_ERRMSG);
+                        _ ->
+                            send_msg_to_vdrs(VIDList, Bin),
+                            send_resp_to_ws(SN, 16#8804, VIDList, ?P_GENRESP_OK)
+                    end;
                 _ -> % Impossible
                     ok
             end;
@@ -576,8 +638,14 @@ send_del_rect_areas_msg_to_vdr(VIDList, DataList) when is_list(VIDList),
                                                        is_list(DataList),
                                                        length(DataList) > 125 ->
     {H, T} = lists:split(125, DataList),
-    send_del_rect_areas_msg_to_vdr(VIDList, H),
-    send_del_rect_areas_msg_to_vdr(VIDList, T);
+    ResH = send_del_rect_areas_msg_to_vdr(VIDList, H),
+    ResT = send_del_rect_areas_msg_to_vdr(VIDList, T),
+    if
+        ResH =/= ok orelse ResT =/= ok ->
+            error;
+        true ->
+            ok
+    end;
 send_del_rect_areas_msg_to_vdr(VIDList, DataList) when is_list(VIDList),
                                                        length(VIDList) > 0,
                                                        is_list(DataList),
@@ -585,9 +653,10 @@ send_del_rect_areas_msg_to_vdr(VIDList, DataList) when is_list(VIDList),
     Bin = vdr_data_processor:create_del_rect_area(length(DataList), DataList),
     case Bin of
         <<>> ->
-            ok
-    end,
-    send_msg_to_vdrs(VIDList, Bin);
+            error;
+        _ ->
+            send_msg_to_vdrs(VIDList, Bin)
+    end;
 send_del_rect_areas_msg_to_vdr(_VIDList, _DataList) ->
     error.
 

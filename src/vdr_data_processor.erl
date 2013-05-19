@@ -1306,14 +1306,28 @@ create_man_confirm_alarm(_Number, _Type) ->
 % 0x8300
 %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-create_txt_send(Symbol,TextMsg) ->
-    TM = list_to_binary(TextMsg),
-    <<Symbol:8,TM/binary>>.
+create_txt_send(Flag, Text) when is_integer(Flag),
+                                 is_binary(Text),
+                                 byte_size(Text) > 0 ->
+    <<Flag:8,Text/binary>>;
+create_txt_send(Flag, Text) when is_integer(Flag),
+                                 is_list(Text),
+                                 length(Text) > 0 ->
+    case common:is_string(Text) of
+        true ->
+            TBin = list_to_binary(Text),
+            <<Flag:8,TBin/binary>>;
+        _ ->
+            <<>>
+    end;
+create_txt_send(_Flag, _Text) ->
+    <<>>.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %
 % 0x8301
 % Events : [[ID0, Len0, Con0], [ID1, Len1, Con1], [ID2, Len2, Con2], ...]
+%           ConX is string with the format of binary
 %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 create_set_event(Type,_Count,Events) ->
@@ -1323,23 +1337,39 @@ create_set_event(Type,_Count,Events) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %
-%
+% Events    : [[ID0, Con0], [ID1, Con1], [ID2, Con2], ...] 
+%             [[ID0, Len0, Con0], [ID1, Len1, Con1], [ID2, Len2, Con2], ...]
+%               ConX is string with the format of binary
 %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-get_event_binary(Events, IDLen, LenLen) ->
-    case Events of
-        [] ->
-            <<>>;
-        _ ->
-            [H|T] = Events,
-            {ID,Len,Con} = H,
+get_event_binary(Events, IDLen, LenLen) when is_list(Events),
+                                             length(Events) > 0,
+                                             is_integer(IDLen),
+                                             IDLen > 0,
+                                             is_integer(LenLen),
+                                             LenLen > 0 ->
+    [H|T] = Events,
+    case length(H) of
+        2 ->
+            [ID,Con] = H,
+            Len = byte_size(Con),
             case T of
                 [] ->
                     <<ID:IDLen,Len:LenLen,Con/binary>>;
                 _ ->
-                    [<<ID:IDLen,Len:LenLen,Con/binary>>|get_event_binary(T, IDLen, LenLen)]
+                    list_to_binary([<<ID:IDLen,Len:LenLen,Con/binary>>|get_event_binary(T, IDLen, LenLen)])
+            end;
+        3 ->
+            [ID,Len,Con] = H,
+            case T of
+                [] ->
+                    <<ID:IDLen,Len:LenLen,Con/binary>>;
+                _ ->
+                    list_to_binary([<<ID:IDLen,Len:LenLen,Con/binary>>|get_event_binary(T, IDLen, LenLen)])
             end
-    end.
+    end;
+get_event_binary(_Events, _IDLen, _LenLen) ->
+    [].
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %
@@ -1362,10 +1392,17 @@ parse_event_report(Bin) ->
 % Answers : [[ID0, Len0, Con0], [ID1, Len1, Con1], [ID2, Len2, Con2], ...]
 %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-create_send_question(Symbol,QueLen,Que,Answers) -> 
-    Q = term_to_binary(Que),
+create_send_question(Flag, QuesLen, Ques, Answers) when is_integer(Flag),
+                                                        is_integer(QuesLen),
+                                                        is_binary(Ques),
+                                                        byte_size(Ques) == QuesLen,
+                                                        is_list(Answers),
+                                                        length(Answers) > 0 -> 
+    Q = term_to_binary(Ques),
     Ans = get_event_binary(Answers, 8, 16),
-    <<Symbol:8,QueLen:8,Q/binary,Ans/binary>>.
+    <<Flag:8,QuesLen:8,Q/binary,Ans/binary>>;
+create_send_question(_Flag, _QuesLen, _Ques, _Answers) ->
+    <<>>.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %
@@ -1422,7 +1459,9 @@ create_msg_service(Type,Len,Con) ->
 % 0x8400
 %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-create_tel_callback(Symbol,Number) ->
+create_tel_callback(Symbol, Number) when is_integer(Symbol),
+                                         is_list(Number),
+                                         length(Number) > 0 ->
     Len = length(Number),
     if
         Len > 20 ->
@@ -1432,44 +1471,79 @@ create_tel_callback(Symbol,Number) ->
         Len =< 20 ->
             N = list_to_binary(Number),
             <<Symbol:8,N/binary>>
-    end.
+    end;
+create_tel_callback(Symbol, Number) when is_integer(Symbol),
+                                         is_binary(Number),
+                                         byte_size(Number) > 0 ->
+    Len = byte_size(Number),
+    if
+        Len > 20 ->
+            Num0 = binary:part(Number, 0, 20),
+            <<Symbol:8,Num0/binary>>;
+        Len =< 20 ->
+            <<Symbol:8,Number/binary>>
+    end;
+create_tel_callback(_Symbol, _Number) ->
+    <<>>.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %
 % 0x8401
+% Items : [[Flag,NumLen,Num,NameLen,Name], ...]
 %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-create_tel_note(Type,_Count,Items) ->
-    Len = length(Items),
+create_tel_note(Type, Count, Items) when is_integer(Type),
+                                         Type >= 0,
+                                         Type =< 3,
+                                         is_list(Items),
+                                         length(Items) > 0,
+                                         is_integer(Count),
+                                         Count == length(Items) ->
     ItemsBin = get_tel_book_entries(Items),
-    <<Type:8,Len:8,ItemsBin/binary>>.
+    <<Type:8,Count:8,ItemsBin/binary>>;
+create_tel_note(_Type, _Count, _Items) ->
+    <<>>.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %
+% Items : [[Flag,NumLen,Num,NameLen,Name], ...]
 %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-get_tel_book_entries(Items) ->
-    case Items of
-        [] ->
-            <<>>;
-        _ ->
-            [H|T] = Items,
-            {Flag,NumLen,Num,NameLen,Name} = H,
+get_tel_book_entries(Items) when is_list(Items),
+                                 length(Items) > 0 ->
+    [H|T] = Items,
+    case length(H) of
+        3 ->
+            [Flag,Num,Name] = H,
+            NumLen = byte_size(Num),
+            NameLen = byte_size(Name),
             case T of
                 [] ->
                     <<Flag:8,NumLen:8,Num/binary,NameLen:8,Name/binary>>;
                 _ ->
-                    [<<Flag:8,NumLen:8,Num/binary,NameLen:8,Name/binary>>|get_tel_book_entries(T)]
+                    list_to_binary([<<Flag:8,NumLen:8,Num/binary,NameLen:8,Name/binary>>|get_tel_book_entries(T)])
+            end;
+        5 ->
+            [Flag,NumLen,Num,NameLen,Name] = H,
+            case T of
+                [] ->
+                    <<Flag:8,NumLen:8,Num/binary,NameLen:8,Name/binary>>;
+                _ ->
+                    list_to_binary([<<Flag:8,NumLen:8,Num/binary,NameLen:8,Name/binary>>|get_tel_book_entries(T)])
             end
-    end.
+    end;
+get_tel_book_entries(_Items) ->
+    <<>>.
     
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %
 % 0x8500
 %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-create_car_con(Symbol) ->
-    <<Symbol:8>>.
+create_car_con(Flag) when is_integer(Flag) ->
+    <<Flag:8>>;
+create_car_con(_Flag) ->
+    <<>>.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %
@@ -1630,15 +1704,15 @@ get_2_number_integer_from_oct_string(_Oct) ->
 % IDs : [ID0, Id1, Id2, ...]
 %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-create_del_rect_area(Count, IDs) when is_list(IDs),
-                                      length(IDs) == Count,
-                                      Count =< 125 ->
+create_del_rect_area(Count, IDList) when is_list(IDList),
+                                         length(IDList) == Count,
+                                         Count =< 125 ->
     if
         Count == 0 ->
             <<Count:8>>;
         Count =/= 0 ->
-            IDsBin = list_to_binary(IDs),
-            <<Count:8,IDsBin/binary>>
+            IDListBin = list_to_binary([<<X:?LEN_DWORD>> || X <- IDList]),
+            <<Count:8,IDListBin/binary>>
     end;
 create_del_rect_area(_Count, _IDs) ->
     <<>>.
@@ -1905,8 +1979,36 @@ create_multimedia_data_reply(Id,_Count,IDs) ->
 % 0x8801
 %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-create_imm_photo_cmd(PipeId,Order,Time,SaveSymbol,DisRate,Quality,Bri,Contrast,Sat,Chroma) ->
-    <<PipeId:8,Order:16,Time:16,SaveSymbol:8,DisRate:8,Quality:8,Bri:8,Contrast:8,Sat:8,Chroma:8>>.
+create_imm_photo_cmd(Id,Cmd,Time,SF,PPI,Quality,Bri,Contrast,Sat,Chroma) when is_integer(Id),
+                                                                              Id > 0,
+                                                                              is_integer(Cmd),
+                                                                              Cmd >= 0,
+                                                                              Cmd =< 16#FFFF,
+                                                                              is_integer(Time),
+                                                                              is_integer(SF),
+                                                                              SF >= 0,
+                                                                              SF =< 1,
+                                                                              is_integer(PPI),
+                                                                              PPI >= 1,
+                                                                              PPI =< 8,
+                                                                              is_integer(Quality),
+                                                                              Quality >= 1,
+                                                                              Quality =< 10,
+                                                                              is_integer(Bri),
+                                                                              Bri >= 0,
+                                                                              Bri =< 255,
+                                                                              is_integer(Contrast),
+                                                                              Contrast >= 0,
+                                                                              Contrast =< 127,
+                                                                              is_integer(Sat),
+                                                                              Sat >= 0,
+                                                                              Sat =< 127,
+                                                                              is_integer(Chroma),
+                                                                              Chroma >= 0,
+                                                                              Chroma =< 255 ->
+    <<Id:8,Cmd:16,Time:16,SF:8,PPI:8,Quality:8,Bri:8,Contrast:8,Sat:8,Chroma:8>>;
+create_imm_photo_cmd(_Id,_Cmd,_Time,_SF,_PPI,_Quality,_Bri,_Contrast,_Sat,_Chroma) ->
+    <<>>.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %
@@ -2018,8 +2120,21 @@ create_stomuldata_update(MediaType,PipeId,EventCode,StartTime,EndTime,Del) ->
 % 0x8804
 %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-create_record_start_order(RecordCode,RecordTime,SaveSymbol,VoiceSamplingRate) ->
-    <<RecordCode:8,RecordTime:16,SaveSymbol:8,VoiceSamplingRate:8>>.
+create_record_start_order(Cmd, Time, SF, Freq) when is_integer(Cmd),
+                                                    Cmd >= 0,
+                                                    Cmd =< 1,
+                                                    is_integer(Time),
+                                                    Time >= 0,
+                                                    Time =< 16#FFFF,
+                                                    is_integer(SF),
+                                                    SF >= 0,
+                                                    SF =< 1,
+                                                    is_integer(Freq),
+                                                    Freq >= 0,
+                                                    Freq =< 3 ->
+    <<Cmd:8,Time:16,SF:8,Freq:8>>;
+create_record_start_order(_Cmd, _Time, _SF, _Freq) ->
+    <<>>.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %
