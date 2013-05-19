@@ -738,7 +738,7 @@ send_data_to_vdr(ID, FlowIdx, MsgBody, VDRPid) ->
             Msg = vdr_data_processor:create_final_msg(ID, FlowIdx, MsgBody),
 			if
 				Msg == <<>> ->
-					common:loginfo("~p send_data_to_vdr NULL final message : ID (~p), FlowIdx (~p), MsgBody (~p)~n", [Pid, ID, FlowIdx, MsgBody]),
+					common:loginfo("~p send_data_to_vdr NULL final message : ID (~p), FlowIdx (~p), MsgBody (~p)~n", [Pid, ID, FlowIdx, MsgBody]);
 				Msg =/= <<>> ->
 					VDRPid ! {Pid, Msg},
 					%receive
