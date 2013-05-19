@@ -462,19 +462,29 @@ connect_ws_to_vdr(Msg) ->
                         <<>> ->
                             send_resp_to_ws(SN, 16#8103, VIDList, ?P_GENRESP_ERRMSG);
                         _ ->
-                            send_msg_to_vdrs(VIDList, SDTBin),%, SN, 16#8103),
+                            send_msg_to_vdrs(VIDList, SDTBin),
                             send_resp_to_ws(SN, 16#8103, VIDList, ?P_GENRESP_OK)
                     end;
                 16#8203 ->
                     [SN, VIDList, [ASN, TYPE]] = Res,
                     Bin = vdr_data_processor:create_man_confirm_alarm(ASN, TYPE),
-                    send_msg_to_vdrs(VIDList, Bin),
-                    send_resp_to_ws(SN, 16#8203, VIDList, ?P_GENRESP_OK);
+                    case Bin of
+                        <<>> ->
+                            send_resp_to_ws(SN, 16#8203, VIDList, ?P_GENRESP_ERRMSG);
+                        _ ->
+                            send_msg_to_vdrs(VIDList, Bin),
+                            send_resp_to_ws(SN, 16#8203, VIDList, ?P_GENRESP_OK)
+                    end;
                 16#8602 ->
                     [SN, VIDList, FLAG, RECT] = Res,
                     Bin = vdr_data_processor:create_set_rect_area(FLAG, RECT),
-                    send_msg_to_vdrs(VIDList, Bin),
-                    send_resp_to_ws(SN, 16#8602, VIDList, ?P_GENRESP_OK);
+                    case Bin of
+                        <<>> ->
+                            send_resp_to_ws(SN, 16#8602, VIDList, ?P_GENRESP_ERRMSG);
+                        _ ->
+                            send_msg_to_vdrs(VIDList, Bin),
+                            send_resp_to_ws(SN, 16#8602, VIDList, ?P_GENRESP_OK)
+                    end;
                 16#8603 ->
                     [SN, VIDList, DataList] = Res,
                     send_del_rect_areas_msg_to_vdr(VIDList, DataList),
@@ -485,7 +495,7 @@ connect_ws_to_vdr(Msg) ->
                         1 ->
                             {CMD} = CMDPAR,
                             if
-                                CMD > 2 andalso CMD < 8->
+                                CMD > 2 andalso CMD < 8 ->
                                     Bin = vdr_data_processor:create_term_ctrl(CMD, ""),
                                     send_msg_to_vdrs(VIDList, Bin),
                                     send_resp_to_ws(SN, 16#8105, VIDList, ?P_GENRESP_OK);
@@ -506,7 +516,15 @@ connect_ws_to_vdr(Msg) ->
                             send_resp_to_ws(SN, 16#8105, VIDList, ?P_GENRESP_ERRMSG)
                     end;
                 16#8202 ->
-                    ok;
+                    [SN, VIDList, [ITERVAL, LENGTH]] = Res,
+                    Bin = vdr_data_processor:create_tmp_position_track_control(ITERVAL, LENGTH),
+                    case Bin of
+                        <<>> ->
+                            send_resp_to_ws(SN, 16#8105, VIDList, ?P_GENRESP_ERRMSG);
+                        _ ->
+                            send_msg_to_vdrs(VIDList, Bin),
+                            send_resp_to_ws(SN, 16#8202, VIDList, ?P_GENRESP_OK)
+                    end;
                 16#8300 ->
                     ok;
                 16#8302 ->
@@ -559,16 +577,16 @@ send_del_rect_areas_msg_to_vdr(VIDList, DataList) when is_list(VIDList),
                                                        length(DataList) > 125 ->
     {H, T} = lists:split(125, DataList),
     send_del_rect_areas_msg_to_vdr(VIDList, H),
-    send_del_rect_areas_msg_to_vdr(VIDList, T),
-    ok;
+    send_del_rect_areas_msg_to_vdr(VIDList, T);
 send_del_rect_areas_msg_to_vdr(VIDList, DataList) when is_list(VIDList),
                                                        length(VIDList) > 0,
                                                        is_list(DataList),
                                                        length(DataList) =< 125 ->
     Bin = vdr_data_processor:create_del_rect_area(length(DataList), DataList),
+    case
     send_msg_to_vdrs(VIDList, Bin);
 send_del_rect_areas_msg_to_vdr(_VIDList, _DataList) ->
-    ok.
+    error.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %

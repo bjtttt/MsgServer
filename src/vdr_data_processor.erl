@@ -1284,16 +1284,22 @@ parse_query_position_response(Bin) ->
 % 0x8202
 %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-create_tmp_position_track_control(Interval, PosTraValidity) ->
-    <<Interval:16,PosTraValidity:32>>.
+create_tmp_position_track_control(Intvl, Time) when is_integer(Intvl),
+                                                    is_integer(Time) ->
+    <<Intvl:16,Time:32>>;
+create_tmp_position_track_control(_Intvl, _Time) ->
+    <<>>.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %
 % 0x8203
 %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-create_man_confirm_alarm(Number,Type) ->
-    <<Number:16,Type:32>>.
+create_man_confirm_alarm(Number, Type) when is_integer(Number),
+                                            is_integer(Type) ->
+    <<Number:16,Type:32>>;
+create_man_confirm_alarm(_Number, _Type) ->
+    <<>>.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %
@@ -1518,21 +1524,28 @@ create_del_circle_area(Count,IDs) ->
 %           RECT = [ID,Property,LeftTopLat,LeftTopLon,RightBotLat,RightBotLon,StartTime,StopTime,MaxSpeed,ExceedTime]
 %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-create_set_rect_area(Type, Items) ->
+create_set_rect_area(Type, Items) when is_integer(Type),
+                                       is_list(Items) ->
     Len = length(Items),
     ItemsBin = get_rect_area_entries(Items),
-    list_to_binary([<<Type:8,Len:8>>,ItemsBin]).
+    case ItemsBin of
+        [] ->
+            <<>>;
+        _ ->
+            list_to_binary([<<Type:8,Len:8>>, ItemsBin])
+    end;
+create_set_rect_area(_Type, _Items) ->
+    <<>>.
     
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %
 %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-get_rect_area_entries(Items) ->
-    case Items of
-        [] ->
-            <<>>;
-        _ ->
-            [H|T] = Items,
+get_rect_area_entries(Items) when is_list(Items) ->
+    [H|T] = Items,
+    Len = length(H),
+    case Len of
+        10 ->
             [ID,Property,LeftTopLat,LeftTopLon,RightBotLat,RightBotLon,StartTime,StopTime,MaxSpeed,ExceedTime] = H,
             StartTimeBin = convert_datetime_to_bcd(StartTime),
             StopTimeBin = convert_datetime_to_bcd(StopTime),
@@ -1542,8 +1555,12 @@ get_rect_area_entries(Items) ->
                     [Bin];
                 _ ->
                     [Bin|get_rect_area_entries(T)]
-            end
-    end.
+            end;
+        _ ->
+            []
+    end;
+get_rect_area_entries(_Items) ->
+    [].
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %
@@ -1613,22 +1630,18 @@ get_2_number_integer_from_oct_string(_Oct) ->
 % IDs : [ID0, Id1, Id2, ...]
 %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-create_del_rect_area(Count, IDs) ->
+create_del_rect_area(Count, IDs) when is_list(IDs),
+                                      length(IDs) == Count,
+                                      Count =< 125 ->
     if
         Count == 0 ->
             <<Count:8>>;
         Count =/= 0 ->
-            Len = length(IDs),
-            if
-                Len > 125 ->
-                    {IDs1, _IDs2} = lists:split(125, IDs),
-                    IDsBin = list_to_binary(IDs1),
-                    <<Len:8,IDsBin/binary>>;
-                Len =< 125 ->
-                    IDsBin = list_to_binary(IDs),
-                    <<Len:8,IDsBin/binary>>
-            end
-    end.
+            IDsBin = list_to_binary(IDs),
+            <<Count:8,IDsBin/binary>>
+    end;
+create_del_rect_area(_Count, _IDs) ->
+    <<>>.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %
