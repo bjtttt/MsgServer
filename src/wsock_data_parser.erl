@@ -583,7 +583,10 @@ send_del_rect_areas_msg_to_vdr(VIDList, DataList) when is_list(VIDList),
                                                        is_list(DataList),
                                                        length(DataList) =< 125 ->
     Bin = vdr_data_processor:create_del_rect_area(length(DataList), DataList),
-    case
+    case Bin of
+        <<>> ->
+            ok
+    end,
     send_msg_to_vdrs(VIDList, Bin);
 send_del_rect_areas_msg_to_vdr(_VIDList, _DataList) ->
     error.
