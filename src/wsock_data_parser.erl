@@ -462,7 +462,7 @@ connect_ws_to_vdr(Msg) ->
                         <<>> ->
                             send_resp_to_ws(SN, 16#8103, VIDList, ?P_GENRESP_ERRMSG);
                         _ ->
-                            send_msg_to_vdrs(VIDList, SDTBin),
+                            send_msg_to_vdrs(16#8103, VIDList, SDTBin),
                             send_resp_to_ws(SN, 16#8103, VIDList, ?P_GENRESP_OK)
                     end;
                 16#8203 ->
@@ -472,7 +472,7 @@ connect_ws_to_vdr(Msg) ->
                         <<>> ->
                             send_resp_to_ws(SN, 16#8203, VIDList, ?P_GENRESP_ERRMSG);
                         _ ->
-                            send_msg_to_vdrs(VIDList, Bin),
+                            send_msg_to_vdrs(16#8203, VIDList, Bin),
                             send_resp_to_ws(SN, 16#8203, VIDList, ?P_GENRESP_OK)
                     end;
                 16#8602 ->
@@ -482,7 +482,7 @@ connect_ws_to_vdr(Msg) ->
                         <<>> ->
                             send_resp_to_ws(SN, 16#8602, VIDList, ?P_GENRESP_ERRMSG);
                         _ ->
-                            send_msg_to_vdrs(VIDList, Bin),
+                            send_msg_to_vdrs(16#8602, VIDList, Bin),
                             send_resp_to_ws(SN, 16#8602, VIDList, ?P_GENRESP_OK)
                     end;
                 16#8603 ->
@@ -501,7 +501,7 @@ connect_ws_to_vdr(Msg) ->
                             if
                                 CMD > 2 andalso CMD < 8 ->
                                     Bin = vdr_data_processor:create_term_ctrl(CMD, ""),
-                                    send_msg_to_vdrs(VIDList, Bin),
+                                    send_msg_to_vdrs(16#8105, VIDList, Bin),
                                     send_resp_to_ws(SN, 16#8105, VIDList, ?P_GENRESP_OK);
                                 true ->
                                     send_resp_to_ws(SN, 16#8105, VIDList, ?P_GENRESP_ERRMSG)
@@ -511,7 +511,7 @@ connect_ws_to_vdr(Msg) ->
                             if
                                 CMD == 1 orelse CMD == 2 andalso is_list(PAR) ->
                                     Bin = vdr_data_processor:create_term_ctrl(CMD, PAR),
-                                    send_msg_to_vdrs(VIDList, Bin),
+                                    send_msg_to_vdrs(16#8105, VIDList, Bin),
                                     send_resp_to_ws(SN, 16#8105, VIDList, ?P_GENRESP_OK);
                                 true ->
                                     send_resp_to_ws(SN, 16#8105, VIDList, ?P_GENRESP_ERRMSG)
@@ -526,7 +526,7 @@ connect_ws_to_vdr(Msg) ->
                         <<>> ->
                             send_resp_to_ws(SN, 16#8202, VIDList, ?P_GENRESP_ERRMSG);
                         _ ->
-                            send_msg_to_vdrs(VIDList, Bin),
+                            send_msg_to_vdrs(16#8202, VIDList, Bin),
                             send_resp_to_ws(SN, 16#8202, VIDList, ?P_GENRESP_OK)
                     end;
                 16#8300 ->
@@ -536,7 +536,7 @@ connect_ws_to_vdr(Msg) ->
                         <<>> ->
                             send_resp_to_ws(SN, 16#8300, VIDList, ?P_GENRESP_ERRMSG);
                         _ ->
-                            send_msg_to_vdrs(VIDList, Bin),
+                            send_msg_to_vdrs(16#8300, VIDList, Bin),
                             send_resp_to_ws(SN, 16#8300, VIDList, ?P_GENRESP_OK)
                     end;
                 16#8302 ->
@@ -547,7 +547,7 @@ connect_ws_to_vdr(Msg) ->
                         <<>> ->
                             send_resp_to_ws(SN, 16#8302, VIDList, ?P_GENRESP_ERRMSG);
                         _ ->
-                            send_msg_to_vdrs(VIDList, Bin),
+                            send_msg_to_vdrs(16#8302, VIDList, Bin),
                             send_resp_to_ws(SN, 16#8302, VIDList, ?P_GENRESP_OK),
                             update_vdrs_ws2vdr_msg_id_flowidx(16#8302, SN, VIDList)
                     end;
@@ -558,7 +558,7 @@ connect_ws_to_vdr(Msg) ->
                         <<>> ->
                             send_resp_to_ws(SN, 16#8400, VIDList, ?P_GENRESP_ERRMSG);
                         _ ->
-                            send_msg_to_vdrs(VIDList, Bin),
+                            send_msg_to_vdrs(16#8400, VIDList, Bin),
                             send_resp_to_ws(SN, 16#8400, VIDList, ?P_GENRESP_OK)
                     end;
                 16#8401 ->
@@ -569,7 +569,7 @@ connect_ws_to_vdr(Msg) ->
                         <<>> ->
                             send_resp_to_ws(SN, 16#8401, VIDList, ?P_GENRESP_ERRMSG);
                         _ ->
-                            send_msg_to_vdrs(VIDList, Bin),
+                            send_msg_to_vdrs(16#8401, VIDList, Bin),
                             send_resp_to_ws(SN, 16#8401, VIDList, ?P_GENRESP_OK)
                     end;
                 16#8500 ->
@@ -579,7 +579,7 @@ connect_ws_to_vdr(Msg) ->
                         <<>> ->
                             send_resp_to_ws(SN, 16#8500, VIDList, ?P_GENRESP_ERRMSG);
                         _ ->
-                            send_msg_to_vdrs(VIDList, Bin),
+                            send_msg_to_vdrs(16#8500, VIDList, Bin),
                             send_resp_to_ws(SN, 16#8500, VIDList, ?P_GENRESP_OK),
                             update_vdrs_ws2vdr_msg_id_flowidx(16#8500, SN, VIDList)
                     end;
@@ -590,7 +590,7 @@ connect_ws_to_vdr(Msg) ->
                         <<>> ->
                             send_resp_to_ws(SN, 16#8801, VIDList, ?P_GENRESP_ERRMSG);
                         _ ->
-                            send_msg_to_vdrs(VIDList, Bin),
+                            send_msg_to_vdrs(16#8801, VIDList, Bin),
                             send_resp_to_ws(SN, 16#8801, VIDList, ?P_GENRESP_OK),
                             update_vdrs_ws2vdr_msg_id_flowidx(16#8801, SN, VIDList)
                     end;
@@ -601,7 +601,7 @@ connect_ws_to_vdr(Msg) ->
                         <<>> ->
                             send_resp_to_ws(SN, 16#8804, VIDList, ?P_GENRESP_ERRMSG);
                         _ ->
-                            send_msg_to_vdrs(VIDList, Bin),
+                            send_msg_to_vdrs(16#8804, VIDList, Bin),
                             send_resp_to_ws(SN, 16#8804, VIDList, ?P_GENRESP_OK)
                     end;
                 _ -> % Impossible
@@ -696,7 +696,7 @@ send_del_rect_areas_msg_to_vdr(VIDList, DataList) when is_list(VIDList),
         <<>> ->
             error;
         _ ->
-            send_msg_to_vdrs(VIDList, Bin)
+            send_msg_to_vdrs(16#8603, VIDList, Bin)
     end;
 send_del_rect_areas_msg_to_vdr(_VIDList, _DataList) ->
     error.
@@ -706,18 +706,18 @@ send_del_rect_areas_msg_to_vdr(_VIDList, _DataList) ->
 %
 %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-send_msg_to_vdrs(VDRList, Msg) when is_list(VDRList),
+send_msg_to_vdrs(ID, VDRList, Msg) when is_list(VDRList),
                                     length(VDRList) > 0,
                                     is_binary(Msg) ->
     [H|T] = VDRList,
-    send_msg_to_vdr(H, Msg),
+    send_msg_to_vdr(ID, H, Msg),
     case T of
         [] ->
             ok;
         _ ->
-            send_msg_to_vdrs(T, Msg)
+            send_msg_to_vdrs(ID, T, Msg)
     end;
-send_msg_to_vdrs(_VDRList, _Msg) ->
+send_msg_to_vdrs(_ID, _VDRList, _Msg) ->
     ok.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -725,19 +725,19 @@ send_msg_to_vdrs(_VDRList, _Msg) ->
 %
 %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-send_msg_to_vdr(VDR, Msg) when is_binary(Msg) ->
+send_msg_to_vdr(ID, VDR, Msg) when is_binary(Msg) ->
     VDRSockList = ets:lookup(vdridsocktable, VDR),
     case length(VDRSockList) of
         1 ->
             [VDRSock] = VDRSockList,
             common:loginfo("WS Server : Gateway WS delegation ~p sends msg to VDR (~p) : ~p~n", [self(), VDRSock#vdridsockitem.addr, Msg]),
-            NewFlowIdx = vdr_handler:send_data_to_vdr(16#8103, VDRSock#vdridsockitem.msgflownum, Msg, VDRSock#vdridsockitem.vdrpid),
+            NewFlowIdx = vdr_handler:send_data_to_vdr(ID, VDRSock#vdridsockitem.msgflownum, Msg, VDRSock#vdridsockitem.vdrpid),
             ets:insert(vdridsocktable, VDRSock#vdridsockitem{msgflownum=NewFlowIdx});
         _ ->
             common:loginfo("WS Server : Cannot find VDRID in vdridsock table~n"),
             ok
     end;
-send_msg_to_vdr(_VDR, _Msg) ->
+send_msg_to_vdr(_ID, _VDR, _Msg) ->
     ok.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
