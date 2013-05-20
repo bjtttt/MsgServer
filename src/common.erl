@@ -127,9 +127,9 @@ forcesafepeername(Socket) ->
 printsocketinfo(Socket, Msg) ->
     case common:safepeername(Socket) of
         {ok, {Address, _Port}} ->
-            common:loginfo(string:concat(Msg, " IP : ~p~n"), [Address]);
+            common:loginfo(string:concat(Msg, " from IP : ~p~n"), [Address]);
         {error, Error} ->
-            common:loginfo(string:concat(Msg, " unknown IP : ~p~n"), [Error])
+            common:loginfo(string:concat(Msg, " from unknown IP : ~p~n"), [Error])
     end.
 
 forceprintsocketinfo(Socket, Msg) ->
