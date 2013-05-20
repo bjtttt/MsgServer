@@ -91,12 +91,12 @@ handle_info({inet_async, LSock, Ref, {ok, CSock}}, #serverstate{lsock=LSock, acc
                             ok ->
                                 ok;
                             {error, Reason1} ->
-                                common:logerror("vdr_server:handle_info(...) : gen_server:controlling_process(Socket, PID : ~p) fails : ~p~n", [Pid, Reason1]),
+                                common:logerror("vdr_server:handle_info(...) : gen_server:controlling_process(Socket, ~p) fails : ~p~n", [Pid, Reason1]),
                                 case mssup:stop_child_vdr(Pid) of
                                     ok ->
                                         ok;
                                     {error, Reason2} ->
-                                        common:logerror("vdr_server:handle_info(...) :  mssup:start_child_vdr(PID : ~p) fails : ~p~n", [Pid, Reason2])
+                                        common:logerror("vdr_server:handle_info(...) : mssup:stop_child_vdr(~p) fails : ~p~n", [Pid, Reason2])
                                 end
                         end;
                     {ok, Pid, _Info} ->
@@ -105,23 +105,23 @@ handle_info({inet_async, LSock, Ref, {ok, CSock}}, #serverstate{lsock=LSock, acc
                                 %ets:insert(vdrtable, #vdritem{socket=CSock, pid=Pid});
                                 ok;
                             {error, Reason1} ->
-                                common:logerror("VDR server gen_server:controlling_process(Socket, PID : ~p) fails: ~p~n", [Pid, Reason1]),
+                                common:logerror("vdr_server:handle_info(...) : gen_server:controlling_process(Socket, ~p) fails: ~p~n", [Pid, Reason1]),
                                 case mssup:stop_child_vdr(Pid) of
                                     ok ->
                                         ok;
                                     {error, Reason2} ->
-                                        common:logerror("VDR server mssup:stop_child_vdr(PID : ~p) fails : ~p~n", [Pid, Reason2])
+                                        common:logerror("vdr_server:handle_info(...) : mssup:stop_child_vdr(~p) fails : ~p~n", [Pid, Reason2])
                                 end
                         end;
                     {error, already_present} ->
-                        common:logerror("VDR server mssup:start_child_vdr fails : already_present~n");
+                        common:logerror("vdr_server:handle_info(...) : mssup:start_child_vdr fails : already_present~n");
                     {error, {already_started, Pid}} ->
-                        common:logerror("VDR server mssup:start_child_vdr fails : already_started PID : ~p~n", [Pid]);
+                        common:logerror("vdr_server:handle_info(...) : mssup:start_child_vdr fails : already_started PID : ~p~n", [Pid]);
                     {error, Msg} ->
-                        common:logerror("VDR server mssup:start_child_vdr fails : ~p~n", [Msg])
+                        common:logerror("vdr_server:handle_info(...) : mssup:start_child_vdr fails : ~p~n", [Msg])
                 end;
             {error, Err} ->
-                common:logerror("Stop mssup:start_child_vdr because cannot parse VDR socket : ~p~n", [Err])
+                common:logerror("vdr_server:handle_info(...) : cannot start new process for new connection because common:safepeername(...) fails : ~p~n", [Err])
         end,
         %% Signal the network driver that we are ready to accept another connection        
 		case prim_inet:async_accept(LSock, -1) of	        
@@ -143,8 +143,8 @@ handle_info({inet_async, LSock, Ref, {ok, CSock}}, #serverstate{lsock=LSock, acc
 %%% Data should not be received here because it is a listening socket process
 %%%
 handle_info({tcp, Socket, Data}, State) ->  
-    common:printsocketinfo(Socket, "VDR server receives data from"),
-    common:logerror("ERROR : VDR server receives data : ~p~n", [Data]),
+    common:printsocketinfo(Socket, "vdr_server:handle_info(...) : data from"),
+    common:logerror("(ERROR)vdr_server:handle_info(...) : data : ~p~n", [Data]),
     inet:setopts(Socket, [{active, once}]),
     {noreply, State}; 
 handle_info({inet_async, LSock, Ref, Error}, #serverstate{lsock=LSock, acceptor=Ref}=State) ->    
