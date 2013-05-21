@@ -462,8 +462,9 @@ connect_ws_to_vdr(Msg) ->
                         <<>> ->
                             send_resp_to_ws(SN, 16#8103, VIDList, ?P_GENRESP_ERRMSG);
                         _ ->
+                            update_vdrs_ws2vdr_msg_id_flowidx(16#8103, SN, VIDList, null)
                             send_msg_to_vdrs(16#8103, VIDList, SDTBin),
-                            send_resp_to_ws(SN, 16#8103, VIDList, ?P_GENRESP_OK)
+                            send_resp_to_ws(SN, 16#8103, VIDList, ?P_GENRESP_OK),
                     end;
                 16#8203 ->
                     [SN, VIDList, [ASN, TYPE]] = Res,
@@ -547,9 +548,9 @@ connect_ws_to_vdr(Msg) ->
                         <<>> ->
                             send_resp_to_ws(SN, 16#8302, VIDList, ?P_GENRESP_ERRMSG);
                         _ ->
+                            update_vdrs_ws2vdr_msg_id_flowidx(16#8302, SN, VIDList, null)
                             send_msg_to_vdrs(16#8302, VIDList, Bin),
                             send_resp_to_ws(SN, 16#8302, VIDList, ?P_GENRESP_OK),
-                            update_vdrs_ws2vdr_msg_id_flowidx(16#8302, SN, VIDList, null)
                     end;
                 16#8400 ->
                     [SN, VIDList, [FLAG, PHONE]] = Res,
@@ -579,9 +580,9 @@ connect_ws_to_vdr(Msg) ->
                         <<>> ->
                             send_resp_to_ws(SN, 16#8500, VIDList, ?P_GENRESP_ERRMSG);
                         _ ->
+                            update_vdrs_ws2vdr_msg_id_flowidx(16#8500, SN, VIDList, FLAG)
                             send_msg_to_vdrs(16#8500, VIDList, Bin),
                             send_resp_to_ws(SN, 16#8500, VIDList, ?P_GENRESP_OK),
-                            update_vdrs_ws2vdr_msg_id_flowidx(16#8500, SN, VIDList, FLAG)
                     end;
                 16#8801 ->
                     [SN, VIDList, [ID, CMD, T, SF, R, Q, B, CO, S, CH]] = Res,
@@ -590,9 +591,9 @@ connect_ws_to_vdr(Msg) ->
                         <<>> ->
                             send_resp_to_ws(SN, 16#8801, VIDList, ?P_GENRESP_ERRMSG);
                         _ ->
+                            update_vdrs_ws2vdr_msg_id_flowidx(16#8801, SN, VIDList, null)
                             send_msg_to_vdrs(16#8801, VIDList, Bin),
                             send_resp_to_ws(SN, 16#8801, VIDList, ?P_GENRESP_OK),
-                            update_vdrs_ws2vdr_msg_id_flowidx(16#8801, SN, VIDList, null)
                     end;
                 16#8804 ->
                     [SN, VIDList, [CMD, T, SF, FREQ]] = Res,
@@ -634,9 +635,10 @@ update_vdr_ws2vdr_msg_id_flowidx(ID, FlowIdx, Value, VID) when is_integer(ID),
         1 ->
             [VSock] = Res,
             MsgList = update_ws2vdrmsglist(VSock#vdridsockitem.msgws2vdr, ID, FlowIdx, Value),
+            common:loginfo("WSClient : VehicleID (~p) vdridsockitem.msgws2vdr : ~p~n", [VID, MsgList]),
             ets:insert(vdridsocktable, VSock#vdridsockitem{msgws2vdr=MsgList});
-        _ ->
-            ok
+        ResCount ->
+            common:logerror("(FATAL) WSClient : vdridsocktable has ~p item(s) for vechileid ~p~n", [ResCount, VID])
     end.
 
 update_ws2vdrmsglist(List, ID, Value, FlowIdx) when is_integer(ID),
@@ -891,12 +893,12 @@ create_init_msg() ->
 % MID       : 0x0001
 % SN        : Response flow index, the same as the websocket message flow index
 % SID       : Response ID, the same as the websocket message ID
+% List      : [ID0, ID1, ID2, ...]
 % STATUS    : Result, 0 ~ 3
 %               0   - success/ack
 %               1   - failure
 %               2   - message has error
 %               3   - not supported
-% List      : [ID0, ID1, ID2, ...]
 %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 create_gen_resp(SN, SID, List, STATUS) when is_integer(SN), 

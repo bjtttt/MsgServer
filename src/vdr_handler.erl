@@ -99,7 +99,7 @@ handle_info(_Info, State) ->
 %%% When VDR handler process is terminated, do the clean jobs here
 %%%
 terminate(Reason, State) ->
-    common:loginfo("VDR (~p) (id:~p, serialno:~p, authen_code:~p, vehicleid:~p, vehiclecode:~p) starts being terminated : ~p~n", [State#vdritem.addr, State#vdritem.id, State#vdritem.serialno, State#vdritem.auth, State#vdritem.vehicleid, State#vdritem.vehiclecode, Reason]),
+    common:loginfo("VDR (~p) (id:~p, serialno:~p, authen_code:~p, vehicleid:~p, vehiclecode:~p) starts being terminated~nReson : ~p~n", [State#vdritem.addr, State#vdritem.id, State#vdritem.serialno, State#vdritem.auth, State#vdritem.vehicleid, State#vdritem.vehiclecode, Reason]),
     ID = State#vdritem.id,
     Auth = State#vdritem.auth,
     _SerialNo = State#vdritem.serialno,
@@ -473,6 +473,34 @@ process_vdr_data(Socket, Data, State) ->
                             
                             % Process reponse from VDR here
                             common:loginfo("Gateway (~p) receives VDR (~p) general response for 16#1 : RespFlowIdx (~p), RespID (~p), Res (~p)~n", [State#vdritem.pid, State#vdritem.addr, RespFlowIdx, RespID, Res]),
+                            
+                            case RespID of
+                                16#8103 ->
+                                    VehicleID = NewState#vdritem.vehicleid,                            
+                                    VSockRes = ets:lookup(vdridsocktable, VehicleID),
+                                    case length(VSockRes) of
+                                        1 ->
+                                            [VSock] = VSockRes,
+                                            MsgList = VSock#vdridsockitem.msgws2vdr,
+                                            TargetList = [{WSID, WSFlowIdx, WSValue} || {WSID, WSFlowIdx, WSValue} <- MsgList, WSID == 16#8103],
+                                            case length(TargetList) of
+                                                1 ->
+                                                    [{TargetWSID, TargetWSFlowIdx, _WSValue}] = TargetList,
+                                                    {ok, WSUpdate} = wsock_data_parser:create_gen_resp(TargetWSFlowIdx,
+                                                                                                       TargetWSID,
+                                                                                                       [VehicleID],
+                                                                                                       Res),
+                                                    common:loginfo("VDR (~p) WS answer for WS request 0x8103: ~p~n", [NewState#vdritem.addr, WSUpdate]),
+                                                    send_msg_to_ws(WSUpdate, NewState);
+                                                ItemCount ->
+                                                    common:logerror("(FATAL) vdridsocktable.msgws2vdr has ~p items for wsid 16#8103(~p)~n", [ItemCount, 16#8103])
+                                            end;
+                                        ResCount ->
+                                            common:logerror("(FATAL) vdridsocktable has ~p item(s) for vechileid ~p~n", [ResCount, VehicleID])
+                                    end;
+                                _ ->
+                                    ok
+                            end,
 
                             {ok, NewState};                      
                         16#2 ->     % VDR pulse
