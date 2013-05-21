@@ -251,7 +251,7 @@ create_resend_subpack_req(FlowIdx, Count, IDList) when is_integer(FlowIdx),
             Len = length(IDList),
             if
                 Len == Count ->
-                    {ok, <<FlowIdx:?LEN_WORD, Len:?LEN_BYTE, Bin/binary>>};
+                    <<FlowIdx:?LEN_WORD, Len:?LEN_BYTE, Bin/binary>>;
                 true ->
                     <<>>
             end;
@@ -357,7 +357,7 @@ parse_check_auth(Bin) ->
 %               T-L-V : DWORD-BYTE-L*8
 %
 % Return    :
-%       {ok, Bin} | error
+%       Bin | <<>>
 %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 create_set_term_args(Count, ArgList) when is_list(ArgList),
@@ -366,10 +366,10 @@ create_set_term_args(Count, ArgList) when is_list(ArgList),
     if
         is_tuple(H) == true ->
             Bin = list_to_binary([compose_term_args_binary(ID, Value) || {ID, Value} <- ArgList]),
-            {ok, <<Count:?LEN_BYTE,Bin/binary>>};
+            <<Count:?LEN_BYTE,Bin/binary>>;
         is_list(H) == true ->
             Bin = list_to_binary([compose_term_args_binary(ID, Value) || [ID, Value] <- ArgList]),
-            {ok, <<Count:?LEN_BYTE,Bin/binary>>};
+            <<Count:?LEN_BYTE,Bin/binary>>;
         true ->
             <<>>
     end;
@@ -384,15 +384,20 @@ create_set_term_args(_Count, _ArgList) ->
 %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 compose_term_args_binary(ID, Value) when is_list(ID) ->
-    case common:is_oct_integer_string(ID) of
+    common:loginfo("compose_term_args_binary(ID, Value) : ~p, ~p~n", [ID, Value]),
+    case common:is_dec_integer_string(ID) of
         true ->
             IDInt = list_to_integer(ID),
-            compose_term_args_binary(IDInt, Value);
+            DecBin = compose_term_args_binary(IDInt, Value),
+            common:loginfo("compose_term_args_binary(ID, Value) : (Dec) ~p~n", [DecBin]),
+            DecBin;
         _ ->
             case common:is_hex_integer_string(ID) of
                 true ->
                     IDInt = common:convert_word_hex_string_to_integer(ID),
-                    compose_term_args_binary(IDInt, Value);
+                    HexBin = compose_term_args_binary(IDInt, Value),
+                    common:loginfo("compose_term_args_binary(ID, Value) : (Hex) ~p~n", [HexBin]),
+                    HexBin;
                 _ ->
                     <<>>
             end
