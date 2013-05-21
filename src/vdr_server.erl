@@ -144,17 +144,17 @@ handle_info({inet_async, LSock, Ref, {ok, CSock}}, #serverstate{lsock=LSock, acc
 %%%
 handle_info({tcp, Socket, Data}, State) ->  
     common:printsocketinfo(Socket, "vdr_server:handle_info(...) : data from"),
-    common:logerror("(ERROR)vdr_server:handle_info(...) : data : ~p~n", [Data]),
+    common:logerror("(ERROR) vdr_server:handle_info(...) : data : ~p~n", [Data]),
     inet:setopts(Socket, [{active, once}]),
     {noreply, State}; 
 handle_info({inet_async, LSock, Ref, Error}, #serverstate{lsock=LSock, acceptor=Ref}=State) ->    
-    common:logerror("VDR server error in socket acceptor : ~p~n", [Error]),
+    common:logerror("(ERROR) vdr_server:handle_info(...) : inet_async error : ~p~n", [Error]),
 	{stop, Error, State}; 
 handle_info(_Info, State) ->    
 	{noreply, State}. 
 
 terminate(Reason, State) ->    
-    common:logerror("VDR server is terminated~n", [Reason]),
+    common:logerror("vdr_server:terminate(...) : ~p~n", [Reason]),
 	gen_tcp:close(State#serverstate.lsock),    
 	ok. 
 

@@ -957,6 +957,12 @@ convert_term_args_binary(ID, Len, Bin) ->
 create_term_ctrl(Type, Arg) when is_integer(Type),
                                  Type > 0,
                                  Type < 3,
+                                 is_binary(Arg),
+                                 byte_size(Arg) > 0 ->
+    <<Type:8, Arg/binary>>;
+create_term_ctrl(Type, Arg) when is_integer(Type),
+                                 Type > 0,
+                                 Type < 3,
                                  is_list(Arg),
                                  length(Arg) > 0 ->
     Bin = list_to_binary(Arg),
@@ -966,6 +972,12 @@ create_term_ctrl(Type, Arg) when is_integer(Type),
                                  Type < 3,
                                  is_list(Arg),
                                  length(Arg) < 1 ->
+    <<Type:8>>;
+create_term_ctrl(Type, Arg) when is_integer(Type),
+                                 Type > 0,
+                                 Type < 3,
+                                 is_binary(Arg),
+                                 byte_size(Arg) < 1 ->
     <<Type:8>>;
 create_term_ctrl(Type, _Arg) when is_integer(Type),
                                  Type > 2,
