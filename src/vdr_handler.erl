@@ -204,9 +204,7 @@ process_vdr_data(Socket, Data, State) ->
     case vdr_data_parser:process_data(State, Data) of
         {ok, HeadInfo, Msg, NewState} ->
             {ID, MsgIdx, Tel, _CryptoType} = HeadInfo,
-            common:loginfo("VDR (~p) MSG ID : ~p~n", [NewState#vdritem.addr, ID]),
-            common:loginfo("VDR (~p) MSG Index : ~p~n", [NewState#vdritem.addr, MsgIdx]),
-            common:loginfo("VDR (~p) MSG Tel : ~p~n", [NewState#vdritem.addr, Tel]),
+            common:loginfo("VDR (~p) MSG ID (~p), MSG Index (~p), MSG Tel (~p)~n", [NewState#vdritem.addr, ID, MsgIdx, Tel]),
             if
                 State#vdritem.id == undefined ->
                     common:loginfo("Unknown VDR (~p) MSG ID : ~p~n", [NewState#vdritem.addr, ID]),
