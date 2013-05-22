@@ -914,7 +914,7 @@ create_gen_resp(SN, SID, List, STATUS) when is_integer(SN),
                                            "\"SN\":", integer_to_list(SN),
                                            "\"SID\":", SID,
                                            VIDListStr,
-                                           "\"STATUS\":", integer_to_list(STATUS)]),
+                                           "\"STATUS\":", integer_to_list(STATUS)], false),
             {ok, common:combine_strings(["{", Body, "}"], false)};
         true ->
             case is_integer(SID) of
@@ -924,7 +924,7 @@ create_gen_resp(SN, SID, List, STATUS) when is_integer(SN),
                                                    "\"SN\":", integer_to_list(SN),
                                                    "\"SID\":", integer_to_list(SID),
                                                    VIDListStr,
-                                                   "\"STATUS\":", integer_to_list(STATUS)]),
+                                                   "\"STATUS\":", integer_to_list(STATUS)], false),
                     {ok, common:combine_strings(["{", Body, "}"], false)};
                 _ ->
                     error
