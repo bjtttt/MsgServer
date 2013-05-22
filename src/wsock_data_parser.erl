@@ -911,20 +911,20 @@ create_gen_resp(SN, SID, List, STATUS) when is_integer(SN),
         BoolSID == true ->
             VIDListStr = common:combine_strings(["\"LIST\":[",  create_list(["\"VID\""], List, false), "]"], false),
 			Body = common:combine_strings(["\"MID\":1",
-                                           "\"SN\":", integer_to_list(SN),
-                                           "\"SID\":", SID,
+                                           common:combine_strings(["\"SN\":", integer_to_list(SN)], false),
+                                           common:combine_strings(["\"SID\":", SID], false),
                                            VIDListStr,
-                                           "\"STATUS\":", integer_to_list(STATUS)], false),
+                                           common:combine_strings(["\"STATUS\":", integer_to_list(STATUS)], false)]),
             {ok, common:combine_strings(["{", Body, "}"], false)};
         true ->
             case is_integer(SID) of
                 true ->
                     VIDListStr = common:combine_strings(["\"LIST\":[",  create_list(["\"VID\""], List, false), "]"], false),
                     Body = common:combine_strings(["\"MID\":1",
-                                                   "\"SN\":", integer_to_list(SN),
-                                                   "\"SID\":", integer_to_list(SID),
+                                                   common:combine_strings(["\"SN\":", integer_to_list(SN)], false),
+                                                   common:combine_strings(["\"SID\":", integer_to_list(SID)], false),
                                                    VIDListStr,
-                                                   "\"STATUS\":", integer_to_list(STATUS)], false),
+                                                   common:combine_strings(["\"STATUS\":", integer_to_list(STATUS)], false)]),
                     {ok, common:combine_strings(["{", Body, "}"], false)};
                 _ ->
                     error
