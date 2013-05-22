@@ -612,22 +612,22 @@ connect_ws_to_vdr(Msg) ->
             ok
     end.
 
-update_vdrs_ws2vdr_msg_id_flowidx(ID, FlowIdx, Value, VIDList) when is_integer(ID),
+update_vdrs_ws2vdr_msg_id_flowidx(ID, FlowIdx, VIDList, Value) when is_integer(ID),
                                                                     is_integer(FlowIdx),
                                                                     is_list(VIDList),
                                                                     length(VIDList) > 0 ->
     [H|T] = VIDList,
-    update_vdr_ws2vdr_msg_id_flowidx(ID, FlowIdx, Value, H),
+    update_vdr_ws2vdr_msg_id_flowidx(ID, FlowIdx, H, Value),
     case T of
         [] ->
             ok;
         _ ->
-            update_vdrs_ws2vdr_msg_id_flowidx(ID, FlowIdx, Value, T)
+            update_vdrs_ws2vdr_msg_id_flowidx(ID, FlowIdx, T, Value)
     end;
-update_vdrs_ws2vdr_msg_id_flowidx(_ID, _FlowIdx, _Value, _VIDList) ->
+update_vdrs_ws2vdr_msg_id_flowidx(_ID, _FlowIdx, _VIDList, _Value) ->
     ok.
 
-update_vdr_ws2vdr_msg_id_flowidx(ID, FlowIdx, Value, VID) when is_integer(ID),
+update_vdr_ws2vdr_msg_id_flowidx(ID, FlowIdx, VID, Value) when is_integer(ID),
                                                                is_integer(FlowIdx),
                                                                is_integer(VID) ->
     Res = ets:lookup(vdridsocktable, VID),
@@ -641,14 +641,14 @@ update_vdr_ws2vdr_msg_id_flowidx(ID, FlowIdx, Value, VID) when is_integer(ID),
             common:logerror("(FATAL) WSClient : vdridsocktable has ~p item(s) for vechileid ~p~n", [ResCount, VID])
     end.
 
-update_ws2vdrmsglist(List, ID, Value, FlowIdx) when is_integer(ID),
-                                             is_integer(FlowIdx),
-                                             is_list(List) ->
+update_ws2vdrmsglist(List, ID, FlowIdx, Value) when is_integer(ID),
+                                                    is_integer(FlowIdx),
+                                                    is_list(List) ->
     NewList = [{OldID, OldFlowIdx, OldValue} || {OldID, OldFlowIdx, OldValue} <- List, OldID =/= ID],
     NewList ++ [{ID, FlowIdx, Value}];
-update_ws2vdrmsglist(List, _ID, _Value, _FlowIdx) when is_list(List) ->
+update_ws2vdrmsglist(List, _ID, _FlowIdx, _Value) when is_list(List) ->
     List;
-update_ws2vdrmsglist(_List, _ID, _Value, _FlowIdx) ->
+update_ws2vdrmsglist(_List, _ID, _FlowIdx, _Value) ->
     [].
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -908,7 +908,7 @@ create_gen_resp(SN, SID, List, STATUS) when is_integer(SN),
                                             is_list(List) ->
     BoolSID = common:is_string(SID),
     if
-        BoolSID ->
+        BoolSID == true ->
             VIDListStr = common:combine_strings(["\"LIST\":[",  create_list(["\"VID\""], List, false), "]"], false),
 			Body = common:combine_strings(["\"MID\":1",
                                            "\"SN\":", integer_to_list(SN),
@@ -917,7 +917,18 @@ create_gen_resp(SN, SID, List, STATUS) when is_integer(SN),
                                            "\"STATUS\":", integer_to_list(STATUS)]),
             {ok, common:combine_strings(["{", Body, "}"], false)};
         true ->
-            error
+            case is_integer(SID) of
+                true ->
+                    VIDListStr = common:combine_strings(["\"LIST\":[",  create_list(["\"VID\""], List, false), "]"], false),
+                    Body = common:combine_strings(["\"MID\":1",
+                                                   "\"SN\":", integer_to_list(SN),
+                                                   "\"SID\":", integer_to_list(SID),
+                                                   VIDListStr,
+                                                   "\"STATUS\":", integer_to_list(STATUS)]),
+                    {ok, common:combine_strings(["{", Body, "}"], false)};
+                _ ->
+                    error
+            end
     end;
 create_gen_resp(_SN, _SID, _List, _STATUS) ->
     error.

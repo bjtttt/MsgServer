@@ -493,7 +493,7 @@ process_vdr_data(Socket, Data, State) ->
                                                     common:loginfo("VDR (~p) WS answer for WS request 0x8103: ~p~n", [NewState#vdritem.addr, WSUpdate]),
                                                     send_msg_to_ws(WSUpdate, NewState);
                                                 ItemCount ->
-                                                    common:logerror("(FATAL) vdridsocktable.msgws2vdr has ~p items for wsid 16#8103(~p)~n", [ItemCount, 16#8103])
+                                                    common:logerror("(FATAL) vdridsocktable.msgws2vdr has ~p item(s) for wsid 16#8103(~p)~n", [ItemCount, 16#8103])
                                             end;
                                         ResCount ->
                                             common:logerror("(FATAL) vdridsocktable has ~p item(s) for vechileid ~p~n", [ResCount, VehicleID])
