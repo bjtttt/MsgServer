@@ -463,8 +463,8 @@ connect_ws_to_vdr(Msg) ->
                             send_resp_to_ws(SN, 16#8103, VIDList, ?P_GENRESP_ERRMSG);
                         _ ->
                             update_vdrs_ws2vdr_msg_id_flowidx(16#8103, SN, VIDList, null),
-                            send_msg_to_vdrs(16#8103, VIDList, SDTBin),
-                            send_resp_to_ws(SN, 16#8103, VIDList, ?P_GENRESP_OK)
+                            send_msg_to_vdrs(16#8103, VIDList, SDTBin)%,
+                            %send_resp_to_ws(SN, 16#8103, VIDList, ?P_GENRESP_OK)
                     end;
                 16#8203 ->
                     [SN, VIDList, [ASN, TYPE]] = Res,
