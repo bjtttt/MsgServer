@@ -506,7 +506,7 @@ process_vdr_data(Socket, Data, State) ->
                                                                                                        TargetWSID,
                                                                                                        [VehicleID],
                                                                                                        Res),
-                                                    common:loginfo("VDR (~p) answers WS request ~p : ~p~n", [NewState#vdritem.addr, RespID, WSUpdate]),
+                                                    common:loginfo("Gateway receives VDR (~p) response to WS request ~p : ~p~n", [NewState#vdritem.addr, RespID, WSUpdate]),
                                                     send_msg_to_ws(WSUpdate, NewState);
                                                 ItemCount ->
                                                     common:logerror("(FATAL) vdridsocktable.msgws2vdr has ~p item(s) for wsid ~p~n", [ItemCount, RespID])
