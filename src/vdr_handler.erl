@@ -474,8 +474,9 @@ process_vdr_data(Socket, Data, State) ->
                             % Process reponse from VDR here
                             common:loginfo("Gateway (~p) receives VDR (~p) general response for 16#1 : RespFlowIdx (~p), RespID (~p), Res (~p)~n", [State#vdritem.pid, State#vdritem.addr, RespFlowIdx, RespID, Res]),
                             
-                            case RespID of
-                                16#8103 ->
+                            if
+                                RespID == 16#8103 orelse RespID == 16#8203 orelse RespID == 16#8602 orelse RespID == 16#8603
+                                  orelse RespID == 16#8105 ->
                                     VehicleID = NewState#vdritem.vehicleid,                            
                                     VSockRes = ets:lookup(vdridsocktable, VehicleID),
                                     case length(VSockRes) of
@@ -490,15 +491,15 @@ process_vdr_data(Socket, Data, State) ->
                                                                                                        TargetWSID,
                                                                                                        [VehicleID],
                                                                                                        Res),
-                                                    common:loginfo("VDR (~p) WS answer for WS request 0x8103: ~p~n", [NewState#vdritem.addr, WSUpdate]),
+                                                    common:loginfo("VDR (~p) WS answer for WS request ~p: ~p~n", [NewState#vdritem.addr, RespID, WSUpdate]),
                                                     send_msg_to_ws(WSUpdate, NewState);
                                                 ItemCount ->
-                                                    common:logerror("(FATAL) vdridsocktable.msgws2vdr has ~p item(s) for wsid 16#8103(~p)~n", [ItemCount, 16#8103])
+                                                    common:logerror("(FATAL) vdridsocktable.msgws2vdr has ~p item(s) for wsid ~p~n", [ItemCount, RespID])
                                             end;
                                         ResCount ->
                                             common:logerror("(FATAL) vdridsocktable has ~p item(s) for vechileid ~p~n", [ResCount, VehicleID])
                                     end;
-                                _ ->
+                                true ->
                                     ok
                             end,
 
