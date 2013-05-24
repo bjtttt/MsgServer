@@ -150,27 +150,11 @@ do_log_error(Format) ->
     [{display, Display}] = ets:lookup(msgservertable, display),
     case Display of
         1 ->
-            [{rawdisplay, RawDisplay}] = ets:lookup(msgservertable, rawdisplay),
-            TimeStamp = calendar:now_to_local_time(erlang:now()),
             try
-                case RawDisplay of
-                    1 ->
-                        io:format(string:concat("~p : ", Format), [TimeStamp]);
-                    0 ->
-                        error_logger:error_msg(string:concat("~p : ", Format), [TimeStamp]);
-                    _ ->
-                        ok
-                end
+                error_logger:error_msg(Format)
             catch
                 _:Why ->
-                    case RawDisplay of
-                        1 ->
-                            io:format("~p : logerror fails : ~p~n", [TimeStamp, Why]);
-                        0 ->
-                            error_logger:error_msg("~p : logerror fails : ~p~n", [TimeStamp, Why]);
-                        _ ->
-                            ok
-                    end
+                    error_logger:error_msg("logerror exception : ~p~n", Why)
             end;
         _ ->
             ok
@@ -186,70 +170,34 @@ logerror(Format, Data) ->
             ok
     end.
     
-do_log_error(Format, OriData) ->
+do_log_error(Format, Data) when is_binary(Data) ->
     [{display, Display}] = ets:lookup(msgservertable, display),
-    case is_binary(OriData) of
-        true ->
-            Data = binary_to_list(OriData),
-            case Display of
-                1 ->
-                    [{rawdisplay, RawDisplay}] = ets:lookup(msgservertable, rawdisplay),
-                    TimeStamp = calendar:now_to_local_time(erlang:now()),
-                    try
-                        TimeStamp = calendar:now_to_local_time(erlang:now()),
-                        case RawDisplay of
-                            1 ->
-                                io:format(string:concat("~p : ", Format), [TimeStamp | Data]);
-                            0 ->
-                                error_logger:error_msg(string:concat("~p : ", Format), [TimeStamp | Data]);
-                            _ ->
-                                ok
-                        end
-                    catch
-                        _:Why ->
-                            case RawDisplay of
-                                1 ->
-                                    io:format("~p : logerror fails : ~p~n", [TimeStamp, Why]);
-                                0 ->
-                                    error_logger:error_msg("~p : logerror fails : ~p~n", [TimeStamp, Why]);
-                                _ ->
-                                    ok
-                            end
-                    end;
-                _ ->
-                    ok
+    case Display of
+        1 ->
+            try
+                error_logger:error_msg(Format, binary_to_list(Data))
+            catch
+                _:Why ->
+                    error_logger:error_msg("logerror exception : ~p~n", Why)
             end;
         _ ->
-            Data = OriData,
-            case Display of
-                1 ->
-                    [{rawdisplay, RawDisplay}] = ets:lookup(msgservertable, rawdisplay),
-                    TimeStamp = calendar:now_to_local_time(erlang:now()),
-                    try
-                        TimeStamp = calendar:now_to_local_time(erlang:now()),
-                        case RawDisplay of
-                            1 ->
-                                io:format(string:concat("~p : ", Format), [TimeStamp | Data]);
-                            0 ->
-                                error_logger:error_msg(string:concat("~p : ", Format), [TimeStamp | Data]);
-                            _ ->
-                                ok
-                        end
-                    catch
-                        _:Why ->
-                            case RawDisplay of
-                                1 ->
-                                    io:format("~p : logerror fails : ~p~n", [TimeStamp, Why]);
-                                0 ->
-                                    error_logger:error_msg("~p : logerror fails : ~p~n", [TimeStamp, Why]);
-                                _ ->
-                                    ok
-                            end
-                    end;
-                _ ->
-                    ok
-            end
-    end.
+            ok
+    end;
+do_log_error(Format, Data) when is_list(Data) ->
+    [{display, Display}] = ets:lookup(msgservertable, display),
+    case Display of
+        1 ->
+            try
+                error_logger:error_msg(Format, Data)
+            catch
+                _:Why ->
+                    error_logger:error_msg("logerror exception : ~p~n", Why)
+            end;
+        _ ->
+            ok
+    end;
+do_log_error(_Format, _Data) ->
+    error_logger:error_msg("logerror fails : not binary or list~n").
 
 %%%
 %%%
@@ -265,28 +213,11 @@ do_log_info(Format) ->
     [{display, Display}] = ets:lookup(msgservertable, display),
     case Display of
         1 ->
-            [{rawdisplay, RawDisplay}] = ets:lookup(msgservertable, rawdisplay),
-            TimeStamp = calendar:now_to_local_time(erlang:now()),
             try
-                TimeStamp = calendar:now_to_local_time(erlang:now()),
-                case RawDisplay of
-                    1 ->
-                        io:format(string:concat("~p : ", Format), [TimeStamp]);
-                    0 ->
-                        error_logger:info_msg(string:concat("~p : ", Format), [TimeStamp]);
-                    _ ->
-                        ok
-                end
+                error_logger:info_msg(Format)
             catch
                 _:Why ->
-                    case RawDisplay of
-                        1 ->
-                            io:format("~p : loginfo fails : ~p~n", [TimeStamp, Why]);
-                        0 ->
-                            error_logger:error_msg("~p : loginfo fails : ~p~n", [TimeStamp, Why]);
-                        _ ->
-                            ok
-                    end
+                    error_logger:error_msg("loginfo exception : ~p~n", [Why])
             end;
         _ ->
             ok
@@ -302,68 +233,34 @@ loginfo(Format, Data) ->
             ok
     end.
 
-do_log_info(Format, RawData) ->
+do_log_info(Format, Data) when is_binary(Data) ->
     [{display, Display}] = ets:lookup(msgservertable, display),
-    case is_binary(RawData) of
-        true ->
-            Data = binary_to_list(RawData),
-            case Display of
-                1 ->
-                    [{rawdisplay, RawDisplay}] = ets:lookup(msgservertable, rawdisplay),
-                    TimeStamp = calendar:now_to_local_time(erlang:now()),
-                    try
-                        case RawDisplay of
-                            1 ->
-                                io:format(string:concat("~p : ", Format), [TimeStamp | Data]);
-                            0 ->
-                                error_logger:info_msg(string:concat("~p : ", Format), [TimeStamp | Data]);
-                            _ ->
-                                ok
-                        end
-                    catch
-                        _:Why ->
-                            case RawDisplay of
-                                1 ->
-                                    io:format("~p : loginfo fails : ~p~n", [TimeStamp, Why]);
-                                0 ->
-                                    error_logger:error_msg("~p : loginfo fails : ~p~n", [TimeStamp, Why]);
-                                _ ->
-                                    ok
-                            end
-                    end;
-                _ ->
-                    ok
+    case Display of
+        1 ->
+           try
+                error_logger:info_msg(Format, binary_to_list(Data))
+            catch
+                _:Why ->
+                    error_logger:error_msg("loginfo exception : ~p~n", [Why])
             end;
         _ ->
-            Data = RawData,
-            case Display of
-                1 ->
-                    [{rawdisplay, RawDisplay}] = ets:lookup(msgservertable, rawdisplay),
-                    TimeStamp = calendar:now_to_local_time(erlang:now()),
-                    try
-                        case RawDisplay of
-                            1 ->
-                                io:format(string:concat("~p : ", Format), [TimeStamp | Data]);
-                            0 ->
-                                error_logger:info_msg(string:concat("~p : ", Format), [TimeStamp | Data]);
-                            _ ->
-                                ok
-                        end
-                    catch
-                        _:Why ->
-                            case RawDisplay of
-                                1 ->
-                                    io:format("~p : loginfo fails : ~p~n", [TimeStamp, Why]);
-                                0 ->
-                                    error_logger:error_msg("~p : loginfo fails : ~p~n", [TimeStamp, Why]);
-                                _ ->
-                                    ok
-                            end
-                    end;
-                _ ->
-                    ok
-            end
-    end.
+            ok
+    end;
+do_log_info(Format, Data) when is_list(Data) ->
+    [{display, Display}] = ets:lookup(msgservertable, display),
+    case Display of
+        1 ->
+           try
+                error_logger:info_msg(Format, Data)
+            catch
+                _:Why ->
+                    error_logger:error_msg("loginfo exception : ~p~n", [Why])
+            end;
+        _ ->
+            ok
+    end;
+do_log_info(_Format, _Data) ->
+    error_logger:error_msg("loginfo fails : not binary or list~n").
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %

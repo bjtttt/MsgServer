@@ -79,7 +79,7 @@
 %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 create_final_msg(ID, MsgIdx, Data) ->
-    common:logerror("Enter create_final_msg(ID, MsgIdx, Data) : ~p, ~p, ~p~n", [ID, MsgIdx, Data]),
+    common:loginfo("vdr_data_processor:create_final_msg(ID=~p, MsgIdx=~p, Data=~p)~n", [ID, MsgIdx, Data]),
     Len = byte_size(Data),
     Header = <<ID:16, 0:2, 0:1, 0:3, Len:10, 0:48, MsgIdx:16>>,
     HeaderBody = list_to_binary([Header, Data]),
@@ -89,9 +89,7 @@ create_final_msg(ID, MsgIdx, Data) ->
     MsgBody2 = binary:replace(MsgBody1, <<126>>, <<255, 1, 255, 2, 255, 3, 255, 4, 255, 5, 255>>, [global]),
     MsgBody3 = binary:replace(MsgBody2, <<255, 1, 255, 2, 255, 3, 255, 4, 255, 5, 255>>, <<125, 1>>, [global]),
     MsgBody4 = binary:replace(MsgBody3, <<255, 1, 255, 2, 255, 3, 255, 4, 255, 5, 255>>, <<125, 2>>, [global]),
-    FinalBin = list_to_binary([<<126>>, MsgBody4, <<126>>]),
-    common:logerror("Exit create_final_msg(ID, MsgIdx, Data) with MSG : ~p~n", [FinalBin]),
-    FinalBin.
+    list_to_binary([<<126>>, MsgBody4, <<126>>]).
 
 %%%
 %%% Parse terminal message body
@@ -104,7 +102,7 @@ parse_msg_body(ID, Body) ->
     try do_parse_msg_body(ID, Body)
     catch
         _:Exception ->
-            common:logerror("do_parse_msg_body(ID=~p, Body) exception : ~p~n", [ID, Exception]),
+            common:logerror("vdr_data_processor:do_parse_msg_body(ID=~p, Body) exception : ~p~n", [ID, Exception]),
             {error, msgerr}
     end.
 
@@ -384,25 +382,22 @@ create_set_term_args(_Count, _ArgList) ->
 %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 compose_term_args_binary(ID, Value) when is_list(ID) ->
-    common:loginfo("compose_term_args_binary(ID, Value) : ~p, ~p~n", [ID, Value]),
+    common:loginfo("vdr_data_processor:compose_term_args_binary(ID, Value) : (LIST)~p, ~p~n", [ID, Value]),
     case common:is_dec_integer_string(ID) of
         true ->
             IDInt = list_to_integer(ID),
-            DecBin = compose_term_args_binary(IDInt, Value),
-            common:loginfo("compose_term_args_binary(ID, Value) : (Dec) ~p~n", [DecBin]),
-            DecBin;
+            compose_term_args_binary(IDInt, Value);
         _ ->
             case common:is_hex_integer_string(ID) of
                 true ->
                     IDInt = common:convert_word_hex_string_to_integer(ID),
-                    HexBin = compose_term_args_binary(IDInt, Value),
-                    common:loginfo("compose_term_args_binary(ID, Value) : (Hex) ~p~n", [HexBin]),
-                    HexBin;
+                    compose_term_args_binary(IDInt, Value);
                 _ ->
                     <<>>
             end
     end;
 compose_term_args_binary(ID, Value) when is_integer(ID) ->
+    common:loginfo("vdr_data_processor:compose_term_args_binary(ID, Value) : (DEC)~p, ~p~n", [ID, Value]),
     if
         ID > 16#7, ID =< 16#F ->
             <<ID:?LEN_DWORD, 0:?LEN_BYTE>>;
@@ -551,6 +546,7 @@ compose_term_args_binary(ID, Value) when is_integer(ID) ->
             <<>>
     end;
 compose_term_args_binary(_ID, _Value) ->
+    common:logerror("vdr_data_processor:compose_term_args_binary(ID, Value) fails : ID not list or integer~n"),
     <<>>.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

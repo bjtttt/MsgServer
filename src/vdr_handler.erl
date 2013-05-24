@@ -44,8 +44,14 @@ handle_cast(_Msg, State) ->
 %%%
 %%%
 handle_info({tcp, Socket, Data}, OriState) ->
-    common:loginfo("Data from VDR (~p) (id:~p, serialno:~p, authen_code:~p, vehicleid:~p, vehiclecode:~p)~n", [OriState#vdritem.addr, OriState#vdritem.id, OriState#vdritem.serialno, OriState#vdritem.auth, OriState#vdritem.vehicleid, OriState#vdritem.vehiclecode]),
-    common:loginfo("Data : ~p~n", [Data]),
+    common:loginfo("Data from VDR (~p) (id:~p, serialno:~p, authen_code:~p, vehicleid:~p, vehiclecode:~p) : ~p~n",
+				   [OriState#vdritem.addr, 
+					OriState#vdritem.id, 
+					OriState#vdritem.serialno, 
+					OriState#vdritem.auth, 
+					OriState#vdritem.vehicleid, 
+					OriState#vdritem.vehiclecode,
+					Data]),
     % Update active time for VDR
     DateTime = {erlang:date(), erlang:time()},
     State = OriState#vdritem{acttime=DateTime},
@@ -204,10 +210,9 @@ process_vdr_data(Socket, Data, State) ->
     case vdr_data_parser:process_data(State, Data) of
         {ok, HeadInfo, Msg, NewState} ->
             {ID, MsgIdx, Tel, _CryptoType} = HeadInfo,
-            common:loginfo("VDR (~p) MSG ID (~p), MSG Index (~p), MSG Tel (~p)~n", [NewState#vdritem.addr, ID, MsgIdx, Tel]),
             if
                 State#vdritem.id == undefined ->
-                    common:loginfo("Unknown VDR (~p) MSG ID : ~p~n", [NewState#vdritem.addr, ID]),
+            		common:loginfo("Unknown VDR (~p) MSG ID (~p), MSG Index (~p), MSG Tel (~p)~n", [NewState#vdritem.addr, ID, MsgIdx, Tel]),
                     case ID of
                         16#100 ->
                             % Not complete
@@ -466,7 +471,14 @@ process_vdr_data(Socket, Data, State) ->
                             {error, invaliderror, State}
                     end;
                 true ->
-                    common:loginfo("VDR (~p) (id:~p, serialno:~p, authen_code:~p, vehicleid:~p, vehiclecode:~p) MSG ID : ~p~n", [NewState#vdritem.addr, NewState#vdritem.id, NewState#vdritem.serialno, NewState#vdritem.auth, NewState#vdritem.vehicleid, NewState#vdritem.vehiclecode, ID]),
+					common:loginfo("VDR (~p) (id:~p, serialno:~p, authen_code:~p, vehicleid:~p, vehiclecode:~p) MSG ID (~p), MSG Index (~p), MSG Tel (~p)~n",
+								   [NewState#vdritem.addr, 
+									NewState#vdritem.id, 
+									NewState#vdritem.serialno, 
+									NewState#vdritem.auth, 
+									NewState#vdritem.vehicleid, 
+									NewState#vdritem.vehiclecode, 
+									ID, MsgIdx, Tel]),
                     case ID of
                         16#1 ->     % VDR general response
                             {RespFlowIdx, RespID, Res} = Msg,
