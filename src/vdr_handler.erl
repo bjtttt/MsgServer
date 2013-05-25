@@ -484,21 +484,25 @@ process_vdr_data(Socket, Data, State) ->
                             {RespFlowIdx, RespID, Res} = Msg,
                             
                             % Process reponse from VDR here
-                            common:loginfo("Gateway (~p) receives VDR (~p) general response for 16#1 : RespFlowIdx (~p), RespID (~p), Res (~p)~n", [State#vdritem.pid, State#vdritem.addr, RespFlowIdx, RespID, Res]),
+                            common:loginfo("Gateway (~p) receives VDR (~p) general response (16#1) : RespFlowIdx (~p), RespID (~p), Res (~p)~n", [State#vdritem.pid, State#vdritem.addr, RespFlowIdx, RespID, Res]),
                             
                             if
                                 RespID == 16#8103 orelse 
-									RespID == 16#8203 orelse 
-									RespID == 16#8602 orelse 
-									RespID == 16#8603 orelse 
-									RespID == 16#8105 ->
+									RespID == 16#8203 orelse	% has issue
+									RespID == 16#8602 orelse	% not tested yet
+									RespID == 16#8603 orelse 	% not tested yet
+									RespID == 16#8105 orelse	% not tested yet
+									RespID == 16#8202 orelse
+									RespID == 16#8300 orelse
+									RespID == 16#8302
+								  ->
                                     VehicleID = NewState#vdritem.vehicleid,                            
                                     VSockRes = ets:lookup(vdridsocktable, VehicleID),
                                     case length(VSockRes) of
                                         1 ->
                                             [VSock] = VSockRes,
                                             MsgList = VSock#vdridsockitem.msgws2vdr,
-                                            TargetList = [{WSID, WSFlowIdx, WSValue} || {WSID, WSFlowIdx, WSValue} <- MsgList, WSID == 16#8103],
+                                            TargetList = [{WSID, WSFlowIdx, WSValue} || {WSID, WSFlowIdx, WSValue} <- MsgList, WSID == RespID],
                                             case length(TargetList) of
                                                 1 ->
                                                     [{TargetWSID, TargetWSFlowIdx, _WSValue}] = TargetList,

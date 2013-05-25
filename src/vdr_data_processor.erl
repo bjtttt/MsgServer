@@ -1405,14 +1405,25 @@ parse_event_report(Bin) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 create_send_question(Flag, QuesLen, Ques, Answers) when is_integer(Flag),
                                                         is_integer(QuesLen),
+                                                        is_list(Ques),
+                                                        length(Ques) == QuesLen,
+                                                        is_list(Answers),
+                                                        length(Answers) > 0 -> 
+common:info("vdr_data_processor:create_send_question : Flag ~p, QuesLen ~p, Ques(LIST) ~p, Answers ~p~n", [Flag, QuesLen, Ques, Answers]),
+    Q = list_to_binary(Ques),
+    Ans = get_event_binary(Answers, 8, 16),
+    <<Flag:8,QuesLen:8,Q/binary,Ans/binary>>;
+create_send_question(Flag, QuesLen, Ques, Answers) when is_integer(Flag),
+                                                        is_integer(QuesLen),
                                                         is_binary(Ques),
                                                         byte_size(Ques) == QuesLen,
                                                         is_list(Answers),
                                                         length(Answers) > 0 -> 
-    Q = term_to_binary(Ques),
+	common:info("vdr_data_processor:create_send_question : Flag ~p, QuesLen ~p, Ques(Binary) ~p, Answers ~p~n", [Flag, QuesLen, Ques, Answers]),
     Ans = get_event_binary(Answers, 8, 16),
-    <<Flag:8,QuesLen:8,Q/binary,Ans/binary>>;
+    <<Flag:8,QuesLen:8,Ques/binary,Ans/binary>>;
 create_send_question(_Flag, _QuesLen, _Ques, _Answers) ->
+	common:info("vdr_data_processor:create_send_question : ERROR~n"),
     <<>>.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

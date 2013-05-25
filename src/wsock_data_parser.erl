@@ -275,9 +275,9 @@ do_process_data(Data) ->
                                     DataLen = length(DATA),
                                     if
                                         DataLen == 2 ->
-                                            {"ITERVAL", ITERVAL} = get_specific_entry(DATA, "ITERVAL"),
+                                            {"INTERVAL", INTERVAL} = get_specific_entry(DATA, "INTERVAL"),
                                             {"LENGTH", LENGTH} = get_specific_entry(DATA, "LENGTH"),
-                                            {ok, Mid, [SN, VIDList, [ITERVAL, LENGTH]]};
+                                            {ok, Mid, [SN, VIDList, [INTERVAL, LENGTH]]};
                                         true ->
                                             {error, format_error}
                                     end;
@@ -317,6 +317,7 @@ do_process_data(Data) ->
                                             {"QUES", QUES} = get_specific_entry(DATA, "QUES"),
                                             {"ALIST", ALIST} = get_specific_entry(DATA, "ALIST"),
                                             IDAns = get_answer_list(ALIST),
+											%common:loginfo("FLAG ~p, QUES ~p, ALIST ~p, IDAns ~p", [FLAG, QUES, ALIST, IDAns]),
                                             {ok, Mid, [SN, VIDList, [FLAG, QUES, IDAns]]};
                                         true ->
                                             {error, format_error}
@@ -527,14 +528,15 @@ connect_ws_to_vdr(Msg) ->
                             send_resp_to_ws(SN, 16#8105, VIDList, ?P_GENRESP_ERRMSG)
                     end;
                 16#8202 ->
-                    [SN, VIDList, [ITERVAL, LENGTH]] = Res,
-                    Bin = vdr_data_processor:create_tmp_position_track_control(ITERVAL, LENGTH),
+                    [SN, VIDList, [INTERVAL, LENGTH]] = Res,
+                    Bin = vdr_data_processor:create_tmp_position_track_control(INTERVAL, LENGTH),
                     case Bin of
                         <<>> ->
                             send_resp_to_ws(SN, 16#8202, VIDList, ?P_GENRESP_ERRMSG);
                         _ ->
-                            send_msg_to_vdrs(16#8202, VIDList, Bin),
-                            send_resp_to_ws(SN, 16#8202, VIDList, ?P_GENRESP_OK)
+							update_vdrs_ws2vdr_msg_id_flowidx(16#8202, SN, VIDList, null),
+                            send_msg_to_vdrs(16#8202, VIDList, Bin)%,
+                            %send_resp_to_ws(SN, 16#8202, VIDList, ?P_GENRESP_OK)
                     end;
                 16#8300 ->
                     [SN, VIDList, [FLAG, TEXT]] = Res,
@@ -543,20 +545,21 @@ connect_ws_to_vdr(Msg) ->
                         <<>> ->
                             send_resp_to_ws(SN, 16#8300, VIDList, ?P_GENRESP_ERRMSG);
                         _ ->
-                            send_msg_to_vdrs(16#8300, VIDList, Bin),
-                            send_resp_to_ws(SN, 16#8300, VIDList, ?P_GENRESP_OK)
+							update_vdrs_ws2vdr_msg_id_flowidx(16#8300, SN, VIDList, null),
+                            send_msg_to_vdrs(16#8300, VIDList, Bin)%,
+                            %send_resp_to_ws(SN, 16#8300, VIDList, ?P_GENRESP_OK)
                     end;
                 16#8302 ->
                     [SN, VIDList, [FLAG, QUES, IDAns]] = Res,
-                    QuesSize = byte_size(QUES),
-                    Bin = vdr_data_processor:create_send_question(FLAG, QuesSize, QUES, IDAns),
+                    QuesLen = byte_size(QUES),
+                    Bin = vdr_data_processor:create_send_question(FLAG, QuesLen, QUES, IDAns),
                     case Bin of
                         <<>> ->
                             send_resp_to_ws(SN, 16#8302, VIDList, ?P_GENRESP_ERRMSG);
                         _ ->
                             update_vdrs_ws2vdr_msg_id_flowidx(16#8302, SN, VIDList, null),
-                            send_msg_to_vdrs(16#8302, VIDList, Bin),
-                            send_resp_to_ws(SN, 16#8302, VIDList, ?P_GENRESP_OK)
+                            send_msg_to_vdrs(16#8302, VIDList, Bin)%,
+                            %send_resp_to_ws(SN, 16#8302, VIDList, ?P_GENRESP_OK)
                     end;
                 16#8400 ->
                     [SN, VIDList, [FLAG, PHONE]] = Res,
@@ -845,12 +848,34 @@ get_answer_list(List) when is_list(List),
                            length(List) > 0 ->
     [H|T] = List,
     {obj, [{"ID", ID},{"AN", AN}]} = H,
-    case T of
-        [] ->
-            [[ID, AN]];
-        _ ->
-            [[ID, AN]|get_answer_list(T)]
-    end;
+	case is_binary(AN) of
+		true ->
+			ANSize = byte_size(AN),
+		    case T of
+		        [] ->
+		            [[ID, ANSize, AN]];
+		        _ ->
+		            [[ID, ANSize, AN]|get_answer_list(T)]
+		    end;
+		_ ->
+			case is_list(AN) of
+				true ->
+					ANLen = length(AN),
+				    case T of
+				        [] ->
+				            [[ID, ANLen, AN]];
+				        _ ->
+				            [[ID, ANLen, AN]|get_answer_list(T)]
+				    end;
+				_ ->
+				    case T of
+				        [] ->
+				            [];
+				        _ ->
+				            [get_answer_list(T)]
+				    end
+			end
+	end;					
 get_answer_list(_List) ->
     [].
 
