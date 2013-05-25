@@ -43,7 +43,7 @@
          create_man_confirm_alarm/2,
          create_txt_send/2,
          create_set_event/3,
-         create_send_question/4,
+         create_send_question/3,
          create_msgmenu_settings/3,
          create_msg_service/3,
          create_tel_callback/2,
@@ -68,7 +68,8 @@
          create_sinstomuldatasea_update_order/2,
          create_data_dl_transparent/2,
          %create_data_ul_send/2,         
-         create_platform_rsa/2
+         create_platform_rsa/2,
+		 get_tel_book_entries/1
 	]).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -1403,27 +1404,22 @@ parse_event_report(Bin) ->
 % Answers : [[ID0, Len0, Con0], [ID1, Len1, Con1], [ID2, Len2, Con2], ...]
 %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-create_send_question(Flag, QuesLen, Ques, Answers) when is_integer(Flag),
-                                                        is_integer(QuesLen),
-                                                        is_list(Ques),
-                                                        length(Ques) == QuesLen,
-                                                        is_list(Answers),
-                                                        length(Answers) > 0 -> 
-common:info("vdr_data_processor:create_send_question : Flag ~p, QuesLen ~p, Ques(LIST) ~p, Answers ~p~n", [Flag, QuesLen, Ques, Answers]),
-    Q = list_to_binary(Ques),
+create_send_question(Flag, Ques, Answers) when is_integer(Flag),
+											   is_list(Ques),
+											   is_list(Answers),
+											   length(Answers) > 0 -> 
+    QuesBin = list_to_binary(Ques),
+	QuesLen = byte_size(QuesBin),
     Ans = get_event_binary(Answers, 8, 16),
-    <<Flag:8,QuesLen:8,Q/binary,Ans/binary>>;
-create_send_question(Flag, QuesLen, Ques, Answers) when is_integer(Flag),
-                                                        is_integer(QuesLen),
-                                                        is_binary(Ques),
-                                                        byte_size(Ques) == QuesLen,
-                                                        is_list(Answers),
-                                                        length(Answers) > 0 -> 
-	common:info("vdr_data_processor:create_send_question : Flag ~p, QuesLen ~p, Ques(Binary) ~p, Answers ~p~n", [Flag, QuesLen, Ques, Answers]),
+    <<Flag:8,QuesLen:8,QuesBin/binary,Ans/binary>>;
+create_send_question(Flag, Ques, Answers) when is_integer(Flag),
+											   is_binary(Ques),
+											   is_list(Answers),
+											   length(Answers) > 0 -> 
+	QuesLen = byte_size(Ques),
     Ans = get_event_binary(Answers, 8, 16),
     <<Flag:8,QuesLen:8,Ques/binary,Ans/binary>>;
-create_send_question(_Flag, _QuesLen, _Ques, _Answers) ->
-	common:info("vdr_data_processor:create_send_question : ERROR~n"),
+create_send_question(_Flag, _Ques, _Answers) ->
     <<>>.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -1521,7 +1517,7 @@ create_tel_note(Type, Count, Items) when is_integer(Type),
                                          length(Items) > 0,
                                          is_integer(Count),
                                          Count == length(Items) ->
-    ItemsBin = get_tel_book_entries(Items),
+	ItemsBin = get_tel_book_entries(Items),
     <<Type:8,Count:8,ItemsBin/binary>>;
 create_tel_note(_Type, _Count, _Items) ->
     <<>>.
@@ -1536,23 +1532,67 @@ get_tel_book_entries(Items) when is_list(Items),
     [H|T] = Items,
     case length(H) of
         3 ->
-            [Flag,Num,Name] = H,
+            [Flag, Num, Name] = H,
             NumLen = byte_size(Num),
             NameLen = byte_size(Name),
-            case T of
-                [] ->
-                    <<Flag:8,NumLen:8,Num/binary,NameLen:8,Name/binary>>;
-                _ ->
-                    list_to_binary([<<Flag:8,NumLen:8,Num/binary,NameLen:8,Name/binary>>|get_tel_book_entries(T)])
-            end;
+			case is_integer(Flag) of
+				true ->
+					Bin = list_to_binary([<<Flag:8>>,<<NumLen:8>>,Num,<<NameLen:8>>,Name]),
+		            case T of
+		                [] ->
+		                    [Bin];
+		                _ ->					
+		                    list_to_binary([Bin|get_tel_book_entries(T)])
+		            end;
+				_ ->
+					case is_binary(Flag) of
+						true ->
+							Bin = list_to_binary([Flag,<<NumLen:8>>,Num,<<NameLen:8>>,Name]),
+				            case T of
+				                [] ->
+				                    [Bin];
+				                _ ->					
+				                    list_to_binary([Bin|get_tel_book_entries(T)])
+				            end;
+						_ ->
+				            case T of
+				                [] ->
+				                    <<>>;
+				                _ ->					
+				                    list_to_binary([get_tel_book_entries(T)])
+				            end
+					end
+			end;
         5 ->
-            [Flag,NumLen,Num,NameLen,Name] = H,
-            case T of
-                [] ->
-                    <<Flag:8,NumLen:8,Num/binary,NameLen:8,Name/binary>>;
-                _ ->
-                    list_to_binary([<<Flag:8,NumLen:8,Num/binary,NameLen:8,Name/binary>>|get_tel_book_entries(T)])
-            end
+            [Flag, NumLen, Num, NameLen, Name] = H,
+			case is_integer(Flag) of
+				true ->
+					Bin = list_to_binary([<<Flag:8>>,<<NumLen:8>>,Num,<<NameLen:8>>,Name]),
+		            case T of
+		                [] ->
+		                    [Bin];
+		                _ ->					
+		                    list_to_binary([Bin|get_tel_book_entries(T)])
+		            end;
+				_ ->
+					case is_binary(Flag) of
+						true ->
+							Bin = list_to_binary([Flag,<<NumLen:8>>,Num,<<NameLen:8>>,Name]),
+				            case T of
+				                [] ->
+				                    [Bin];
+				                _ ->					
+				                    list_to_binary([Bin|get_tel_book_entries(T)])
+				            end;
+						_ ->
+				            case T of
+				                [] ->
+				                    <<>>;
+				                _ ->					
+				                    list_to_binary([get_tel_book_entries(T)])
+				            end
+					end
+			end
     end;
 get_tel_book_entries(_Items) ->
     <<>>.

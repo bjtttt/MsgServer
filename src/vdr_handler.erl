@@ -494,7 +494,10 @@ process_vdr_data(Socket, Data, State) ->
 									RespID == 16#8105 orelse	% not tested yet
 									RespID == 16#8202 orelse
 									RespID == 16#8300 orelse
-									RespID == 16#8302
+									RespID == 16#8302 orelse	% 16#302 is the concrete answer
+									RespID == 16#8400 orelse
+									RespID == 16#8401 orelse
+									RespID == 16#8500
 								  ->
                                     VehicleID = NewState#vdritem.vehicleid,                            
                                     VSockRes = ets:lookup(vdridsocktable, VehicleID),
@@ -623,43 +626,29 @@ process_vdr_data(Socket, Data, State) ->
                         16#302 ->
                             {_AnswerFlowIdx, AnswerID} = Msg,
 
-                            FlowIdx = NewState#vdritem.msgflownum,
-
                             VehicleID = NewState#vdritem.vehicleid,                            
-                            Res = ets:lookup(vdridsocktable, VehicleID),
-                            case length(Res) of
+                            VSockRes = ets:lookup(vdridsocktable, VehicleID),
+                            case length(VSockRes) of
                                 1 ->
-                                    [VSock] = Res,
+                                    [VSock] = VSockRes,
                                     MsgList = VSock#vdridsockitem.msgws2vdr,
                                     TargetList = [{WSID, WSFlowIdx, WSValue} || {WSID, WSFlowIdx, WSValue} <- MsgList, WSID == 16#8302],
                                     case length(TargetList) of
                                         1 ->
-                                            [{_TargetWSID, TargetWSFlowIdx, _WSValue}] = TargetList,
+                                            [{16#8302, TargetWSFlowIdx, _WSValue}] = TargetList,
                                             {ok, WSUpdate} = wsock_data_parser:create_term_answer(TargetWSFlowIdx,
-                                                                                                  [VehicleID],
+																								  [VehicleID],
                                                                                                   [AnswerID]),
-                                            common:loginfo("VDR (~p) WS answer for WS request 0x8302: ~p~n", [NewState#vdritem.addr, WSUpdate]),
-                                            send_msg_to_ws(WSUpdate, NewState),
-
-                                            MsgBody = vdr_data_processor:create_gen_resp(ID, MsgIdx, ?T_GEN_RESP_OK),
-                                            common:loginfo("~p sends VDR (~p) response for 16#302 (ok) : ~p~n", [State#vdritem.pid, NewState#vdritem.addr, MsgBody]),
-                                            NewFlowIdx = send_data_to_vdr(16#8001, FlowIdx, MsgBody, VDRPid),
-                                            
-                                            {ok, NewState#vdritem{msgflownum=NewFlowIdx}};
-                                        _ ->
-                                            MsgBody = vdr_data_processor:create_gen_resp(ID, MsgIdx, ?T_GEN_RESP_FAIL),
-                                            common:loginfo("~p sends VDR (~p) response for 16#302 (fail because of no platform flow index) : ~p~n", [State#vdritem.pid, NewState#vdritem.addr, MsgBody]),
-                                            NewFlowIdx = send_data_to_vdr(16#8001, FlowIdx, MsgBody, VDRPid),
-                                            
-                                            {ok, NewState#vdritem{msgflownum=NewFlowIdx}}
+                                            common:loginfo("Gateway receives VDR (~p) response to WS request ~p : ~p~n", [NewState#vdritem.addr, 16#8302, WSUpdate]),
+                                            send_msg_to_ws(WSUpdate, NewState);
+                                        ItemCount ->
+                                            common:logerror("(FATAL) vdridsocktable.msgws2vdr has ~p item(s) for wsid ~p~n", [ItemCount, 16#8302])
                                     end;
-                                _ ->
-                                    MsgBody = vdr_data_processor:create_gen_resp(ID, MsgIdx, ?T_GEN_RESP_FAIL),
-                                    common:loginfo("~p sends VDR (~p) response for 16#302 (fail because of no exact one vehicleidsocket item) : ~p~n", [State#vdritem.pid, NewState#vdritem.addr, MsgBody]),
-                                    NewFlowIdx = send_data_to_vdr(16#8001, FlowIdx, MsgBody, VDRPid),
-                                    
-                                    {ok, NewState#vdritem{msgflownum=NewFlowIdx}}
-                            end;
+                                ResCount ->
+                                    common:logerror("(FATAL) vdridsocktable has ~p item(s) for vechileid ~p~n", [ResCount, VehicleID])
+							end,
+							
+							{ok, NewState};
                         16#303 ->
                             {_MsgType, _POC} = Msg,
                             
@@ -669,18 +658,16 @@ process_vdr_data(Socket, Data, State) ->
                             {Info, _AppInfo} = Resp,
                             [_AlarmSym, InfoState, _Lat, _Lon, _Height, _Speed, _Direction, _Time] = Info,
 
-                            FlowIdx = NewState#vdritem.msgflownum,
-
                             VehicleID = NewState#vdritem.vehicleid,                            
-                            Res = ets:lookup(vdridsocktable, VehicleID),
-                            case length(Res) of
+                            VSockRes = ets:lookup(vdridsocktable, VehicleID),
+                            case length(VSockRes) of
                                 1 ->
-                                    [VSock] = Res,
+                                    [VSock] = VSockRes,
                                     MsgList = VSock#vdridsockitem.msgws2vdr,
-                                    TargetList = [{WSID, WSFlowIdx, WSValue} || {WSID, WSFlowIdx, WSValue} <- MsgList, WSID == 16#8302],
+                                    TargetList = [{WSID, WSFlowIdx, WSValue} || {WSID, WSFlowIdx, WSValue} <- MsgList, WSID == 16#8500],
                                     case length(TargetList) of
                                         1 ->
-                                            [{_TargetWSID, TargetWSFlowIdx, WSValue}] = TargetList,
+                                            [{16#8500, TargetWSFlowIdx, WSValue}] = TargetList,
                                             FlagBit = WSValue band 1,
                                             ResBit = InfoState band 16#1000,
                                             NewResBit = ResBit bsr 12,
@@ -689,28 +676,16 @@ process_vdr_data(Socket, Data, State) ->
                                                                                                           FlagBit bxor NewResBit,
                                                                                                           [VehicleID],
                                                                                                           [InfoState]),
-                                            common:loginfo("VDR (~p) WS answer for WS request 0x8500: ~p~n", [NewState#vdritem.addr, WSUpdate]),
-                                            send_msg_to_ws(WSUpdate, NewState),
-
-                                            MsgBody = vdr_data_processor:create_gen_resp(ID, MsgIdx, ?T_GEN_RESP_OK),
-                                            common:loginfo("~p sends VDR (~p) response for 16#500 (ok) : ~p~n", [State#vdritem.pid, NewState#vdritem.addr, MsgBody]),
-                                            NewFlowIdx = send_data_to_vdr(16#8001, FlowIdx, MsgBody, VDRPid),
-                                            
-                                            {ok, NewState#vdritem{msgflownum=NewFlowIdx}};
-                                        _ ->
-                                            MsgBody = vdr_data_processor:create_gen_resp(ID, MsgIdx, ?T_GEN_RESP_FAIL),
-                                            common:loginfo("~p sends VDR (~p) response for 16#500 (fail because of no platform flow index) : ~p~n", [State#vdritem.pid, NewState#vdritem.addr, MsgBody]),
-                                            NewFlowIdx = send_data_to_vdr(16#8001, FlowIdx, MsgBody, VDRPid),
-                                            
-                                            {ok, NewState#vdritem{msgflownum=NewFlowIdx}}
+                                            common:loginfo("Gateway receives VDR (~p) response to WS request ~p : ~p~n", [NewState#vdritem.addr, 16#8500, WSUpdate]),
+                                            send_msg_to_ws(WSUpdate, NewState);
+                                        ItemCount ->
+                                            common:logerror("(FATAL) vdridsocktable.msgws2vdr has ~p item(s) for wsid ~p~n", [ItemCount, 16#8500])
                                     end;
-                                _ ->
-                                    MsgBody = vdr_data_processor:create_gen_resp(ID, MsgIdx, ?T_GEN_RESP_FAIL),
-                                    common:loginfo("~p sends VDR (~p) response for 16#500 (fail because of no exact one vehicleidsocket item) : ~p~n", [State#vdritem.pid, NewState#vdritem.addr, MsgBody]),
-                                    NewFlowIdx = send_data_to_vdr(16#8001, FlowIdx, MsgBody, VDRPid),
-                                    
-                                    {ok, NewState#vdritem{msgflownum=NewFlowIdx}}
-                            end;
+                                ResCount ->
+                                    common:logerror("(FATAL) vdridsocktable has ~p item(s) for vechileid ~p~n", [ResCount, VehicleID])
+							end,
+							
+							{ok, NewState};
                         16#700 ->
                             {_Number, _OrderWord, _DB} = Msg,
                             
