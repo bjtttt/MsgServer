@@ -601,8 +601,8 @@ connect_ws_to_vdr(Msg) ->
                             send_resp_to_ws(SN, 16#8801, VIDList, ?P_GENRESP_ERRMSG);
                         _ ->
                             update_vdrs_ws2vdr_msg_id_flowidx(16#8801, SN, VIDList, null),
-                            send_msg_to_vdrs(16#8801, VIDList, Bin),
-                            send_resp_to_ws(SN, 16#8801, VIDList, ?P_GENRESP_OK)
+                            send_msg_to_vdrs(16#8801, VIDList, Bin)%,
+                            %send_resp_to_ws(SN, 16#8801, VIDList, ?P_GENRESP_OK)
                     end;
                 16#8804 ->
                     [SN, VIDList, [CMD, T, SF, FREQ]] = Res,
@@ -611,8 +611,9 @@ connect_ws_to_vdr(Msg) ->
                         <<>> ->
                             send_resp_to_ws(SN, 16#8804, VIDList, ?P_GENRESP_ERRMSG);
                         _ ->
-                            send_msg_to_vdrs(16#8804, VIDList, Bin),
-                            send_resp_to_ws(SN, 16#8804, VIDList, ?P_GENRESP_OK)
+							update_vdrs_ws2vdr_msg_id_flowidx(16#8804, SN, VIDList, null),
+                            send_msg_to_vdrs(16#8804, VIDList, Bin)%,
+                            %send_resp_to_ws(SN, 16#8804, VIDList, ?P_GENRESP_OK)
                     end;
                 _ -> % Impossible
                     ok
@@ -1088,8 +1089,9 @@ create_vehicle_ctrl_answer(SN, Status, List, DataList) when is_integer(SN),
 			Body = common:combine_strings([MIDStr, SNStr, StatusStr, VIDListStr, DataListStr]),
             {ok, common:combine_strings(["{", Body, "}"], false)};
         _ ->
-            DataListStr = "\"DATA\":{}",
-			Body = common:combine_strings([MIDStr, SNStr, StatusStr, VIDListStr, DataListStr]),
+            %DataListStr = "\"DATA\":{}",
+			%Body = common:combine_strings([MIDStr, SNStr, StatusStr, VIDListStr, DataListStr]),
+			Body = common:combine_strings([MIDStr, SNStr, StatusStr, VIDListStr]),
             {ok, common:combine_strings(["{", Body, "}"], false)}
     end;
 create_vehicle_ctrl_answer(_SN, _Status, _List, _DataList) ->
@@ -1119,8 +1121,9 @@ create_shot_resp(SN, List, Status, IDList) when is_integer(SN),
 			Body = common:combine_strings([MIDStr, SNStr, StatusStr, VIDListStr, DataListStr]),
             {ok, common:combine_strings(["{", Body, "}"], false)};
         _ ->
-            DataListStr = "\"DATA\":[]",
-			Body = common:combine_strings([MIDStr, SNStr, StatusStr, VIDListStr, DataListStr]),
+            %DataListStr = "\"DATA\":[]",
+			%Body = common:combine_strings([MIDStr, SNStr, StatusStr, VIDListStr, DataListStr]),
+			Body = common:combine_strings([MIDStr, SNStr, StatusStr, VIDListStr]),
             {ok, common:combine_strings(["{", Body, "}"], false)}
     end;
 create_shot_resp(_SN, _List, _Status, _IDList) ->

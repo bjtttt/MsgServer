@@ -1685,7 +1685,13 @@ get_rect_area_entries(Items) when is_list(Items) ->
             [ID,Property,LeftTopLat,LeftTopLon,RightBotLat,RightBotLon,StartTime,StopTime,MaxSpeed,ExceedTime] = H,
             StartTimeBin = convert_datetime_to_bcd(StartTime),
             StopTimeBin = convert_datetime_to_bcd(StopTime),
-            Bin = list_to_binary([<<ID:32,Property:16,LeftTopLat:32,LeftTopLon:32,RightBotLat:32,RightBotLon:32>>,StartTimeBin,StopTimeBin,<<MaxSpeed:32,ExceedTime:8>>]),
+			LeftTopLatVal = convert_null_to_zero(LeftTopLat),
+			LeftTopLonVal = convert_null_to_zero(LeftTopLon),
+			RightBotLatVal = convert_null_to_zero(RightBotLat),
+			RightBotLonVal = convert_null_to_zero(RightBotLon),
+			MaxSpeedVal = convert_null_to_zero(MaxSpeed),
+			ExceedTimeVal = convert_null_to_zero(ExceedTime),
+            Bin = list_to_binary([<<ID:32,Property:16,LeftTopLatVal:32,LeftTopLonVal:32,RightBotLatVal:32,RightBotLonVal:32>>,StartTimeBin,StopTimeBin,<<MaxSpeedVal:32,ExceedTimeVal:8>>]),
             case T of
                 [] ->
                     [Bin];
@@ -1697,6 +1703,19 @@ get_rect_area_entries(Items) when is_list(Items) ->
     end;
 get_rect_area_entries(_Items) ->
     [].
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%
+%
+%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+convert_null_to_zero(NULL) ->
+	if
+		NULL == null ->
+			0;
+		true ->
+			NULL
+	end.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %
