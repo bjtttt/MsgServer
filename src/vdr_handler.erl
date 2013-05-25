@@ -489,8 +489,8 @@ process_vdr_data(Socket, Data, State) ->
                             if
                                 RespID == 16#8103 orelse 
 									RespID == 16#8203 orelse	% has issue
-									RespID == 16#8602 orelse	% not tested yet
-									RespID == 16#8603 orelse 	% not tested yet
+									RespID == 16#8602 orelse	% need further tested
+									RespID == 16#8603 orelse
 									RespID == 16#8105 orelse	% not tested yet
 									RespID == 16#8202 orelse
 									RespID == 16#8300 orelse

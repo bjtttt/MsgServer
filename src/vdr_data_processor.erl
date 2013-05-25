@@ -1685,13 +1685,13 @@ get_rect_area_entries(Items) when is_list(Items) ->
             [ID,Property,LeftTopLat,LeftTopLon,RightBotLat,RightBotLon,StartTime,StopTime,MaxSpeed,ExceedTime] = H,
             StartTimeBin = convert_datetime_to_bcd(StartTime),
             StopTimeBin = convert_datetime_to_bcd(StopTime),
-			LeftTopLatVal = convert_null_to_zero(LeftTopLat),
-			LeftTopLonVal = convert_null_to_zero(LeftTopLon),
-			RightBotLatVal = convert_null_to_zero(RightBotLat),
-			RightBotLonVal = convert_null_to_zero(RightBotLon),
+			LeftTopLatVal = round(convert_null_to_zero(LeftTopLat)) * 1000000,
+			LeftTopLonVal = round(convert_null_to_zero(LeftTopLon)) * 1000000,
+			RightBotLatVal = round(convert_null_to_zero(RightBotLat)) * 1000000,
+			RightBotLonVal = round(convert_null_to_zero(RightBotLon)) * 1000000,
 			MaxSpeedVal = convert_null_to_zero(MaxSpeed),
 			ExceedTimeVal = convert_null_to_zero(ExceedTime),
-            Bin = list_to_binary([<<ID:32,Property:16,LeftTopLatVal:32,LeftTopLonVal:32,RightBotLatVal:32,RightBotLonVal:32>>,StartTimeBin,StopTimeBin,<<MaxSpeedVal:32,ExceedTimeVal:8>>]),
+            Bin = list_to_binary([<<ID:32,Property:16,LeftTopLatVal:32,LeftTopLonVal:32,RightBotLatVal:32,RightBotLonVal:32>>,StartTimeBin,StopTimeBin,<<MaxSpeedVal:16,ExceedTimeVal:8>>]),
             case T of
                 [] ->
                     [Bin];

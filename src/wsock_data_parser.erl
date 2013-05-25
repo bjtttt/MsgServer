@@ -821,18 +821,18 @@ get_rect_area_list(List) when is_list(List),
     {"ID", ID} = get_specific_entry(DATA, "ID"),
     {"PROPERTY", PROPERTY} = get_specific_entry(DATA, "PROPERTY"),
     {"LT_LAT", LT_LAT} = get_specific_entry(DATA, "LT_LAT"),
-    {"LT_LONG", LT_LONG} = get_specific_entry(DATA, "LT_LONG"),
+    {"LT_LNG", LT_LNG} = get_specific_entry(DATA, "LT_LNG"),
     {"RB_LAT", RB_LAT} = get_specific_entry(DATA, "RB_LAT"),
-    {"RB_LONG", RB_LONG} = get_specific_entry(DATA, "RB_LONG"),
+    {"RB_LNG", RB_LNG} = get_specific_entry(DATA, "RB_LNG"),
     {"ST", ST} = get_specific_entry(DATA, "ST"),
     {"ET", ET} = get_specific_entry(DATA, "ET"),
     {"MAX_S", MAX_S} = get_specific_entry(DATA, "MAX_S"),
     {"LENGTH", LENGTH} = get_specific_entry(DATA, "LENGTH"),
     case T of
         [] ->
-            [[ID, PROPERTY, LT_LAT, LT_LONG, RB_LAT, RB_LONG, ST, ET, MAX_S, LENGTH]];
+            [[ID, PROPERTY, LT_LAT, LT_LNG, RB_LAT, RB_LNG, ST, ET, MAX_S, LENGTH]];
         _ ->
-        [[ID, PROPERTY, LT_LAT, LT_LONG, RB_LAT, RB_LONG, ST, ET, MAX_S, LENGTH]|get_rect_area_list(T)]
+        [[ID, PROPERTY, LT_LAT, LT_LNG, RB_LAT, RB_LNG, ST, ET, MAX_S, LENGTH]|get_rect_area_list(T)]
     end;
 get_rect_area_list(_List) ->
     [].
