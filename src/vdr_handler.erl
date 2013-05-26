@@ -95,7 +95,13 @@ handle_info({tcp, Socket, Data}, OriState) ->
             end
     end;
 handle_info({tcp_closed, _Socket}, State) ->    
-    common:loginfo("VDR (~p) (id:~p, serialno:~p, authen_code:~p) : tcp_closed~n", [State#vdritem.addr, State#vdritem.id, State#vdritem.serialno, State#vdritem.auth]),
+    common:loginfo("VDR (~p) (id:~p, serialno:~p, authen_code:~p, vehicleid:~p, vehiclecode:~p) : tcp_closed~n",
+				   [State#vdritem.addr, 
+					State#vdritem.id, 
+					State#vdritem.serialno, 
+					State#vdritem.auth,
+					State#vdritem.vehicleid, 
+					State#vdritem.vehiclecode]), 
 	{stop, tcp_closed, State}; 
 handle_info(_Info, State) ->    
 	{noreply, State}. 
@@ -104,7 +110,14 @@ handle_info(_Info, State) ->
 %%% When VDR handler process is terminated, do the clean jobs here
 %%%
 terminate(Reason, State) ->
-    common:loginfo("VDR (~p) (id:~p, serialno:~p, authen_code:~p, vehicleid:~p, vehiclecode:~p) starts being terminated~nReson : ~p~n", [State#vdritem.addr, State#vdritem.id, State#vdritem.serialno, State#vdritem.auth, State#vdritem.vehicleid, State#vdritem.vehiclecode, Reason]),
+    common:loginfo("VDR (~p) (id:~p, serialno:~p, authen_code:~p, vehicleid:~p, vehiclecode:~p) starts being terminated~nReson : ~p~n", 
+				   [State#vdritem.addr, 
+					State#vdritem.id, 
+					State#vdritem.serialno, 
+					State#vdritem.auth, 
+					State#vdritem.vehicleid, 
+					State#vdritem.vehiclecode, 
+					Reason]),
     ID = State#vdritem.id,
     Auth = State#vdritem.auth,
     _SerialNo = State#vdritem.serialno,
@@ -150,7 +163,13 @@ terminate(Reason, State) ->
         _:Ex ->
             common:logerror("VDR (~p) : exception when gen_tcp:close : ~p~n", [State#vdritem.addr, Ex])
     end,
-    common:loginfo("VDR (~p) (id:~p, serialno:~p, authen_code:~p, vehicleid:~p, vehiclecode:~p) is terminated~n", [State#vdritem.addr, State#vdritem.id, State#vdritem.serialno, State#vdritem.auth, State#vdritem.vehicleid, State#vdritem.vehiclecode]).
+    common:loginfo("VDR (~p) (id:~p, serialno:~p, authen_code:~p, vehicleid:~p, vehiclecode:~p) is terminated~n",
+				   [State#vdritem.addr, 
+					State#vdritem.id, 
+					State#vdritem.serialno, 
+					State#vdritem.auth, 
+					State#vdritem.vehicleid, 
+					State#vdritem.vehiclecode]).
 
 code_change(_OldVsn, State, _Extra) ->    
 	{ok, State}.
