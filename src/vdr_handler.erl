@@ -491,13 +491,13 @@ process_vdr_data(Socket, Data, State) ->
 									RespID == 16#8203 orelse	% has issue
 									RespID == 16#8602 orelse	% need further tested
 									RespID == 16#8603 orelse
-									RespID == 16#8105 orelse	% not tested yet
+									RespID == 16#8105 orelse
 									RespID == 16#8202 orelse
 									RespID == 16#8300 orelse
 									RespID == 16#8302 orelse
 									RespID == 16#8400 orelse
 									RespID == 16#8401 orelse
-									RespID == 16#8500 orelse	% not tested yet
+									RespID == 16#8500 orelse
 									RespID == 16#8801 orelse
 									RespID == 16#8804
 								  ->
