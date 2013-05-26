@@ -20,7 +20,6 @@ init([Sock, Addr]) ->
     Pid = self(),
     VDRPid = spawn(fun() -> data2vdr_process(Sock) end),
     RespWSPid = spawn(fun() -> resp2ws_process([]) end),
-    common:loginfo("Data to VDR PID : ~p~n", [VDRPid]),
     [{dbpid, DBPid}] = ets:lookup(msgservertable, dbpid),
     [{wspid, WSPid}] = ets:lookup(msgservertable, wspid),
     State = #vdritem{socket=Sock, pid=Pid, vdrpid=VDRPid, respwspid=RespWSPid, addr=Addr, msgflownum=1, errorcount=0, dbpid=DBPid, wspid=WSPid},
