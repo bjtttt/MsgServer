@@ -64,10 +64,13 @@ start(StartType, StartArgs) ->
                     
                     WSPid = spawn(fun() -> wsock_client:wsock_client_process() end),
                     DBPid = spawn(fun() -> mysql:mysql_process() end),
+                    DBTablePid = spawn(fun() -> db_table_deamon() end),
                     ets:insert(msgservertable, {dbpid, DBPid}),
                     ets:insert(msgservertable, {wspid, WSPid}),
+                    ets:insert(msgservertable, {dbtablepid, DBTablePid}),
                     error_logger:info_msg("WS client process PID is ~p~n", [WSPid]),
                     error_logger:info_msg("DB client process PID is ~p~n", [DBPid]),
+                    error_logger:info_msg("DB table deamon process PID is ~p~n", [DBTablePid]),
                     
                     %Result0 = mysql:fetch(conn, <<"select * from device">>),
                     %Result0,
@@ -109,8 +112,14 @@ stop(_State) ->
         _ ->
             WSPid ! stop
     end,
-    error_logger:info_msg("Message server stops.~n"),
-    ok.
+    [{dbtablepid, DBTablePid}] = ets:lookup(msgservertable, dbtablepid),
+    case DBTablePid of
+        undefined ->
+            ok;
+        _ ->
+            DBTablePid ! stop
+    end,
+    error_logger:info_msg("Message server stops.~n").
 
 %%%
 %%% Will wait 20s
@@ -152,6 +161,42 @@ receive_db_ws_init_msg(WSOK, DBOK, Count) ->
                     receive_db_ws_init_msg(WSOK, DBOK, Count+1)
             end
     end.                
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%
+%
+%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+db_table_deamon() ->
+	receive
+		stop ->
+			ok;
+		_ ->
+			{Year, Month, Day} = erlang:date(),
+			%{Hour, Minute, Second} = erlang:time(),
+			YearS = vdr_data_processor:get_2_number_integer_from_oct_string(integer_to_list(Year)),
+			MonthS = vdr_data_processor:get_2_number_integer_from_oct_string(integer_to_list(Month)),
+			DayS = vdr_data_processor:get_2_number_integer_from_oct_string(integer_to_list(Day)),
+			%HourS = vdr_data_processor:get_2_number_integer_from_oct_string(integer_to_list(Hour)),
+			%MinuteS = vdr_data_processor:get_2_number_integer_from_oct_string(integer_to_list(Minute)),
+			%SecondS = vdr_data_processor:get_2_number_integer_from_oct_string(integer_to_list(Second)),
+			[{dbpid, DBPid}] = ets:lookup(msgservertable, dbpid),
+		    case DBPid of
+		        undefined ->
+		            ok;
+		        _ ->
+					Pid = self(),
+					DBPid ! {Pid, conn, <<"CREATE TABLE IF NOT EXITS gps_database.vehicle_position_">> ++ list_to_binary(YearS) ++
+								 list_to_binary(MonthS) ++ list_to_binary(DayS) ++ <<"">>},
+		            receive
+		                {Pid, Result} ->
+		                    Result
+		            end
+		    end,
+			db_table_deamon()
+	after 23*60*60*1000 ->
+			db_table_deamon()
+	end.			
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%% File END.

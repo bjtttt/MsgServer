@@ -72,6 +72,8 @@
 		 get_tel_book_entries/1
 	]).
 
+-export([get_2_number_integer_from_oct_string/1]).
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %
 % ID        : 
