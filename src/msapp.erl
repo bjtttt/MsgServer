@@ -187,7 +187,7 @@ db_table_deamon() ->
 		        _ ->
 					Pid = self(),
 					DBPid ! {Pid, conn, <<"CREATE TABLE IF NOT EXITS gps_database.vehicle_position_">> ++ list_to_binary(YearS) ++
-								 list_to_binary(MonthS) ++ list_to_binary(DayS) ++ <<"">>},
+								 list_to_binary(MonthS) ++ list_to_binary(DayS) ++ <<" LIKE vehicle_position">>},
 		            receive
 		                {Pid, Result} ->
 		                    Result
