@@ -173,6 +173,7 @@ db_table_deamon() ->
 			ok;
 		_ ->
 			{Year, Month, Day} = erlang:date(),
+			{Year1, Month1, Day1} = tomorrow(),
 			%{Hour, Minute, Second} = erlang:time(),
 			YearS = vdr_data_processor:get_2_number_integer_from_oct_string(integer_to_list(Year)),
 			MonthS = vdr_data_processor:get_2_number_integer_from_oct_string(integer_to_list(Month)),
@@ -191,12 +192,68 @@ db_table_deamon() ->
 		            receive
 		                {Pid, Result} ->
 		                    Result
+		            end,
+					DBPid ! {Pid, conn, <<"CREATE TABLE IF NOT EXITS gps_database.vehicle_position_">> ++ list_to_binary(YearS) ++
+								 list_to_binary(MonthS) ++ list_to_binary(DayS) ++ <<" LIKE vehicle_position">>},
+		            receive
+		                {Pid, Result} ->
+		                    Result
 		            end
 		    end,
 			db_table_deamon()
 	after 23*60*60*1000 ->
 			db_table_deamon()
 	end.			
+
+today    () -> erlang:localtime().
+tomorrow () -> add(today(), 1).
+
+add(Date, second) ->
+    add(Date, 1, seconds);
+add(Date, minute) ->
+    add(Date, 1, minutes);
+add(Date, hour) ->
+    add(Date, 1, hours);
+add(Date, day) ->
+    add(Date, 1);
+add(Date, week) ->
+    add(Date, 1, weeks);
+add(Date, month) ->
+    add(Date, 1, months);
+add(Date, year) ->
+    add(Date, 1, years);
+add(Date, N)  ->
+    add(Date, N, days).
+
+add(DateTime, N, seconds) ->
+    T1 = calendar:datetime_to_gregorian_seconds(DateTime),
+    T2 = T1 + N,
+    calendar:gregorian_seconds_to_datetime(T2);
+add(DateTime, N, minutes) ->
+    add(DateTime, 60*N, seconds);
+add(DateTime, N, hours) ->
+    add(DateTime, 60*N, minutes);
+add(DateTime, N, days) ->
+    add(DateTime, 24*N, hours);
+add(DateTime, N, weeks) ->
+    add(DateTime, 7*N, days);
+% Adding months is a bit tricky.
+add({{YYYY, MM, DD}=Date, Time}, 0, months) ->
+    case calendar:valid_date(Date) of
+	true  -> {Date, Time};
+	false -> add({{YYYY, MM, DD-1}, Time}, 0, months) % Oops, too many days in this month,
+                                                          % Remove a day and try again.
+    end;
+add({{YYYY, MM, DD}, Time}, N, months) when N > 0 andalso MM < 12 ->
+    add({{YYYY, MM+1, DD}, Time}, N-1, months);
+add({{YYYY, MM, DD}, Time}, N, months) when N > 0 andalso MM =:= 12 ->
+    add({{YYYY+1, 1, DD}, Time}, N-1, months); 
+add({{YYYY, MM, DD}, Time}, N, months) when N < 0 andalso MM > 1 ->
+    add({{YYYY, MM-1, DD}, Time}, N+1, months);
+add({{YYYY, MM, DD}, Time}, N, months) when N < 0 andalso MM =:= 1 ->
+    add({{YYYY-1, 12, DD}, Time}, N+1, months);
+add(Date, N, years) ->
+    add(Date, 12*N, months).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%% File END.
