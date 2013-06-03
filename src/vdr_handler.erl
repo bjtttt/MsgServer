@@ -728,7 +728,16 @@ process_vdr_data(Socket, Data, State) ->
                             {ok, NewState};
                         16#800 ->
                             {_Id, _Type, _Code, _EICode, _PipeId} = Msg,
-                            
+
+                            {ID, TYPE, CODE, EICODE, PIPEID} = Msg,
+                            {YEAR,MONTH,DATE}=date(),
+                            DBNAME = "VEHICLE_MULTIMEDIA_" ++ integer_to_list(YEAR) ++ integer_to_list(MONTH),
+                            TBLNAME = "'M_" ++ integer_to_list(DATE) ++ "'",
+                            send_sql_to_db(conn, list_to_binary(["CREATE DATABASE IF NOT EXISTS ", DBNAME,
+                                                                 ";USE ",DBNAME,
+                                                                 ";CREATE TABLE IF NOT EXISTS ",TBLNAME,
+                                                                 "(`ID` INT(11) NOT NULL AUTO_INCREMENT,'MID' INT(1) NOT NULL,'TYPE' TINYINT(1) NOT NULL,'FormatCode' TINYINT(1) NOT NULL,'EventCode' TINYINT(1) NOT NULL,'PipeId' TINYINT(1) NOT NULL,PRIMARY KEY ('ID')) ENGINE=MyISAM DEFAULT CHARSET=utf8;insert into",TBLNAME,"(MID,TYPE,FormatCode,EventCode,PipeId) values(",ID,",",TYPE,",",CODE,",",EICODE,",",PIPEID,");"]), NewState),                            
+                                                        
                             {ok, NewState};
                         16#801 ->
                             {_Id, _Type, _Code, _EICode, _PipeId, _MsgBody, _Pack} = Msg,

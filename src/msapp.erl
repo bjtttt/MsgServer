@@ -172,15 +172,16 @@ db_table_deamon() ->
 		stop ->
 			ok;
 		_ ->
-			{Year, Month, Day} = erlang:date(),
-			{Year1, Month1, Day1} = tomorrow(),
-			%{Hour, Minute, Second} = erlang:time(),
+            Today = erlang:localtime(),%today(),
+            Tomorrow = add(Today, 1),
+            {{Year, Month, Day}, _} = Today,
+			{{Year1, Month1, Day1}, _} = Tomorrow,
 			YearS = vdr_data_processor:get_2_number_integer_from_oct_string(integer_to_list(Year)),
 			MonthS = vdr_data_processor:get_2_number_integer_from_oct_string(integer_to_list(Month)),
 			DayS = vdr_data_processor:get_2_number_integer_from_oct_string(integer_to_list(Day)),
-			%HourS = vdr_data_processor:get_2_number_integer_from_oct_string(integer_to_list(Hour)),
-			%MinuteS = vdr_data_processor:get_2_number_integer_from_oct_string(integer_to_list(Minute)),
-			%SecondS = vdr_data_processor:get_2_number_integer_from_oct_string(integer_to_list(Second)),
+            Year1S = vdr_data_processor:get_2_number_integer_from_oct_string(integer_to_list(Year1)),
+            Month1S = vdr_data_processor:get_2_number_integer_from_oct_string(integer_to_list(Month1)),
+            Day1S = vdr_data_processor:get_2_number_integer_from_oct_string(integer_to_list(Day1)),
 			[{dbpid, DBPid}] = ets:lookup(msgservertable, dbpid),
 		    case DBPid of
 		        undefined ->
@@ -190,14 +191,14 @@ db_table_deamon() ->
 					DBPid ! {Pid, conn, <<"CREATE TABLE IF NOT EXITS gps_database.vehicle_position_">> ++ list_to_binary(YearS) ++
 								 list_to_binary(MonthS) ++ list_to_binary(DayS) ++ <<" LIKE vehicle_position">>},
 		            receive
-		                {Pid, Result} ->
-		                    Result
+		                {Pid, Result1} ->
+		                    Result1
 		            end,
-					DBPid ! {Pid, conn, <<"CREATE TABLE IF NOT EXITS gps_database.vehicle_position_">> ++ list_to_binary(YearS) ++
-								 list_to_binary(MonthS) ++ list_to_binary(DayS) ++ <<" LIKE vehicle_position">>},
+					DBPid ! {Pid, conn, <<"CREATE TABLE IF NOT EXITS gps_database.vehicle_position_">> ++ list_to_binary(Year1S) ++
+								 list_to_binary(Month1S) ++ list_to_binary(Day1S) ++ <<" LIKE vehicle_position">>},
 		            receive
-		                {Pid, Result} ->
-		                    Result
+		                {Pid, Result2} ->
+		                    Result2
 		            end
 		    end,
 			db_table_deamon()
@@ -205,8 +206,8 @@ db_table_deamon() ->
 			db_table_deamon()
 	end.			
 
-today    () -> erlang:localtime().
-tomorrow () -> add(today(), 1).
+%today() -> erlang:localtime().
+%tomorrow() -> add(today(), 1).
 
 add(Date, second) ->
     add(Date, 1, seconds);
