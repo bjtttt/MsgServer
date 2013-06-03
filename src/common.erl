@@ -18,6 +18,7 @@
          is_dec_list/1,
          convert_word_hex_string_to_integer/1,
 		 integer_to_binary/1,
+         integer_to_2byte_binary/1,
          float_to_binary/1]).
 
 -export([set_sockopt/3]).
@@ -29,8 +30,25 @@
 %%%
 %%%
 %%%
-integer_to_binary(Integer) ->
-    list_to_binary(integer_to_list(Integer)).
+integer_to_binary(Integer) when is_integer(Integer) ->
+    list_to_binary(integer_to_list(Integer));
+integer_to_binary(_Integer) ->
+    <<>>.
+
+%%%
+%%%
+%%%
+integer_to_2byte_binary(Integer) when is_integer(Integer) ->
+    List = integer_to_list(Integer),
+    Len = length(List),
+    if
+        Len > 1 ->
+            list_to_binary(List);
+        true ->
+            list_to_binary(["0", List])
+    end;
+integer_to_2byte_binary(_Integer) ->
+    <<>>.
 
 %%%
 %%%

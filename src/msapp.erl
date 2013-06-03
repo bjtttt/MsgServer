@@ -168,39 +168,49 @@ receive_db_ws_init_msg(WSOK, DBOK, Count) ->
 %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 db_table_deamon() ->
+    Today = erlang:localtime(),%today(),
+    Tomorrow = add(Today, 1),
+    {{Year, Month, Day}, _} = Today,
+    {{Year1, Month1, Day1}, _} = Tomorrow,
+    YearS = vdr_data_processor:get_2_number_integer_from_oct_string(integer_to_list(Year)),
+    MonthS = vdr_data_processor:get_2_number_integer_from_oct_string(integer_to_list(Month)),
+    DayS = vdr_data_processor:get_2_number_integer_from_oct_string(integer_to_list(Day)),
+    Year1S = vdr_data_processor:get_2_number_integer_from_oct_string(integer_to_list(Year1)),
+    Month1S = vdr_data_processor:get_2_number_integer_from_oct_string(integer_to_list(Month1)),
+    Day1S = vdr_data_processor:get_2_number_integer_from_oct_string(integer_to_list(Day1)),
+    Bin = list_to_binary([common:integer_to_2byte_binary(YearS),
+              common:integer_to_2byte_binary(MonthS),
+              common:integer_to_2byte_binary(DayS)]),
+    Bin1 = list_to_binary([common:integer_to_2byte_binary(Year1S),
+               common:integer_to_2byte_binary(Month1S),
+               common:integer_to_2byte_binary(Day1S)]),
+    [{dbpid, DBPid}] = ets:lookup(msgservertable, dbpid),
+    case DBPid of
+        undefined ->
+            ok;
+        _ ->
+            Pid = self(),
+            error_logger:info_msg("Check table gps_database.vehicle_position_~p~n", [binary_to_list(Bin)]),
+            DBPid ! {Pid, conn, list_to_binary([<<"CREATE TABLE IF NOT EXISTS gps_database.vehicle_position_">>, 
+                         Bin,
+                         <<" LIKE vehicle_position">>])},
+            receive
+                {Pid, Result1} ->
+                    Result1
+            end,
+            error_logger:info_msg("Check table gps_database.vehicle_position_~p~n", [binary_to_list(Bin1)]),
+            DBPid ! {Pid, conn, list_to_binary([<<"CREATE TABLE IF NOT EXISTS gps_database.vehicle_position_">>, 
+                         Bin1,
+                         <<" LIKE vehicle_position">>])},
+            receive
+                {Pid, Result2} ->
+                    Result2
+            end
+    end,
 	receive
 		stop ->
 			ok;
 		_ ->
-            Today = erlang:localtime(),%today(),
-            Tomorrow = add(Today, 1),
-            {{Year, Month, Day}, _} = Today,
-			{{Year1, Month1, Day1}, _} = Tomorrow,
-			YearS = vdr_data_processor:get_2_number_integer_from_oct_string(integer_to_list(Year)),
-			MonthS = vdr_data_processor:get_2_number_integer_from_oct_string(integer_to_list(Month)),
-			DayS = vdr_data_processor:get_2_number_integer_from_oct_string(integer_to_list(Day)),
-            Year1S = vdr_data_processor:get_2_number_integer_from_oct_string(integer_to_list(Year1)),
-            Month1S = vdr_data_processor:get_2_number_integer_from_oct_string(integer_to_list(Month1)),
-            Day1S = vdr_data_processor:get_2_number_integer_from_oct_string(integer_to_list(Day1)),
-			[{dbpid, DBPid}] = ets:lookup(msgservertable, dbpid),
-		    case DBPid of
-		        undefined ->
-		            ok;
-		        _ ->
-					Pid = self(),
-					DBPid ! {Pid, conn, <<"CREATE TABLE IF NOT EXITS gps_database.vehicle_position_">> ++ common:integer_to_binary(YearS) ++
-								 common:integer_to_binary(MonthS) ++ common:integer_to_binary(DayS) ++ <<" LIKE vehicle_position">>},
-		            receive
-		                {Pid, Result1} ->
-		                    Result1
-		            end,
-					DBPid ! {Pid, conn, <<"CREATE TABLE IF NOT EXITS gps_database.vehicle_position_">> ++ common:integer_to_binary(Year1S) ++
-								 common:integer_to_binary(Month1S) ++ common:integer_to_binary(Day1S) ++ <<" LIKE vehicle_position">>},
-		            receive
-		                {Pid, Result2} ->
-		                    Result2
-		            end
-		    end,
 			db_table_deamon()
 	after 23*60*60*1000 ->
 			db_table_deamon()
