@@ -188,14 +188,14 @@ db_table_deamon() ->
 		            ok;
 		        _ ->
 					Pid = self(),
-					DBPid ! {Pid, conn, <<"CREATE TABLE IF NOT EXITS gps_database.vehicle_position_">> ++ list_to_binary(YearS) ++
-								 list_to_binary(MonthS) ++ list_to_binary(DayS) ++ <<" LIKE vehicle_position">>},
+					DBPid ! {Pid, conn, <<"CREATE TABLE IF NOT EXITS gps_database.vehicle_position_">> ++ common:integer_to_binary(YearS) ++
+								 common:integer_to_binary(MonthS) ++ common:integer_to_binary(DayS) ++ <<" LIKE vehicle_position">>},
 		            receive
 		                {Pid, Result1} ->
 		                    Result1
 		            end,
-					DBPid ! {Pid, conn, <<"CREATE TABLE IF NOT EXITS gps_database.vehicle_position_">> ++ list_to_binary(Year1S) ++
-								 list_to_binary(Month1S) ++ list_to_binary(Day1S) ++ <<" LIKE vehicle_position">>},
+					DBPid ! {Pid, conn, <<"CREATE TABLE IF NOT EXITS gps_database.vehicle_position_">> ++ common:integer_to_binary(Year1S) ++
+								 common:integer_to_binary(Month1S) ++ common:integer_to_binary(Day1S) ++ <<" LIKE vehicle_position">>},
 		            receive
 		                {Pid, Result2} ->
 		                    Result2
