@@ -786,8 +786,22 @@ process_vdr_data(Socket, Data, State) ->
                             {_E, _N} = Msg,
                             
                             {ok, NewState};
+                        16#100 ->
+                            FlowIdx = NewState#vdritem.msgflownum,
+                            MsgBody = vdr_data_processor:create_reg_resp(MsgIdx, 0, list_to_binary(NewState#vdritem.auth)),
+                            common:loginfo("~p sends VDR registration response (ok) : ~p~n", [NewState#vdritem.pid, MsgBody]),
+                            NewFlowIdx = send_data_to_vdr(16#8100, FlowIdx, MsgBody, VDRPid),
+
+                            {ok, NewState#vdritem{msgflownum=NewFlowIdx}};
+                        16#102 ->
+                            FlowIdx = NewState#vdritem.msgflownum,
+                            MsgBody = vdr_data_processor:create_gen_resp(ID, MsgIdx, ?T_GEN_RESP_OK),
+                            common:loginfo("~p sends VDR (~p) response for 16#102 (ok) : ~p~n", [State#vdritem.pid, State#vdritem.addr, MsgBody]),
+                            NewFlowIdx = send_data_to_vdr(16#8001, FlowIdx, MsgBody, VDRPid),
+                            
+                            {ok, NewState#vdritem{msgflownum=NewFlowIdx}};
                         _ ->
-                            common:loginfo("Invalid registration/authentication Invalid message from registered/authenticated VDR (~p) (id:~p, serialno:~p, authen_code:~p, vehicleid:~p, vehiclecode:~p) MSG ID : ~p~n", [NewState#vdritem.addr, NewState#vdritem.id, NewState#vdritem.serialno, NewState#vdritem.auth, NewState#vdritem.vehicleid, NewState#vdritem.vehiclecode, ID]),
+                            common:loginfo("Invalid message from registered/authenticated VDR (~p) (id:~p, serialno:~p, authen_code:~p, vehicleid:~p, vehiclecode:~p) MSG ID : ~p~n", [NewState#vdritem.addr, NewState#vdritem.id, NewState#vdritem.serialno, NewState#vdritem.auth, NewState#vdritem.vehicleid, NewState#vdritem.vehiclecode, ID]),
                             {error, invaliderror, NewState}
                     end
             end;
