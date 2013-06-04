@@ -128,7 +128,14 @@ terminate(Reason, State) ->
         undefined ->
             ok;
         _ ->
-            VDRPid ! stop
+			Pid = self(),
+            VDRPid ! {Pid, stop},
+			receive
+				{Pid, stopped} ->
+					ok
+			after 10000 ->
+					ok
+			end
     end,
     case Socket of
         undefined ->
@@ -940,6 +947,9 @@ send_data_to_vdr(ID, FlowIdx, MsgBody, VDRPid) ->
 data2vdr_process(Socket) ->
     common:loginfo("~p is waiting for MSG to VDR~n", [self()]),
     receive
+		{Pid, stop} ->
+			common:loginfo("~p stops waiting for MSG to VDR by ~p~n", [self(), Pid]),
+			Pid ! {Pid, stopped};
         {Pid, Msg} ->
             common:loginfo("~p receives MSG to VDR from ~p : ~p~n", [self(), Pid, Msg]),
             gen_tcp:send(Socket, Msg),
