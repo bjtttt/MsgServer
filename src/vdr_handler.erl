@@ -158,6 +158,7 @@ terminate(Reason, State) ->
                                   <<"'">>]),
             send_sql_to_db(conn, Sql, State)
     end,
+    common:loginfo("VDR (~p) : gen_tcp:close~n", [State#vdritem.addr]),
 	try gen_tcp:close(State#vdritem.socket)
     catch
         _:Ex ->
@@ -937,13 +938,15 @@ send_data_to_vdr(ID, FlowIdx, MsgBody, VDRPid) ->
 %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 data2vdr_process(Socket) ->
+    common:loginfo("~p is waiting for MSG to VDR~n", [self()]),
     receive
         {Pid, Msg} ->
-            common:loginfo("~p Receives MSG to VDR from ~p : ~p~n", [self(), Pid, Msg]),
+            common:loginfo("~p receives MSG to VDR from ~p : ~p~n", [self(), Pid, Msg]),
             gen_tcp:send(Socket, Msg),
             %Pid ! {Pid, vdrok},
             data2vdr_process(Socket);
         stop ->
+            common:loginfo("~p stops waiting for MSG to VDR~n", [self()]),
             ok;
         _ ->
             data2vdr_process(Socket)
