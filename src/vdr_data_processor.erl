@@ -303,20 +303,24 @@ parse_reg(Bin) ->
 %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 create_reg_resp(RespIdx, Res, AuthCode) when is_integer(RespIdx),
-											 is_integer(Res),
-											 Res >= 0,
-											 Res =< 4,
-											 is_list(AuthCode) ->
-	case AuthCode of
-		empty ->
-			<<RespIdx:?LEN_WORD, Res:?LEN_WORD>>;
-		_ ->
-            case common:is_string(AuthCode) of
+                                             is_integer(Res),
+                                             Res >= 0,
+                                             Res =< 4 ->
+    case AuthCode of
+        empty ->
+            <<RespIdx:?LEN_WORD, Res:?LEN_WORD>>;
+        _ ->
+            case is_binary(AuthCode) of
                 true ->
-        			Bin = list_to_binary(AuthCode),
-        			<<RespIdx:?LEN_WORD, Res:?LEN_WORD, Bin/binary>>;
+                    <<RespIdx:?LEN_WORD, Res:?LEN_WORD, AuthCode/binary>>;
                 _ ->
-                    <<>>
+                    case is_list(AuthCode) of
+                        true ->
+                            Bin = list_to_binary(AuthCode),
+                            <<RespIdx:?LEN_WORD, Res:?LEN_WORD, Bin/binary>>;
+                        _ ->
+                            <<>>
+                    end
             end
     end;
 create_reg_resp(_RespIdx, _Res, _AuthCode) ->
