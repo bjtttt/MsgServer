@@ -80,6 +80,7 @@
                     driverid=undefined,         % DB driver ID, only valid in DB table
                     driverlicno=undefined,      % Actual driver license number
                     alarm=0,
+					alarmlist=[],
                     pid=undefined,
                     vdrpid=undefined,
                     respwspid=undefined,

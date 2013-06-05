@@ -614,16 +614,23 @@ process_vdr_data(Socket, Data, State) ->
                                     [AlarmSym, StateFlag, Lat, Lon, _Height, _Speed, _Direction, Time]= H,
                                     if
                                         AlarmSym == PreviousAlarm ->
-                                            ok;
+		                                    MsgBody = vdr_data_processor:create_gen_resp(ID, MsgIdx, ?T_GEN_RESP_OK),
+		                                    common:loginfo("~p sends VDR (~p) response for 16#200 (ok) : ~p~n", [State#vdritem.pid, NewState#vdritem.addr, MsgBody]),
+		                                    NewFlowIdx = send_data_to_vdr(16#8001, FlowIdx, MsgBody, VDRPid),
+		                                    
+		                                    {ok, NewState#vdritem{msgflownum=NewFlowIdx, alarm=AlarmSym}};
                                         true ->
                                             <<Year:8, Month:8, Day:8, Hour:8, Minute:8, Second:8>> = <<Time:48>>,
-                                            YearS = common:integer_to_binary(common:convert_bcd_integer(Year)),
-                                            MonthS = common:integer_to_binary(common:convert_bcd_integer(Month)),
-                                            DayS = common:integer_to_binary(common:convert_bcd_integer(Day)),
-                                            HourS = common:integer_to_binary(common:convert_bcd_integer(Hour)),
-                                            MinuteS = common:integer_to_binary(common:convert_bcd_integer(Minute)),
-                                            SecondS = common:integer_to_binary(common:convert_bcd_integer(Second)),
-                                            TimeS = list_to_binary([<<"\"">>, YearS, <<"-">>, MonthS, <<"-">>, DayS, <<" ">>, HourS, <<":">>, MinuteS, <<":">>, SecondS, <<"\"">>]),
+                                            YearBin = common:integer_to_binary(common:convert_bcd_integer(Year)),
+                                            MonthBin = common:integer_to_binary(common:convert_bcd_integer(Month)),
+                                            DayBin = common:integer_to_binary(common:convert_bcd_integer(Day)),
+                                            HourBin = common:integer_to_binary(common:convert_bcd_integer(Hour)),
+                                            MinuteBin = common:integer_to_binary(common:convert_bcd_integer(Minute)),
+                                            SecondBin = common:integer_to_binary(common:convert_bcd_integer(Second)),
+                                            TimeS = binary_to_list(list_to_binary([YearBin, <<"-">>, MonthBin, <<"-">>, DayBin, <<" ">>, HourBin, <<":">>, MinuteBin, <<":">>, SecondBin])),
+                                            TimeBinS = list_to_binary([<<"\"">>, YearBin, <<"-">>, MonthBin, <<"-">>, DayBin, <<" ">>, HourBin, <<":">>, MinuteBin, <<":">>, SecondBin, <<"\"">>]),
+											
+											AlarmList = update_vehicle_alarm(NewState#vdritem.vehicleid, NewState#vdritem.driverid, TimeS, AlarmSym, 0, NewState#vdritem.alarmlist),
                                             
                                             {ok, WSUpdate} = wsock_data_parser:create_term_alarm([NewState#vdritem.vehicleid],
                                                                                                  FlowIdx,
@@ -632,16 +639,16 @@ process_vdr_data(Socket, Data, State) ->
                                                                                                  StateFlag,
                                                                                                  Lat, 
                                                                                                  Lon,
-                                                                                                 binary_to_list(TimeS)),
+                                                                                                 binary_to_list(TimeBinS)),
                                             common:loginfo("VDR (~p) WS Alarm for 0x200: ~p~n", [NewState#vdritem.addr, WSUpdate]),
-                                            send_msg_to_ws(WSUpdate, NewState) %wsock_client:send(WSUpdate)
-                                    end,
+                                            send_msg_to_ws(WSUpdate, NewState), %wsock_client:send(WSUpdate)
 
-                                    MsgBody = vdr_data_processor:create_gen_resp(ID, MsgIdx, ?T_GEN_RESP_OK),
-                                    common:loginfo("~p sends VDR (~p) response for 16#200 (ok) : ~p~n", [State#vdritem.pid, NewState#vdritem.addr, MsgBody]),
-                                    NewFlowIdx = send_data_to_vdr(16#8001, FlowIdx, MsgBody, VDRPid),
-                                    
-                                    {ok, NewState#vdritem{msgflownum=NewFlowIdx, alarm=AlarmSym}};
+		                                    MsgBody = vdr_data_processor:create_gen_resp(ID, MsgIdx, ?T_GEN_RESP_OK),
+		                                    common:loginfo("~p sends VDR (~p) response for 16#200 (ok) : ~p~n", [State#vdritem.pid, NewState#vdritem.addr, MsgBody]),
+		                                    NewFlowIdx = send_data_to_vdr(16#8001, FlowIdx, MsgBody, VDRPid),
+		                                    
+		                                    {ok, NewState#vdritem{msgflownum=NewFlowIdx, alarm=AlarmSym, alarmlist=AlarmList}}
+                                    end;
                                 _ ->
                                     {error, invaliderror, NewState}
                             end;
@@ -866,6 +873,56 @@ update_reg_install_time(DeviceID, DeviceRegTime, VehicleID, VehicleDeviceInstall
         true ->
             ok
     end.
+
+
+update_vehicle_alarm(VehicleID, DriverID, TimeS, Alarm, Index, AlarmList) when is_integer(Index),
+																						   Index >= 0,
+																						   Index =< 31 ->
+	Flag = 1 bsl Index,
+	BitState = Alarm band Flag,
+	if
+		BitState == 1 ->
+			update_vehicle_alarm_bit(VehicleID, DriverID, TimeS, Index, BitState, AlarmList),
+			update_vehicle_alarm(VehicleID, DriverID, TimeS, Alarm, Index+1, AlarmList);
+		true ->
+			update_vehicle_alarm(VehicleID, DriverID, TimeS, Alarm, Index+1, AlarmList)
+	end;
+update_vehicle_alarm(_VehicleID, _DriverID, _TimeS, _Alarm, _Index, _AlarmList) ->
+	ok.
+
+update_vehicle_alarm_bit(VehicleID, DriverID, TimeBinary, Index, Bit, State) ->
+	if
+		Index == 15 orelse Index == 16 orelse Index == 17 ->
+			ok;
+		true ->
+			case Bit of
+				1 ->
+					UpdateSql = list_to_binary([<<"if not exists(select vehicle_id,driver_id,type_id from vehicle where ">>,
+												<<"vehicle_id=">>, common:integer_to_binary(VehicleID), <<" and ">>,
+												<<"driver_id=">>, common:integer_to_binary(DriverID), <<" and ">>,
+												<<"type_id">>, common:integer_to_binary(Index), <<") then ">>,
+												<<"insert into vehicle_alarm(vehicle_id,driver_id,alarm_time,clear_time,type_id) ">>,
+												<<"values(">>,
+												common:integer_to_binary(VehicleID), <<",">>,
+												common:integer_to_binary(DriverID), <<",">>,
+												TimeBinary, <<",NULL,">>,
+												common:integer_to_binary(Index),<<") ">>,
+												<<"on duplicate key update alarm_time=">>, TimeBinary, <<",clear_time=NULL">>]),
+					send_sql_to_db(conn, UpdateSql, State);
+				0 ->
+					UpdateSql = list_to_binary([<<"insert into vehicle_alarm(vehicle_id,driver_id,alarm_time,clear_time,type_id) ">>,
+												<<"values(">>,
+												common:integer_to_binary(VehicleID), <<",">>,
+												common:integer_to_binary(DriverID), <<",">>,
+												TimeBinary, <<",NULL,">>,
+												common:integer_to_binary(Index),<<") ">>,
+												<<"on duplicate key update alarm_time=">>, TimeBinary, <<",clear_time=NULL">>]),
+					send_sql_to_db(conn, UpdateSql, State);
+				_ ->
+					ok
+			end
+	end.
+		
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %
