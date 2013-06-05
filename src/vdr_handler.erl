@@ -434,6 +434,7 @@ process_vdr_data(Socket, Data, State) ->
                                             {<<"vehicle">>, <<"id">>, VehicleID} = get_record_field(<<"vehicle">>, Rec, <<"id">>),
                                             % "id" is NOT NULL & UNIQUE, so it cannot be null. However it can be undefined because vehicle table device_id may don't be euqual to device table id 
                                             {<<"vehicle">>, <<"code">>, VehicleCode} = get_record_field(<<"vehicle">>, Rec, <<"code">>),
+                                            {<<"vehicle">>, <<"driver_id">>, DriverID} = get_record_field(<<"vehicle">>, Rec, <<"driver_id">>),
                                             if
                                                 VehicleID == undefined orelse VehicleCode==undefined ->
                                                     {error, dberror, State};
@@ -451,7 +452,8 @@ process_vdr_data(Socket, Data, State) ->
                                                                                                  serialno=binary_to_list(VDRSerialNo), 
                                                                                                  auth=binary_to_list(VDRAuthenCode),
                                                                                                  vehicleid=VehicleID,
-                                                                                                 vehiclecode=binary_to_list(VehicleCode)}),
+                                                                                                 vehiclecode=binary_to_list(VehicleCode),
+                                                                                                 driverid=DriverID}),
                                                             common:loginfo("Insert VDRIDSocket : VehicleID (~p)~n", [VehicleID]),
                                                             ets:insert(vdridsocktable, #vdridsockitem{id=VehicleID, socket=Socket, addr=State#vdritem.addr, vdrpid=VDRPid, respwspid=SockVdr#vdritem.respwspid}),
                                                             
