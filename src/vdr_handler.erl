@@ -610,7 +610,7 @@ process_vdr_data(Socket, Data, State) ->
                                     FlowIdx = NewState#vdritem.msgflownum,
                                     PreviousAlarm = NewState#vdritem.alarm,
                                     
-                                    {H, _AppInfo} = Msg,
+                                    {H, AppInfo} = Msg,
                                     [AlarmSym, StateFlag, Lat, Lon, _Height, _Speed, _Direction, Time]= H,
                                     if
                                         AlarmSym == PreviousAlarm ->
@@ -648,7 +648,9 @@ process_vdr_data(Socket, Data, State) ->
 		                                    NewFlowIdx = send_data_to_vdr(16#8001, FlowIdx, MsgBody, VDRPid),
 		                                    
 		                                    {ok, NewState#vdritem{msgflownum=NewFlowIdx, alarm=AlarmSym, alarmlist=AlarmList}}
-                                    end;
+                                    end,
+                                    
+                                    report_appinfo(AppInfo, NewState);
                                 _ ->
                                     {error, invaliderror, NewState}
                             end;
