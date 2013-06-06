@@ -648,9 +648,9 @@ process_vdr_data(Socket, Data, State) ->
 		                                    NewFlowIdx = send_data_to_vdr(16#8001, FlowIdx, MsgBody, VDRPid),
 		                                    
 		                                    {ok, NewState#vdritem{msgflownum=NewFlowIdx, alarm=AlarmSym, alarmlist=AlarmList}}
-                                    end,
+                                    end;%,
                                     
-                                    report_appinfo(AppInfo, NewState);
+                                    %report_appinfo(AppInfo, NewState);
                                 _ ->
                                     {error, invaliderror, NewState}
                             end;
@@ -1145,26 +1145,27 @@ send_msg_to_ws(Msg, State) ->
 %%%     error
 %%%
 create_sql_from_vdr(HeaderInfo, Msg, State) ->
-    {ID, _FlowNum, _TelNum, _CryptoType} = HeaderInfo,
+    {ID, _FlowNum, TelNum, _CryptoType} = HeaderInfo,
     case ID of
         16#1    ->
             {ok, ""};
         16#2    ->                          
             {ok, ""};
         16#100  ->          % Not complete, currently only use VDRSerialNo&VehicleID for query                     
-            {_Province, _City, _Producer, _VDRModel, VDRSerialNo, _VehicleColor, VehicleID} = Msg,
-            SQL = list_to_binary([<<"select * from vehicle,device where device.serial_no='">>,
-                                  list_to_binary(VDRSerialNo),
-                                  <<"' and vehicle.code='">>,
-                                  list_to_binary(VehicleID),
+            {_Province, _City, _Producer, _VDRModel, _VDRSerialNo, _VehicleColor, _VehicleID} = Msg,
+            SQL = list_to_binary([<<"select * from vehicle,device where device.iccid='">>,%serial_no='">>,
+                                  %list_to_binary(VDRSerialNo),
+                                  %<<"' and vehicle.code='">>,
+                                  %list_to_binary(VehicleID),
+								  list_to_binary(TelNum),
                                   <<"'">>]),
             {ok, SQL};
         16#3    ->                          
             {ID, Auth} = Msg,
             {ok, list_to_binary([<<"update device set reg_time=null where authen_code='">>, list_to_binary(Auth), <<"' or id='">>, list_to_binary(ID), <<"'">>])};
         16#102  ->
-            {Auth} = Msg,
-            {ok, list_to_binary([<<"select * from device left join vehicle on vehicle.device_id=device.id where device.authen_code='">>, list_to_binary(Auth), <<"'">>])};
+            {_Auth} = Msg,
+            {ok, list_to_binary([<<"select * from device left join vehicle on vehicle.device_id=device.id where device.iccid='">>,list_to_binary(TelNum), <<"'">>])};%authen_code='">>, list_to_binary(Auth), <<"'">>])};
         16#104  ->
             {_RespIdx, _ActLen, _List} = Msg,
             {ok, ""};
