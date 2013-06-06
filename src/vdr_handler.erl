@@ -630,7 +630,7 @@ process_vdr_data(Socket, Data, State) ->
                                             TimeS = binary_to_list(list_to_binary([YearBin, <<"-">>, MonthBin, <<"-">>, DayBin, <<" ">>, HourBin, <<":">>, MinuteBin, <<":">>, SecondBin])),
                                             TimeBinS = list_to_binary([<<"\"">>, YearBin, <<"-">>, MonthBin, <<"-">>, DayBin, <<" ">>, HourBin, <<":">>, MinuteBin, <<":">>, SecondBin, <<"\"">>]),
 											
-											AlarmList = update_vehicle_alarm(NewState#vdritem.vehicleid, NewState#vdritem.driverid, TimeS, AlarmSym, 0, NewState#vdritem.alarmlist),
+											AlarmList = update_vehicle_alarm(NewState#vdritem.vehicleid, NewState#vdritem.driverid, TimeS, AlarmSym, 0, NewState),
                                             
                                             {ok, WSUpdate} = wsock_data_parser:create_term_alarm([NewState#vdritem.vehicleid],
                                                                                                  FlowIdx,
@@ -874,55 +874,92 @@ update_reg_install_time(DeviceID, DeviceRegTime, VehicleID, VehicleDeviceInstall
             ok
     end.
 
-
-update_vehicle_alarm(VehicleID, DriverID, TimeS, Alarm, Index, AlarmList) when is_integer(Index),
-																						   Index >= 0,
-																						   Index =< 31 ->
-	Flag = 1 bsl Index,
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%
+% Parameters :
+%       VehicleID   : Integer
+%       DriverID    : Integer
+%       TimeS       : String
+%       Alarm       : Integer
+%       Index       : Integer 0 - 31
+%       AlarmList   : List
+%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+update_vehicle_alarm(VehicleID, DriverID, TimeS, Alarm, Index, State) when is_integer(VehicleID),
+                                                                           is_integer(DriverID),
+                                                                           is_integer(Index),
+                                                                           is_list(TimeS),
+                                                                           is_integer(Alarm),
+                                                                           Index >= 0,
+                                                                           Index =< 31 ->
+	AlarmList = State#vdritem.alarmlist,
+    Flag = 1 bsl Index,
 	BitState = Alarm band Flag,
 	if
 		BitState == 1 ->
-			update_vehicle_alarm_bit(VehicleID, DriverID, TimeS, Index, BitState, AlarmList),
-			update_vehicle_alarm(VehicleID, DriverID, TimeS, Alarm, Index+1, AlarmList);
+            AlarmEntry = get_alarm_item(Index, AlarmList),
+            if
+                AlarmEntry == empty ->
+                    UpdateSql = list_to_binary([<<"insert into vehicle_alarm(vehicle_id,driver_id,alarm_time,clear_time,type_id) values(">>,
+                                                common:integer_to_binary(VehicleID), <<",">>,
+                                                common:integer_to_binary(DriverID), <<",">>,
+                                                list_to_binary(TimeS), <<",NULL,">>,
+                                                common:integer_to_binary(Index), <<")">>]),
+                    send_sql_to_db(conn, UpdateSql, State),
+                    [AlarmList|{Index, TimeS}];
+                true ->
+                    ok
+            end;
 		true ->
-			update_vehicle_alarm(VehicleID, DriverID, TimeS, Alarm, Index+1, AlarmList)
+            AlarmEntry = get_alarm_item(Index, AlarmList),
+            if
+                AlarmEntry == empty ->
+                    ok;
+                true ->
+                    {Index, SetTime} = AlarmEntry,
+                    UpdateSql = list_to_binary([<<"update vehicle_alarm set clear_time='">>, list_to_binary(TimeS),
+                                                <<"' where vehicle_id=">>, common:integer_to_binary(VehicleID),
+                                                <<" and driver_id=">>, common:integer_to_binary(DriverID),
+                                                <<" and alarm_time='">>, list_to_binary(SetTime),
+                                                <<"' and type_id=">>, common:integer_to_binary(Index)]),
+                    send_sql_to_db(conn, UpdateSql, State),
+                    remove_alarm_item(Index, AlarmList)
+            end
 	end;
-update_vehicle_alarm(_VehicleID, _DriverID, _TimeS, _Alarm, _Index, _AlarmList) ->
-	ok.
+update_vehicle_alarm(_VehicleID, _DriverID, _TimeS, _Alarm, _Index, State) ->
+	State#vdritem.alarmlist.
 
-update_vehicle_alarm_bit(VehicleID, DriverID, TimeBinary, Index, Bit, State) ->
-	if
-		Index == 15 orelse Index == 16 orelse Index == 17 ->
-			ok;
-		true ->
-			case Bit of
-				1 ->
-					UpdateSql = list_to_binary([<<"if not exists(select vehicle_id,driver_id,type_id from vehicle where ">>,
-												<<"vehicle_id=">>, common:integer_to_binary(VehicleID), <<" and ">>,
-												<<"driver_id=">>, common:integer_to_binary(DriverID), <<" and ">>,
-												<<"type_id">>, common:integer_to_binary(Index), <<") then ">>,
-												<<"insert into vehicle_alarm(vehicle_id,driver_id,alarm_time,clear_time,type_id) ">>,
-												<<"values(">>,
-												common:integer_to_binary(VehicleID), <<",">>,
-												common:integer_to_binary(DriverID), <<",">>,
-												TimeBinary, <<",NULL,">>,
-												common:integer_to_binary(Index),<<") ">>,
-												<<"on duplicate key update alarm_time=">>, TimeBinary, <<",clear_time=NULL">>]),
-					send_sql_to_db(conn, UpdateSql, State);
-				0 ->
-					UpdateSql = list_to_binary([<<"insert into vehicle_alarm(vehicle_id,driver_id,alarm_time,clear_time,type_id) ">>,
-												<<"values(">>,
-												common:integer_to_binary(VehicleID), <<",">>,
-												common:integer_to_binary(DriverID), <<",">>,
-												TimeBinary, <<",NULL,">>,
-												common:integer_to_binary(Index),<<") ">>,
-												<<"on duplicate key update alarm_time=">>, TimeBinary, <<",clear_time=NULL">>]),
-					send_sql_to_db(conn, UpdateSql, State);
-				_ ->
-					ok
-			end
-	end.
-		
+get_alarm_item(Index, AlarmList) when is_integer(Index),
+                                      is_list(AlarmList),
+                                      length(AlarmList) > 0,
+                                      Index >= 0,
+                                      Index =< 31 ->
+    [H|T] = AlarmList,
+    {Idx, _Time} = H,
+    if
+        Index == Idx ->
+            H;
+        true ->
+            get_alarm_item(Index, T)
+    end;
+get_alarm_item(_Index, _AlarmList) ->
+    empty.
+
+remove_alarm_item(Index, AlarmList) when is_integer(Index),
+                                         is_list(AlarmList),
+                                         length(AlarmList) > 0,
+                                         Index >= 0,
+                                         Index =< 31 ->
+    [H|T] = AlarmList,
+    {Idx, _Time} = H,
+    if
+        Index == Idx ->
+            remove_alarm_item(Index, T);
+        true ->
+            [H|get_alarm_item(Index, T)]
+    end;
+remove_alarm_item(_Index, AlarmList) ->
+    AlarmList.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %
