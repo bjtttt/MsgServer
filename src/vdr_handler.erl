@@ -1158,19 +1158,26 @@ send_msg_to_ws(Msg, State) ->
 %%%     error
 %%%
 create_sql_from_vdr(HeaderInfo, Msg, State) ->
-    {ID, _FlowNum, _TelNum, _CryptoType} = HeaderInfo,
+    {ID, _FlowNum, TelNum, _CryptoType} = HeaderInfo,
     case ID of
         16#1    ->
             {ok, ""};
         16#2    ->                          
             {ok, ""};
         16#100  ->          % Not complete, currently only use VDRSerialNo&VehicleID for query                     
-            {_Province, _City, _Producer, _VDRModel, VDRSerialNo, _VehicleColor, _VehicleID} = Msg,
-            SQL = list_to_binary([<<"select * from vehicle,device where device.serial_no='">>,%<<"select * from vehicle,device where device.iccid='">>,%serial_no='">>,
-                                  list_to_binary(VDRSerialNo),
+            {_Province, _City, _Producer, _VDRModel, _VDRSerialNo, _VehicleColor, _VehicleID} = Msg,
+			<<Num0:8, Num1:8, Num2:8, Num3:8, Num4:8, Num5:8>> = <<TelNum:48>>,
+			TelBin = list_to_binary([common:integer_to_binary(common:convert_bcd_integer(Num0)),
+				    				 common:integer_to_2byte_binary(common:convert_bcd_integer(Num1)),
+									 common:integer_to_2byte_binary(common:convert_bcd_integer(Num2)),
+									 common:integer_to_2byte_binary(common:convert_bcd_integer(Num3)),
+									 common:integer_to_2byte_binary(common:convert_bcd_integer(Num4)),
+									 common:integer_to_2byte_binary(common:convert_bcd_integer(Num5))]),
+            SQL = list_to_binary([<<"select * from vehicle,device where device.iccid='">>,%serial_no='">>,
+                                  %list_to_binary(VDRSerialNo),
                                   %<<"' and vehicle.code='">>,
                                   %list_to_binary(VehicleID),
-								  %common:integer_to_binary(TelNum),
+								  TelBin,
                                   %<<"'">>]),
 								  <<"' and vehicle.device_id=device.id">>]),
             {ok, SQL};

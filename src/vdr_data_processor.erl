@@ -308,16 +308,16 @@ create_reg_resp(RespIdx, Res, AuthCode) when is_integer(RespIdx),
                                              Res =< 4 ->
     case AuthCode of
         empty ->
-            <<RespIdx:?LEN_WORD, Res:?LEN_WORD>>;
+            <<RespIdx:?LEN_WORD, Res:?LEN_BYTE>>;
         _ ->
             case is_binary(AuthCode) of
                 true ->
-                    <<RespIdx:?LEN_WORD, Res:?LEN_WORD, AuthCode/binary>>;
+                    <<RespIdx:?LEN_WORD, Res:?LEN_BYTE, AuthCode/binary>>;
                 _ ->
                     case is_list(AuthCode) of
                         true ->
                             Bin = list_to_binary(AuthCode),
-                            <<RespIdx:?LEN_WORD, Res:?LEN_WORD, Bin/binary>>;
+                            <<RespIdx:?LEN_WORD, Res:?LEN_BYTE, Bin/binary>>;
                         _ ->
                             <<>>
                     end
