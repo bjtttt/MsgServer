@@ -59,6 +59,7 @@ handle_info({tcp, Socket, Data}, OriState) ->
     %DataDebug = <<126,1,2,0,2,1,86,121,16,51,112,44,40,81,82,123,126>>,
     %DataDebug = <<126,2,0,0,46,1,86,121,16,51,112,0,2,0,0,0,0,0,0,0,17,0,0,0,0,0,0,0,0,0,0,0,0,0,0,19,3,36,25,18,68,1,4,0,0,0,0,2,2,0,0,3,2,0,0,4,2,0,0,59,126>>,
     %DataDebug = <<126,2,0,0,46,1,86,121,16,51,112,3,44,0,8,0,0,0,0,0,17,0,0,0,0,0,0,0,0,0,0,0,0,0,0,19,3,36,35,85,35,1,4,0,0,0,0,2,2,0,0,3,2,0,0,4,2,0,0,4,126>>,
+	%DataDebug = <<126,1,0,0,45,1,86,0,71,2,5,0,55,0,11,0,114,55,48,51,49,57,74,76,57,48,49,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,48,52,55,48,50,48,53,1,190,169,66,55,48,50,48,53,39,126>>,
     Msgs = common:split_msg_to_single(Data, 16#7e),
     %Msgs = common:split_msg_to_single(DataDebug, 16#7e),
     case Msgs of
@@ -315,14 +316,26 @@ process_vdr_data(Socket, Data, State) ->
                                                             {error, dberror, NewState#vdritem{msgflownum=NewFlowIdx}};
                                                         true ->
                                                             FlowIdx = NewState#vdritem.msgflownum,
-                                                            MsgBody = vdr_data_processor:create_reg_resp(MsgIdx, 0, list_to_binary(DeviceAuthenCode)),
-                                                            common:loginfo("~p sends VDR registration response (ok) : ~p~n", [NewState#vdritem.pid, MsgBody]),
-                                                            NewFlowIdx = send_data_to_vdr(16#8100, FlowIdx, MsgBody, VDRPid),
-                                                            
-                                                            update_reg_install_time(DeviceID, DeviceRegTime, VehicleID, VehicleDeviceInstallTime, NewState),        
-                                                            
-                                                            % return error to terminate VDR connection
-                                                            {ok, NewState#vdritem{msgflownum=NewFlowIdx, msg2vdr=[], msg=[], req=[]}}
+															case is_binary(DeviceAuthenCode) of
+																true ->
+		                                                            MsgBody = vdr_data_processor:create_reg_resp(MsgIdx, 0, DeviceAuthenCode),
+		                                                            common:loginfo("~p sends VDR registration response (ok) : ~p~n", [NewState#vdritem.pid, MsgBody]),
+		                                                            NewFlowIdx = send_data_to_vdr(16#8100, FlowIdx, MsgBody, VDRPid),
+		                                                            
+		                                                            update_reg_install_time(DeviceID, DeviceRegTime, VehicleID, VehicleDeviceInstallTime, NewState),        
+		                                                            
+		                                                            % return error to terminate VDR connection
+		                                                            {ok, NewState#vdritem{msgflownum=NewFlowIdx, msg2vdr=[], msg=[], req=[]}};
+																false ->
+		                                                            MsgBody = vdr_data_processor:create_reg_resp(MsgIdx, 0, list_to_binary(DeviceAuthenCode)),
+		                                                            common:loginfo("~p sends VDR registration response (ok) : ~p~n", [NewState#vdritem.pid, MsgBody]),
+		                                                            NewFlowIdx = send_data_to_vdr(16#8100, FlowIdx, MsgBody, VDRPid),
+		                                                            
+		                                                            update_reg_install_time(DeviceID, DeviceRegTime, VehicleID, VehicleDeviceInstallTime, NewState),        
+		                                                            
+		                                                            % return error to terminate VDR connection
+		                                                            {ok, NewState#vdritem{msgflownum=NewFlowIdx, msg2vdr=[], msg=[], req=[]}}
+															end
                                                     end;
                                                 VehicleDeviceID =/= undefined andalso DeviceVehicleID == undefined -> % Vehicle registered
                                                     if
@@ -610,7 +623,7 @@ process_vdr_data(Socket, Data, State) ->
                                     FlowIdx = NewState#vdritem.msgflownum,
                                     PreviousAlarm = NewState#vdritem.alarm,
                                     
-                                    {H, AppInfo} = Msg,
+                                    {H, _AppInfo} = Msg,
                                     [AlarmSym, StateFlag, Lat, Lon, _Height, _Speed, _Direction, Time]= H,
                                     if
                                         AlarmSym == PreviousAlarm ->
@@ -1145,27 +1158,28 @@ send_msg_to_ws(Msg, State) ->
 %%%     error
 %%%
 create_sql_from_vdr(HeaderInfo, Msg, State) ->
-    {ID, _FlowNum, TelNum, _CryptoType} = HeaderInfo,
+    {ID, _FlowNum, _TelNum, _CryptoType} = HeaderInfo,
     case ID of
         16#1    ->
             {ok, ""};
         16#2    ->                          
             {ok, ""};
         16#100  ->          % Not complete, currently only use VDRSerialNo&VehicleID for query                     
-            {_Province, _City, _Producer, _VDRModel, _VDRSerialNo, _VehicleColor, _VehicleID} = Msg,
-            SQL = list_to_binary([<<"select * from vehicle,device where device.iccid='">>,%serial_no='">>,
-                                  %list_to_binary(VDRSerialNo),
+            {_Province, _City, _Producer, _VDRModel, VDRSerialNo, _VehicleColor, _VehicleID} = Msg,
+            SQL = list_to_binary([<<"select * from vehicle,device where device.serial_no='">>,%<<"select * from vehicle,device where device.iccid='">>,%serial_no='">>,
+                                  list_to_binary(VDRSerialNo),
                                   %<<"' and vehicle.code='">>,
                                   %list_to_binary(VehicleID),
-								  common:integer_to_binary(TelNum),
-                                  <<"'">>]),
+								  %common:integer_to_binary(TelNum),
+                                  %<<"'">>]),
+								  <<"' and vehicle.device_id=device.id">>]),
             {ok, SQL};
         16#3    ->                          
             {ID, Auth} = Msg,
             {ok, list_to_binary([<<"update device set reg_time=null where authen_code='">>, list_to_binary(Auth), <<"' or id='">>, list_to_binary(ID), <<"'">>])};
         16#102  ->
-            {_Auth} = Msg,
-            {ok, list_to_binary([<<"select * from device left join vehicle on vehicle.device_id=device.id where device.iccid='">>, common:integer_to_binary(TelNum), <<"'">>])};%authen_code='">>, list_to_binary(Auth), <<"'">>])};
+            {Auth} = Msg,
+            {ok, list_to_binary([<<"select * from device left join vehicle on vehicle.device_id=device.id where device.authen_code='">>, list_to_binary(Auth), <<"'">>])};
         16#104  ->
             {_RespIdx, _ActLen, _List} = Msg,
             {ok, ""};
