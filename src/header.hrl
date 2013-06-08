@@ -81,6 +81,8 @@
                     driverlicno=undefined,      % Actual driver license number
                     alarm=0,
 					alarmlist=[],
+                    lastlat=0.0,
+                    lastlon=0.0,
                     pid=undefined,
                     vdrpid=undefined,
                     respwspid=undefined,
