@@ -625,14 +625,15 @@ process_vdr_data(Socket, Data, State) ->
                                     PreviousAlarm = NewState#vdritem.alarm,
                                     
                                     {H, _AppInfo} = Msg,
-                                    [AlarmSym, StateFlag, Lat, Lon, _Height, _Speed, _Direction, Time]= H,
+                                    [AlarmSym, StateFlag, LatOri, LonOri, _Height, _Speed, _Direction, Time]= H,
+                                    {Lat, Lon} = get_not_0_lat_lon(LatOri, LonOri, NewState),
                                     if
                                         AlarmSym == PreviousAlarm ->
 		                                    MsgBody = vdr_data_processor:create_gen_resp(ID, MsgIdx, ?T_GEN_RESP_OK),
 		                                    common:loginfo("~p sends VDR (~p) response for 16#200 (ok) : ~p~n", [State#vdritem.pid, NewState#vdritem.addr, MsgBody]),
 		                                    NewFlowIdx = send_data_to_vdr(16#8001, FlowIdx, MsgBody, VDRPid),
 		                                    
-		                                    {ok, NewState#vdritem{msgflownum=NewFlowIdx, alarm=AlarmSym}};
+		                                    {ok, NewState#vdritem{msgflownum=NewFlowIdx, alarm=AlarmSym, lastlat=Lat, lastlon=Lon}};
                                         true ->
                                             <<Year:8, Month:8, Day:8, Hour:8, Minute:8, Second:8>> = <<Time:48>>,
                                             YearBin = common:integer_to_binary(common:convert_bcd_integer(Year)),
@@ -662,7 +663,7 @@ process_vdr_data(Socket, Data, State) ->
 		                                    common:loginfo("~p sends VDR (~p) response for 16#200 (ok) : ~p~n", [State#vdritem.pid, NewState#vdritem.addr, MsgBody]),
 		                                    NewFlowIdx = send_data_to_vdr(16#8001, FlowIdx, MsgBody, VDRPid),
 		                                    
-		                                    {ok, NewState#vdritem{msgflownum=NewFlowIdx, alarm=AlarmSym, alarmlist=AlarmList}}
+		                                    {ok, NewState#vdritem{msgflownum=NewFlowIdx, alarm=AlarmSym, alarmlist=AlarmList, lastlat=Lat, lastlon=Lon}}
                                     end;%,
                                     
                                     %report_appinfo(AppInfo, NewState);
@@ -1274,7 +1275,8 @@ create_sql_from_vdr(HeaderInfo, Msg, State) ->
         16#200  ->
             case Msg of
                 {H} ->
-                    [AlarmSym, StateFlag, Lat, Lon, Height, Speedri, Direction, Time]= H,
+                    [AlarmSym, StateFlag, LatOri, LonOri, Height, Speed, Direction, Time]= H,
+                    {Lat, Lon} = get_not_0_lat_lon(LatOri, LonOri, State),
                     <<YY:8, MMon:8, DD:8, HH:8, MMin:8, SS:8>> = <<Time:48>>,
                     Year = common:convert_bcd_integer(YY),
                     Month = common:convert_bcd_integer(MMon),
@@ -1431,6 +1433,24 @@ create_sql_from_vdr(HeaderInfo, Msg, State) ->
             {ok, ""};
         _ ->
             {error, iderror}
+    end.
+
+get_not_0_lat_lon(Lat, Lon, State) ->
+    case Lat of
+        0.0 ->
+            case Lon of
+                0.0 ->
+                    {State#vdritem.lastlat, State#vdritem.lastlon};
+                _ ->
+                    {State#vdritem.lastlat, Lon}
+            end;
+        _ ->
+            case Lon of
+                0.0 ->
+                    {Lat, State#vdritem.lastlon};
+                _ ->
+                    {Lat, Lon}
+            end
     end.
 
 %%%
