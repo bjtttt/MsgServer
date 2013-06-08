@@ -155,6 +155,7 @@ terminate(Reason, State) ->
             ok;
         _ ->
             {ok, WSUpdate} = wsock_data_parser:create_term_offline([VehicleID]),
+            common:loginfo("~p~n~p~n", [WSUpdate, list_to_binary(WSUpdate)]),
             send_msg_to_ws(WSUpdate, State)
     end,
     case Auth of
@@ -475,7 +476,7 @@ process_vdr_data(Socket, Data, State) ->
                                                             
                                                             case wsock_data_parser:create_term_online([VehicleID]) of
                                                                 {ok, WSUpdate} ->
-                                                                    common:loginfo("VDR (~p) WS : ~p~n", [State#vdritem.addr, WSUpdate]),
+                                                                    common:loginfo("VDR (~p) WS : ~p~n~p~n", [State#vdritem.addr, WSUpdate, list_to_binary(WSUpdate)]),
                                                                     send_msg_to_ws(WSUpdate, State),
                                                                     %wsock_client:send(WSUpdate),
                                                             
@@ -654,7 +655,7 @@ process_vdr_data(Socket, Data, State) ->
                                                                                                  Lat, 
                                                                                                  Lon,
                                                                                                  binary_to_list(TimeBinS)),
-                                            common:loginfo("VDR (~p) WS Alarm for 0x200: ~p~n", [NewState#vdritem.addr, WSUpdate]),
+                                            common:loginfo("VDR (~p) WS Alarm for 0x200: ~p~n~p~n", [NewState#vdritem.addr, WSUpdate, list_to_binary(WSUpdate)]),
                                             send_msg_to_ws(WSUpdate, NewState), %wsock_client:send(WSUpdate)
 
 		                                    MsgBody = vdr_data_processor:create_gen_resp(ID, MsgIdx, ?T_GEN_RESP_OK),
