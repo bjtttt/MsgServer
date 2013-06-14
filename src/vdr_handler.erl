@@ -62,6 +62,11 @@ handle_info({tcp, Socket, Data}, OriState) ->
 	%DataDebug = <<126,1,0,0,45,1,86,0,71,2,5,0,55,0,11,0,114,55,48,51,49,57,74,76,57,48,49,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,48,52,55,48,50,48,53,1,190,169,66,55,48,50,48,53,39,126>>,
     Msgs = common:split_msg_to_single(Data, 16#7e),
     %Msgs = common:split_msg_to_single(DataDebug, 16#7e),
+	%SqlAlarmList = list_to_binary([<<"select * from vehicle_alarm where vehicle_id=2215 and isnull(clear_time)">>]),
+	%DBAlarmListResp = send_sql_to_db(conn, SqlAlarmList, State),
+	%{ok, DBAlarmList} = extract_db_resp(DBAlarmListResp),
+	%AlarmList = get_alarm_list(DBAlarmList),
+	%common:loginfo("Original AlarmList : ~p~n", [AlarmList]),
     case Msgs of
         [] ->
             ErrCount = State#vdritem.errorcount + 1,
@@ -473,27 +478,58 @@ process_vdr_data(Socket, Data, State) ->
                                                             
                                                             SqlUpdate = list_to_binary([<<"update device set is_online=1 where authen_code='">>, VDRAuthenCode, <<"'">>]),
                                                             send_sql_to_db(conn, SqlUpdate, State),
-                                                            
-                                                            case wsock_data_parser:create_term_online([VehicleID]) of
-                                                                {ok, WSUpdate} ->
-                                                                    common:loginfo("VDR (~p) WS : ~p~n~p~n", [State#vdritem.addr, WSUpdate, list_to_binary(WSUpdate)]),
-                                                                    send_msg_to_ws(WSUpdate, State),
-                                                                    %wsock_client:send(WSUpdate),
-                                                            
-                                                                    FlowIdx = NewState#vdritem.msgflownum,
-                                                                    MsgBody = vdr_data_processor:create_gen_resp(ID, MsgIdx, ?T_GEN_RESP_OK),
-                                                                    common:loginfo("~p sends VDR (~p) response for 16#102 (ok) : ~p~n", [State#vdritem.pid, State#vdritem.addr, MsgBody]),
-                                                                    NewFlowIdx = send_data_to_vdr(16#8001, FlowIdx, MsgBody, VDRPid),
-                                        
-                                                                    {ok, State#vdritem{id=VDRID, 
-                                                                                       serialno=binary_to_list(VDRSerialNo),
-                                                                                       auth=binary_to_list(VDRAuthenCode),
-                                                                                       vehicleid=VehicleID,
-                                                                                       vehiclecode=binary_to_list(VehicleCode),
-                                                                                       msgflownum=NewFlowIdx, msg2vdr=[], msg=[], req=[]}};
-                                                                _ ->
-                                                                    {error, wserror, State}
-                                                            end;
+															
+															SqlAlarmList = list_to_binary([<<"select * from vehicle_alarm where vehicle_id=">>, common:integer_to_binary(VehicleID), <<" and isnull(clear_time)">>]),
+															SqlAlarmListResp = send_sql_to_db(conn, SqlAlarmList, State),
+															case extract_db_resp(SqlAlarmListResp) of
+																{ok, empty} ->
+																	common:loginfo("Original AlarmList : []~n"),	
+		                                                            case wsock_data_parser:create_term_online([VehicleID]) of
+		                                                                {ok, WSUpdate} ->
+		                                                                    common:loginfo("VDR (~p) WS : ~p~n~p~n", [State#vdritem.addr, WSUpdate, list_to_binary(WSUpdate)]),
+		                                                                    send_msg_to_ws(WSUpdate, State),
+		                                                                    %wsock_client:send(WSUpdate),
+		                                                            
+		                                                                    FlowIdx = NewState#vdritem.msgflownum,
+		                                                                    MsgBody = vdr_data_processor:create_gen_resp(ID, MsgIdx, ?T_GEN_RESP_OK),
+		                                                                    common:loginfo("~p sends VDR (~p) response for 16#102 (ok) : ~p~n", [State#vdritem.pid, State#vdritem.addr, MsgBody]),
+		                                                                    NewFlowIdx = send_data_to_vdr(16#8001, FlowIdx, MsgBody, VDRPid),
+		                                        
+		                                                                    {ok, State#vdritem{id=VDRID, 
+		                                                                                       serialno=binary_to_list(VDRSerialNo),
+		                                                                                       auth=binary_to_list(VDRAuthenCode),
+		                                                                                       vehicleid=VehicleID,
+		                                                                                       vehiclecode=binary_to_list(VehicleCode),
+		                                                                                       msgflownum=NewFlowIdx, msg2vdr=[], msg=[], req=[],
+																							   alarmlist=[]}};
+		                                                                _ ->
+		                                                                    {error, wserror, State}
+		                                                            end;
+																{ok, Reses} ->
+																	AlarmList = get_alarm_list(Reses),
+																	common:loginfo("Original AlarmList : ~p~n", [AlarmList]),		                                                            
+		                                                            case wsock_data_parser:create_term_online([VehicleID]) of
+		                                                                {ok, WSUpdate} ->
+		                                                                    common:loginfo("VDR (~p) WS : ~p~n~p~n", [State#vdritem.addr, WSUpdate, list_to_binary(WSUpdate)]),
+		                                                                    send_msg_to_ws(WSUpdate, State),
+		                                                                    %wsock_client:send(WSUpdate),
+		                                                            
+		                                                                    FlowIdx = NewState#vdritem.msgflownum,
+		                                                                    MsgBody = vdr_data_processor:create_gen_resp(ID, MsgIdx, ?T_GEN_RESP_OK),
+		                                                                    common:loginfo("~p sends VDR (~p) response for 16#102 (ok) : ~p~n", [State#vdritem.pid, State#vdritem.addr, MsgBody]),
+		                                                                    NewFlowIdx = send_data_to_vdr(16#8001, FlowIdx, MsgBody, VDRPid),
+		                                        
+		                                                                    {ok, State#vdritem{id=VDRID, 
+		                                                                                       serialno=binary_to_list(VDRSerialNo),
+		                                                                                       auth=binary_to_list(VDRAuthenCode),
+		                                                                                       vehicleid=VehicleID,
+		                                                                                       vehiclecode=binary_to_list(VehicleCode),
+		                                                                                       msgflownum=NewFlowIdx, msg2vdr=[], msg=[], req=[],
+																							   alarmlist=AlarmList}};
+		                                                                _ ->
+		                                                                    {error, wserror, State}
+		                                                            end
+															end;
                                                         _ ->
                                                             % vdrtable or vdridsocktable error
                                                             {error, systemerror, State}
@@ -859,6 +895,35 @@ process_vdr_data(Socket, Data, State) ->
         {error, _ErrorType, NewState} ->    % exception/parityerror/formaterror
             {error, vdrerror, NewState}
     end.
+
+get_alarm_list(AlarmList) when is_list(AlarmList),
+							   length(AlarmList) > 0 ->
+	[H|T] = AlarmList,
+    {<<"vehicle_alarm">>, <<"type_id">>, TypeId} = get_record_field(<<"vehicle_alarm">>, H, <<"type_id">>),
+    {<<"vehicle_alarm">>, <<"alarm_time">>, {datetime, {{YY,MM,DD},{Hh,Mm,Ss}}}} = get_record_field(<<"vehicle_alarm">>, H, <<"alarm_time">>),
+	YYS = integer_to_list(vdr_data_processor:get_2_number_integer_from_oct_string(integer_to_list(YY))),
+	MMS = integer_to_list(MM),
+	DDS = integer_to_list(DD),
+	HhS = integer_to_list(Hh),
+	MmS = integer_to_list(Mm),
+	SsS = integer_to_list(Ss),
+	DTS = common:combine_strings([YYS, "-", MMS, "-", DDS, " ", HhS, ":", MmS, ":", SsS], false),
+	common:loginfo("vehicle_alarm : type_id (~p), alarm_time (~p)~n", [TypeId, DTS]),
+	Cur = [{TypeId, DTS}],
+	case T of
+		[] ->
+			Cur;
+		_ ->
+			Res = get_alarm_list(T),
+			case get_alarm_item(TypeId, Res) of
+				empty ->
+					lists:merge(Cur, Res);
+				_ ->
+					Res	
+		end			
+	end;
+get_alarm_list(_AlarmList) ->
+	[].
 
 update_reg_install_time(DeviceID, DeviceRegTime, VehicleID, VehicleDeviceInstallTime, State) ->
     {Year, Month, Day} = erlang:date(),
