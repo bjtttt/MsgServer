@@ -929,6 +929,7 @@ update_vehicle_alarm(VehicleID, DriverID, TimeS, Alarm, Index, State) when is_in
                                                 common:integer_to_binary(Index), <<")">>]),
                     common:loginfo("Alarm SQL : ~p~n", [UpdateSql]),
                     send_sql_to_db(conn, UpdateSql, State),
+					common:loginfo("AlarmList : ~p\n[{Index, TimeS}] : ~p, ~p\n", [AlarmList, Index, TimeS]),
                     NewAlarmList = lists:merge(AlarmList,[{Index, TimeS}]),
                     update_vehicle_alarm(VehicleID, DriverID, TimeS, Alarm, Index+1, State#vdritem{alarmlist=NewAlarmList});
                 true ->
@@ -944,7 +945,7 @@ update_vehicle_alarm(VehicleID, DriverID, TimeS, Alarm, Index, State) when is_in
                     update_vehicle_alarm(VehicleID, DriverID, TimeS, Alarm, Index+1, State);
                 true ->
                     {Index, SetTime} = AlarmEntry,
-                    common:loginfo("Vehicle(~p) driver(~p) clears alarm(~p:~p) for ~p with alarm list~p~n", [VehicleID, DriverID, Index, SetTime, AlarmList]),
+                    common:loginfo("Vehicle(~p) driver(~p) clears alarm(~p:~p) for ~p with alarm list~p~n", [VehicleID, DriverID, Alarm, Index, SetTime, AlarmList]),
                     UpdateSql = list_to_binary([<<"update vehicle_alarm set clear_time='">>, list_to_binary(TimeS),
                                                 <<"' where vehicle_id=">>, common:integer_to_binary(VehicleID),
                                                 <<" and driver_id=">>, common:integer_to_binary(DriverID),
@@ -952,6 +953,7 @@ update_vehicle_alarm(VehicleID, DriverID, TimeS, Alarm, Index, State) when is_in
                                                 <<"' and type_id=">>, common:integer_to_binary(Index)]),
                     common:loginfo("Alarm SQL : ~p~n", [UpdateSql]),
                     send_sql_to_db(conn, UpdateSql, State),
+					common:loginfo("AlarmList : ~p\n[{Index, TimeS}] : ~p, ~p\n", [AlarmList, Index, TimeS]),
                     NewAlarmList = remove_alarm_item(Index, AlarmList),
                     update_vehicle_alarm(VehicleID, DriverID, TimeS, Alarm, Index+1, State#vdritem{alarmlist=NewAlarmList})
             end
@@ -974,13 +976,14 @@ update_vehicle_alarm(VehicleID, _DriverID, TimeS, Alarm, Index, State) when is_i
             AlarmEntry = get_alarm_item(Index, AlarmList),
             if
                 AlarmEntry == empty ->
-                    common:loginfo("Vehicle(~p) driver(~p) inserts new alarm(~p) when ~p with alarm list ~p~n", [VehicleID, _DriverID, Index, TimeS, AlarmList]),
+                    common:loginfo("Vehicle(~p) driver(~p) inserts new alarm(~p:~p) when ~p with alarm list ~p~n", [VehicleID, _DriverID, Alarm, Index, TimeS, AlarmList]),
                     UpdateSql = list_to_binary([<<"insert into vehicle_alarm(vehicle_id,driver_id,alarm_time,clear_time,type_id) values(">>,
                                                 common:integer_to_binary(VehicleID), <<",0,'">>,
                                                 list_to_binary(TimeS), <<"',NULL,">>,
                                                 common:integer_to_binary(Index), <<")">>]),
                     common:loginfo("Alarm SQL : ~p~n", [UpdateSql]),
                     send_sql_to_db(conn, UpdateSql, State),
+					common:loginfo("AlarmList : ~p\n[{Index, TimeS}] : ~p, ~p\n", [AlarmList, Index, TimeS]),
                     NewAlarmList = lists:merge(AlarmList,[{Index, TimeS}]),
                     update_vehicle_alarm(VehicleID, _DriverID, TimeS, Alarm, Index+1, State#vdritem{alarmlist=NewAlarmList});
                 true ->
@@ -996,13 +999,14 @@ update_vehicle_alarm(VehicleID, _DriverID, TimeS, Alarm, Index, State) when is_i
                     update_vehicle_alarm(VehicleID, _DriverID, TimeS, Alarm, Index+1, State);
                 true ->
                     {Index, SetTime} = AlarmEntry,
-                    common:loginfo("Vehicle(~p) driver(~p) clears alarm(~p) for ~p with alarm list~p~n", [VehicleID, _DriverID, Index, SetTime, AlarmList]),
+                    common:loginfo("Vehicle(~p) driver(~p) clears alarm(~p:~p) for ~p with alarm list~p~n", [VehicleID, _DriverID, Alarm, Index, SetTime, AlarmList]),
                     UpdateSql = list_to_binary([<<"update vehicle_alarm set clear_time='">>, list_to_binary(TimeS),
                                                 <<"' where vehicle_id=">>, common:integer_to_binary(VehicleID),
                                                 <<" and driver_id=0 and alarm_time='">>, list_to_binary(SetTime),
                                                 <<"' and type_id=">>, common:integer_to_binary(Index)]),
                     common:loginfo("Alarm SQL : ~p~n", [UpdateSql]),
                     send_sql_to_db(conn, UpdateSql, State),
+					common:loginfo("AlarmList : ~p\n[{Index, TimeS}] : ~p, ~p\n", [AlarmList, Index, TimeS]),
                     NewAlarmList = remove_alarm_item(Index, AlarmList),
                     update_vehicle_alarm(VehicleID, _DriverID, TimeS, Alarm, Index+1, State#vdritem{alarmlist=NewAlarmList})
             end
@@ -1046,7 +1050,7 @@ remove_alarm_item(Index, AlarmList) when is_integer(Index),
                 [] ->
                     [H];
                 _ ->
-                    lists:merge([H], get_alarm_item(Index, T))
+                    lists:merge([H], remove_alarm_item(Index, T))
             end
     end;
 remove_alarm_item(_Index, AlarmList) ->
