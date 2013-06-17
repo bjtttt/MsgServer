@@ -243,7 +243,7 @@ init([]) ->
     % Create DB client
     DBClient  = {
                  mysql,                              % Id       = internal id
-                 {mysql, start_link, [conn, DB, ?DEF_PORT_DB, DBUid, DBPwd, DBName]},  % StartFun = {M, F, A}
+                 {mysql, start_link, [conn, DB, ?DEF_PORT_DB, DBUid, DBPwd, DBName, undefined, utf8]},  % StartFun = {M, F, A}
                  permanent,                                 % Restart  = permanent | transient | temporary
                  ?TIME_TERMINATE_DB,                        % Shutdown = brutal_kill | int() >= 0 | infinity
                  worker,                                    % Type     = worker | supervisor
@@ -282,5 +282,10 @@ init ([Module]) ->
     RestartStrategy = {simple_one_for_one, 0, 1},
     {ok, {RestartStrategy, Children}}.
 
-
-
+%log(Module, Line, Level, FormatFun) ->
+%    case Level of
+%    error ->
+%        {Format, Arguments} = FormatFun(),
+%        io:format("~w:~b: "++ Format ++ "~n", [Module, Line] ++ Arguments);
+%    _ -> o
+%   end.

@@ -279,7 +279,7 @@ process_vdr_data(Socket, Data, State) ->
                                             % "id" is PK, so it cannot be null or undefined
                                             {<<"vehicle">>, <<"id">>, VehicleID} = get_record_field(<<"vehicle">>, Rec, <<"id">>),
                                             % "code" is the query condition and NOT NULL & UNIQUE, so it cannot be null or undefined
-                                            %{<<"vehicle">>, <<"code">>, VehicleCode} = get_record_field(<<"vehicle">>, Rec, <<"code">>),
+                                            {<<"vehicle">>, <<"code">>, VehicleCode} = get_record_field(<<"vehicle">>, Rec, <<"code">>),
                                             {<<"vehicle">>, <<"device_id">>, VehicleDeviceID} = get_record_field(<<"vehicle">>, Rec, <<"device_id">>),
                                             {<<"vehicle">>, <<"dev_install_time">>, VehicleDeviceInstallTime} = get_record_field(<<"vehicle">>, Rec, <<"dev_install_time">>),
                                             if
@@ -325,7 +325,7 @@ process_vdr_data(Socket, Data, State) ->
 															case is_binary(DeviceAuthenCode) of
 																true ->
 		                                                            MsgBody = vdr_data_processor:create_reg_resp(MsgIdx, 0, DeviceAuthenCode),
-		                                                            common:loginfo("~p sends VDR registration response (ok) : ~p~n", [NewState#vdritem.pid, MsgBody]),
+		                                                            common:loginfo("~p sends VDR registration response (ok) (vehicle code : ~p) : ~p~n", [NewState#vdritem.pid, VehicleCode, MsgBody]),
 		                                                            NewFlowIdx = send_data_to_vdr(16#8100, FlowIdx, MsgBody, VDRPid),
 		                                                            
 		                                                            update_reg_install_time(DeviceID, DeviceRegTime, VehicleID, VehicleDeviceInstallTime, NewState),        
@@ -334,7 +334,7 @@ process_vdr_data(Socket, Data, State) ->
 		                                                            {ok, NewState#vdritem{msgflownum=NewFlowIdx, msg2vdr=[], msg=[], req=[]}};
 																false ->
 		                                                            MsgBody = vdr_data_processor:create_reg_resp(MsgIdx, 0, list_to_binary(DeviceAuthenCode)),
-		                                                            common:loginfo("~p sends VDR registration response (ok) : ~p~n", [NewState#vdritem.pid, MsgBody]),
+		                                                            common:loginfo("~p sends VDR registration response (ok) (vehicle code : ~p) : ~p~n", [NewState#vdritem.pid, VehicleCode, MsgBody]),
 		                                                            NewFlowIdx = send_data_to_vdr(16#8100, FlowIdx, MsgBody, VDRPid),
 		                                                            
 		                                                            update_reg_install_time(DeviceID, DeviceRegTime, VehicleID, VehicleDeviceInstallTime, NewState),        
@@ -365,7 +365,7 @@ process_vdr_data(Socket, Data, State) ->
 
                                                             FlowIdx = NewState#vdritem.msgflownum,
                                                             MsgBody = vdr_data_processor:create_reg_resp(MsgIdx, 0, list_to_binary(DeviceAuthenCode)),
-                                                            common:loginfo("~p sends VDR (~p) registration response (ok) : ~p~n", [NewState#vdritem.pid, State#vdritem.addr, MsgBody]),
+                                                            common:loginfo("~p sends VDR (~p) registration response (ok) (vehicle code : ~p) : ~p~n", [NewState#vdritem.pid, State#vdritem.addr, VehicleCode, MsgBody]),
                                                             NewFlowIdx = send_data_to_vdr(16#8100, FlowIdx, MsgBody, VDRPid),
                                                             
                                                             % return error to terminate VDR connection
@@ -393,7 +393,7 @@ process_vdr_data(Socket, Data, State) ->
 
                                                             FlowIdx = NewState#vdritem.msgflownum,
                                                             MsgBody = vdr_data_processor:create_reg_resp(MsgIdx, 0, list_to_binary(DeviceAuthenCode)),
-                                                            common:loginfo("~p sends VDR (~p) registration response (ok) : ~p~n", [NewState#vdritem.pid, State#vdritem.addr, MsgBody]),
+                                                            common:loginfo("~p sends VDR (~p) registration response (ok) (vehicle code : ~p) : ~p~n", [NewState#vdritem.pid, State#vdritem.addr, VehicleCode, MsgBody]),
                                                             NewFlowIdx = send_data_to_vdr(16#8100, FlowIdx, MsgBody, VDRPid),
 
                                                             % return error to terminate VDR connection
@@ -418,7 +418,7 @@ process_vdr_data(Socket, Data, State) ->
 
                                                     FlowIdx = NewState#vdritem.msgflownum,
                                                     MsgBody = vdr_data_processor:create_reg_resp(MsgIdx, 0, list_to_binary(DeviceAuthenCode)),
-                                                    common:loginfo("~p sends VDR (~p) registration response (ok) : ~p~n", [NewState#vdritem.pid, State#vdritem.addr, MsgBody]),
+                                                    common:loginfo("~p sends VDR (~p) registration response (ok) (vehicle code : ~p) : ~p~n", [NewState#vdritem.pid, State#vdritem.addr, VehicleCode, MsgBody]),
                                                     NewFlowIdx = send_data_to_vdr(16#8100, FlowIdx, MsgBody, VDRPid),
                                                     
                                                     {ok, NewState#vdritem{msgflownum=NewFlowIdx, msg2vdr=[], msg=[], req=[]}};
@@ -473,7 +473,8 @@ process_vdr_data(Socket, Data, State) ->
                                                                                                  vehicleid=VehicleID,
                                                                                                  vehiclecode=binary_to_list(VehicleCode),
                                                                                                  driverid=DriverID}),
-                                                            common:loginfo("Insert VDRIDSocket : VehicleID (~p)~n", [VehicleID]),
+                                                            common:loginfo("Insert VDRIDSocket : VehicleID (~p)~nVehicleCode (size : ~p) (Bin:List) : ~p : ~p\n",
+																		   [VehicleID, byte_size(VehicleCode), VehicleCode, binary_to_list(VehicleCode)]),
                                                             ets:insert(vdridsocktable, #vdridsockitem{id=VehicleID, socket=Socket, addr=State#vdritem.addr, vdrpid=VDRPid, respwspid=SockVdr#vdritem.respwspid}),
                                                             
                                                             SqlUpdate = list_to_binary([<<"update device set is_online=1 where authen_code='">>, VDRAuthenCode, <<"'">>]),
@@ -1320,9 +1321,9 @@ create_sql_from_vdr(HeaderInfo, Msg, State) ->
 									 common:integer_to_2byte_binary(common:convert_bcd_integer(Num5))]),
             SQL = list_to_binary([<<"select * from vehicle,device where device.iccid='">>,%serial_no='">>,
                                   %list_to_binary(VDRSerialNo),
+								  TelBin,
                                   %<<"' and vehicle.code='">>,
                                   %list_to_binary(VehicleID),
-								  TelBin,
                                   %<<"'">>]),
 								  <<"' and vehicle.device_id=device.id">>]),
             {ok, SQL};
