@@ -60,7 +60,7 @@ start(StartType, StartArgs) ->
             error_logger:info_msg("Supervisor PID : ~p~n", [SupPid]),
             case receive_db_ws_init_msg(false, false, 0) of
                 ok ->
-                    mysql:connect(conn, DB, undefined, DBUid, DBPwd, DBName, true),
+                    mysql:utf8connect(conn, DB, undefined, DBUid, DBPwd, DBName, true),
                     
                     WSPid = spawn(fun() -> wsock_client:wsock_client_process() end),
                     DBPid = spawn(fun() -> mysql:mysql_process() end),
@@ -71,6 +71,8 @@ start(StartType, StartArgs) ->
                     error_logger:info_msg("WS client process PID is ~p~n", [WSPid]),
                     error_logger:info_msg("DB client process PID is ~p~n", [DBPid]),
                     error_logger:info_msg("DB table deamon process PID is ~p~n", [DBTablePid]),
+					
+					mysql:fetch(conn, <<"set names 'utf8">>),
                     
                     %Result0 = mysql:fetch(conn, <<"select * from device">>),
                     %Result0,

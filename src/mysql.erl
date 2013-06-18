@@ -89,6 +89,8 @@
 	 start/6,
 	 start/7,
 	 start/8,
+		 
+		 utf8connect/7,
 
 	 connect/7,
 	 connect/8,
@@ -529,6 +531,9 @@ get_result_err_sql_state(#mysql_result{errsqlstate=ErrSqlState}) ->
 get_result_insert_id(#mysql_result{insertid=InsertId}) ->
     InsertId.
 
+utf8connect(PoolId, Host, undefined, User, Password, Database, Reconnect) ->
+    connect(PoolId, Host, ?PORT, User, Password, Database, uft8,
+	    Reconnect).
 
 connect(PoolId, Host, undefined, User, Password, Database, Reconnect) ->
     connect(PoolId, Host, ?PORT, User, Password, Database, undefined,
