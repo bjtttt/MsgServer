@@ -90,7 +90,7 @@ create_final_msg(ID, MsgIdx, Data) ->
     MsgBody = list_to_binary([HeaderBody, Parity]),
     MsgBody1 = binary:replace(MsgBody, <<125>>, <<254, 1, 254, 2, 254, 3, 254, 4, 254, 5, 254>>, [global]),
     MsgBody2 = binary:replace(MsgBody1, <<126>>, <<255, 1, 255, 2, 255, 3, 255, 4, 255, 5, 255>>, [global]),
-    MsgBody3 = binary:replace(MsgBody2, <<255, 1, 255, 2, 255, 3, 255, 4, 255, 5, 255>>, <<125, 1>>, [global]),
+    MsgBody3 = binary:replace(MsgBody2, <<254, 1, 254, 2, 254, 3, 254, 4, 254, 5, 254>>, <<125, 1>>, [global]),
     MsgBody4 = binary:replace(MsgBody3, <<255, 1, 255, 2, 255, 3, 255, 4, 255, 5, 255>>, <<125, 2>>, [global]),
     list_to_binary([<<126>>, MsgBody4, <<126>>]).
 

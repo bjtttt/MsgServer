@@ -1175,6 +1175,7 @@ send_data_to_vdr(ID, FlowIdx, MsgBody, VDRPid) ->
 				Msg == <<>> ->
 					common:loginfo("~p send_data_to_vdr NULL final message : ID (~p), FlowIdx (~p), MsgBody (~p)~n", [Pid, ID, FlowIdx, MsgBody]);
 				Msg =/= <<>> ->
+					common:loginfo("~p send_data_to_vdr final message : ID (~p), FlowIdx (~p), Msg (~p)~n", [Pid, ID, FlowIdx, Msg]),
 					VDRPid ! {Pid, Msg},
 					%receive
 					%    {Pid, vdrok} ->
