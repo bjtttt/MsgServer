@@ -157,6 +157,20 @@ do_process_data(Data) ->
                                 true ->
                                     {error, length_error}
                             end;
+                        16#6001 ->
+                            if
+                                Len == 4 ->
+                                    {"SN", SN} = get_specific_entry(Content, "SN"),
+                                    {"LIST", List} = get_specific_entry(Content, "LIST"),
+									VIDList = get_same_key_list(List),
+									DataStr = get_string(Data),
+									Index = string:str(DataStr, "\"DATA\"") + 7,
+									MsgLen = length(DataStr),
+									Part = string:sub_string(DataStr, Index, MsgLen-1),
+                                    {ok, Mid, [SN, VIDList, Part]};
+                                true ->
+                                    {error, length_error}
+                            end;
                         16#8103 ->
                             if
                                 Len == 4 ->
@@ -429,6 +443,20 @@ do_process_data(Data) ->
                                 true ->
                                     {error, length_error}
                             end;
+                        16#8900 ->
+                            if
+                                Len == 4 ->
+                                    {"SN", SN} = get_specific_entry(Content, "SN"),
+                                    {"LIST", List} = get_specific_entry(Content, "LIST"),
+									VIDList = get_same_key_list(List),
+									DataStr = get_string(Data),
+									Index = string:str(DataStr, "\"DATA\"") + 7,
+									MsgLen = length(DataStr),
+									Part = string:sub_string(DataStr, Index, MsgLen-1),
+                                    {ok, Mid, [SN, VIDList, Part]};
+                                true ->
+                                    {error, length_error}
+                            end;
                         _ ->
                             {error, format_error}
                     end
@@ -436,6 +464,13 @@ do_process_data(Data) ->
         {error, Reason} ->
             {error, Reason}
     end.
+
+get_string(Data) when is_binary(Data) ->
+	binary_to_list(Data);
+get_string(Data) when is_list(Data) ->
+	Data;
+get_string(_Data) ->
+	"".
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %
@@ -454,6 +489,11 @@ connect_ws_to_vdr(Msg) ->
                     ok;
                 16#4003 ->
                     ok;
+                16#6001 ->
+					[SN, VIDList, DataPart] = Res,
+					Bin = vdr_data_processor:create_data_dl_transparent(16#ff, DataPart),
+					update_vdrs_ws2vdr_msg_id_flowidx(16#6001, SN, VIDList, null),
+					send_msg_to_vdrs(16#6001, VIDList, Bin);
                 16#8103 ->
                     [SN, VIDList, [ST, DT]] = Res,
                     SDT = ST ++ DT,
@@ -615,6 +655,11 @@ connect_ws_to_vdr(Msg) ->
                             send_msg_to_vdrs(16#8804, VIDList, Bin)%,
                             %send_resp_to_ws(SN, 16#8804, VIDList, ?P_GENRESP_OK)
                     end;
+                16#8900 ->
+					[SN, VIDList, DataPart] = Res,
+					Bin = vdr_data_processor:create_data_dl_transparent(16#ff, DataPart),
+					update_vdrs_ws2vdr_msg_id_flowidx(16#8900, SN, VIDList, null),
+					send_msg_to_vdrs(16#8900, VIDList, Bin);
                 _ -> % Impossible
                     ok
             end;
@@ -912,6 +957,38 @@ get_phone_name_list(List) when is_list(List),
 get_phone_name_list(_List) ->
     [].
     
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%
+%
+%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+get_mul_addr_to_vdr_list(List) when is_list(List),
+                               		length(List) > 0 ->
+    [H|T] = List,
+    {obj, DATA} = H,
+    Len = length(DATA),
+    if
+        Len == 3 ->
+            {"LAT", LAT} = get_specific_entry(DATA, "LAT"),
+            {"LNG", LNG} = get_specific_entry(DATA, "LNG"),
+            {"POT", POT} = get_specific_entry(DATA, "POT"),
+            case T of
+                [] ->
+                    [[LAT, LNG, POT]];
+                _ ->
+                    [[LAT, LNG, POT]|get_mul_addr_to_vdr_list(T)]
+            end;
+        true ->
+            case T of
+                [] ->
+                    [];
+                _ ->
+                    get_mul_addr_to_vdr_list(T)
+            end
+    end;
+get_mul_addr_to_vdr_list(_List) ->
+	[].
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %
 % When WS need authencation, another initialization message will be used.
