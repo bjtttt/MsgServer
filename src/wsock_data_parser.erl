@@ -163,10 +163,15 @@ do_process_data(Data) ->
                                     {"SN", SN} = get_specific_entry(Content, "SN"),
                                     {"LIST", List} = get_specific_entry(Content, "LIST"),
 									VIDList = get_same_key_list(List),
+									%common:loginfo("0X6001 Data : ~p~n", [Data]),
 									DataStr = get_string(Data),
+									%common:loginfo("0X6001 DataStr : ~p~n", [DataStr]),
 									Index = string:str(DataStr, "\"DATA\"") + 7,
+									%common:loginfo("0X6001 Index : ~p~n", [Index]),
 									MsgLen = length(DataStr),
+									%common:loginfo("0X6001 MsgLen : ~p~n", [MsgLen]),
 									Part = string:sub_string(DataStr, Index, MsgLen-1),
+									%common:loginfo("0X6001 Part : ~p~n", [Part]),
                                     {ok, Mid, [SN, VIDList, Part]};
                                 true ->
                                     {error, length_error}
@@ -449,10 +454,15 @@ do_process_data(Data) ->
                                     {"SN", SN} = get_specific_entry(Content, "SN"),
                                     {"LIST", List} = get_specific_entry(Content, "LIST"),
 									VIDList = get_same_key_list(List),
+									%common:loginfo("0X8900 Data : ~p~n", [Data]),
 									DataStr = get_string(Data),
+									%common:loginfo("0X8900 DataStr : ~p~n", [DataStr]),
 									Index = string:str(DataStr, "\"DATA\"") + 7,
+									%common:loginfo("0X8900 Index : ~p~n", [Index]),
 									MsgLen = length(DataStr),
+									%common:loginfo("0X8900 MsgLen: ~p~n", [MsgLen]),
 									Part = string:sub_string(DataStr, Index, MsgLen-1),
+									%common:loginfo("0X8900 Part : ~p~n", [Part]),
                                     {ok, Mid, [SN, VIDList, Part]};
                                 true ->
                                     {error, length_error}
@@ -492,6 +502,7 @@ connect_ws_to_vdr(Msg) ->
                 16#6001 ->
 					[SN, VIDList, DataPart] = Res,
 					Bin = vdr_data_processor:create_data_dl_transparent(16#ff, DataPart),
+					%common:loginfo("0x6001 Bin : ~p~n", [Bin]),
 					update_vdrs_ws2vdr_msg_id_flowidx(16#6001, SN, VIDList, null),
 					send_msg_to_vdrs(16#6001, VIDList, Bin);
                 16#8103 ->
@@ -658,6 +669,7 @@ connect_ws_to_vdr(Msg) ->
                 16#8900 ->
 					[SN, VIDList, DataPart] = Res,
 					Bin = vdr_data_processor:create_data_dl_transparent(16#ff, DataPart),
+					%common:loginfo("0x8900 Bin : ~p~n", [Bin]),
 					update_vdrs_ws2vdr_msg_id_flowidx(16#8900, SN, VIDList, null),
 					send_msg_to_vdrs(16#8900, VIDList, Bin);
                 _ -> % Impossible

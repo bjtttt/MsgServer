@@ -2236,14 +2236,22 @@ create_sinstomuldatasea_update_order(MediaId,DelSymbol) ->
 %0x8900
 %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-create_data_dl_transparent(MsgType, MsgCon) when is_list(MsgCon),
+create_data_dl_transparent(MsgType, MsgCon) when is_integer(MsgType),
+												 MsgType < 256,
+												 MsgType > -1,
+  												 is_list(MsgCon),
 												 length(MsgCon) > 0 ->
-    MC = term_to_binary(MsgCon),
-    <<MsgType:8, MC/binary>>;
-create_data_dl_transparent(MsgType, MsgCon) when is_binary(MsgCon) ->
-    <<MsgType:8, MsgCon/binary>>;
-create_data_dl_transparent(MsgType, _MsgCon) ->
-	<<MsgType:8>>.
+    Bin = <<MsgType:8>>,
+	MC = list_to_binary(MsgCon),
+	list_to_binary([Bin, MC]);
+create_data_dl_transparent(MsgType, MsgCon) when is_integer(MsgType),
+												 MsgType < 256,
+												 MsgType > -1,
+												 is_binary(MsgCon) ->
+    Bin = <<MsgType:8>>,
+	list_to_binary([Bin, MsgCon]);
+create_data_dl_transparent(_MsgType, _MsgCon) ->
+	<<>>.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %
