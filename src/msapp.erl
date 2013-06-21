@@ -44,14 +44,14 @@ start(StartType, StartArgs) ->
     ets:insert(msgservertable, {apppid, AppPid}),
     ets:insert(msgservertable, {rawdisplay, RawDisplay}),
     ets:insert(msgservertable, {display, Display}),
-    common:loginfo("StartType : ~p~n", [StartType]),
-    common:loginfo("StartArgs : ~p~n", [StartArgs]),
+    error_logger:info_msg("StartType : ~p~n", [StartType]),
+    error_logger:info_msg("StartArgs : ~p~n", [StartArgs]),
     ets:new(vdrtable,[set,public,named_table,{keypos,#vdritem.socket},{read_concurrency,true},{write_concurrency,true}]),
     ets:new(vdridsocktable,[set,public,named_table,{keypos,#vdridsockitem.id},{read_concurrency,true},{write_concurrency,true}]),
     ets:new(mantable,[set,public,named_table,{keypos,#manitem.socket},{read_concurrency,true},{write_concurrency,true}]),
     ets:new(usertable,[set,public,named_table,{keypos,#user.id},{read_concurrency,true},{write_concurrency,true}]),
     ets:new(montable,[set,public,named_table,{keypos,#monitem.socket},{read_concurrency,true},{write_concurrency,true}]),
-    common:loginfo("Tables are initialized.~n"),
+    error_logger:info_msg("Tables are initialized.~n"),
     case supervisor:start_link(mssup, []) of
         {ok, SupPid} ->
             ets:insert(msgservertable, {suppid, SupPid}),
@@ -60,8 +60,10 @@ start(StartType, StartArgs) ->
             error_logger:info_msg("Supervisor PID : ~p~n", [SupPid]),
             case receive_db_ws_init_msg(false, false, 0) of
                 ok ->
+                    mysql:utf8connect(regauth, DB, undefined, DBUid, DBPwd, DBName, true),
                     mysql:utf8connect(conn, DB, undefined, DBUid, DBPwd, DBName, true),
-                    
+                    mysql:utf8connect(cmd, DB, undefined, DBUid, DBPwd, DBName, true),
+
                     WSPid = spawn(fun() -> wsock_client:wsock_client_process() end),
                     DBPid = spawn(fun() -> mysql:mysql_process() end),
                     DBTablePid = spawn(fun() -> db_table_deamon() end),
@@ -73,17 +75,9 @@ start(StartType, StartArgs) ->
                     error_logger:info_msg("DB table deamon process PID is ~p~n", [DBTablePid]),
 					
 					mysql:fetch(conn, <<"set names 'utf8">>),
-                    
-                    %Result0 = mysql:fetch(conn, <<"select * from device">>),
-                    %Result0,
-                    %Result1 = mysql:fetch(conn, <<"select * from client">>),
-                    %Result1,
-                    %Result2 = mysql:fetch(conn, <<"select * from driver">>),
-                    %Result2,
-                    %Result3 = mysql:fetch(conn, <<"update device set is_online=1 where authen_code='QR'">>),
-                    %Result3,
-                    %vdr_handler:process_vdr_data(null, <<126,1,2,0,2,1,86,121,16,51,112,1,197,81,82,187,126>>, null),
-                    %vdr_handler:process_vdr_data(null, <<126,1,2,0,2,1,86,121,16,51,112,0,14,81,82,113,126,126,1,2,0,2,1,86,121,16,51,112,0,14,81,82,113,126>>, null),
+					mysql:fetch(regauth, <<"set names 'utf8">>),
+					mysql:fetch(cmd, <<"set names 'utf8">>),
+
                     {ok, AppPid};
                 {error, ErrMsg} ->
                     {error, ErrMsg}
