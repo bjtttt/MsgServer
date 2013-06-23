@@ -217,6 +217,8 @@ do_process_data(Data) ->
                                     {"LIST", List} = get_specific_entry(Content, "LIST"),
                                     {"DATA", {obj, DATA}} = get_specific_entry(Content, "DATA"),
                                     VIDList = get_same_key_list(List),
+									%DataList = get_man_alarm_ack_list(DATA),
+									%{ok, Mid, [SN, VIDList, DataList]};
                                     DataLen = length(DATA),
                                     if
                                         DataLen == 2 ->
@@ -518,6 +520,7 @@ connect_ws_to_vdr(Msg) ->
                             %send_resp_to_ws(SN, 16#8103, VIDList, ?P_GENRESP_OK)
                     end;
                 16#8203 ->
+					%[SN, VIDList, DataList] = Res,
                     [SN, VIDList, [ASN, TYPE]] = Res,
                     Bin = vdr_data_processor:create_man_confirm_alarm(ASN, TYPE),
                     case Bin of
@@ -913,7 +916,7 @@ get_answer_list(List) when is_list(List),
 		        [] ->
 		            [[ID, ANSize, AN]];
 		        _ ->
-		            [[ID, ANSize, AN]|get_answer_list(T)]
+		            lists:merge([ID, ANSize, AN], get_answer_list(T))
 		    end;
 		_ ->
 			case is_list(AN) of
@@ -923,18 +926,39 @@ get_answer_list(List) when is_list(List),
 				        [] ->
 				            [[ID, ANLen, AN]];
 				        _ ->
-				            [[ID, ANLen, AN]|get_answer_list(T)]
+				            lists:merge([ID, ANLen, AN], get_answer_list(T))
 				    end;
 				_ ->
 				    case T of
 				        [] ->
 				            [];
 				        _ ->
-				            [get_answer_list(T)]
+				            get_answer_list(T)
 				    end
 			end
 	end;					
 get_answer_list(_List) ->
+    [].
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%
+% List  : [{obj,[{"ASN",1},{"TYPE",1}]}, {obj,[{"ASN",2},{"TYPE",2}, ...]
+%
+% Return    :
+%       [[ID1, Ans1], [ID2, Ans2], ...]|[]
+%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+get_man_alarm_ack_list(List) when is_list(List),
+                                  length(List) > 0 ->
+    [H|T] = List,
+    {obj, [{"ASN", ASN},{"TYPE", TYPE}]} = H,
+    case T of
+        [] ->
+            [[ASN, TYPE]];
+        _ ->
+            lists:merge([ASN, TYPE], get_answer_list(T))
+	end;					
+get_man_alarm_ack_list(_List) ->
     [].
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
