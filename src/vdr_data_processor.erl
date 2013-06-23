@@ -441,21 +441,39 @@ compose_term_args_binary(ID, Value) when is_integer(ID) ->
                     Bin = list_to_binary(Value),
                     ActLen = byte_size(Bin),
                     list_to_binary([<<ID:?LEN_DWORD>>, <<ActLen:?LEN_BYTE>>, Bin])
-                end;
+            end;
         ID >= 16#18, ID =< 16#19 ->
             ActLen = ?LEN_DWORD_BYTE,
             <<ID:?LEN_DWORD, ActLen:?LEN_BYTE, Value:?LEN_DWORD>>;
         ID == 16#1A ->
-            Bin = list_to_binary(Value),
-            ActLen = byte_size(Bin),
-            list_to_binary([<<ID:?LEN_DWORD>>, <<ActLen:?LEN_BYTE>>, Bin]);
+            case is_binary(Value) of
+                true ->
+                    ActLen = byte_size(Value),
+                    list_to_binary([<<ID:?LEN_DWORD>>, <<ActLen:?LEN_BYTE>>, Value]);
+                _ ->
+                    Bin = list_to_binary(Value),
+                    ActLen = byte_size(Bin),
+                    list_to_binary([<<ID:?LEN_DWORD>>, <<ActLen:?LEN_BYTE>>, Bin])
+            end;
+            %Bin = list_to_binary(Value),
+            %ActLen = byte_size(Bin),
+            %list_to_binary([<<ID:?LEN_DWORD>>, <<ActLen:?LEN_BYTE>>, Bin]);
         ID >= 16#1B, ID =< 16#1C ->
             ActLen = ?LEN_DWORD_BYTE,
             <<ID:?LEN_DWORD, ActLen:?LEN_BYTE, Value:?LEN_DWORD>>;
         ID == 16#1D ->
-            Bin = list_to_binary(Value),
-            ActLen = byte_size(Bin),
-            list_to_binary([<<ID:?LEN_DWORD>>, <<ActLen:?LEN_BYTE>>, Bin]);
+            case is_binary(Value) of
+                true ->
+                    ActLen = byte_size(Value),
+                    list_to_binary([<<ID:?LEN_DWORD>>, <<ActLen:?LEN_BYTE>>, Value]);
+                _ ->
+                    Bin = list_to_binary(Value),
+                    ActLen = byte_size(Bin),
+                    list_to_binary([<<ID:?LEN_DWORD>>, <<ActLen:?LEN_BYTE>>, Bin])
+            end;
+            %Bin = list_to_binary(Value),
+            %ActLen = byte_size(Bin),
+            %list_to_binary([<<ID:?LEN_DWORD>>, <<ActLen:?LEN_BYTE>>, Bin]);
         ID >= 16#1E, ID =< 16#1F ->                    % Impossible, the same to the other items whose length is 0.
             <<ID:?LEN_DWORD, 0:?LEN_BYTE>>;
         ID >= 16#20, ID =< 16#22 ->
@@ -477,16 +495,34 @@ compose_term_args_binary(ID, Value) when is_integer(ID) ->
         ID >= 16#32, ID =< 16#3F ->                    % Impossible, the same to the other items whose length is 0.
             <<ID:?LEN_DWORD, 0:?LEN_BYTE>>;
         ID >= 16#40, ID =< 16#44 ->
-            Bin = list_to_binary(Value),
-            ActLen = byte_size(Bin),
-            list_to_binary([<<ID:?LEN_DWORD>>, <<ActLen:?LEN_BYTE>>, Bin]);
+            case is_binary(Value) of
+                true ->
+                    ActLen = byte_size(Value),
+                    list_to_binary([<<ID:?LEN_DWORD>>, <<ActLen:?LEN_BYTE>>, Value]);
+                _ ->
+                    Bin = list_to_binary(Value),
+                    ActLen = byte_size(Bin),
+                    list_to_binary([<<ID:?LEN_DWORD>>, <<ActLen:?LEN_BYTE>>, Bin])
+            end;
+            %Bin = list_to_binary(Value),
+            %ActLen = byte_size(Bin),
+            %list_to_binary([<<ID:?LEN_DWORD>>, <<ActLen:?LEN_BYTE>>, Bin]);
         ID >= 16#45, ID =< 16#47 ->
             ActLen = ?LEN_DWORD_BYTE,
             <<ID:?LEN_DWORD, ActLen:?LEN_BYTE, Value:?LEN_DWORD>>;
         ID >= 16#48, ID =< 16#49 ->
-            Bin = list_to_binary(Value),
-            ActLen = byte_size(Bin),
-            list_to_binary([<<ID:?LEN_DWORD>>, <<ActLen:?LEN_BYTE>>, Bin]);
+            case is_binary(Value) of
+                true ->
+                    ActLen = byte_size(Value),
+                    list_to_binary([<<ID:?LEN_DWORD>>, <<ActLen:?LEN_BYTE>>, Value]);
+                _ ->
+                    Bin = list_to_binary(Value),
+                    ActLen = byte_size(Bin),
+                    list_to_binary([<<ID:?LEN_DWORD>>, <<ActLen:?LEN_BYTE>>, Bin])
+            end;
+            %Bin = list_to_binary(Value),
+            %ActLen = byte_size(Bin),
+            %list_to_binary([<<ID:?LEN_DWORD>>, <<ActLen:?LEN_BYTE>>, Bin]);
         ID >= 16#4A, ID =< 16#4F ->                    % Impossible, the same to the other items whose length is 0.
             <<ID:?LEN_DWORD, 0:?LEN_BYTE>>;
         ID >= 16#50, ID =< 16#5A ->
@@ -494,7 +530,7 @@ compose_term_args_binary(ID, Value) when is_integer(ID) ->
             <<ID:?LEN_DWORD, ActLen:?LEN_BYTE, Value:?LEN_DWORD>>;
         ID >= 16#5B, ID =< 16#5E ->
             ActLen = ?LEN_WORD_BYTE,
-            <<ID:?LEN_DWORD, ActLen:?LEN_BYTE, Value:?LEN_DWORD>>;
+            <<ID:?LEN_DWORD, ActLen:?LEN_BYTE, Value:?LEN_WORD>>;
         ID >= 16#5F, ID =< 16#63 ->                    % Impossible, the same to the other items whose length is 0.
             <<ID:?LEN_DWORD, 0:?LEN_BYTE>>;
         ID >= 16#64, ID =< 16#65 ->
@@ -512,23 +548,32 @@ compose_term_args_binary(ID, Value) when is_integer(ID) ->
             <<ID:?LEN_DWORD, ActLen:?LEN_BYTE, Value:?LEN_DWORD>>;
         ID >= 16#81, ID =< 16#82 ->
             ActLen = ?LEN_WORD_BYTE,
-            <<ID:?LEN_DWORD, ActLen:?LEN_BYTE, Value:?LEN_DWORD>>;
+            <<ID:?LEN_DWORD, ActLen:?LEN_BYTE, Value:?LEN_WORD>>;
         ID == 16#83 ->
-            Bin = list_to_binary(Value),
-            ActLen = byte_size(Bin),
-            list_to_binary([<<ID:?LEN_DWORD>>, <<ActLen:?LEN_BYTE>>, Bin]);
+            case is_binary(Value) of
+                true ->
+                    ActLen = byte_size(Value),
+                    list_to_binary([<<ID:?LEN_DWORD>>, <<ActLen:?LEN_BYTE>>, Value]);
+                _ ->
+                    Bin = list_to_binary(Value),
+                    ActLen = byte_size(Bin),
+                    list_to_binary([<<ID:?LEN_DWORD>>, <<ActLen:?LEN_BYTE>>, Bin])
+            end;
+            %Bin = list_to_binary(Value),
+            %ActLen = byte_size(Bin),
+            %list_to_binary([<<ID:?LEN_DWORD>>, <<ActLen:?LEN_BYTE>>, Bin]);
         ID == 16#84 ->
             ActLen = ?LEN_BYTE_BYTE,
-            <<ID:?LEN_DWORD, ActLen:?LEN_BYTE, Value:?LEN_DWORD>>;
+            <<ID:?LEN_DWORD, ActLen:?LEN_BYTE, Value:?LEN_BYTE>>;
         ID >= 16#90, ID =< 16#92 ->
             ActLen = ?LEN_BYTE_BYTE,
-            <<ID:?LEN_DWORD, ActLen:?LEN_BYTE, Value:?LEN_DWORD>>;
+            <<ID:?LEN_DWORD, ActLen:?LEN_BYTE, Value:?LEN_BYTE>>;
         ID == 16#93 ->
             ActLen = ?LEN_DWORD_BYTE,
             <<ID:?LEN_DWORD, ActLen:?LEN_BYTE, Value:?LEN_DWORD>>;
         ID == 16#94 ->
             ActLen = ?LEN_BYTE_BYTE,
-            <<ID:?LEN_DWORD, ActLen:?LEN_BYTE, Value:?LEN_DWORD>>;
+            <<ID:?LEN_DWORD, ActLen:?LEN_BYTE, Value:?LEN_BYTE>>;
         ID == 16#95 ->
             ActLen = ?LEN_DWORD_BYTE,
             <<ID:?LEN_DWORD, ActLen:?LEN_BYTE, Value:?LEN_DWORD>>;
@@ -537,16 +582,16 @@ compose_term_args_binary(ID, Value) when is_integer(ID) ->
             <<ID:?LEN_DWORD, ActLen:?LEN_BYTE, Value:?LEN_DWORD>>;
         ID == 16#101 ->
             ActLen = ?LEN_WORD_BYTE,
-            <<ID:?LEN_DWORD, ActLen:?LEN_BYTE, Value:?LEN_DWORD>>;
+            <<ID:?LEN_DWORD, ActLen:?LEN_BYTE, Value:?LEN_WORD>>;
         ID == 16#102 ->
             ActLen = ?LEN_DWORD_BYTE,
             <<ID:?LEN_DWORD, ActLen:?LEN_BYTE, Value:?LEN_DWORD>>;
         ID == 16#103 ->
             ActLen = ?LEN_WORD_BYTE,
-            <<ID:?LEN_DWORD, ActLen:?LEN_BYTE, Value:?LEN_DWORD>>;
+            <<ID:?LEN_DWORD, ActLen:?LEN_BYTE, Value:?LEN_WORD>>;
         ID >= 16#110, ID =< 16#1FF ->
             ActLen = 8*?LEN_BYTE_BYTE,
-            <<ID:?LEN_DWORD, ActLen:?LEN_BYTE, Value:?LEN_DWORD>>;
+            <<ID:?LEN_DWORD, ActLen:?LEN_BYTE, Value:?LEN_BYTE>>;
         ID >= 16#F000, ID =< 16#FFFF ->                    % Impossible, the same to the other items whose length is 0.
             <<ID:?LEN_DWORD, 0:?LEN_BYTE>>;
         true ->
@@ -1419,12 +1464,25 @@ create_send_question(Flag, Ques, Answers) when is_integer(Flag),
     Ans = get_event_binary(Answers, 8, 16),
     <<Flag:8,QuesLen:8,QuesBin/binary,Ans/binary>>;
 create_send_question(Flag, Ques, Answers) when is_integer(Flag),
+											   is_list(Ques),
+											   is_list(Answers),
+											   length(Answers) == 0 -> 
+    QuesBin = list_to_binary(Ques),
+	QuesLen = byte_size(QuesBin),
+    <<Flag:8,QuesLen:8,QuesBin/binary>>;
+create_send_question(Flag, Ques, Answers) when is_integer(Flag),
 											   is_binary(Ques),
 											   is_list(Answers),
 											   length(Answers) > 0 -> 
 	QuesLen = byte_size(Ques),
     Ans = get_event_binary(Answers, 8, 16),
     <<Flag:8,QuesLen:8,Ques/binary,Ans/binary>>;
+create_send_question(Flag, Ques, Answers) when is_integer(Flag),
+											   is_binary(Ques),
+											   is_list(Answers),
+											   length(Answers) == 0 -> 
+	QuesLen = byte_size(Ques),
+    <<Flag:8,QuesLen:8,Ques/binary>>;
 create_send_question(_Flag, _Ques, _Answers) ->
     <<>>.
 
@@ -1546,9 +1604,9 @@ get_tel_book_entries(Items) when is_list(Items),
 					Bin = list_to_binary([<<Flag:8>>,<<NumLen:8>>,Num,<<NameLen:8>>,Name]),
 		            case T of
 		                [] ->
-		                    [Bin];
+		                    Bin;
 		                _ ->					
-		                    list_to_binary([Bin|get_tel_book_entries(T)])
+		                    list_to_binary([Bin, get_tel_book_entries(T)])
 		            end;
 				_ ->
 					case is_binary(Flag) of
@@ -1556,16 +1614,16 @@ get_tel_book_entries(Items) when is_list(Items),
 							Bin = list_to_binary([Flag,<<NumLen:8>>,Num,<<NameLen:8>>,Name]),
 				            case T of
 				                [] ->
-				                    [Bin];
+				                   Bin;
 				                _ ->					
-				                    list_to_binary([Bin|get_tel_book_entries(T)])
+				                   list_to_binary([Bin, get_tel_book_entries(T)])
 				            end;
 						_ ->
 				            case T of
 				                [] ->
 				                    <<>>;
 				                _ ->					
-				                    list_to_binary([get_tel_book_entries(T)])
+				                    get_tel_book_entries(T)
 				            end
 					end
 			end;
