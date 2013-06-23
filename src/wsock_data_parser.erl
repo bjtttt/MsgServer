@@ -916,7 +916,7 @@ get_answer_list(List) when is_list(List),
 		        [] ->
 		            [[ID, ANSize, AN]];
 		        _ ->
-		            lists:merge([ID, ANSize, AN], get_answer_list(T))
+		            [[ID, ANSize, AN]|get_answer_list(T)]
 		    end;
 		_ ->
 			case is_list(AN) of
@@ -926,7 +926,7 @@ get_answer_list(List) when is_list(List),
 				        [] ->
 				            [[ID, ANLen, AN]];
 				        _ ->
-				            lists:merge([ID, ANLen, AN], get_answer_list(T))
+				            [[ID, ANLen, AN]|get_answer_list(T)]
 				    end;
 				_ ->
 				    case T of
@@ -956,7 +956,7 @@ get_man_alarm_ack_list(List) when is_list(List),
         [] ->
             [[ASN, TYPE]];
         _ ->
-            lists:merge([ASN, TYPE], get_answer_list(T))
+            [[ASN, TYPE]| get_answer_list(T)]
 	end;					
 get_man_alarm_ack_list(_List) ->
     [].
