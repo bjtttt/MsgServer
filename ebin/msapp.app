@@ -5,8 +5,10 @@
              mssup,
              vdr_server,
              mon_server,
+             mp_server,
              vdr_handler,
              mon_handler,
+             mp_handler,
              common,
              vdr_data_parser,
              vdr_data_processor,
@@ -26,5 +28,5 @@
              wsock_message]},
   {registered, [mssup]},
   {applications, [kernel, sasl, stdlib]},
-  {mod, {msapp, [6000, 6101, "42.96.146.34", 9090, "42.96.146.34", "gps_database", "optimus", "opt123450", 1, 1]}}
+  {mod, {msapp, [6000, 6101, 6005, "42.96.146.34", 9090, "42.96.146.34", "gps_database", "optimus", "opt123450", 1, 1]}}
  ]}.

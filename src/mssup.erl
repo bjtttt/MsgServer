@@ -10,9 +10,9 @@
 
 -export([start_link/0]).
 
--export([start_child_vdr/2, start_child_man/1, start_child_mon/1, start_child_db/2]).
+-export([start_child_vdr/2, start_child_man/1, start_child_mp/1, start_child_mon/1, start_child_db/2]).
 
--export([stop_child_vdr/1, stop_child_man/1, stop_child_mon/1, stop_child_db/1]).
+-export([stop_child_vdr/1, stop_child_man/1, stop_child_mp/1, stop_child_mon/1, stop_child_db/1]).
 
 -export([init/1]).
 
@@ -101,6 +101,31 @@ start_child_mon(Socket) ->
 %%%                  | {already_started, Child :: child()}
 %%%                  | term()
 %%% 
+start_child_mp(Socket) ->
+    case supervisor:start_child(sup_mp_handler, [Socket]) of
+        {ok, Pid} ->
+            {ok, Pid};
+        {ok, Pid, Info} ->
+            {ok, Pid, Info};
+        {error, Reason} ->
+            case Reason of
+                already_present ->
+                    common:logerror("mssup:start_child_mp fails : already_present~n");
+                {already_strated, CPid} ->
+                    common:logerror("mssup:start_child_mp fails : already_started PID : ~p~n", [CPid]);
+                Msg ->
+                    common:logerror("mssup:start_child_mp fails : ~p~n", [Msg])
+            end,
+            {error, Reason}
+    end.                    
+%%% 
+%%% startchild_ret() = {ok, Child :: child()}
+%%%                  | {ok, Child :: child(), Info :: term()}
+%%%                  | {error, startchild_err()}
+%%% startchild_err() = already_present
+%%%                  | {already_started, Child :: child()}
+%%%                  | term()
+%%% 
 start_child_db(DB, PortDB) ->
     case supervisor:start_child(ti_client_db, [DB, PortDB]) of
         {ok, Pid} ->
@@ -159,6 +184,18 @@ stop_child_mon(Pid) ->
 %%% ok
 %%% {error, Error} : Error = not_found | simple_one_for_one
 %%%
+stop_child_mp(Pid) ->
+    case supervisor:terminate_child(sup_mp_handler, Pid) of
+        ok ->
+            ok;
+        {error, Reason} ->
+            common:logerror("mssup:stop_child_mp fails(PID : ~p) : ~p~n", [Reason, Pid]),
+            {error, Reason}
+    end.
+%%%
+%%% ok
+%%% {error, Error} : Error = not_found | simple_one_for_one
+%%%
 stop_child_db(Pid) ->
     case supervisor:terminate_child(ti_client_db, Pid) of
         ok ->
@@ -198,6 +235,7 @@ start_link() ->
 init([]) ->
     [{portvdr, PortVDR}] = ets:lookup(msgservertable, portvdr),
     [{portmon, PortMon}] = ets:lookup(msgservertable, portmon),
+    [{portmp, PortMP}] = ets:lookup(msgservertable, portmp),
     [{ws, WS}] = ets:lookup(msgservertable, ws),
     [{portws, PortWS}] = ets:lookup(msgservertable, portws),
     [{db, DB}] = ets:lookup(msgservertable, db),
@@ -240,6 +278,24 @@ init([]) ->
                   supervisor,                       % Type     = worker | supervisor
                   []                                % Modules  = [Module] | dynamic
                  },
+    % Listen MP connection
+    MPServer = {
+                 mp_server,                             % Id       = internal id
+                 {mp_server, start_link, [PortMP]},    % StartFun = {M, F, A}
+                 permanent,                                 % Restart  = permanent | transient | temporary
+                 brutal_kill,                               % Shutdown = brutal_kill | int() >= 0 | infinity
+                 worker,                                    % Type     = worker | supervisor
+                 [mp_server]                            % Modules  = [Module] | dynamic
+                },
+    % Process MP communication
+    MPHandler = {
+                  sup_mp_handler,               % Id       = internal id
+                  {supervisor, start_link, [{local, sup_mp_handler}, ?MODULE, [mp_handler]]},
+                  permanent,                        % Restart  = permanent | transient | temporary
+                  ?TIME_TERMINATE_MP,              % Shutdown = brutal_kill | int() >= 0 | infinity
+                  supervisor,                       % Type     = worker | supervisor
+                  []                                % Modules  = [Module] | dynamic
+                 },
     % Create DB client
     DBClient  = {
                  mysql,                              % Id       = internal id
@@ -259,7 +315,7 @@ init([]) ->
                  [wsock_client]                                     % Modules  = [Module] | dynamic
                 },
     %Children = [VDRServer, VDRHandler, ManServer, ManHandler, MonServer, MonHandler, DBClient],
-    Children = [VDRServer, VDRHandler, MonServer, MonHandler, DBClient, WSClient],
+    Children = [VDRServer, VDRHandler, MPServer, MPHandler, MonServer, MonHandler, DBClient, WSClient],
     %Children = [VDRServer, VDRHandler, MonServer, MonHandler, WSClient],
     %Children = [VDRServer, VDRHandler, MonServer, MonHandler, DBClient],
     %Children = [VDRServer, VDRHandler, MonServer, MonHandler],

@@ -36,6 +36,7 @@
 -define(TIME_TERMINATE_VDR, 10000).
 -define(TIME_TERMINATE_MAN, 5000).
 -define(TIME_TERMINATE_MON, 5000).
+-define(TIME_TERMINATE_MP, 5000).
 -define(TIME_TERMINATE_DB, 5000).
 
 -define(T_GEN_RESP_OK, 0).
@@ -123,6 +124,12 @@
                     addr=undefined, 
                     timeout=undefined
                  }).
+
+-record(mpitem, {  socket=undefined, 
+                   pid=undefined, 
+                   addr=undefined, 
+                   timeout=undefined
+                }).
 
 -record(dbstate, {  db=undefined, 
                     dbport=undefined,
