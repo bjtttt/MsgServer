@@ -38,6 +38,7 @@
 -define(TIME_TERMINATE_MON, 5000).
 -define(TIME_TERMINATE_MP, 5000).
 -define(TIME_TERMINATE_DB, 5000).
+-define(TIME_TERMINATE_ICONV, 5000).
 
 -define(T_GEN_RESP_OK, 0).
 -define(T_GEN_RESP_FAIL, 1).

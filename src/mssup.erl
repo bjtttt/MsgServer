@@ -314,8 +314,17 @@ init([]) ->
                  worker,                                            % Type     = worker | supervisor
                  [wsock_client]                                     % Modules  = [Module] | dynamic
                 },
+    % Create iconv
+    Iconv  = {
+                 iconv,                               % Id       = internal id
+                 {iconv, start, []},   % StartFun = {M, F, A}
+                 permanent,                                         % Restart  = permanent | transient | temporary
+                 ?TIME_TERMINATE_ICONV,                               % Shutdown = brutal_kill | int() >= 0 | infinity
+                 worker,                                            % Type     = worker | supervisor
+                 [iconv]                                     % Modules  = [Module] | dynamic
+                },
     %Children = [VDRServer, VDRHandler, ManServer, ManHandler, MonServer, MonHandler, DBClient],
-    Children = [VDRServer, VDRHandler, MPServer, MPHandler, MonServer, MonHandler, DBClient, WSClient],
+    Children = [VDRServer, VDRHandler, MPServer, MPHandler, MonServer, MonHandler, DBClient, WSClient, Iconv],
     %Children = [VDRServer, VDRHandler, MonServer, MonHandler, WSClient],
     %Children = [VDRServer, VDRHandler, MonServer, MonHandler, DBClient],
     %Children = [VDRServer, VDRHandler, MonServer, MonHandler],

@@ -9,6 +9,7 @@
              vdr_handler,
              mon_handler,
              mp_handler,
+             iconv,
              common,
              vdr_data_parser,
              vdr_data_processor,
