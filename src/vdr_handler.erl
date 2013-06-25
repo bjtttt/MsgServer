@@ -687,17 +687,23 @@ process_vdr_data(Socket, Data, State) ->
 											
                                             common:loginfo("Vehicle(~p) driver(~p) updates alarms~n", [NewState#vdritem.vehicleid, NewState#vdritem.driverid]),
 											AlarmList = update_vehicle_alarm(NewState#vdritem.vehicleid, NewState#vdritem.driverid, TimeS, AlarmSym, 0, NewState),
-                                            
-                                            {ok, WSUpdate} = wsock_data_parser:create_term_alarm([NewState#vdritem.vehicleid],
-                                                                                                 FlowIdx,
-                                                                                                 common:combine_strings(["\"", NewState#vdritem.vehiclecode, "\""], false),
-                                                                                                 AlarmSym,
-                                                                                                 StateFlag,
-                                                                                                 Lat, 
-                                                                                                 Lon,
-                                                                                                 binary_to_list(TimeBinS)),
-                                            common:loginfo("VDR (~p) WS Alarm for 0x200: ~p~n~p~n", [NewState#vdritem.addr, WSUpdate, list_to_binary(WSUpdate)]),
-                                            send_msg_to_ws(WSUpdate, NewState), %wsock_client:send(WSUpdate)
+                                            common:loginfo("Old alarms : ~p~nNew alarms : ~p~n", [NewState#vdritem.alarmlist, AlarmList]),
+											
+											if
+												AlarmList == NewState#vdritem.alarmlist ->
+													common:loginfo("No alarm from VDR to WS~n");
+												AlarmList =/= NewState#vdritem.alarmlist ->
+		                                            {ok, WSUpdate} = wsock_data_parser:create_term_alarm([NewState#vdritem.vehicleid],
+		                                                                                                 FlowIdx,
+		                                                                                                 common:combine_strings(["\"", NewState#vdritem.vehiclecode, "\""], false),
+		                                                                                                 AlarmSym,
+		                                                                                                 StateFlag,
+		                                                                                                 Lat, 
+		                                                                                                 Lon,
+		                                                                                                 binary_to_list(TimeBinS)),
+		                                            common:loginfo("VDR (~p) WS Alarm for 0x200: ~p~n~p~n", [NewState#vdritem.addr, WSUpdate, list_to_binary(WSUpdate)]),
+		                                            send_msg_to_ws(WSUpdate, NewState) %wsock_client:send(WSUpdate)
+											end,
 
 		                                    MsgBody = vdr_data_processor:create_gen_resp(ID, MsgIdx, ?T_GEN_RESP_OK),
 		                                    common:loginfo("~p sends VDR (~p) response for 16#200 (ok) : ~p~n", [State#vdritem.pid, NewState#vdritem.addr, MsgBody]),
@@ -1171,13 +1177,13 @@ send_data_to_vdr(ID, FlowIdx, MsgBody, VDRPid) ->
             FlowIdx;
         _ ->
             Pid = self(),
-            common:loginfo("~p send_data_to_vdr : ID (~p), FlowIdx (~p), MsgBody (~p)~n", [Pid, ID, FlowIdx, MsgBody]),
+            %common:loginfo("~p send_data_to_vdr : ID (~p), FlowIdx (~p), MsgBody (~p)~n", [Pid, ID, FlowIdx, MsgBody]),
             Msg = vdr_data_processor:create_final_msg(ID, FlowIdx, MsgBody),
 			if
 				Msg == <<>> ->
 					common:loginfo("~p send_data_to_vdr NULL final message : ID (~p), FlowIdx (~p), MsgBody (~p)~n", [Pid, ID, FlowIdx, MsgBody]);
 				Msg =/= <<>> ->
-					common:loginfo("~p send_data_to_vdr final message : ID (~p), FlowIdx (~p), Msg (~p)~n", [Pid, ID, FlowIdx, Msg]),
+					%common:loginfo("~p send_data_to_vdr final message : ID (~p), FlowIdx (~p), Msg (~p)~n", [Pid, ID, FlowIdx, Msg]),
 					VDRPid ! {Pid, Msg},
 					%receive
 					%    {Pid, vdrok} ->

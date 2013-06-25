@@ -279,23 +279,23 @@ init([]) ->
                   []                                % Modules  = [Module] | dynamic
                  },
     % Listen MP connection
-    MPServer = {
-                 mp_server,                             % Id       = internal id
-                 {mp_server, start_link, [PortMP]},    % StartFun = {M, F, A}
-                 permanent,                                 % Restart  = permanent | transient | temporary
-                 brutal_kill,                               % Shutdown = brutal_kill | int() >= 0 | infinity
-                 worker,                                    % Type     = worker | supervisor
-                 [mp_server]                            % Modules  = [Module] | dynamic
-                },
+    %MPServer = {
+    %             mp_server,                             % Id       = internal id
+    %             {mp_server, start_link, [PortMP]},    % StartFun = {M, F, A}
+    %             permanent,                                 % Restart  = permanent | transient | temporary
+    %             brutal_kill,                               % Shutdown = brutal_kill | int() >= 0 | infinity
+    %             worker,                                    % Type     = worker | supervisor
+    %             [mp_server]                            % Modules  = [Module] | dynamic
+    %            },
     % Process MP communication
-    MPHandler = {
-                  sup_mp_handler,               % Id       = internal id
-                  {supervisor, start_link, [{local, sup_mp_handler}, ?MODULE, [mp_handler]]},
-                  permanent,                        % Restart  = permanent | transient | temporary
-                  ?TIME_TERMINATE_MP,              % Shutdown = brutal_kill | int() >= 0 | infinity
-                  supervisor,                       % Type     = worker | supervisor
-                  []                                % Modules  = [Module] | dynamic
-                 },
+    %MPHandler = {
+    %              sup_mp_handler,               % Id       = internal id
+    %              {supervisor, start_link, [{local, sup_mp_handler}, ?MODULE, [mp_handler]]},
+    %              permanent,                        % Restart  = permanent | transient | temporary
+    %              ?TIME_TERMINATE_MP,              % Shutdown = brutal_kill | int() >= 0 | infinity
+    %              supervisor,                       % Type     = worker | supervisor
+    %              []                                % Modules  = [Module] | dynamic
+    %             },
     % Create DB client
     DBClient  = {
                  mysql,                              % Id       = internal id
@@ -315,16 +315,17 @@ init([]) ->
                  [wsock_client]                                     % Modules  = [Module] | dynamic
                 },
     % Create iconv
-    Iconv  = {
-                 iconv,                               % Id       = internal id
-                 {iconv, start, []},   % StartFun = {M, F, A}
-                 permanent,                                         % Restart  = permanent | transient | temporary
-                 ?TIME_TERMINATE_ICONV,                               % Shutdown = brutal_kill | int() >= 0 | infinity
-                 worker,                                            % Type     = worker | supervisor
-                 [iconv]                                     % Modules  = [Module] | dynamic
-                },
+    %Iconv  = {
+    %             iconv,                               % Id       = internal id
+    %             {iconv, start, []},   % StartFun = {M, F, A}
+    %             permanent,                                         % Restart  = permanent | transient | temporary
+    %             ?TIME_TERMINATE_ICONV,                               % Shutdown = brutal_kill | int() >= 0 | infinity
+    %             worker,                                            % Type     = worker | supervisor
+    %             [iconv]                                     % Modules  = [Module] | dynamic
+    %            },
     %Children = [VDRServer, VDRHandler, ManServer, ManHandler, MonServer, MonHandler, DBClient],
-    Children = [VDRServer, VDRHandler, MPServer, MPHandler, MonServer, MonHandler, DBClient, WSClient, Iconv],
+    %Children = [VDRServer, VDRHandler, MPServer, MPHandler, MonServer, MonHandler, DBClient, WSClient],%, Iconv],
+    Children = [VDRServer, VDRHandler, MonServer, MonHandler, DBClient, WSClient],%, Iconv],
     %Children = [VDRServer, VDRHandler, MonServer, MonHandler, WSClient],
     %Children = [VDRServer, VDRHandler, MonServer, MonHandler, DBClient],
     %Children = [VDRServer, VDRHandler, MonServer, MonHandler],
