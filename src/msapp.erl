@@ -78,6 +78,13 @@ start(StartType, StartArgs) ->
 					mysql:fetch(conn, <<"set names 'utf8">>),
 					mysql:fetch(regauth, <<"set names 'utf8">>),
 					mysql:fetch(cmd, <<"set names 'utf8">>),
+                    
+                    %IconvPid = iconv:start_link(),
+                    %{ok, U2G} = iconv:open("utf-8", "gbk"),
+                    %{ok, G2U} = iconv:open("gbk", "utf-8"),
+                    %ets:insert(msgservertable, {iconvpid, IconvPid}),
+                    %ets:insert(msgservertable, {u2g, U2G}),
+                    %ets:insert(msgservertable, {g2u, G2U}),
 
                     {ok, AppPid};
                 {error, ErrMsg} ->
