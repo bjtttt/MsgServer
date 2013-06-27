@@ -1220,7 +1220,7 @@ send_data_to_vdr(ID, FlowIdx, MsgBody, VDRPid) ->
 %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 data2vdr_process(Socket) ->
-    common:loginfo("~p is waiting for MSG to VDR~n", [self()]),
+    %common:loginfo("~p is waiting for MSG to VDR~n", [self()]),
     receive
 		{Pid, stop} ->
 			common:loginfo("~p stops waiting for MSG to VDR by ~p~n", [self(), Pid]),
