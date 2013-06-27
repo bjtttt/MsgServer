@@ -58,9 +58,9 @@ start(StartType, StartArgs) ->
             error_logger:info_msg("Supervisor PID : ~p~n", [SupPid]),
             case receive_db_ws_init_msg(false, false, 0) of
                 ok ->
-                    mysql:utf8connect(regauth, DB, undefined, DBUid, DBPwd, DBName, true),
+                    %mysql:utf8connect(regauth, DB, undefined, DBUid, DBPwd, DBName, true),
                     mysql:utf8connect(conn, DB, undefined, DBUid, DBPwd, DBName, true),
-                    mysql:utf8connect(cmd, DB, undefined, DBUid, DBPwd, DBName, true),
+                    %mysql:utf8connect(cmd, DB, undefined, DBUid, DBPwd, DBName, true),
 
                     WSPid = spawn(fun() -> wsock_client:wsock_client_process() end),
                     DBPid = spawn(fun() -> mysql:mysql_process() end),
@@ -72,9 +72,9 @@ start(StartType, StartArgs) ->
                     error_logger:info_msg("DB client process PID is ~p~n", [DBPid]),
                     error_logger:info_msg("DB table deamon process PID is ~p~n", [DBTablePid]),
 					
+					%mysql:fetch(regauth, <<"set names 'utf8">>),
 					mysql:fetch(conn, <<"set names 'utf8">>),
-					mysql:fetch(regauth, <<"set names 'utf8">>),
-					mysql:fetch(cmd, <<"set names 'utf8">>),
+					%mysql:fetch(cmd, <<"set names 'utf8">>),
                     
                     code_convertor:init_code_table(),
                     error_logger:info_msg("Code table is initialized~n"),

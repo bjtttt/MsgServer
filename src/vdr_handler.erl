@@ -23,9 +23,9 @@ init([Sock, Addr]) ->
     [{dbpid, DBPid}] = ets:lookup(msgservertable, dbpid),
     [{wspid, WSPid}] = ets:lookup(msgservertable, wspid),
     State = #vdritem{socket=Sock, pid=Pid, vdrpid=VDRPid, respwspid=RespWSPid, addr=Addr, msgflownum=1, errorcount=0, dbpid=DBPid, wspid=WSPid},
-	mysql:fetch(regauth, <<"set names 'utf8'">>),
+	%mysql:fetch(regauth, <<"set names 'utf8'">>),
 	mysql:fetch(conn, <<"set names 'utf8'">>),
-	mysql:fetch(cmd, <<"set names 'utf8'">>),
+	%mysql:fetch(cmd, <<"set names 'utf8'">>),
     ets:insert(vdrtable, State), 
     inet:setopts(Sock, [{active, once}]),
 	{ok, State}.
@@ -256,7 +256,8 @@ process_vdr_data(Socket, Data, State) ->
                             %{Province, City, Producer, TermModel, TermID, LicColor, LicID} = Msg,
                             case create_sql_from_vdr(HeadInfo, Msg, State) of
                                 {ok, Sql} ->
-                                    SqlResp = send_sql_to_db(regauth, Sql, State),
+                                    %SqlResp = send_sql_to_db(regauth, Sql, State),
+                                    SqlResp = send_sql_to_db(conn, Sql, State),
                                     % 0 : ok
                                     % 1 : vehicle registered
                                     % 2 : no such vehicle in DB
@@ -390,7 +391,8 @@ process_vdr_data(Socket, Data, State) ->
                                                                                               <<"' where id=">>,
                                                                                               common:integer_to_binary(VehicleID)]),
                                                             % Should we check the update result?
-                                                            send_sql_to_db(regauth, VehicleVDRIDSql, NewState),
+                                                            %send_sql_to_db(regauth, VehicleVDRIDSql, NewState),
+                                                            send_sql_to_db(conn, VehicleVDRIDSql, NewState),
                                                             
                                                             update_reg_install_time(DeviceID, DeviceRegTime, VehicleID, VehicleDeviceInstallTime, NewState),        
 
@@ -408,14 +410,16 @@ process_vdr_data(Socket, Data, State) ->
                                                                                       <<"' where id=">>,
                                                                                       common:integer_to_binary(DeviceID)]),
                                                     % Should we check the update result?
-                                                    send_sql_to_db(regauth, VDRVehicleIDSql, NewState),
+                                                    %send_sql_to_db(regauth, VDRVehicleIDSql, NewState),
+                                                    send_sql_to_db(conn, VDRVehicleIDSql, NewState),
                                                     
                                                     VehicleVDRIDSql = list_to_binary([<<"update vehicle set device_id='">>,
                                                                                       common:integer_to_binary(DeviceID),
                                                                                       <<"' where id=">>,
                                                                                       common:integer_to_binary(VehicleID)]),
                                                     % Should we check the update result?
-                                                    send_sql_to_db(regauth, VehicleVDRIDSql, NewState),
+                                                    %send_sql_to_db(regauth, VehicleVDRIDSql, NewState),
+                                                    send_sql_to_db(conn, VehicleVDRIDSql, NewState),
 
                                                     update_reg_install_time(DeviceID, DeviceRegTime, VehicleID, VehicleDeviceInstallTime, NewState),      
 
@@ -441,7 +445,8 @@ process_vdr_data(Socket, Data, State) ->
                             %Sql = "select * from device,vehicle where device.serial_no='abcdef' and vehicle.device_id=device.id",
                             %case {ok, Sql} of
                                 {ok, Sql} ->
-                                    SqlResp = send_sql_to_db(regauth, Sql, State),
+                                    %SqlResp = send_sql_to_db(regauth, Sql, State),
+                                    SqlResp = send_sql_to_db(conn, Sql, State),
                                     case extract_db_resp(SqlResp) of
                                         {ok, empty} ->
                                             {error, dberror, NewState};
@@ -481,7 +486,8 @@ process_vdr_data(Socket, Data, State) ->
                                                             ets:insert(vdridsocktable, #vdridsockitem{id=VehicleID, socket=Socket, addr=State#vdritem.addr, vdrpid=VDRPid, respwspid=SockVdr#vdritem.respwspid}),
                                                             
                                                             SqlUpdate = list_to_binary([<<"update device set is_online=1 where authen_code='">>, VDRAuthenCode, <<"'">>]),
-                                                            send_sql_to_db(regauth, SqlUpdate, State),
+                                                            %send_sql_to_db(regauth, SqlUpdate, State),
+                                                            send_sql_to_db(conn, SqlUpdate, State),
 															
 															SqlAlarmList = list_to_binary([<<"select * from vehicle_alarm where vehicle_id=">>, common:integer_to_binary(VehicleID), <<" and isnull(clear_time)">>]),
 															SqlAlarmListResp = send_sql_to_db(conn, SqlAlarmList, State),
@@ -951,7 +957,8 @@ update_reg_install_time(DeviceID, DeviceRegTime, VehicleID, VehicleDeviceInstall
                                                 <<"' where id=">>,
                                                 common:integer_to_binary(VehicleID)]),
             % Should we check the update result?
-            send_sql_to_db(regauth, DevInstallTimeSql, State);
+            %end_sql_to_db(regauth, DevInstallTimeSql, State);
+            send_sql_to_db(conn, DevInstallTimeSql, State);
         true ->
             ok
     end,
@@ -962,7 +969,8 @@ update_reg_install_time(DeviceID, DeviceRegTime, VehicleID, VehicleDeviceInstall
                                             <<"' where id=">>,
                                             common:integer_to_binary(DeviceID)]),
             % Should we check the update result?
-            send_sql_to_db(regauth, VDRRegTimeSql, State);
+            %send_sql_to_db(regauth, VDRRegTimeSql, State);
+            send_sql_to_db(conn, VDRRegTimeSql, State);
         true ->
             ok
     end.
