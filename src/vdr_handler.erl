@@ -691,13 +691,10 @@ process_vdr_data(Socket, Data, State) ->
                                             TimeS = binary_to_list(list_to_binary([YearBin, <<"-">>, MonthBin, <<"-">>, DayBin, <<" ">>, HourBin, <<":">>, MinuteBin, <<":">>, SecondBin])),
                                             TimeBinS = list_to_binary([<<"\"">>, YearBin, <<"-">>, MonthBin, <<"-">>, DayBin, <<" ">>, HourBin, <<":">>, MinuteBin, <<":">>, SecondBin, <<"\"">>]),
 											
-                                            common:loginfo("Vehicle(~p) driver(~p) updates alarms~n", [NewState#vdritem.vehicleid, NewState#vdritem.driverid]),
 											AlarmList = update_vehicle_alarm(NewState#vdritem.vehicleid, NewState#vdritem.driverid, TimeS, AlarmSym, 0, NewState),
-                                            common:loginfo("Old alarms : ~p~nNew alarms : ~p~n", [NewState#vdritem.alarmlist, AlarmList]),
-											
 											if
 												AlarmList == NewState#vdritem.alarmlist ->
-													common:loginfo("No alarm from VDR to WS~n");
+													common:loginfo("No new alarms updated~n");
 												AlarmList =/= NewState#vdritem.alarmlist ->
 		                                            {ok, WSUpdate} = wsock_data_parser:create_term_alarm([NewState#vdritem.vehicleid],
 		                                                                                                 FlowIdx,
@@ -707,7 +704,13 @@ process_vdr_data(Socket, Data, State) ->
 		                                                                                                 Lat, 
 		                                                                                                 Lon,
 		                                                                                                 binary_to_list(TimeBinS)),
-		                                            common:loginfo("VDR (~p) WS Alarm for 0x200: ~p~n~p~n", [NewState#vdritem.addr, WSUpdate, list_to_binary(WSUpdate)]),
+		                                            common:loginfo("Old alarms : ~p~nNew alarms : ~p~nVDR (~p) vehicle(~p) driver(~p) WS Alarm for 0x200: ~p~n", 
+																   [NewState#vdritem.alarmlist, 
+																	AlarmList,
+																	NewState#vdritem.addr, 
+																	NewState#vdritem.vehicleid, 
+																	NewState#vdritem.driverid, 
+																	WSUpdate]),
 		                                            send_msg_to_ws(WSUpdate, NewState) %wsock_client:send(WSUpdate)
 											end,
 
