@@ -430,7 +430,9 @@ do_query(State, Query) ->
 
 do_query(Sock, RecvPid, LogFun, Query, Version) ->
     Query1 = iolist_to_binary(Query),
-    ?Log2(LogFun, debug, "fetch ~p (id ~p)", [Query1,RecvPid]),
+    % commented by GUO Zhitao
+	%?Log2(LogFun, debug, "fetch ~p (id ~p)", [Query1,RecvPid]),
+	common:loginfo("fetch ~p (id ~p)", [Query1, RecvPid]),
     Packet =  <<?MYSQL_QUERY_OP, Query1/binary>>,
     case do_send(Sock, Packet, 0, LogFun) of
 	ok ->
