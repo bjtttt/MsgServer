@@ -30,5 +30,18 @@
              wsock_message]},
   {registered, [mssup]},
   {applications, [kernel, sasl, stdlib]},
+  {sasl, [ 
+         %% minimise shell error logging 
+         {sasl_error_logger, false}, 
+         %% only report errors 
+         {errlog_type, info}, 
+         %% define the parameters of the rotating log 
+         %% the log file directory 
+         {error_logger_mf_dir,"./logs"}, 
+         %% # bytes per logfile 
+         {error_logger_mf_maxbytes,10485760}, % 10 MB 
+         %% maximum number of 
+         {error_logger_mf_maxfiles, 100} 
+        ]},
   {mod, {msapp, [6000, 6201, 6005, "42.96.146.34", 9090, "42.96.146.34", "gps_database", "optimus", "opt123450", 1, 1]}}
  ]}.
