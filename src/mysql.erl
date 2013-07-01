@@ -207,6 +207,7 @@ log(Module, Line, _Level, FormatFun) ->
 mysql_process() ->
     receive
         {Pid, PoolId, Sql} ->
+            common:loginfo("Send SQL (~p) to DB : ~p~n", [Sql, PoolId]),
             Result = mysql:fetch(PoolId, Sql),
             Pid ! {Pid, Result},
             mysql_process();

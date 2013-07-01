@@ -1259,8 +1259,10 @@ resp2ws_process(List) ->
 send_sql_to_db(PoolId, Msg, State) ->
     case State#vdritem.dbpid of
         undefined ->
+            common:loginfo("Cannot send SQL (~p) to DB process (undefined) : ~p~n", [Msg, PoolId]),
             ok;
         DBPid ->
+            common:loginfo("Send SQL (~p) to DB process (~p) : ~p~n", [Msg, DBPid, PoolId]),
             DBPid ! {State#vdritem.pid, PoolId, Msg},
             Pid = State#vdritem.pid,
             receive
