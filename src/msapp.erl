@@ -25,7 +25,8 @@
 %%%               1 -> log
 %%%
 start(StartType, StartArgs) ->
-    [PortVDR, PortMon, PortMP, WS, PortWS, DB, DBName, DBUid, DBPwd, RawDisplay, Display] = StartArgs,
+    %[PortVDR, PortMon, PortMP, WS, PortWS, DB, DBName, DBUid, DBPwd, RawDisplay, Display] = StartArgs,
+    [PortVDR, PortMon, PortMP, WS, PortWS, DB, DBName, DBUid, DBPwd] = StartArgs,
     AppPid = self(),
     ets:new(msgservertable,[set,public,named_table,{keypos,1},{read_concurrency,true},{write_concurrency,true}]),
     ets:insert(msgservertable, {portvdr, PortVDR}),
@@ -40,8 +41,8 @@ start(StartType, StartArgs) ->
     ets:insert(msgservertable, {dbpid, undefined}),
     ets:insert(msgservertable, {wspid, undefined}),
     ets:insert(msgservertable, {apppid, AppPid}),
-    ets:insert(msgservertable, {rawdisplay, RawDisplay}),
-    ets:insert(msgservertable, {display, Display}),
+    %ets:insert(msgservertable, {rawdisplay, RawDisplay}),
+    %ets:insert(msgservertable, {display, Display}),
     error_logger:info_msg("StartType : ~p~n", [StartType]),
     error_logger:info_msg("StartArgs : ~p~n", [StartArgs]),
     ets:new(vdrtable,[set,public,named_table,{keypos,#vdritem.socket},{read_concurrency,true},{write_concurrency,true}]),

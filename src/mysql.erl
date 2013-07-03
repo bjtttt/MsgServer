@@ -207,10 +207,16 @@ log(Module, Line, _Level, FormatFun) ->
 mysql_process() ->
     receive
         {Pid, PoolId, Sql} ->
-            common:loginfo("Send SQL (~p) to DB : ~p~n", [Sql, PoolId]),
-            Result = mysql:fetch(PoolId, Sql),
-            Pid ! {Pid, Result},
-            mysql_process();
+			try
+				Result = mysql:fetch(PoolId, Sql),
+            	Pid ! {Pid, Result},
+            	common:loginfo("Successfully send SQL (~p) to DB : ~p~n", [Sql, PoolId]),
+            	mysql_process()
+			catch
+				Oper:Msg ->
+            		common:logerror("Fail to send SQL (~p) to DB : ~p~n(Operation)~p:(Message)~p", [Sql, PoolId, Oper, Msg]),
+					Pid ! {Pid,<<"">>}
+			end;
         stop ->
             ok;
         _ ->

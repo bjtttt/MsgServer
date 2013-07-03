@@ -162,127 +162,149 @@ forceprintsocketinfo(Socket, Msg) ->
 %%%
 %%%
 logerror(Format) ->
-    try do_log_error(Format)
+    try %do_log_error(Format)
+		error_logger:error_msg(Format)
     catch
-        _:_ ->
-            ok
+        Oper:Msg ->
+            error_logger:error_msg("logerror exception : (Operation)~p:(Message)~p~n", [Oper, Msg])
     end.
 
-do_log_error(Format) ->
-    [{display, Display}] = ets:lookup(msgservertable, display),
-    case Display of
-        1 ->
-            try
-                error_logger:error_msg(Format)
-            catch
-                _:Why ->
-                    error_logger:error_msg("logerror exception : ~p~n", Why)
-            end;
-        _ ->
-            ok
-    end.
+%do_log_error(Format) ->
+%    [{display, Display}] = ets:lookup(msgservertable, display),
+%    case Display of
+%        1 ->
+%            try
+%                error_logger:error_msg(Format)
+%            catch
+%                _:Why ->
+%                    error_logger:error_msg("logerror exception : ~p~n", Why)
+%            end;
+%        _ ->
+%            ok
+%    end.
 
 %%%
 %%% Data is a list, for example : [], [Msg] or [Msg1, Msg2]
 %%%
-logerror(Format, Data) ->
-    try do_log_error(Format, Data)
+logerror(Format, Data) when is_binary(Data)->
+    try %do_log_error(Format, Data)
+		error_logger:error_msg(Format, binary_to_list(Data))
     catch
-        _:_ ->
-            ok
-    end.
-    
-do_log_error(Format, Data) when is_binary(Data) ->
-    [{display, Display}] = ets:lookup(msgservertable, display),
-    case Display of
-        1 ->
-            try
-                error_logger:error_msg(Format, binary_to_list(Data))
-            catch
-                _:Why ->
-                    error_logger:error_msg("logerror exception : ~p~n", Why)
-            end;
-        _ ->
-            ok
+        Oper:Msg ->
+            error_logger:error_msg("logerror exception : (Operation)~p:(Message)~p~n", [Oper, Msg])
     end;
-do_log_error(Format, Data) when is_list(Data) ->
-    [{display, Display}] = ets:lookup(msgservertable, display),
-    case Display of
-        1 ->
-            try
-                error_logger:error_msg(Format, Data)
-            catch
-                _:Why ->
-                    error_logger:error_msg("logerror exception : ~p~n", Why)
-            end;
-        _ ->
-            ok
+logerror(Format, Data) when is_list(Data)->
+    try %do_log_error(Format, Data)
+		error_logger:error_msg(Format, Data)
+    catch
+        Oper:Msg ->
+            error_logger:error_msg("logerror exception : (Operation)~p:(Message)~p~n", [Oper, Msg])
     end;
-do_log_error(_Format, _Data) ->
+logerror(_Format, _Data) ->
     error_logger:error_msg("logerror fails : not binary or list~n").
+    
+%do_log_error(Format, Data) when is_binary(Data) ->
+%    [{display, Display}] = ets:lookup(msgservertable, display),
+%    case Display of
+%        1 ->
+%            try
+%                error_logger:error_msg(Format, binary_to_list(Data))
+%            catch
+%                _:Why ->
+%                    error_logger:error_msg("logerror exception : ~p~n", Why)
+%            end;
+%        _ ->
+%            ok
+%    end;
+%do_log_error(Format, Data) when is_list(Data) ->
+%    [{display, Display}] = ets:lookup(msgservertable, display),
+%    case Display of
+%        1 ->
+%            try
+%                error_logger:error_msg(Format, Data)
+%            catch
+%                _:Why ->
+%                    error_logger:error_msg("logerror exception : ~p~n", Why)
+%            end;
+%        _ ->
+%            ok
+%    end;
+%do_log_error(_Format, _Data) ->
+%    error_logger:error_msg("logerror fails : not binary or list~n").
 
 %%%
 %%%
 %%%
 loginfo(Format) ->
-    try do_log_info(Format)
+    try %do_log_info(Format)
+		error_logger:info_msg(Format)
     catch
-        _:_ ->
-            ok
+        Oper:Msg ->
+            error_logger:error_msg("loginfo exception : (Operation)~p:(Message)~p~n", [Oper, Msg])
     end.
 
-do_log_info(Format) ->
-    [{display, Display}] = ets:lookup(msgservertable, display),
-    case Display of
-        1 ->
-            try
-                error_logger:info_msg(Format)
-            catch
-                _:Why ->
-                    error_logger:error_msg("loginfo exception : ~p~n", [Why])
-            end;
-        _ ->
-            ok
-    end.
+%do_log_info(Format) ->
+%    [{display, Display}] = ets:lookup(msgservertable, display),
+%    case Display of
+%        1 ->
+%            try
+%                error_logger:info_msg(Format)
+%            catch
+%                _:Why ->
+%                    error_logger:error_msg("loginfo exception : ~p~n", [Why])
+%            end;
+%        _ ->
+%            ok
+%    end.
 
 %%%
 %%% Data is a list, for example : [], [Msg] or [Msg1, Msg2]
 %%%
-loginfo(Format, Data) ->
-    try do_log_info(Format, Data)
+loginfo(Format, Data) when is_binary(Data) ->
+    try %do_log_info(Format, Data)
+		error_logger:info_msg(Format, binary_to_list(Data))
     catch
-        _:_ ->
-            ok
-    end.
-
-do_log_info(Format, Data) when is_binary(Data) ->
-    [{display, Display}] = ets:lookup(msgservertable, display),
-    case Display of
-        1 ->
-           try
-                error_logger:info_msg(Format, binary_to_list(Data))
-            catch
-                _:Why ->
-                    error_logger:error_msg("loginfo exception : ~p~n", [Why])
-            end;
-        _ ->
-            ok
+        Oper:Msg ->
+            error_logger:error_msg("loginfo exception : (Operation)~p:(Message)~p~n", [Oper, Msg])
     end;
-do_log_info(Format, Data) when is_list(Data) ->
-    [{display, Display}] = ets:lookup(msgservertable, display),
-    case Display of
-        1 ->
-           try
-                error_logger:info_msg(Format, Data)
-            catch
-                _:Why ->
-                    error_logger:error_msg("loginfo exception : ~p~n", [Why])
-            end;
-        _ ->
-            ok
+loginfo(Format, Data) when is_list(Data) ->
+    try %do_log_info(Format, Data)
+		error_logger:info_msg(Format, Data)
+    catch
+        Oper:Msg ->
+            error_logger:error_msg("loginfo exception : (Operation)~p:(Message)~p~n", [Oper, Msg])
     end;
-do_log_info(_Format, _Data) ->
+loginfo(_Format, _Data) ->
     error_logger:error_msg("loginfo fails : not binary or list~n").
+
+%do_log_info(Format, Data) when is_binary(Data) ->
+%    [{display, Display}] = ets:lookup(msgservertable, display),
+%    case Display of
+%        1 ->
+%           try
+%                error_logger:info_msg(Format, binary_to_list(Data))
+%            catch
+%                _:Why ->
+%                    error_logger:error_msg("loginfo exception : ~p~n", [Why])
+%            end;
+%        _ ->
+%            ok
+%    end;
+%do_log_info(Format, Data) when is_list(Data) ->
+%    [{display, Display}] = ets:lookup(msgservertable, display),
+%    case Display of
+%        1 ->
+%           try
+%                error_logger:info_msg(Format, Data)
+%            catch
+%                _:Why ->
+%                    error_logger:error_msg("loginfo exception : ~p~n", [Why])
+%            end;
+%        _ ->
+%            ok
+%    end;
+%do_log_info(_Format, _Data) ->
+%    error_logger:error_msg("loginfo fails : not binary or list~n").
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %

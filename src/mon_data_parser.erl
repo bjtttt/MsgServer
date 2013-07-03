@@ -48,11 +48,25 @@ parse_data(RawData) ->
             end
     end.
 
+create_msg(ID) when is_integer(ID),
+                    ID < 255,
+                    ID >= 0 ->
+    Content = <<0:?LEN_BYTE>>,
+    Xor = vdr_data_parser:bxorbytelist(Content),
+	FinalLen = 2,
+    <<FinalLen:?LEN_BYTE, Content/binary, Xor:?LEN_BYTE>>.
 create_msg(ID, Body) when is_integer(ID),
                           ID < 255,
                           ID >= 0,
                           is_binary(Body) ->
-    Len = 1 + byte_size(Body),
-    Content = <<Len:?Len_BYTE, Body/binary>>,
+    Len = byte_size(Body),
+    Content = <<Len:?LEN_BYTE, Body/binary>>,
     Xor = vdr_data_parser:bxorbytelist(Content),
-    <<
+	FinalLen = Len + 2,
+    <<FinalLen:?LEN_BYTE, Content/binary, Xor:?LEN_BYTE>>.
+
+create_unknown_response() ->
+	create_msg(16#0).
+
+create_test_response() ->
+	create_msg(16#1).
