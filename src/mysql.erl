@@ -210,13 +210,23 @@ mysql_process() ->
 			try
 				Result = mysql:fetch(PoolId, Sql),
             	Pid ! {Pid, Result},
-            	common:loginfo("Successfully send SQL (~p) to DB : ~p~n", [Sql, PoolId]),
-            	mysql_process()
+            	common:loginfo("Successfully send SQL (~p) to DB : ~p~n", [Sql, PoolId])
 			catch
 				Oper:Msg ->
-            		common:logerror("Fail to send SQL (~p) to DB : ~p~n(Operation)~p:(Message)~p", [Sql, PoolId, Oper, Msg]),
+                    common:logerror("Fail to send SQL (~p) to DB : ~p~n(Operation)~p:(Message)~p", [Sql, PoolId, Oper, Msg]),
+                    try
+                        [{db, DB}] = ets:lookup(msgservertable, db),
+                        [{dbname, DBName}] = ets:lookup(msgservertable, dbname),
+                        [{dbuid, DBUid}] = ets:lookup(msgservertable, dbuid),
+                        [{dbpwd, DBPwd}] = ets:lookup(msgservertable, dbpwd),
+                        mysql:utf8connect(conn, DB, undefined, DBUid, DBPwd, DBName, true)
+                    catch
+                        Oper1:Msg1 ->
+                            common:logerror("Fail to start new DB client: ~p~n(Operation)~p:(Message)~p", [Oper1, Msg1])
+                    end,
 					Pid ! {Pid,<<"">>}
-			end;
+			end,
+            mysql_process();
         stop ->
             ok;
         _ ->
