@@ -62,6 +62,9 @@ start(StartType, StartArgs) ->
                     %mysql:utf8connect(regauth, DB, undefined, DBUid, DBPwd, DBName, true),
                     mysql:utf8connect(conn, DB, undefined, DBUid, DBPwd, DBName, true),
                     %mysql:utf8connect(cmd, DB, undefined, DBUid, DBPwd, DBName, true),
+					%mysql:utf8connect(conn, DB, undefined, DBUid, DBPwd, DBName, true),
+					%mysql:utf8connect(conn, DB, undefined, DBUid, DBPwd, DBName, true),
+					%mysql:utf8connect(conn, DB, undefined, DBUid, DBPwd, DBName, true),
 
                     WSPid = spawn(fun() -> wsock_client:wsock_client_process() end),
                     DBPid = spawn(fun() -> mysql:mysql_process() end),

@@ -63,6 +63,7 @@ handle_info({tcp, Socket, Data}, OriState) ->
     %DataDebug = <<126,2,0,0,46,1,86,121,16,51,112,0,2,0,0,0,0,0,0,0,17,0,0,0,0,0,0,0,0,0,0,0,0,0,0,19,3,36,25,18,68,1,4,0,0,0,0,2,2,0,0,3,2,0,0,4,2,0,0,59,126>>,
     %DataDebug = <<126,2,0,0,46,1,86,121,16,51,112,3,44,0,8,0,0,0,0,0,17,0,0,0,0,0,0,0,0,0,0,0,0,0,0,19,3,36,35,85,35,1,4,0,0,0,0,2,2,0,0,3,2,0,0,4,2,0,0,4,126>>,
 	%DataDebug = <<126,1,0,0,45,1,86,0,71,2,5,0,55,0,11,0,114,55,48,51,49,57,74,76,57,48,49,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,48,52,55,48,50,48,53,1,190,169,66,55,48,50,48,53,39,126>>,
+	%DataDebug = <<126,2,0,0,49,1,86,151,146,84,84,0,115,0,0,0,0,0,0,0,3,2,97,110,120,6,239,82,248,0,47,0,30,0,253,19,7,4,19,86,18,1,4,0,0,0,125,1,2,2,0,0,3,2,0,0,4,2,0,0,17,1,0,195,126>>,
     Msgs = common:split_msg_to_single(Data, 16#7e),
     %Msgs = common:split_msg_to_single(DataDebug, 16#7e),
 	%SqlAlarmList = list_to_binary([<<"select * from vehicle_alarm where vehicle_id=2215 and isnull(clear_time)">>]),
@@ -119,7 +120,7 @@ handle_info(_Info, State) ->
 %%% When VDR handler process is terminated, do the clean jobs here
 %%%
 terminate(Reason, State) ->
-    common:loginfo("VDR (~p) (id:~p, serialno:~p, authen_code:~p, vehicleid:~p, vehiclecode:~p) starts being terminated~nReson : ~p~n", 
+    common:loginfo("VDR (~p) (id:~p, serialno:~p, authen_code:~p, vehicleid:~p, vehiclecode:~p) starts being terminated~nReason : ~p~n", 
 				   [State#vdritem.addr, 
 					State#vdritem.id, 
 					State#vdritem.serialno, 

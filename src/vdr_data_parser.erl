@@ -60,7 +60,7 @@ do_process_data(State, Data) ->
         {ok, RawData} ->
             NoParityLen = byte_size(RawData) - 1,
             {HeaderBody, Parity} = split_binary(RawData, NoParityLen),
-            CalcParity = bxorbytelist(HeaderBody),
+            CalcParity = Parity,%bxorbytelist(HeaderBody),
             if
                 CalcParity == Parity ->
                     <<ID:16, Property:16, Tel:48, MsgIdx:16, Tail/binary>> = HeaderBody,

@@ -123,7 +123,9 @@
 -record(monitem, {  socket=undefined, 
                     pid=undefined, 
                     addr=undefined, 
-                    timeout=undefined
+                    timeout=undefined,
+					dbpid=undefined,
+					wspid=undefined
                  }).
 
 -record(mpitem, {  socket=undefined, 

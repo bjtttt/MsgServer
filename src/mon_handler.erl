@@ -12,14 +12,17 @@ start_link(Socket) ->
     gen_server:start_link(?MODULE, [Socket], []). 
 
 init([Socket]) ->
+	process_flag(trap_exit, true),
+    [{dbpid, DBPid}] = ets:lookup(msgservertable, dbpid),
+    [{wspid, WSPid}] = ets:lookup(msgservertable, wspid),
     case common:safepeername(Socket) of
         {ok, {Address, _Port}} ->
-            State=#monitem{socket=Socket, pid=self(), addr=Address},
+            State=#monitem{socket=Socket, pid=self(), addr=Address, dbpid=DBPid, wspid=WSPid},
             ets:insert(montable, State), 
             inet:setopts(Socket, [{active, once}]),
             {ok, State};
         {error, _Reason} ->
-            State=#monitem{socket=Socket, pid=self(), addr="0.0.0.0"},
+            State=#monitem{socket=Socket, pid=self(), addr="0.0.0.0", dbpid=DBPid, wspid=WSPid},
             ets:insert(montable, State), 
             inet:setopts(Socket, [{active, once}]),
             {ok, State}
@@ -32,7 +35,8 @@ handle_cast(_Msg, State) ->
     {noreply, State}. 
 
 handle_info({tcp, Socket, Data}, State) ->    
-    case mon_data_parser:parse_data(Socket, Data) of
+    common:loginfo("Data from Monitor (~p) : ~p~n", [State#monitem.addr, Data]),
+    case mon_data_parser:parse_data(Data) of
         {ok, Decoded} ->
             process_mon_data(Socket, Decoded);
         _ ->
@@ -48,14 +52,16 @@ handle_info({tcp_closed, _Socket}, State) ->
 handle_info(_Info, State) ->    
     {noreply, State}. 
 
-terminate(Reason, #monitem{socket=Socket}) ->    
-    (catch gen_tcp:close(Socket)),    
-    case common:safepeername(Socket) of
-        {ok, {Address, _Port}} ->
-            common:loginfo("Monitor ~p socket is closed and monitor PID ~p is terminated : ~p~n", [Address, self(), Reason]);
-        {error, _Reason} ->
-            common:loginfo("Monitor socket is closed and monitor PID ~p is terminated : ~p~n", [self(), Reason])
-    end.
+terminate(Reason, State) ->
+    common:loginfo("Monitor (~p) starts being terminated~nReason : ~p~n", [State#monitem.addr, Reason]),
+	ets:delete(montable, State#monitem.socket),
+    try
+		gen_tcp:close(State#monitem.socket)
+	catch
+		_:Ex ->
+			common:logerror("Monitor (~p) : exception when gen_tcp:close : ~p~n", [State#monitem.addr, Ex])
+	end,
+    common:loginfo("Monitor (~p) is terminated~n", [State#vdritem.addr]).
 
 code_change(_OldVsn, State, _Extra) ->    
     {ok, State}.
