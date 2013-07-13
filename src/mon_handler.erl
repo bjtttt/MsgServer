@@ -61,7 +61,7 @@ terminate(Reason, State) ->
 		_:Ex ->
 			common:logerror("Monitor (~p) : exception when gen_tcp:close : ~p~n", [State#monitem.addr, Ex])
 	end,
-    common:loginfo("Monitor (~p) is terminated~n", [State#vdritem.addr]).
+    common:loginfo("Monitor (~p) is terminated~n", [State#monitem.addr]).
 
 code_change(_OldVsn, State, _Extra) ->    
     {ok, State}.
