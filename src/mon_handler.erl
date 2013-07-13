@@ -35,16 +35,11 @@ handle_cast(_Msg, State) ->
     {noreply, State}. 
 
 handle_info({tcp, Socket, Data}, State) ->    
-    common:loginfo("Data from Monitor (~p) : ~p~n", [State#monitem.addr, Data]),
-    case mon_data_parser:parse_data(Data) of
-        {ok, Decoded} ->
-            process_mon_data(Socket, Decoded);
-        _ ->
-            ok
-    end,
+    common:loginfo("Data from monitor (~p) : ~p~n", [State#monitem.addr, Data]),
+    Resp = mon_data_parser:parse_data(Data),
+    gen_tcp:send(Resp),
+    common:loginfo("Response to monitor (~p) : ~p~n", [State#monitem.addr, Resp]),
     inet:setopts(Socket, [{active, once}]),
-    % Should be modified in the future
-    %ok = gen_tcp:send(Socket, <<"Monitor : ", Resp/binary>>),    
     {noreply, State}; 
 handle_info({tcp_closed, _Socket}, State) ->    
     common:loginfo("Monitor ~p is disconnected and monitor PID ~p stops~n", [State#monitem.addr, State#monitem.pid]),
