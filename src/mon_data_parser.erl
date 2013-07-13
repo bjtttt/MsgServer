@@ -68,7 +68,11 @@ create_msg(_ID, _Body) ->
 	<<>>.
 
 create_unknown_response() ->
-	create_msg(16#0).
+	create_msg(16#FF).
 
 create_test_response() ->
 	create_msg(16#1).
+
+
+
+
