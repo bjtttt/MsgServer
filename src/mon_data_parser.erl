@@ -42,6 +42,8 @@ parse_data(RawData, State) ->
 									create_test_db_proc_response(State#monitem.dbpid);
 								2 ->
 									create_test_ws_proc_response(State#monitem.wspid);
+								3 ->
+									create_vehicle_count_response();
                                 _ ->
                                     create_unknown_msg_id_response(ID)
                             end
@@ -138,6 +140,38 @@ create_test_ws_proc_response(WSPid) ->
 			list_to_binary([Content, Xor])
 	end.
 
+create_vehicle_count_response() ->
+	V1 = ets:info(vdrtable, size),
+	V2 = ets:info(vdridsocktable, size),
+	if
+		V1 == undefined ->
+			Value1 = 0,
+			if
+				V2 == undefined ->
+					Value2 = 0,
+				    Content = <<10:?LEN_BYTE, 0:?LEN_BYTE, 3:?LEN_BYTE, Value1:?LEN_DWORD, Value2:?LEN_DWORD>>,
+				    Xor = vdr_data_parser:bxorbytelist(Content),
+					list_to_binary([Content, Xor]);
+				true ->
+				    Content = <<10:?LEN_BYTE, 0:?LEN_BYTE, 3:?LEN_BYTE, Value1:?LEN_DWORD, V2:?LEN_DWORD>>,
+				    Xor = vdr_data_parser:bxorbytelist(Content),
+					list_to_binary([Content, Xor])
+			end;
+		true ->
+			if
+				V2 == undefined ->
+					Value2 = 0,
+				    Content = <<10:?LEN_BYTE, 0:?LEN_BYTE, 3:?LEN_BYTE, V1:?LEN_DWORD, Value2:?LEN_DWORD>>,
+				    Xor = vdr_data_parser:bxorbytelist(Content),
+					list_to_binary([Content, Xor]);
+				true ->
+				    Content = <<10:?LEN_BYTE, 0:?LEN_BYTE, 3:?LEN_BYTE, V1:?LEN_DWORD, V2:?LEN_DWORD>>,
+				    Xor = vdr_data_parser:bxorbytelist(Content),
+					list_to_binary([Content, Xor])
+			end
+	end.
+
+					
 
 
 
