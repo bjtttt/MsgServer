@@ -227,6 +227,10 @@ mysql_process() ->
 					Pid ! {Pid,<<"">>}
 			end,
             mysql_process();
+		{Pid, test} ->
+            common:loginfo("DB process : received test DB request from PID ~p~n", [Pid]),
+			Pid ! ok,
+			mysql_process();
         stop ->
             ok;
         _ ->

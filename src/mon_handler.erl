@@ -36,8 +36,8 @@ handle_cast(_Msg, State) ->
 
 handle_info({tcp, Socket, Data}, State) ->    
     common:loginfo("Data from monitor (~p) : ~p~n", [State#monitem.addr, Data]),
-    Resp = mon_data_parser:parse_data(Data),
-    gen_tcp:send(Resp),
+    Resp = mon_data_parser:parse_data(Data, State),
+    gen_tcp:send(Socket, Resp),
     common:loginfo("Response to monitor (~p) : ~p~n", [State#monitem.addr, Resp]),
     inet:setopts(Socket, [{active, once}]),
     {noreply, State}; 
