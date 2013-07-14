@@ -32,7 +32,7 @@
   {applications, [kernel, sasl, stdlib]},
   {sasl, [ 
          %% minimise shell error logging 
-         {sasl_error_logger, false}, 
+         %{sasl_error_logger, false}, 
          %% only report errors 
          {errlog_type, error}, 
          %% define the parameters of the rotating log 
