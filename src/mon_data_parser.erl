@@ -4,7 +4,8 @@
 
 -module(mon_data_parser).
 
--export([parse_data/2]).
+-export([parse_data/2,
+		 create_all_vehicle_ids_response/0]).
 
 -include("header.hrl").
 
@@ -44,6 +45,8 @@ parse_data(RawData, State) ->
 									create_test_ws_proc_response(State#monitem.wspid);
 								3 ->
 									create_vehicle_count_response();
+ 								4 ->
+									create_all_vehicle_ids_response();
                                 _ ->
                                     create_unknown_msg_id_response(ID)
                             end
@@ -171,7 +174,30 @@ create_vehicle_count_response() ->
 			end
 	end.
 
-					
+create_all_vehicle_ids_response() ->
+	IDs = ets:match(vdridsocktable, {'_', '$1', '_', '_', '_', '_', '_', '_'}),
+	%IDs = [[1],[2],[3],[4]],
+	common:loginfo("vdridsocktable matches : ~p~n", [IDs]),
+	IDList = compose_one_item_list_array_to_list(IDs),
+	IDsBin = convert_integer_list_to_4_bytes_binary_list(IDList),
+	Size = byte_size(IDsBin),
+    Content = <<(2+Size):?LEN_BYTE, 0:?LEN_BYTE, 4:?LEN_BYTE, IDsBin/binary>>,
+    Xor = vdr_data_parser:bxorbytelist(Content),
+	list_to_binary([Content, Xor]).
+
+compose_one_item_list_array_to_list(IDs) when is_list(IDs),
+											  length(IDs) > 0 ->
+	[H|T] = IDs,
+	lists:merge(H, compose_one_item_list_array_to_list(T));
+compose_one_item_list_array_to_list(_IDs) ->
+	[].
+
+convert_integer_list_to_4_bytes_binary_list(IDList) when is_list(IDList),
+														 length(IDList) > 0 ->
+	[H|T] = IDList,
+	list_to_binary([<<H:?LEN_DWORD>>, convert_integer_list_to_4_bytes_binary_list(T)]);
+convert_integer_list_to_4_bytes_binary_list(_IDList) ->
+	<<>>.
 
 
 
