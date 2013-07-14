@@ -42,7 +42,7 @@ start_link(PortVDR) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 init([PortVDR]) ->    
 	process_flag(trap_exit, true),    
-	Opts = [binary, {packet, 0}, {reuseaddr, true}, {keepalive, true}, {active, once}],    
+	Opts = [binary, {packet, 0}, {reuseaddr, true}, {keepalive, true}, {active, true}],    
 	% VDR server start listening
     case gen_tcp:listen(PortVDR, Opts) of	    
 		{ok, LSock} -> 
@@ -145,7 +145,7 @@ handle_info({inet_async, LSock, Ref, {ok, CSock}}, #serverstate{lsock=LSock, acc
 handle_info({tcp, Socket, Data}, State) ->  
     common:printsocketinfo(Socket, "vdr_server:handle_info(...) : data from"),
     common:logerror("(ERROR) vdr_server:handle_info(...) : data : ~p~n", [Data]),
-    inet:setopts(Socket, [{active, once}]),
+    %inet:setopts(Socket, [{active, once}]),
     {noreply, State}; 
 handle_info({inet_async, LSock, Ref, Error}, #serverstate{lsock=LSock, acceptor=Ref}=State) ->    
     common:logerror("(ERROR) vdr_server:handle_info(...) : inet_async error : ~p~n", [Error]),

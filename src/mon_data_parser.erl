@@ -47,6 +47,12 @@ parse_data(RawData, State) ->
 									create_vehicle_count_response();
  								4 ->
 									create_all_vehicle_ids_response();
+ 								5 ->
+									create_reset_all_response();
+								6 ->
+									create_all_device_ids_sock_response();
+								7 ->
+									create_all_vehicle_ids_sock_response();
                                 _ ->
                                     create_unknown_msg_id_response(ID)
                             end
@@ -177,7 +183,7 @@ create_vehicle_count_response() ->
 create_all_vehicle_ids_response() ->
 	IDs = ets:match(vdridsocktable, {'_', '$1', '_', '_', '_', '_', '_', '_'}),
 	%IDs = [[1],[2],[3],[4]],
-	common:loginfo("vdridsocktable matches : ~p~n", [IDs]),
+	%common:loginfo("vdridsocktable matches : ~p~n", [IDs]),
 	IDList = compose_one_item_list_array_to_list(IDs),
 	IDsBin = convert_integer_list_to_4_bytes_binary_list(IDList),
 	Size = byte_size(IDsBin),
@@ -198,6 +204,60 @@ convert_integer_list_to_4_bytes_binary_list(IDList) when is_list(IDList),
 	list_to_binary([<<H:?LEN_DWORD>>, convert_integer_list_to_4_bytes_binary_list(T)]);
 convert_integer_list_to_4_bytes_binary_list(_IDList) ->
 	<<>>.
+
+create_reset_all_response() ->
+	Socks = ets:match(vdridsocktable, {'_', '_', '$1', '_', '_', '_', '_', '_'}),
+	%common:loginfo("vdridsocktable matches : ~p~n", [Socks]),
+	SockList = compose_one_item_list_array_to_list(Socks),
+	close_all_sockets(SockList),
+    Content = <<2:?LEN_BYTE, 0:?LEN_BYTE, 5:?LEN_BYTE>>,
+    Xor = vdr_data_parser:bxorbytelist(Content),
+	list_to_binary([Content, Xor]).
+
+close_all_sockets(SockList) when is_list(SockList),
+								 length(SockList) > 0 ->
+	[H|T] = SockList,
+	case common:safepeername(H) of
+		{ok, {Address, Port}} ->
+			try
+				gen_tcp:close(H)
+			catch
+				Oper:Msg ->
+					common:logerror("Exception when closing ~p:~p : ~p:~p", [Address, Port, Oper, Msg])
+			end;
+		{error, _Reason} ->
+			try
+				gen_tcp:close(H)
+			catch
+				Oper:Msg ->
+					common:logerror("Exception when closing ~p : ~p:~p", [H, Oper, Msg])
+			end
+	end,
+	close_all_sockets(T);
+close_all_sockets(_SockList) ->
+	ok.
+		
+create_all_device_ids_sock_response() ->
+	IDs = ets:match(vdrtable, {'_', '_', '$1', '_', '_', '_', '_', '_', '_', '_', '_', '_', '_', '_', '_', '_', '_', '_', '_', '_', '_', '_', '_', '_', '_', '_'}),
+	%IDs = [[1],[2],[3],[4]],
+	%common:loginfo("vdridsocktable matches : ~p~n", [IDs]),
+	IDList = compose_one_item_list_array_to_list(IDs),
+	IDsBin = convert_integer_list_to_4_bytes_binary_list(IDList),
+	Size = byte_size(IDsBin),
+    Content = <<(2+Size):?LEN_BYTE, 0:?LEN_BYTE, 6:?LEN_BYTE, IDsBin/binary>>,
+    Xor = vdr_data_parser:bxorbytelist(Content),
+	list_to_binary([Content, Xor]).
+		
+create_all_vehicle_ids_sock_response() ->
+	IDs = ets:match(vdrtable, {'_', '_', '_', '_', '_', '$1', '_', '_', '_', '_', '_', '_', '_', '_', '_', '_', '_', '_', '_', '_', '_', '_', '_', '_', '_', '_'}),
+	%IDs = [[1],[2],[3],[4]],
+	%common:loginfo("vdridsocktable matches : ~p~n", [IDs]),
+	IDList = compose_one_item_list_array_to_list(IDs),
+	IDsBin = convert_integer_list_to_4_bytes_binary_list(IDList),
+	Size = byte_size(IDsBin),
+    Content = <<(2+Size):?LEN_BYTE, 0:?LEN_BYTE, 7:?LEN_BYTE, IDsBin/binary>>,
+    Xor = vdr_data_parser:bxorbytelist(Content),
+	list_to_binary([Content, Xor]).
 
 
 
