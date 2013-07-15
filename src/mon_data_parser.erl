@@ -222,7 +222,7 @@ create_all_device_ids_response() ->
 	DIDList = compose_one_item_list_array_to_list(DIDs),
 	DIDsBin = convert_integer_list_to_4_bytes_binary_list(DIDList),
 	Size = byte_size(DIDsBin),
-    Content = <<(2+Size):?LEN_BYTE, 0:?LEN_BYTE, 6:?LEN_BYTE, DIDsBin/binary>>,
+    Content = <<(2+Size):?LEN_BYTE, 0:?LEN_BYTE, 5:?LEN_BYTE, DIDsBin/binary>>,
     Xor = vdr_data_parser:bxorbytelist(Content),
 	list_to_binary([Content, Xor]).
 		
@@ -237,7 +237,7 @@ create_all_vehicle_ids_response() ->
 	VIDList = compose_one_item_list_array_to_list(VIDs),
 	VIDsBin = convert_integer_list_to_4_bytes_binary_list(VIDList),
 	Size = byte_size(VIDsBin),
-    Content = <<(2+Size):?LEN_BYTE, 0:?LEN_BYTE, 7:?LEN_BYTE, VIDsBin/binary>>,
+    Content = <<(2+Size):?LEN_BYTE, 0:?LEN_BYTE, 6:?LEN_BYTE, VIDsBin/binary>>,
     Xor = vdr_data_parser:bxorbytelist(Content),
 	list_to_binary([Content, Xor]).
 
