@@ -27,7 +27,7 @@ init([Sock, Addr]) ->
 	mysql:fetch(conn, <<"set names 'utf8'">>),
 	%mysql:fetch(cmd, <<"set names 'utf8'">>),
     ets:insert(vdrtable, State), 
-    %inet:setopts(Sock, [{active, once}]),
+    inet:setopts(Sock, [{active, once}]),
 	{ok, State}.
 
 %handle_call({fetch, PoolId, Msg}, _From, State) ->
@@ -79,7 +79,7 @@ handle_info({tcp, Socket, Data}, OriState) ->
                 ErrCount >= ?MAX_VDR_ERR_COUNT ->
                     {stop, vdrerror, State#vdritem{errorcount=ErrCount}};
                 true ->
-                    %inet:setopts(Socket, [{active, once}]),
+                    inet:setopts(Socket, [{active, once}]),
                     {noreply, State#vdritem{errorcount=ErrCount}}
             end;    
         _ ->
@@ -91,16 +91,16 @@ handle_info({tcp, Socket, Data}, OriState) ->
                         ErrCount >= ?MAX_VDR_ERR_COUNT ->
                             {stop, vdrerror, NewState#vdritem{errorcount=ErrCount}};
                         true ->
-                            %inet:setopts(Socket, [{active, once}]),
+                            inet:setopts(Socket, [{active, once}]),
                             {noreply, NewState#vdritem{errorcount=ErrCount}}
                     end;
                 {error, ErrType, NewState} ->
                     {stop, ErrType, NewState};
                 {warning, NewState} ->
-                    %inet:setopts(Socket, [{active, once}]),
+                    inet:setopts(Socket, [{active, once}]),
                     {noreply, NewState#vdritem{errorcount=0}};
                 {ok, NewState} ->
-                    %inet:setopts(Socket, [{active, once}]),
+                    inet:setopts(Socket, [{active, once}]),
                     {noreply, NewState#vdritem{errorcount=0}}
             end
     end;
