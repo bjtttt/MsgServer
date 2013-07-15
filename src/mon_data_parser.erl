@@ -4,8 +4,7 @@
 
 -module(mon_data_parser).
 
--export([parse_data/2,
-		 create_all_vehicle_ids_response/0]).
+-export([parse_data/2]).
 
 -include("header.hrl").
 
@@ -46,13 +45,11 @@ parse_data(RawData, State) ->
 								3 ->
 									create_vehicle_count_response();
  								4 ->
-									create_all_vehicle_ids_response();
- 								5 ->
 									create_reset_all_response();
+								5 ->
+									create_all_device_ids_response();
 								6 ->
-									create_all_device_ids_sock_response();
-								7 ->
-									create_all_vehicle_ids_sock_response();
+									create_all_vehicle_ids_response();
                                 _ ->
                                     create_unknown_msg_id_response(ID)
                             end
@@ -151,45 +148,17 @@ create_test_ws_proc_response(WSPid) ->
 
 create_vehicle_count_response() ->
 	V1 = ets:info(vdrtable, size),
-	V2 = ets:info(vdridsocktable, size),
 	if
 		V1 == undefined ->
 			Value1 = 0,
-			if
-				V2 == undefined ->
-					Value2 = 0,
-				    Content = <<10:?LEN_BYTE, 0:?LEN_BYTE, 3:?LEN_BYTE, Value1:?LEN_DWORD, Value2:?LEN_DWORD>>,
-				    Xor = vdr_data_parser:bxorbytelist(Content),
-					list_to_binary([Content, Xor]);
-				true ->
-				    Content = <<10:?LEN_BYTE, 0:?LEN_BYTE, 3:?LEN_BYTE, Value1:?LEN_DWORD, V2:?LEN_DWORD>>,
-				    Xor = vdr_data_parser:bxorbytelist(Content),
-					list_to_binary([Content, Xor])
-			end;
+			Content = <<6:?LEN_BYTE, 0:?LEN_BYTE, 3:?LEN_BYTE, Value1:?LEN_DWORD>>,
+			Xor = vdr_data_parser:bxorbytelist(Content),
+			list_to_binary([Content, Xor]);
 		true ->
-			if
-				V2 == undefined ->
-					Value2 = 0,
-				    Content = <<10:?LEN_BYTE, 0:?LEN_BYTE, 3:?LEN_BYTE, V1:?LEN_DWORD, Value2:?LEN_DWORD>>,
-				    Xor = vdr_data_parser:bxorbytelist(Content),
-					list_to_binary([Content, Xor]);
-				true ->
-				    Content = <<10:?LEN_BYTE, 0:?LEN_BYTE, 3:?LEN_BYTE, V1:?LEN_DWORD, V2:?LEN_DWORD>>,
-				    Xor = vdr_data_parser:bxorbytelist(Content),
-					list_to_binary([Content, Xor])
-			end
+			Content = <<6:?LEN_BYTE, 0:?LEN_BYTE, 3:?LEN_BYTE, V1:?LEN_DWORD>>,
+			Xor = vdr_data_parser:bxorbytelist(Content),
+			list_to_binary([Content, Xor])
 	end.
-
-create_all_vehicle_ids_response() ->
-	IDs = ets:match(vdridsocktable, {'_', '$1', '_', '_', '_', '_', '_', '_'}),
-	%IDs = [[1],[2],[3],[4]],
-	%common:loginfo("vdridsocktable matches : ~p~n", [IDs]),
-	IDList = compose_one_item_list_array_to_list(IDs),
-	IDsBin = convert_integer_list_to_4_bytes_binary_list(IDList),
-	Size = byte_size(IDsBin),
-    Content = <<(2+Size):?LEN_BYTE, 0:?LEN_BYTE, 4:?LEN_BYTE, IDsBin/binary>>,
-    Xor = vdr_data_parser:bxorbytelist(Content),
-	list_to_binary([Content, Xor]).
 
 compose_one_item_list_array_to_list(IDs) when is_list(IDs),
 											  length(IDs) > 0 ->
@@ -206,8 +175,13 @@ convert_integer_list_to_4_bytes_binary_list(_IDList) ->
 	<<>>.
 
 create_reset_all_response() ->
-	Socks = ets:match(vdridsocktable, {'_', '_', '$1', '_', '_', '_', '_', '_'}),
-	%common:loginfo("vdridsocktable matches : ~p~n", [Socks]),
+	Socks = ets:match(vdrtable, {'_', 
+                                 '$1', '_', '_', '_', '_', 
+                                 '_', '_', '_', '_', '_', 
+                                 '_', '_', '_', '_', '_', 
+                                 '_', '_', '_', '_', '_', 
+                                 '_', '_', '_', '_', '_', '_', '_'}),
+	%common:loginfo("vdrtable all sockets : ~p~n", [Socks]),
 	SockList = compose_one_item_list_array_to_list(Socks),
 	close_all_sockets(SockList),
     Content = <<2:?LEN_BYTE, 0:?LEN_BYTE, 5:?LEN_BYTE>>,
@@ -237,25 +211,33 @@ close_all_sockets(SockList) when is_list(SockList),
 close_all_sockets(_SockList) ->
 	ok.
 		
-create_all_device_ids_sock_response() ->
-	IDs = ets:match(vdrtable, {'_', '_', '$1', '_', '_', '_', '_', '_', '_', '_', '_', '_', '_', '_', '_', '_', '_', '_', '_', '_', '_', '_', '_', '_', '_', '_'}),
-	%IDs = [[1],[2],[3],[4]],
-	%common:loginfo("vdridsocktable matches : ~p~n", [IDs]),
-	IDList = compose_one_item_list_array_to_list(IDs),
-	IDsBin = convert_integer_list_to_4_bytes_binary_list(IDList),
-	Size = byte_size(IDsBin),
-    Content = <<(2+Size):?LEN_BYTE, 0:?LEN_BYTE, 6:?LEN_BYTE, IDsBin/binary>>,
+create_all_device_ids_response() ->
+	DIDs = ets:match(vdrtable, {'_', 
+                                '_', '$1', '_', '_', '_', 
+                                '_', '_', '_', '_', '_', 
+                                '_', '_', '_', '_', '_', 
+                                '_', '_', '_', '_', '_', 
+                                '_', '_', '_', '_', '_', '_', '_'}),
+	%common:loginfo("vdrtable all device IDs : ~p~n", [DIDs]),
+	DIDList = compose_one_item_list_array_to_list(DIDs),
+	DIDsBin = convert_integer_list_to_4_bytes_binary_list(DIDList),
+	Size = byte_size(DIDsBin),
+    Content = <<(2+Size):?LEN_BYTE, 0:?LEN_BYTE, 6:?LEN_BYTE, DIDsBin/binary>>,
     Xor = vdr_data_parser:bxorbytelist(Content),
 	list_to_binary([Content, Xor]).
 		
-create_all_vehicle_ids_sock_response() ->
-	IDs = ets:match(vdrtable, {'_', '_', '_', '_', '_', '$1', '_', '_', '_', '_', '_', '_', '_', '_', '_', '_', '_', '_', '_', '_', '_', '_', '_', '_', '_', '_'}),
-	%IDs = [[1],[2],[3],[4]],
-	%common:loginfo("vdridsocktable matches : ~p~n", [IDs]),
-	IDList = compose_one_item_list_array_to_list(IDs),
-	IDsBin = convert_integer_list_to_4_bytes_binary_list(IDList),
-	Size = byte_size(IDsBin),
-    Content = <<(2+Size):?LEN_BYTE, 0:?LEN_BYTE, 7:?LEN_BYTE, IDsBin/binary>>,
+create_all_vehicle_ids_response() ->
+	VIDs = ets:match(vdrtable, {'_', 
+                                '_', '_', '_', '_', '$1', 
+                                '_', '_', '_', '_', '_', 
+                                '_', '_', '_', '_', '_', 
+                                '_', '_', '_', '_', '_', 
+                                '_', '_', '_', '_', '_', '_', '_'}),
+	%common:loginfo("vdrtable all vehicle IDs : ~p~n", [VIDs]),
+	VIDList = compose_one_item_list_array_to_list(VIDs),
+	VIDsBin = convert_integer_list_to_4_bytes_binary_list(VIDList),
+	Size = byte_size(VIDsBin),
+    Content = <<(2+Size):?LEN_BYTE, 0:?LEN_BYTE, 7:?LEN_BYTE, VIDsBin/binary>>,
     Xor = vdr_data_parser:bxorbytelist(Content),
 	list_to_binary([Content, Xor]).
 

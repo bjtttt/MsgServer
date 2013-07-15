@@ -97,17 +97,19 @@
                     dbpid=undefined,
                     msg2vdr=[],
                     msg=[], 
-                    req=[]
+                    req=[],
+                    msgws2vdrflownum=?WS2VDRFREQ,
+                    msgws2vdr=[]            % [{MsgID, WSFlowIdx}, ...] only one item for one MsgID
                  }).
 
--record(vdridsockitem, {    id=undefined,           % Vehicle ID
-                            socket=undefined,
-                            addr=undefined,
-                            vdrpid=undefined,
-                            respwspid=undefined,
-                            msgflownum=?WS2VDRFREQ,
-                            msgws2vdr=[]            % [{MsgID, WSFlowIdx}, ...] only one item for one MsgID
-                       }).
+%-record(vdridsockitem, {    id=undefined,           % Vehicle ID
+%                            socket=undefined,
+%                            addr=undefined,
+%                            vdrpid=undefined,
+%                            respwspid=undefined,
+%                            msgflownum=?WS2VDRFREQ,
+%                            msgws2vdr=[]            % [{MsgID, WSFlowIdx}, ...] only one item for one MsgID
+%                       }).
 
 %%%
 %%% pid     : VDR handler process id

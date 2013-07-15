@@ -700,15 +700,21 @@ update_vdrs_ws2vdr_msg_id_flowidx(_ID, _FlowIdx, _VIDList, _Value) ->
 update_vdr_ws2vdr_msg_id_flowidx(ID, FlowIdx, VID, Value) when is_integer(ID),
                                                                is_integer(FlowIdx),
                                                                is_integer(VID) ->
-    Res = ets:lookup(vdridsocktable, VID),
+    Res = ets:match(vdrtable, {'$1', 
+                               '_', '_', '_', '_', VID,
+                               '_', '_', '_', '_', '_',
+                               '_', '_', '_', '_', '_',
+                               '_', '_', '_', '_', '_',
+                               '_', '_', '_', '_', '_',
+                               '_', '_', '_', '_', '_', '_', '_'}),
     case length(Res) of
         1 ->
-            [VSock] = Res,
-            MsgList = update_ws2vdrmsglist(VSock#vdridsockitem.msgws2vdr, ID, FlowIdx, Value),
-            common:loginfo("WSClient : VehicleID (~p) vdridsockitem.msgws2vdr : ~p~n", [VID, MsgList]),
-            ets:insert(vdridsocktable, VSock#vdridsockitem{msgws2vdr=MsgList});
+            [VDRItem] = Res,
+            MsgList = update_ws2vdrmsglist(VDRItem#vdritem.msgws2vdr, ID, FlowIdx, Value),
+            common:loginfo("WSClient : VehicleID (~p) vdritem.msgws2vdr : ~p~n", [VID, MsgList]),
+            ets:insert(vdrtable, VDRItem#vdritem{msgws2vdr=MsgList});
         ResCount ->
-            common:logerror("(FATAL) WSClient : vdridsocktable has ~p item(s) for vechileid ~p~n", [ResCount, VID])
+            common:logerror("(FATAL) WSClient : vdrtable has ~p item(s) for VechileID ~p~n", [ResCount, VID])
     end.
 
 update_ws2vdrmsglist(List, ID, FlowIdx, Value) when is_integer(ID),
@@ -778,10 +784,10 @@ send_del_rect_areas_msg_to_vdr(_VIDList, _DataList) ->
 %
 %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-send_msg_to_vdrs(ID, VDRList, Msg) when is_list(VDRList),
-                                    length(VDRList) > 0,
+send_msg_to_vdrs(ID, VIDList, Msg) when is_list(VIDList),
+                                    length(VIDList) > 0,
                                     is_binary(Msg) ->
-    [H|T] = VDRList,
+    [H|T] = VIDList,
     send_msg_to_vdr(ID, H, Msg),
     case T of
         [] ->
@@ -797,19 +803,25 @@ send_msg_to_vdrs(_ID, _VDRList, _Msg) ->
 %
 %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-send_msg_to_vdr(ID, VDR, Msg) when is_binary(Msg) ->
-    VDRSockList = ets:lookup(vdridsocktable, VDR),
-    case length(VDRSockList) of
+send_msg_to_vdr(ID, VID, Msg) when is_binary(Msg) ->
+    Res = ets:match(vdrtable, {'$1', 
+                               '_', '_', '_', '_', VID,
+                               '_', '_', '_', '_', '_',
+                               '_', '_', '_', '_', '_',
+                               '_', '_', '_', '_', '_',
+                               '_', '_', '_', '_', '_',
+                               '_', '_', '_', '_', '_', '_', '_'}),
+    case length(Res) of
         1 ->
-            [VDRSock] = VDRSockList,
-            common:loginfo("WS Server : Gateway WS delegation ~p sends msg to VDR (~p) : ~p~n", [self(), VDRSock#vdridsockitem.addr, Msg]),
-            NewFlowIdx = vdr_handler:send_data_to_vdr(ID, VDRSock#vdridsockitem.msgflownum, Msg, VDRSock#vdridsockitem.vdrpid),
-            ets:insert(vdridsocktable, VDRSock#vdridsockitem{msgflownum=NewFlowIdx});
+            [VDRItem] = Res,
+            common:loginfo("WS Server : Gateway WS delegation ~p sends msg to VDR (~p) : ~p~n", [self(), VDRItem#vdritem.addr, Msg]),
+            NewFlowIdx = vdr_handler:send_data_to_vdr(ID, VDRItem#vdritem.msgws2vdrflownum, Msg, VDRItem#vdritem.vdrpid),
+            ets:insert(vdrtable, VDRItem#vdritem{msgws2vdrflownum=NewFlowIdx});
         _ ->
-            common:loginfo("WS Server : Cannot find VDRID in vdridsock table~n"),
+            common:loginfo("WS Server : Cannot find VID in vdrtable~n"),
             ok
     end;
-send_msg_to_vdr(_ID, _VDR, _Msg) ->
+send_msg_to_vdr(_ID, _VID, _Msg) ->
     ok.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

@@ -153,12 +153,6 @@ terminate(Reason, State) ->
         _ ->
             ets:delete(vdrtable, Socket)
     end,
-    case ID of
-        undefined ->
-            ok;
-        _ ->
-            ets:delete(vdridsocktable, ID)
-    end,
     case VehicleID of
         undefined ->
             ok;
@@ -468,8 +462,14 @@ process_vdr_data(Socket, Data, State) ->
                                                     {error, dberror, State};
                                                 true ->
                                                     % Not tested yet.
-                                                    VehcileIDSockList = ets:lookup(vdridsocktable, VehicleID),
-                                                    disconn_socket_by_id(VehcileIDSockList),
+													VehcileSockList = ets:match(vdrtable, {'_', 
+                                                                                           '$1', '_', '_', '_', VehicleID,
+                                                                                           '_', '_', '_', '_', '_',
+                                                                                           '_', '_', '_', '_', '_',
+                                                                                           '_', '_', '_', '_', '_',
+                                                                                           '_', '_', '_', '_', '_',
+                                                                                           '_', '_', '_', '_', '_', '_', '_'}),
+                                                    disconn_socket_by_id(VehcileSockList),
                                                     SockVdrList = ets:lookup(vdrtable, Socket),
                                                     case length(SockVdrList) of
                                                         1 ->
@@ -482,9 +482,6 @@ process_vdr_data(Socket, Data, State) ->
                                                                                                  vehicleid=VehicleID,
                                                                                                  vehiclecode=binary_to_list(VehicleCode),
                                                                                                  driverid=DriverID}),
-                                                            common:loginfo("Insert VDRIDSocket : VehicleID (~p)~nVehicleCode (size : ~p) (Bin:List) : ~p : ~p\n",
-																		   [VehicleID, byte_size(VehicleCode), VehicleCode, binary_to_list(VehicleCode)]),
-                                                            ets:insert(vdridsocktable, #vdridsockitem{id=VehicleID, socket=Socket, addr=State#vdritem.addr, vdrpid=VDRPid, respwspid=SockVdr#vdritem.respwspid}),
                                                             
                                                             SqlUpdate = list_to_binary([<<"update device set is_online=1 where authen_code='">>, VDRAuthenCode, <<"'">>]),
                                                             %send_sql_to_db(regauth, SqlUpdate, State),
@@ -542,7 +539,7 @@ process_vdr_data(Socket, Data, State) ->
 		                                                            end
 															end;
                                                         _ ->
-                                                            % vdrtable or vdridsocktable error
+                                                            % vdrtable error
                                                             {error, systemerror, State}
                                                     end
                                             end;
@@ -591,26 +588,19 @@ process_vdr_data(Socket, Data, State) ->
 									RespID == 16#8804
 								  ->
                                     VehicleID = NewState#vdritem.vehicleid,                            
-                                    VSockRes = ets:lookup(vdridsocktable, VehicleID),
-                                    case length(VSockRes) of
+                                    MsgList = NewState#vdritem.msgws2vdr,
+                                    TargetList = [{WSID, WSFlowIdx, WSValue} || {WSID, WSFlowIdx, WSValue} <- MsgList, WSID == RespID],
+                                    case length(TargetList) of
                                         1 ->
-                                            [VSock] = VSockRes,
-                                            MsgList = VSock#vdridsockitem.msgws2vdr,
-                                            TargetList = [{WSID, WSFlowIdx, WSValue} || {WSID, WSFlowIdx, WSValue} <- MsgList, WSID == RespID],
-                                            case length(TargetList) of
-                                                1 ->
-                                                    [{TargetWSID, TargetWSFlowIdx, _WSValue}] = TargetList,
-                                                    {ok, WSUpdate} = wsock_data_parser:create_gen_resp(TargetWSFlowIdx,
-                                                                                                       TargetWSID,
-                                                                                                       [VehicleID],
-                                                                                                       Res),
-                                                    common:loginfo("Gateway receives VDR (~p) response to WS request ~p : ~p~n", [NewState#vdritem.addr, RespID, WSUpdate]),
-                                                    send_msg_to_ws(WSUpdate, NewState);
-                                                ItemCount ->
-                                                    common:logerror("(FATAL) vdridsocktable.msgws2vdr has ~p item(s) for wsid ~p~n", [ItemCount, RespID])
-                                            end;
-                                        ResCount ->
-                                            common:logerror("(FATAL) vdridsocktable has ~p item(s) for vechileid ~p~n", [ResCount, VehicleID])
+                                            [{TargetWSID, TargetWSFlowIdx, _WSValue}] = TargetList,
+                                            {ok, WSUpdate} = wsock_data_parser:create_gen_resp(TargetWSFlowIdx,
+                                                                                               TargetWSID,
+                                                                                               [VehicleID],
+                                                                                               Res),
+                                            common:loginfo("Gateway receives VDR (~p) response to WS request ~p : ~p~n", [NewState#vdritem.addr, RespID, WSUpdate]),
+                                            send_msg_to_ws(WSUpdate, NewState);
+                                        ItemCount ->
+                                            common:logerror("(FATAL) vdritem.msgws2vdr has ~p item(s) for wsid ~p~n", [ItemCount, RespID])
                                     end;
                                 true ->
                                     ok
@@ -738,26 +728,19 @@ process_vdr_data(Socket, Data, State) ->
                             {_AnswerFlowIdx, AnswerID} = Msg,
 
                             VehicleID = NewState#vdritem.vehicleid,                            
-                            VSockRes = ets:lookup(vdridsocktable, VehicleID),
-                            case length(VSockRes) of
+                            MsgList = NewState#vdritem.msgws2vdr,
+                            TargetList = [{WSID, WSFlowIdx, WSValue} || {WSID, WSFlowIdx, WSValue} <- MsgList, WSID == 16#8302],
+                            case length(TargetList) of
                                 1 ->
-                                    [VSock] = VSockRes,
-                                    MsgList = VSock#vdridsockitem.msgws2vdr,
-                                    TargetList = [{WSID, WSFlowIdx, WSValue} || {WSID, WSFlowIdx, WSValue} <- MsgList, WSID == 16#8302],
-                                    case length(TargetList) of
-                                        1 ->
-                                            [{16#8302, TargetWSFlowIdx, _WSValue}] = TargetList,
-                                            {ok, WSUpdate} = wsock_data_parser:create_term_answer(TargetWSFlowIdx,
-																								  [VehicleID],
-                                                                                                  [AnswerID]),
-                                            common:loginfo("Gateway receives VDR (~p) response to WS request ~p : ~p~n", [NewState#vdritem.addr, 16#8302, WSUpdate]),
-                                            send_msg_to_ws(WSUpdate, NewState);
-                                        ItemCount ->
-                                            common:logerror("(FATAL) vdridsocktable.msgws2vdr has ~p item(s) for wsid ~p~n", [ItemCount, 16#8302])
-                                    end;
-                                ResCount ->
-                                    common:logerror("(FATAL) vdridsocktable has ~p item(s) for vechileid ~p~n", [ResCount, VehicleID])
-							end,
+                                    [{16#8302, TargetWSFlowIdx, _WSValue}] = TargetList,
+                                    {ok, WSUpdate} = wsock_data_parser:create_term_answer(TargetWSFlowIdx,
+																						  [VehicleID],
+                                                                                          [AnswerID]),
+                                    common:loginfo("Gateway receives VDR (~p) response to WS request ~p : ~p~n", [NewState#vdritem.addr, 16#8302, WSUpdate]),
+                                    send_msg_to_ws(WSUpdate, NewState);
+                                ItemCount ->
+                                    common:logerror("(FATAL) vdritem.msgws2vdr has ~p item(s) for wsid ~p~n", [ItemCount, 16#8302])
+                            end,
 							
 							{ok, NewState};
                         16#303 ->
@@ -770,31 +753,24 @@ process_vdr_data(Socket, Data, State) ->
                             [_AlarmSym, InfoState, _Lat, _Lon, _Height, _Speed, _Direction, _Time] = Info,
 
                             VehicleID = NewState#vdritem.vehicleid,                            
-                            VSockRes = ets:lookup(vdridsocktable, VehicleID),
-                            case length(VSockRes) of
+                            MsgList = NewState#vdritem.msgws2vdr,
+                            TargetList = [{WSID, WSFlowIdx, WSValue} || {WSID, WSFlowIdx, WSValue} <- MsgList, WSID == 16#8500],
+                            case length(TargetList) of
                                 1 ->
-                                    [VSock] = VSockRes,
-                                    MsgList = VSock#vdridsockitem.msgws2vdr,
-                                    TargetList = [{WSID, WSFlowIdx, WSValue} || {WSID, WSFlowIdx, WSValue} <- MsgList, WSID == 16#8500],
-                                    case length(TargetList) of
-                                        1 ->
-                                            [{16#8500, TargetWSFlowIdx, WSValue}] = TargetList,
-                                            FlagBit = WSValue band 1,
-                                            ResBit = InfoState band 16#1000,
-                                            NewResBit = ResBit bsr 12,
-                                            % Not very clear about the latest parameter
-                                            {ok, WSUpdate} = wsock_data_parser:create_vehicle_ctrl_answer(TargetWSFlowIdx,
-                                                                                                          FlagBit bxor NewResBit,
-                                                                                                          [VehicleID],
-                                                                                                          [InfoState]),
-                                            common:loginfo("Gateway receives VDR (~p) response to WS request ~p : ~p~n", [NewState#vdritem.addr, 16#8500, WSUpdate]),
-                                            send_msg_to_ws(WSUpdate, NewState);
-                                        ItemCount ->
-                                            common:logerror("(FATAL) vdridsocktable.msgws2vdr has ~p item(s) for wsid ~p~n", [ItemCount, 16#8500])
-                                    end;
-                                ResCount ->
-                                    common:logerror("(FATAL) vdridsocktable has ~p item(s) for vechileid ~p~n", [ResCount, VehicleID])
-							end,
+                                    [{16#8500, TargetWSFlowIdx, WSValue}] = TargetList,
+                                    FlagBit = WSValue band 1,
+                                    ResBit = InfoState band 16#1000,
+                                    NewResBit = ResBit bsr 12,
+                                    % Not very clear about the latest parameter
+                                    {ok, WSUpdate} = wsock_data_parser:create_vehicle_ctrl_answer(TargetWSFlowIdx,
+                                                                                                  FlagBit bxor NewResBit,
+                                                                                                  [VehicleID],
+                                                                                                  [InfoState]),
+                                    common:loginfo("Gateway receives VDR (~p) response to WS request ~p : ~p~n", [NewState#vdritem.addr, 16#8500, WSUpdate]),
+                                    send_msg_to_ws(WSUpdate, NewState);
+                                ItemCount ->
+                                    common:logerror("(FATAL) vdritem.msgws2vdr has ~p item(s) for wsid ~p~n", [ItemCount, 16#8500])
+                            end,
 							
 							{ok, NewState};
                         16#700 ->
@@ -838,27 +814,20 @@ process_vdr_data(Socket, Data, State) ->
                             {_RespIdx, Res, _ActLen, List} = Msg,
 
                             VehicleID = NewState#vdritem.vehicleid,                            
-                            VSockRes = ets:lookup(vdridsocktable, VehicleID),
-                            case length(VSockRes) of
+                            MsgList = NewState#vdritem.msgws2vdr,
+                            TargetList = [{WSID, WSFlowIdx, WSValue} || {WSID, WSFlowIdx, WSValue} <- MsgList, WSID == 16#8801],
+                            case length(TargetList) of
                                 1 ->
-                                    [VSock] = VSockRes,
-                                    MsgList = VSock#vdridsockitem.msgws2vdr,
-                                    TargetList = [{WSID, WSFlowIdx, WSValue} || {WSID, WSFlowIdx, WSValue} <- MsgList, WSID == 16#8801],
-                                    case length(TargetList) of
-                                        1 ->
-                                            [{16#8801, TargetWSFlowIdx, _WSValue}] = TargetList,
-                                            {ok, WSUpdate} = wsock_data_parser:create_shot_resp(TargetWSFlowIdx,
-                                                                                                [VehicleID],
-																								Res,
-																								List),
-                                            common:loginfo("Gateway receives VDR (~p) response to WS request ~p : ~p~n", [NewState#vdritem.addr, 16#8801, WSUpdate]),
-                                            send_msg_to_ws(WSUpdate, NewState);
-                                        ItemCount ->
-                                            common:logerror("(FATAL) vdridsocktable.msgws2vdr has ~p item(s) for wsid ~p~n", [ItemCount, 16#8801])
-                                    end;
-                                ResCount ->
-                                    common:logerror("(FATAL) vdridsocktable has ~p item(s) for vechileid ~p~n", [ResCount, VehicleID])
-							end,
+                                    [{16#8801, TargetWSFlowIdx, _WSValue}] = TargetList,
+                                    {ok, WSUpdate} = wsock_data_parser:create_shot_resp(TargetWSFlowIdx,
+                                                                                        [VehicleID],
+																						Res,
+																						List),
+                                    common:loginfo("Gateway receives VDR (~p) response to WS request ~p : ~p~n", [NewState#vdritem.addr, 16#8801, WSUpdate]),
+                                    send_msg_to_ws(WSUpdate, NewState);
+                                ItemCount ->
+                                    common:logerror("(FATAL) vdritem.msgws2vdr has ~p item(s) for wsid ~p~n", [ItemCount, 16#8801])
+                            end,
 							
 							{ok, NewState};
                         16#802 ->
@@ -1145,31 +1114,27 @@ remove_alarm_item(_Index, AlarmList) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %
-% Diconnect socket and remove related entries from vdrtable and vdridsocktable
+% Diconnect socket and remove related entries from vdrtable
 %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-disconn_socket_by_id(IDSockList) ->
-    case IDSockList of
+disconn_socket_by_id(SockList) when is_list(SockList),
+                                    length(SockList) > 0 ->
+    case SockList of
         [] ->
             ok;
         _ ->
-            [H|T] = IDSockList,
-            ID = H#vdridsockitem.id,
-            Sock = H#vdridsockitem.socket,
+            [H|T] = SockList,
+            [Sock] = H,
             try gen_tcp:close(Sock)
             catch
                 _ ->
                     ok
             end,
             ets:delete(vdrtable, Sock),
-            ets:delete(vdridsocktable, ID),
-            case T of
-                [] ->
-                    ok;
-                _ ->
-                    disconn_socket_by_id(T)
-            end
-    end.
+            disconn_socket_by_id(T)
+    end;
+disconn_socket_by_id(_sockList) ->
+    ok.
            
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %
