@@ -587,8 +587,11 @@ process_vdr_data(Socket, Data, State) ->
 									RespID == 16#8801 orelse
 									RespID == 16#8804
 								  ->
-                                    VehicleID = NewState#vdritem.vehicleid,                            
-                                    MsgList = NewState#vdritem.msgws2vdr,
+                                    VehicleID = NewState#vdritem.vehicleid,
+
+                                    [VDRItem] = ets:lookup(vdrtable, Socket),
+                                    MsgList = VDRItem#vdritem.msgws2vdr,
+                                    
                                     TargetList = [{WSID, WSFlowIdx, WSValue} || {WSID, WSFlowIdx, WSValue} <- MsgList, WSID == RespID],
                                     case length(TargetList) of
                                         1 ->
@@ -601,12 +604,15 @@ process_vdr_data(Socket, Data, State) ->
                                             send_msg_to_ws(WSUpdate, NewState);
                                         ItemCount ->
                                             common:logerror("(FATAL) vdritem.msgws2vdr has ~p item(s) for wsid ~p~n", [ItemCount, RespID])
-                                    end;
+                                    end,
+                                    
+                                    NewMsgList = [{WSID, WSFlowIdx, WSValue} || {WSID, WSFlowIdx, WSValue} <- MsgList, WSID =/= RespID],
+                                    ets:insert(vdrtable, VDRItem#vdritem{msgws2vdr=NewMsgList}),
+                                    
+                                    {ok, NewState#vdritem{msgws2vdr=NewMsgList}};
                                 true ->
-                                    ok
-                            end,
-
-                            {ok, NewState};                      
+                                    {ok, NewState}
+                            end;
                         16#2 ->     % VDR pulse
                             % Nothing to do here
                             %{} = Msg,
@@ -728,7 +734,10 @@ process_vdr_data(Socket, Data, State) ->
                             {_AnswerFlowIdx, AnswerID} = Msg,
 
                             VehicleID = NewState#vdritem.vehicleid,                            
-                            MsgList = NewState#vdritem.msgws2vdr,
+
+                            [VDRItem] = ets:lookup(vdrtable, Socket),
+                            MsgList = VDRItem#vdritem.msgws2vdr,
+
                             TargetList = [{WSID, WSFlowIdx, WSValue} || {WSID, WSFlowIdx, WSValue} <- MsgList, WSID == 16#8302],
                             case length(TargetList) of
                                 1 ->
@@ -741,8 +750,11 @@ process_vdr_data(Socket, Data, State) ->
                                 ItemCount ->
                                     common:logerror("(FATAL) vdritem.msgws2vdr has ~p item(s) for wsid ~p~n", [ItemCount, 16#8302])
                             end,
-							
-							{ok, NewState};
+                                    
+                            NewMsgList = [{WSID, WSFlowIdx, WSValue} || {WSID, WSFlowIdx, WSValue} <- MsgList, WSID =/= 16#8302],
+                            ets:insert(vdrtable, VDRItem#vdritem{msgws2vdr=NewMsgList}),
+                            
+                            {ok, NewState#vdritem{msgws2vdr=NewMsgList}};
                         16#303 ->
                             {_MsgType, _POC} = Msg,
                             
@@ -753,7 +765,10 @@ process_vdr_data(Socket, Data, State) ->
                             [_AlarmSym, InfoState, _Lat, _Lon, _Height, _Speed, _Direction, _Time] = Info,
 
                             VehicleID = NewState#vdritem.vehicleid,                            
-                            MsgList = NewState#vdritem.msgws2vdr,
+
+                            [VDRItem] = ets:lookup(vdrtable, Socket),
+                            MsgList = VDRItem#vdritem.msgws2vdr,
+
                             TargetList = [{WSID, WSFlowIdx, WSValue} || {WSID, WSFlowIdx, WSValue} <- MsgList, WSID == 16#8500],
                             case length(TargetList) of
                                 1 ->
@@ -771,8 +786,11 @@ process_vdr_data(Socket, Data, State) ->
                                 ItemCount ->
                                     common:logerror("(FATAL) vdritem.msgws2vdr has ~p item(s) for wsid ~p~n", [ItemCount, 16#8500])
                             end,
-							
-							{ok, NewState};
+                                    
+                            NewMsgList = [{WSID, WSFlowIdx, WSValue} || {WSID, WSFlowIdx, WSValue} <- MsgList, WSID =/= 16#8500],
+                            ets:insert(vdrtable, VDRItem#vdritem{msgws2vdr=NewMsgList}),
+                            
+                            {ok, NewState#vdritem{msgws2vdr=NewMsgList}};
                         16#700 ->
                             {_Number, _OrderWord, _DB} = Msg,
                             
@@ -814,7 +832,10 @@ process_vdr_data(Socket, Data, State) ->
                             {_RespIdx, Res, _ActLen, List} = Msg,
 
                             VehicleID = NewState#vdritem.vehicleid,                            
-                            MsgList = NewState#vdritem.msgws2vdr,
+
+                            [VDRItem] = ets:lookup(vdrtable, Socket),
+                            MsgList = VDRItem#vdritem.msgws2vdr,
+
                             TargetList = [{WSID, WSFlowIdx, WSValue} || {WSID, WSFlowIdx, WSValue} <- MsgList, WSID == 16#8801],
                             case length(TargetList) of
                                 1 ->
@@ -828,8 +849,11 @@ process_vdr_data(Socket, Data, State) ->
                                 ItemCount ->
                                     common:logerror("(FATAL) vdritem.msgws2vdr has ~p item(s) for wsid ~p~n", [ItemCount, 16#8801])
                             end,
-							
-							{ok, NewState};
+                                    
+                            NewMsgList = [{WSID, WSFlowIdx, WSValue} || {WSID, WSFlowIdx, WSValue} <- MsgList, WSID =/= 16#8801],
+                            ets:insert(vdrtable, VDRItem#vdritem{msgws2vdr=NewMsgList}),
+                            
+                            {ok, NewState#vdritem{msgws2vdr=NewMsgList}};
                         16#802 ->
                             {_FlowNum, _Len, _RespData} = Msg,
                             

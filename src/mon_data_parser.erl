@@ -48,8 +48,16 @@ parse_data(RawData, State) ->
 									create_reset_all_response();
 								5 ->
 									create_all_device_ids_response();
-								6 ->
-									create_all_vehicle_ids_response();
+                                6 ->
+                                    create_all_vehicle_ids_response();
+                                7 ->
+                                    create_spec_vehicle_count_response(Req);
+                                8 ->
+                                    create_spec_device_count_response(Req);
+                                9 ->
+                                    create_spec_vehicle_info_response(Req);
+                                10 ->
+                                    create_spec_device_info_response(Req);
                                 _ ->
                                     create_unknown_msg_id_response(ID)
                             end
@@ -240,6 +248,64 @@ create_all_vehicle_ids_response() ->
     Content = <<(2+Size):?LEN_BYTE, 0:?LEN_BYTE, 6:?LEN_BYTE, VIDsBin/binary>>,
     Xor = vdr_data_parser:bxorbytelist(Content),
 	list_to_binary([Content, Xor]).
+
+create_spec_vehicle_count_response(VID) ->
+    BS = bit_size(VID),
+    <<VIDValue:BS>> = VID,
+    VIDs = ets:match(vdrtable, {'$1', 
+                                '_', '_', '_', '_', VIDValue, 
+                                '_', '_', '_', '_', '_', 
+                                '_', '_', '_', '_', '_', 
+                                '_', '_', '_', '_', '_', 
+                                '_', '_', '_', '_', '_', '_', '_'}),
+    %common:loginfo("vdrtable all vehicles : ~p~n", [VIDs]),
+    Count = length(VIDs),
+    Content = <<6:?LEN_BYTE, 0:?LEN_BYTE, 7:?LEN_BYTE, Count:?LEN_DWORD>>,
+    Xor = vdr_data_parser:bxorbytelist(Content),
+    list_to_binary([Content, Xor]).
+
+create_spec_device_count_response(DID) ->
+    BS = bit_size(DID),
+    <<DIDValue:BS>> = DID,
+    VIDs = ets:match(vdrtable, {'$1', 
+                                '_', DIDValue, '_', '_', '_', 
+                                '_', '_', '_', '_', '_', 
+                                '_', '_', '_', '_', '_', 
+                                '_', '_', '_', '_', '_', 
+                                '_', '_', '_', '_', '_', '_', '_'}),
+    %common:loginfo("vdrtable all devices : ~p~n", [VIDs]),
+    Count = length(VIDs),
+    Content = <<6:?LEN_BYTE, 0:?LEN_BYTE, 8:?LEN_BYTE, Count:?LEN_DWORD>>,
+    Xor = vdr_data_parser:bxorbytelist(Content),
+    list_to_binary([Content, Xor]).
+
+create_spec_vehicle_info_response(VID) ->
+    BS = bit_size(VID),
+    <<VIDValue:BS>> = VID,
+    VIDs = ets:match(vdrtable, {'$1', 
+                                '_', '_', '_', '_', VIDValue, 
+                                '_', '_', '_', '_', '_', 
+                                '_', '_', '_', '_', '_', 
+                                '_', '_', '_', '_', '_', 
+                                '_', '_', '_', '_', '_', '_', '_'}),
+    Count = length(VIDs),
+    Content = <<6:?LEN_BYTE, 0:?LEN_BYTE, 7:?LEN_BYTE, Count:?LEN_DWORD>>,
+    Xor = vdr_data_parser:bxorbytelist(Content),
+    list_to_binary([Content, Xor]).
+
+create_spec_device_info_response(DID) ->
+    BS = bit_size(DID),
+    <<DIDValue:BS>> = DID,
+    VIDs = ets:match(vdrtable, {'$1', 
+                                '_', DIDValue, '_', '_', '_', 
+                                '_', '_', '_', '_', '_', 
+                                '_', '_', '_', '_', '_', 
+                                '_', '_', '_', '_', '_', 
+                                '_', '_', '_', '_', '_', '_', '_'}),
+    Count = length(VIDs),
+    Content = <<6:?LEN_BYTE, 0:?LEN_BYTE, 8:?LEN_BYTE, Count:?LEN_DWORD>>,
+    Xor = vdr_data_parser:bxorbytelist(Content),
+    list_to_binary([Content, Xor]).
 
 
 
