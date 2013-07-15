@@ -120,8 +120,9 @@ handle_info(_Info, State) ->
 %%% When VDR handler process is terminated, do the clean jobs here
 %%%
 terminate(Reason, State) ->
-    common:loginfo("VDR (~p) (id:~p, serialno:~p, authen_code:~p, vehicleid:~p, vehiclecode:~p) starts being terminated~nReason : ~p~n", 
-				   [State#vdritem.addr, 
+    common:loginfo("VDR (~p) socket (~p) (id:~p, serialno:~p, authen_code:~p, vehicleid:~p, vehiclecode:~p) starts being terminated~nReason : ~p~n", 
+				   [State#vdritem.addr,
+					State#vdritem.socket,
 					State#vdritem.id, 
 					State#vdritem.serialno, 
 					State#vdritem.auth, 
@@ -176,8 +177,9 @@ terminate(Reason, State) ->
         _:Ex ->
             common:logerror("VDR (~p) : exception when gen_tcp:close : ~p~n", [State#vdritem.addr, Ex])
     end,
-    common:loginfo("VDR (~p) (id:~p, serialno:~p, authen_code:~p, vehicleid:~p, vehiclecode:~p) is terminated~n",
-				   [State#vdritem.addr, 
+    common:loginfo("VDR (~p) socket (~p) (id:~p, serialno:~p, authen_code:~p, vehicleid:~p, vehiclecode:~p) is terminated~n",
+				   [State#vdritem.addr,
+					State#vdritem.socket,
 					State#vdritem.id, 
 					State#vdritem.serialno, 
 					State#vdritem.auth, 
@@ -462,14 +464,24 @@ process_vdr_data(Socket, Data, State) ->
                                                     {error, dberror, State};
                                                 true ->
                                                     % Not tested yet.
-													VehcileSockList = ets:match(vdrtable, {'_', 
-                                                                                           '$1', '_', '_', '_', VehicleID,
-                                                                                           '_', '_', '_', '_', '_',
-                                                                                           '_', '_', '_', '_', '_',
-                                                                                           '_', '_', '_', '_', '_',
-                                                                                           '_', '_', '_', '_', '_',
-                                                                                           '_', '_', '_', '_', '_', '_', '_'}),
-                                                    disconn_socket_by_id(VehcileSockList),
+													%VDRList = ets:match(vdrtable, '$1'),
+													%common:loginfo("VDR table : all vdritems before disconnection : ~p~n", [VDRList]),
+													SockList0 = ets:match(vdrtable, {'_', 
+                                                                                     '$1', '_', '_', '_', VehicleID,
+                                                                                     '_', '_', '_', '_', '_',
+                                                                                     '_', '_', '_', '_', '_',
+                                                                                     '_', '_', '_', '_', '_',
+                                                                                     '_', '_', '_', '_', '_', '_', '_'}),
+													%common:loginfo("VDR table : sockets for VehicleID ~p before disconnection : ~p~n", [VehicleID, SockList0]),
+                                                    disconn_socket_by_id(SockList0),
+													SockList1 = ets:match(vdrtable, {'_', 
+                                                                                     '$1', '_', '_', '_', undefined,
+                                                                                     '_', '_', '_', '_', '_',
+                                                                                     '_', '_', '_', '_', '_',
+                                                                                     '_', '_', '_', '_', '_',
+                                                                                     '_', '_', '_', '_', '_', '_', '_'}),
+													%common:loginfo("VDR table : current socket : ~p~nVDR table : sockets for VehicleID undefined before disconnection : ~p~n", [Socket, SockList1]),
+                                                    disconn_socket_by_id(SockList1, Socket),
                                                     SockVdrList = ets:lookup(vdrtable, Socket),
                                                     case length(SockVdrList) of
                                                         1 ->
@@ -1157,9 +1169,31 @@ disconn_socket_by_id(SockList) when is_list(SockList),
             ets:delete(vdrtable, Sock),
             disconn_socket_by_id(T)
     end;
-disconn_socket_by_id(_sockList) ->
+disconn_socket_by_id(_SockList) ->
     ok.
-           
+
+disconn_socket_by_id(SockList, SelfSock) when is_list(SockList),
+                                              length(SockList) > 0 ->
+    [H|T] = SockList,
+    [Sock] = H,
+	if
+		SelfSock =/= Sock ->
+			%common:loginfo("Disconnect socket ~p because of being not ~p~n", [Sock, SelfSock]),
+            try
+				gen_tcp:close(Sock)
+			catch
+				_:_ ->
+					ok
+			end,
+            ets:delete(vdrtable, Sock);
+		true ->
+			%common:loginfo("NOT disconnect socket ~p because of being ~p~n", [Sock, SelfSock]),
+			ok
+	end,
+    disconn_socket_by_id(T, SelfSock);
+disconn_socket_by_id(_SockList, _SelfSock) ->
+    ok.
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %
 % ID        :
