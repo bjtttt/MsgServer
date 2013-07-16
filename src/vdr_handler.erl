@@ -24,7 +24,7 @@ init([Sock, Addr]) ->
     [{wspid, WSPid}] = ets:lookup(msgservertable, wspid),
     State = #vdritem{socket=Sock, pid=Pid, vdrpid=VDRPid, respwspid=RespWSPid, addr=Addr, msgflownum=1, errorcount=0, dbpid=DBPid, wspid=WSPid},
 	%mysql:fetch(regauth, <<"set names 'utf8'">>),
-	mysql:fetch(conn, <<"set names 'utf8'">>),
+	%mysql:fetch(conn, <<"set names 'utf8'">>),
 	%mysql:fetch(cmd, <<"set names 'utf8'">>),
     ets:insert(vdrtable, State), 
     inet:setopts(Sock, [{active, once}]),
