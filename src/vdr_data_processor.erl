@@ -2107,18 +2107,34 @@ get_CAN_data_entries(Bin) ->
 % 0x0800
 %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-parse_multi_media_event_update(Bin) ->
+parse_multi_media_event_update(Bin) when is_binary(Bin),
+										 byte_size(Bin) == 8 ->
     <<Id:32,Type:8,Code:8,EICode:8,PipeId:8>> = Bin,
-    {ok,{Id,Type,Code,EICode,PipeId}}.
+	if
+		Id > 0 andalso Type >= 0 andalso Type =< 2 andalso Code >= 0 andalso Code =< 4 andalso EICode >= 0 andalso EICode =< 7 ->
+		    {ok,{Id,Type,Code,EICode,PipeId}};
+		true ->
+			{error, msgerr}
+	end;
+parse_multi_media_event_update(_Bin) ->
+	{error, msgerr}.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %
 % 0x0801
 %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-parse_multi_media_data_update(Bin) ->
+parse_multi_media_data_update(Bin) when is_binary(Bin),
+										byte_size(Bin) >= 36 ->
     <<Id:32,Type:8,Code:8,EICode:8,PipeId:8,MsgBody:(28*8),Pack/binary>> = Bin,
-    {ok,{Id,Type,Code,EICode,PipeId,MsgBody,Pack}}.
+	if
+		Id > 0 andalso Type >= 0 andalso Type =< 2 andalso Code >= 0 andalso Code =< 4 andalso EICode >= 0 andalso EICode =< 3 ->
+		    {ok,{Id,Type,Code,EICode,PipeId,MsgBody,Pack}};
+		true ->
+			{error, msgerr}
+	end;
+parse_multi_media_data_update(_Bin) ->
+	{error, msgerr}.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %
