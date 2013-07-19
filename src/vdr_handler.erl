@@ -20,9 +20,10 @@ init([Sock, Addr]) ->
     Pid = self(),
     VDRPid = spawn(fun() -> data2vdr_process(Sock) end),
     RespWSPid = spawn(fun() -> resp2ws_process([]) end),
+    VdrMsgMonitorPid = spawn(fun() -> vdr_msg_monitor_process(Pid, Sock) end),
     [{dbpid, DBPid}] = ets:lookup(msgservertable, dbpid),
     [{wspid, WSPid}] = ets:lookup(msgservertable, wspid),
-    State = #vdritem{socket=Sock, pid=Pid, vdrpid=VDRPid, respwspid=RespWSPid, addr=Addr, msgflownum=1, errorcount=0, dbpid=DBPid, wspid=WSPid},
+    State = #vdritem{socket=Sock, pid=Pid, vdrpid=VDRPid, respwspid=RespWSPid, addr=Addr, msgflownum=1, errorcount=0, dbpid=DBPid, wspid=WSPid, vdrmsgtimeoutpid=VdrMsgMonitorPid},
 	%mysql:fetch(regauth, <<"set names 'utf8'">>),
 	mysql:fetch(conn, <<"set names 'utf8'">>),
 	%mysql:fetch(cmd, <<"set names 'utf8'">>),
@@ -129,7 +130,7 @@ terminate(Reason, State) ->
 					State#vdritem.vehicleid, 
 					State#vdritem.vehiclecode, 
 					Reason]),
-    ID = State#vdritem.id,
+    %ID = State#vdritem.id,
     Auth = State#vdritem.auth,
     _SerialNo = State#vdritem.serialno,
     VehicleID = State#vdritem.vehicleid,
@@ -471,17 +472,17 @@ process_vdr_data(Socket, Data, State) ->
                                                                                      '_', '_', '_', '_', '_',
                                                                                      '_', '_', '_', '_', '_',
                                                                                      '_', '_', '_', '_', '_',
-                                                                                     '_', '_', '_', '_', '_', '_', '_'}),
+                                                                                     '_', '_', '_', '_', '_', '_', '_', '_'}),
 													%common:loginfo("VDR table : sockets for VehicleID ~p before disconnection : ~p~n", [VehicleID, SockList0]),
                                                     disconn_socket_by_id(SockList0),
-													SockList1 = ets:match(vdrtable, {'_', 
-                                                                                     '$1', '_', '_', '_', undefined,
-                                                                                     '_', '_', '_', '_', '_',
-                                                                                     '_', '_', '_', '_', '_',
-                                                                                     '_', '_', '_', '_', '_',
-                                                                                     '_', '_', '_', '_', '_', '_', '_'}),
-													%common:loginfo("VDR table : current socket : ~p~nVDR table : sockets for VehicleID undefined before disconnection : ~p~n", [Socket, SockList1]),
-                                                    disconn_socket_by_id(SockList1, Socket),
+													%SockList1 = ets:match(vdrtable, {'_', 
+                                                    %                                 '$1', '_', '_', '_', undefined,
+                                                    %                                 '_', '_', '_', '_', '_',
+                                                    %                                 '_', '_', '_', '_', '_',
+                                                    %                                 '_', '_', '_', '_', '_',
+                                                    %                                 '_', '_', '_', '_', '_', '_', '_', '_'}),
+													%%common:loginfo("VDR table : current socket : ~p~nVDR table : sockets for VehicleID undefined before disconnection : ~p~n", [Socket, SockList1]),
+                                                    %disconn_socket_by_id(SockList1, Socket),
                                                     SockVdrList = ets:lookup(vdrtable, Socket),
                                                     case length(SockVdrList) of
                                                         1 ->
@@ -1343,6 +1344,32 @@ send_msg_to_ws(Msg, State) ->
             end
     end.
     
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%
+%
+%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+vdr_msg_monitor_process(Pid, Socket) ->
+	receive
+		{Pid, stop} ->
+			[State] = ets:lookup(vdrtable, Socket),
+			common:loginfo("VDR (~p) socket (~p) (id:~p, serialno:~p, authen_code:~p, vehicleid:~p, vehiclecode:~p) : message monitor process received stop command",
+						   [State#vdritem.addr,
+							State#vdritem.socket,
+							State#vdritem.id, 
+							State#vdritem.serialno, 
+							State#vdritem.auth, 
+							State#vdritem.vehicleid, 
+							State#vdritem.vehiclecode]);
+		{Pid, Socket} ->
+			vdr_msg_monitor_process(Pid, Socket);
+		_ ->
+			[State] = ets:lookup(vdrtable, Socket),
+			terminate("VDR message monitor process received unknown command", State)
+	after ?VDR_MSG_TIMEOUT ->
+			[State] = ets:lookup(vdrtable, Socket),
+			terminate("VDR message monitor process timeout", State)
+	end.			
 
 %%%         
 %%% Return :

@@ -64,6 +64,8 @@
 
 -define(WS2VDRFREQ, 10).
 
+-define(VDR_MSG_TIMEOUT, 120000).
+
 %%%
 %%% There is only one super user, name is super, password is super.
 %%% 
@@ -99,7 +101,8 @@
                     msg=[], 
                     req=[],
                     msgws2vdrflownum=?WS2VDRFREQ,
-                    msgws2vdr=[]            % [{MsgID, WSFlowIdx}, ...] only one item for one MsgID
+                    msgws2vdr=[],            % [{MsgID, WSFlowIdx}, ...] only one item for one MsgID
+					vdrmsgtimeoutpid=undefined
                  }).
 
 %-record(vdridsockitem, {    id=undefined,           % Vehicle ID
