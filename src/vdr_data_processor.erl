@@ -64,8 +64,8 @@
 		 create_multimedia_data_reply/2,
          create_multimedia_data_reply/3,
          create_imm_photo_cmd/10,
-         create_stomuldata_search/5,
-         create_stomuldata_update/6,
+         create_stomuldata_search/15,
+         create_stomuldata_update/16,
          create_record_start_order/4,
          create_sinstomuldatasea_update_order/2,
          create_data_dl_transparent/2,
@@ -1901,7 +1901,7 @@ get_polygon_area_point_entries(Items) ->
                 [] ->
                     <<Lat:32,Lon:32>>;
                 _ ->
-                    [<<Lat:32,Lon:32>>|get_polygon_area_point_entries(T)]
+                    list_to_binary([<<Lat:32,Lon:32>>, get_polygon_area_point_entries(T)])
             end
     end.                                   
     
@@ -1953,7 +1953,7 @@ get_lines_point_entries(Items) ->
                 [] ->
                     <<PointID:32,LineID:32,PointLat:32,PointLon:32,LineWidth:8,LineLength:8,LargerThr:16,SmallerThr:16,MaxSpeed:16,ExceedTime:6>>;
                 _ ->
-                    [<<PointID:32,LineID:32,PointLat:32,PointLon:32,LineWidth:8,LineLength:8,LargerThr:16,SmallerThr:16,MaxSpeed:16,ExceedTime:6>>|get_lines_point_entries(T)]
+                    list_to_binary([<<PointID:32,LineID:32,PointLat:32,PointLon:32,LineWidth:8,LineLength:8,LargerThr:16,SmallerThr:16,MaxSpeed:16,ExceedTime:6>>, get_lines_point_entries(T)])
             end
     end.                                   
     
@@ -2070,7 +2070,7 @@ get_position_data_entries(Bin) ->
                 BinLength =< Tail0Length ->
                     <<Msg:BinLength, Tail1/binary>> = Tail0,
                     {ok, {M}} = parse_position_info_report(Msg),
-                    [[Length, M]|get_position_data_entries(Tail1)]
+                    [[Length, M]|[get_position_data_entries(Tail1)]]
             end
     end.                    
 
@@ -2100,7 +2100,7 @@ get_CAN_data_entries(Bin) ->
                 TailLength < 96 ->
                     [ID, Data];
                 TailLength >= 96 ->
-                    [[ID, Data]|get_CAN_data_entries(Tail)]
+                    [[ID, Data]|[get_CAN_data_entries(Tail)]]
             end
     end.                    
 
@@ -2114,7 +2114,7 @@ parse_multi_media_event_update(Bin) when is_binary(Bin),
     <<Id:32,Type:8,Code:8,EICode:8,PipeId:8>> = Bin,
 	if
 		Id > 0 andalso Type >= 0 andalso Type =< 2 andalso Code >= 0 andalso Code =< 4 andalso EICode >= 0 andalso EICode =< 7 ->
-		    {ok,{Id,Type,Code,EICode,PipeId}};
+		    {ok, {Id, Type, Code, EICode, PipeId}};
 		true ->
 			{error, msgerr}
 	end;
@@ -2132,8 +2132,8 @@ parse_multi_media_data_update(Bin) when is_binary(Bin),
 	if
 		Id > 0 andalso Type >= 0 andalso Type =< 2 andalso Code >= 0 andalso Code =< 4 andalso EICode >= 0 andalso EICode =< 3 ->
             case parse_position_info_report(<<MsgBody:(28*8)>>) of
-                {ok, {H, AppInfo}} ->
-		            {ok,{Id,Type,Code,EICode,PipeId,H, AppInfo,Pack}};
+                {ok, Resp} ->
+		            {ok, {Id, Type, Code, EICode, PipeId, Resp, Pack}};
                 _ ->
                     {error, msgerr}
             end;
@@ -2222,7 +2222,7 @@ parse_imm_photo_cmd_response(Bin) ->
             <<RespIdx:?LEN_WORD, Res:?LEN_BYTE, Count:?LEN_WORD, Tail/binary>> = Bin,
             case Res of
                 0 ->
-                    List = get_list_from_bin(Tail, ?LEN_DWORD),
+                    List = get_list_from_bin(<<Tail:(Len-5*?LEN_BYTE)>>, ?LEN_DWORD),
                     ActLen = length(List),
                     if
                         Count == ActLen ->
@@ -2255,7 +2255,10 @@ parse_imm_photo_cmd_response(Bin) ->
 %
 %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-get_list_from_bin(Bin, ItemWidth) ->
+get_list_from_bin(Bin, ItemWidth) when is_binary(Bin),
+									   bit_size(Bin) > 0,
+									   is_integer(ItemWidth),
+									   ItemWidth >= 0 ->
     Len = bit_size(Bin),
     if
         Len < ItemWidth ->
@@ -2267,51 +2270,179 @@ get_list_from_bin(Bin, ItemWidth) ->
                 TLen < ItemWidth ->
                     [H];
                 true ->
-                    [H|get_list_from_bin(T, ItemWidth)]
+                    lists:merge(H, get_list_from_bin(T, ItemWidth))
             end
-    end.
+    end;
+get_list_from_bin(_Bin, _ItemWidth) ->
+	[].
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %
 % 0x8802
 %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-create_stomuldata_search(MediaType,PipeId,EvenCode,StartTime,EndTime) ->
-    <<MediaType:8,PipeId:8,EvenCode:8,StartTime:48,EndTime:48>>.
+create_stomuldata_search(MediaType,PipeId,EvenCode,YY0,MM0,DD0,Hh0,Mm0,Ss0,YY1,MM1,DD1,Hh1,Mm1,Ss1) when is_integer(MediaType),
+																										 MediaType >= 0,
+																										 MediaType =< 2,
+																										 is_integer(PipeId),
+																										 PipeId >= 0,
+																										 is_integer(EvenCode),
+																										 EvenCode >= 0,
+																										 EvenCode =< 3,
+																										 is_integer(YY0),
+																										 YY0 >= 0,
+																										 YY0 =< 99,
+																										 is_integer(MM0),
+																										 MM0 >= 1,
+																										 MM0 =< 12,
+																										 is_integer(DD0),
+																										 DD0 >= 1,
+																										 DD0 =< 31,
+																										 is_integer(Hh0),
+																										 Hh0 >= 0,
+																										 Hh0 =< 23,
+																										 is_integer(Mm0),
+																										 Mm0 >= 0,
+																										 Mm0 =< 59,
+																										 is_integer(Ss0),
+																										 Ss0 >= 0,
+																										 Ss0 =< 59,
+																										 is_integer(YY1),
+																										 YY1 >= 0,
+																										 YY1 =< 99,
+																										 is_integer(MM1),
+																										 MM1 >= 1,
+																										 MM1 =< 12,
+																										 is_integer(DD1),
+																										 DD1 >= 1,
+																										 DD1 =< 31,
+																										 is_integer(Hh1),
+																										 Hh1 >= 0,
+																										 Hh1 =< 23,
+																										 is_integer(Mm1),
+																										 Mm1 >= 0,
+																										 Mm1 =< 59,
+																										 is_integer(Ss1),
+																										 Ss1 >= 0,
+																										 Ss1 =< 59 ->
+	Time = list_to_binary([common:integer_to_2byte_binary(YY0),
+					       common:integer_to_2byte_binary(MM0),
+						   common:integer_to_2byte_binary(DD0),
+						   common:integer_to_2byte_binary(Hh0),
+						   common:integer_to_2byte_binary(Mm0),
+						   common:integer_to_2byte_binary(Ss0),
+						   common:integer_to_2byte_binary(YY1),
+						   common:integer_to_2byte_binary(MM1),
+						   common:integer_to_2byte_binary(DD1),
+						   common:integer_to_2byte_binary(Hh1),
+						   common:integer_to_2byte_binary(Mm1),
+						   common:integer_to_2byte_binary(Ss1)]),							   
+    list_to_binary([<<MediaType:8,PipeId:8,EvenCode:8>>, Time]);
+create_stomuldata_search(_MediaType,_PipeId,_EvenCode,_YY0,_MM0,_DD0,_Hh0,_Mm0,_Ss0,_YY1,_MM1,_DD1,_Hh1,_Mm1,_Ss1) ->
+	<<>>.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %
 % 0x0802
 %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-parse_stomuldata_response(Bin) ->
-    <<FlowNum:16, _Count:16, Tail/binary>> = Bin,
+parse_stomuldata_response(Bin) when is_binary(Bin),
+									bit_size(Bin) >= 32 ->
+    <<FlowNum:16, Count:16, Tail/binary>> = Bin,
     Data = get_stomuldata_entries(Tail),
     Len = length(Data),
-    {ok, {FlowNum, Len, Data}}.
+	if
+		len == Count ->
+    		{ok, {FlowNum, Len, Data}};
+		true ->
+			{error, msgerr}
+	end;
+parse_stomuldata_response(_Bin) ->
+	{error, msgerr}.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %
 %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-get_stomuldata_entries(Bin) ->
-    Len = bit_size(Bin),
-    if
-        Len < (35*8) ->
-            [];
-        Len >= (35*8) ->
-            <<ID:32,Type:8,ChID:8,EventCoding:8,Msg:(28*8),Tail/binary>> = Bin,
-            {ok, {Resp}} = parse_position_info_report(Msg),
-            [[ID,Type,ChID,EventCoding,Resp]|get_stomuldata_entries(Tail)]
-    end.
+get_stomuldata_entries(Bin) when is_binary(Bin),
+								 bit_size(Bin) == 35*?LEN_BYTE->
+    <<ID:32,Type:8,ChID:8,EventCoding:8,Msg:(28*?LEN_BYTE),Tail/binary>> = Bin,
+	case parse_position_info_report(<<Msg:(28*?LEN_BYTE)>>) of
+		{ok, Resp} ->
+			[[ID,Type,ChID,EventCoding,Resp]|[get_stomuldata_entries(Tail)]];
+		_ ->
+			[]
+	end;
+get_stomuldata_entries(_Bin) ->
+	[].
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %
 % 0x8803
 %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-create_stomuldata_update(MediaType,PipeId,EventCode,StartTime,EndTime,Del) ->
-    <<MediaType:8,PipeId:8,EventCode:8,StartTime:48,EndTime:48,Del:8>>.
+create_stomuldata_update(MediaType,PipeId,EventCode,YY0,MM0,DD0,Hh0,Mm0,Ss0,YY1,MM1,DD1,Hh1,Mm1,Ss1,Del) when is_integer(MediaType),
+																										 	  MediaType >= 0,
+																										 	  MediaType =< 2,
+																										 	  is_integer(PipeId),
+																										 	  PipeId >= 0,
+																										 	  is_integer(EventCode),
+																										 	  EventCode >= 0,
+																										 	  EventCode =< 3,
+																										 	  is_integer(YY0),
+																										 	  YY0 >= 0,
+																										 	  YY0 =< 99,
+																										 	  is_integer(MM0),
+																										 	  MM0 >= 1,
+																										 	  MM0 =< 12,
+																										 	  is_integer(DD0),
+																										 	  DD0 >= 1,
+																										 	  DD0 =< 31,
+																										 	  is_integer(Hh0),
+																										 	  Hh0 >= 0,
+																										 	  Hh0 =< 23,
+																										 	  is_integer(Mm0),
+																										 	  Mm0 >= 0,
+																										 	  Mm0 =< 59,
+																										 	  is_integer(Ss0),
+																										 	  Ss0 >= 0,
+																										 	  Ss0 =< 59,
+																										 	  is_integer(YY1),
+																										 	  YY1 >= 0,
+																										 	  YY1 =< 99,
+																										 	  is_integer(MM1),
+																										 	  MM1 >= 1,
+																										 	  MM1 =< 12,
+																										 	  is_integer(DD1),
+																										 	  DD1 >= 1,
+																										 	  DD1 =< 31,
+																										 	  is_integer(Hh1),
+																										 	  Hh1 >= 0,
+																										 	  Hh1 =< 23,
+																										 	  is_integer(Mm1),
+																										 	  Mm1 >= 0,
+																										 	  Mm1 =< 59,
+																										 	  is_integer(Ss1),
+																										 	  Ss1 >= 0,
+																										 	  Ss1 =< 59,
+																											  is_integer(Del),
+																											  Del >= 0,
+																											  Del =< 1 ->
+	Time = list_to_binary([common:integer_to_2byte_binary(YY0),
+					       common:integer_to_2byte_binary(MM0),
+						   common:integer_to_2byte_binary(DD0),
+						   common:integer_to_2byte_binary(Hh0),
+						   common:integer_to_2byte_binary(Mm0),
+						   common:integer_to_2byte_binary(Ss0),
+						   common:integer_to_2byte_binary(YY1),
+						   common:integer_to_2byte_binary(MM1),
+						   common:integer_to_2byte_binary(DD1),
+						   common:integer_to_2byte_binary(Hh1),
+						   common:integer_to_2byte_binary(Mm1),
+						   common:integer_to_2byte_binary(Ss1)]),							   
+    list_to_binary([<<MediaType:8,PipeId:8,EventCode:8>>,Time,<<Del:8>>]);
+create_stomuldata_update(_MediaType,_PipeId,_EventCode,_YY0,_MM0,_DD0,_Hh0,_Mm0,_Ss0,_YY1,_MM1,_DD1,_Hh1,_Mm1,_Ss1,_Del) ->
+	<<>>.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %
@@ -2339,8 +2470,14 @@ create_record_start_order(_Cmd, _Time, _SF, _Freq) ->
 % 0x8805
 %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-create_sinstomuldatasea_update_order(MediaId,DelSymbol) ->
-    <<MediaId:32,DelSymbol:8>>.
+create_sinstomuldatasea_update_order(MediaId,DelSymbol) when is_integer(MediaId),
+															 MediaId > 0,
+															 is_integer(DelSymbol),
+															 DelSymbol >= 0,
+															 DelSymbol =< 1 ->
+    <<MediaId:32,DelSymbol:8>>;
+create_sinstomuldatasea_update_order(_MediaId,_DelSymbol) ->
+	<<>>.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %
@@ -2348,17 +2485,16 @@ create_sinstomuldatasea_update_order(MediaId,DelSymbol) ->
 %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 create_data_dl_transparent(MsgType, MsgCon) when is_integer(MsgType),
-												 MsgType < 256,
-												 MsgType > -1,
-  												 is_list(MsgCon),
-												 length(MsgCon) > 0 ->
+											 	 MsgType =< 255,
+												 MsgType >= 0,
+  												 is_list(MsgCon) ->
     Bin = <<MsgType:8>>,
 	MC = list_to_binary(MsgCon),
 	list_to_binary([Bin, MC]);
 create_data_dl_transparent(MsgType, MsgCon) when is_integer(MsgType),
-												 MsgType < 256,
-												 MsgType > -1,
-												 is_binary(MsgCon) ->
+											 	 MsgType =< 255,
+												 MsgType >= 0,
+  												 is_binary(MsgCon) ->
     Bin = <<MsgType:8>>,
 	list_to_binary([Bin, MsgCon]);
 create_data_dl_transparent(_MsgType, _MsgCon) ->
@@ -2366,20 +2502,24 @@ create_data_dl_transparent(_MsgType, _MsgCon) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %
-% 0x9000
+% 0x0900
 %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-parse_data_ul_transparent(Bin) ->
-    <<Type:8,Con/binary>> = Bin,
-    {ok,{Type,Con}}.
+parse_data_ul_transparent(Bin) when is_binary(Bin),
+									bit_size(Bin) > ?LEN_BYTE ->
+    <<Type:?LEN_BYTE,Con/binary>> = Bin,
+    {ok,{Type,Con}};
+parse_data_ul_transparent(_Bin) ->
+	{error, msgerr}.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %
 % 0x0901
 %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-parse_data_compress_update(Bin) ->
-    <<Len:32,Body/binary>> = Bin,
+parse_data_compress_update(Bin) when is_binary(Bin),
+									 bit_size(Bin) > ?LEN_DWORD->
+    <<Len:?LEN_DWORD,Body/binary>> = Bin,
     {ok,{Len,Body}}.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -2388,15 +2528,20 @@ parse_data_compress_update(Bin) ->
 % Byte array to binary????
 %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-create_platform_rsa(E,N) ->
-    <<E:32,N/binary>>.
+create_platform_rsa(E,N) when is_integer(E),
+							  is_binary(N),
+							  bit_size(N) == 128*?LEN_BYTE ->
+    <<E:32,N/binary>>;
+create_platform_rsa(_E,_N) ->
+	<<>>.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %
 % 0x0a00
 %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-parse_term_rsa(Bin) ->
+parse_term_rsa(Bin) when is_binary(Bin),
+						 bit_size(Bin) == (4+128)*?LEN_BYTE ->
     <<E:32,N/binary>> = Bin,
     {ok,{E,N}}.
 
