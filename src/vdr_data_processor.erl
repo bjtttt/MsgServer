@@ -60,6 +60,7 @@
          create_record_collect_cmd/2,
          create_record_args_send/2,
          create_report_driver_id_request/0,
+         create_multimedia_data_reply/1,
          create_multimedia_data_reply/3,
          create_imm_photo_cmd/10,
          create_stomuldata_search/5,
@@ -2129,7 +2130,12 @@ parse_multi_media_data_update(Bin) when is_binary(Bin),
     <<Id:32,Type:8,Code:8,EICode:8,PipeId:8,MsgBody:(28*8),Pack/binary>> = Bin,
 	if
 		Id > 0 andalso Type >= 0 andalso Type =< 2 andalso Code >= 0 andalso Code =< 4 andalso EICode >= 0 andalso EICode =< 3 ->
-		    {ok,{Id,Type,Code,EICode,PipeId,MsgBody,Pack}};
+            case parse_position_info_report(<<MsgBody:(28*8)>>) of
+                {ok, {H, AppInfo}} ->
+		            {ok,{Id,Type,Code,EICode,PipeId,H, AppInfo,Pack}};
+                _ ->
+                    {error, msgerr}
+            end;
 		true ->
 			{error, msgerr}
 	end;
@@ -2141,7 +2147,14 @@ parse_multi_media_data_update(_Bin) ->
 % 0x8800
 %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-create_multimedia_data_reply(Id,_Count,IDs) ->
+create_multimedia_data_reply(Id) when is_integer(Id),
+                                      Id > 0 ->
+    <<Id:32>>;
+create_multimedia_data_reply(_Id) ->
+    <<>>.
+
+create_multimedia_data_reply(Id,_Count,IDs) when is_integer(Id),
+                                                 Id > 0 ->
     Len = length(IDs),
     IL=term_to_binary(IDs),
     <<Id:32,Len:8,IL/binary>>.
