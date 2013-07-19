@@ -20,6 +20,8 @@
          convert_word_hex_string_to_integer/1,
 		 integer_to_binary/1,
          integer_to_2byte_binary/1,
+		 integer_to_size_binary/2,
+		 integer_list_to_size_binary_list/2,
          float_to_binary/1]).
 
 -export([set_sockopt/3]).
@@ -28,13 +30,49 @@
 
 -export([logerror/1, logerror/2, loginfo/1, loginfo/2]).
 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%
+%%% Parameter 	: Integer = 48
+%%% Output		: <<"48">>
 %%%
-%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 integer_to_binary(Integer) when is_integer(Integer) ->
     list_to_binary(integer_to_list(Integer));
 integer_to_binary(_Integer) ->
     <<>>.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%
+%%% Parameter 	: Integer = 48, ByteSize = 2
+%%% Output		: <<0, 48>>
+%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+integer_to_size_binary(Integer, ByteSize) when is_integer(Integer),
+										       is_integer(ByteSize),
+										       ByteSize >= 0 ->
+    <<Integer:(ByteSize*8)>>;
+integer_to_size_binary(_Integer, _ByteSize) ->
+    <<>>.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%
+%%% Parameter 	: IDs = [48, 32], ByteSize = 2
+%%% Output		: <<0, 48, 0, 32>>
+%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+integer_list_to_size_binary_list(IDs, ByteSize) when is_list(IDs),
+						          		             length(IDs) > 0,
+												     is_integer(ByteSize),
+												     ByteSize >= 0 ->
+	[H|T] = IDs,
+	case T of
+		[] ->
+			integer_to_binary(H, ByteSize);
+		_ ->
+			list_to_binary([integer_to_binary(H, ByteSize), integer_list_to_size_binary_list(T, ByteSize)])
+	end;
+integer_list_to_size_binary_list(_IDs, _ByteSize) ->
+	<<>>.
 
 %%%
 %%%

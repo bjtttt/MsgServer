@@ -61,6 +61,7 @@
          create_record_args_send/2,
          create_report_driver_id_request/0,
          create_multimedia_data_reply/1,
+		 create_multimedia_data_reply/2,
          create_multimedia_data_reply/3,
          create_imm_photo_cmd/10,
          create_stomuldata_search/5,
@@ -2153,11 +2154,23 @@ create_multimedia_data_reply(Id) when is_integer(Id),
 create_multimedia_data_reply(_Id) ->
     <<>>.
 
-create_multimedia_data_reply(Id,_Count,IDs) when is_integer(Id),
-                                                 Id > 0 ->
+create_multimedia_data_reply(Id, IDs) when is_integer(Id),
+                                           Id > 0,
+										   is_list(IDs) ->
     Len = length(IDs),
-    IL=term_to_binary(IDs),
-    <<Id:32,Len:8,IL/binary>>.
+    IL = common:integer_list_to_size_binary_list(IDs, ?LEN_WORD_BYTE),
+    <<Id:32,Len:8,IL/binary>>;
+create_multimedia_data_reply(_Id, _IDs) ->
+	<<>>.
+
+create_multimedia_data_reply(Id, Count, IDs) when is_integer(Id),
+                                                  Id > 0,
+												  length(IDs) == Count ->
+    Len = length(IDs),
+    IL = common:integer_list_to_size_binary_list(IDs, ?LEN_WORD_BYTE),
+    <<Id:32,Len:8,IL/binary>>;
+create_multimedia_data_reply(_Id, _Count, _IDs) ->
+	<<>>.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %
