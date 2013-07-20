@@ -62,6 +62,10 @@ parse_data(RawData, State) ->
 									create_undef_count_response();
 								12 ->
 									create_def_count_reponse();
+								13 ->
+									create_vehicle_stored_msg_info_reponse(Req);
+								14 ->
+									create_device_stored_msg_info_reponse(Req);
                                 _ ->
                                     create_unknown_msg_id_response(ID)
                             end
@@ -90,11 +94,11 @@ parse_data(RawData, State) ->
 create_msg(ID) when is_integer(ID),
                     ID =< 255,
                     ID >= 0 ->
-    Content = <<2:?LEN_BYTE, 0:?LEN_BYTE, ID:?LEN_BYTE>>,
+    Content = <<2:?LEN_DWORD, 0:?LEN_BYTE, ID:?LEN_BYTE>>,
     Xor = vdr_data_parser:bxorbytelist(Content),
     list_to_binary([Content, Xor]);
 create_msg(_ID) ->
-    Content = <<1:?LEN_BYTE, 5:?LEN_BYTE>>,
+    Content = <<1:?LEN_DWORD, 5:?LEN_BYTE>>,
     Xor = vdr_data_parser:bxorbytelist(Content),
     list_to_binary([Content, Xor]).
 
@@ -103,11 +107,11 @@ create_msg(ID, Body) when is_integer(ID),
                           ID >= 0,
                           is_binary(Body) ->
     Len = byte_size(Body) + 1,
-    Content = <<Len:?LEN_BYTE, ID:?LEN_BYTE, Body/binary>>,
+    Content = <<Len:?LEN_DWORD, ID:?LEN_BYTE, Body/binary>>,
     Xor = vdr_data_parser:bxorbytelist(Content),
     list_to_binary([Content, Xor]);
 create_msg(_ID, _Body) ->
-    Content = <<1:?LEN_BYTE, 5:?LEN_BYTE>>,
+    Content = <<1:?LEN_DWORD, 5:?LEN_BYTE>>,
     Xor = vdr_data_parser:bxorbytelist(Content),
     list_to_binary([Content, Xor]).
 
@@ -118,17 +122,17 @@ create_msg(_ID, _Body) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 create_error_resp(ErrID) when is_integer(ErrID),
 							  ErrID >= 3 ->
-	Content = <<1:?LEN_BYTE, ErrID:?LEN_BYTE>>,
+	Content = <<1:?LEN_DWORD, ErrID:?LEN_BYTE>>,
 	Xor = vdr_data_parser:bxorbytelist(Content),
 	list_to_binary([Content, Xor]).
 
 create_unknown_msg_id_response(ID) ->
-	Content = <<2:?LEN_BYTE, 2:?LEN_BYTE, ID:?LEN_BYTE>>,
+	Content = <<2:?LEN_DWORD, 2:?LEN_BYTE, ID:?LEN_BYTE>>,
 	Xor = vdr_data_parser:bxorbytelist(Content),
 	list_to_binary([Content, Xor]).
 
 create_test_conn_response() ->
-    Content = <<2:?LEN_BYTE, 0:?LEN_BYTE, 0:?LEN_BYTE>>,
+    Content = <<2:?LEN_DWORD, 0:?LEN_BYTE, 0:?LEN_BYTE>>,
     Xor = vdr_data_parser:bxorbytelist(Content),
 	list_to_binary([Content, Xor]).
 
@@ -136,11 +140,11 @@ create_test_db_proc_response(DBPid) ->
 	DBPid ! {self(), test},
 	receive
 		ok ->
-		    Content = <<2:?LEN_BYTE, 0:?LEN_BYTE, 1:?LEN_BYTE>>,
+		    Content = <<2:?LEN_DWORD, 0:?LEN_BYTE, 1:?LEN_BYTE>>,
 		    Xor = vdr_data_parser:bxorbytelist(Content),
 			list_to_binary([Content, Xor]);
 		_ ->
-		    Content = <<2:?LEN_BYTE, 1:?LEN_BYTE, 1:?LEN_BYTE>>,
+		    Content = <<2:?LEN_DWORD, 1:?LEN_BYTE, 1:?LEN_BYTE>>,
 		    Xor = vdr_data_parser:bxorbytelist(Content),
 			list_to_binary([Content, Xor])
 	end.
@@ -149,11 +153,11 @@ create_test_ws_proc_response(WSPid) ->
 	WSPid ! {self(), test},
 	receive
 		ok ->
-		    Content = <<2:?LEN_BYTE, 0:?LEN_BYTE, 2:?LEN_BYTE>>,
+		    Content = <<2:?LEN_DWORD, 0:?LEN_BYTE, 2:?LEN_BYTE>>,
 		    Xor = vdr_data_parser:bxorbytelist(Content),
 			list_to_binary([Content, Xor]);
 		_ ->
-		    Content = <<2:?LEN_BYTE, 1:?LEN_BYTE, 2:?LEN_BYTE>>,
+		    Content = <<2:?LEN_DWORD, 1:?LEN_BYTE, 2:?LEN_BYTE>>,
 		    Xor = vdr_data_parser:bxorbytelist(Content),
 			list_to_binary([Content, Xor])
 	end.
@@ -163,11 +167,11 @@ create_vehicle_count_response() ->
 	if
 		V1 == undefined ->
 			Value1 = 0,
-			Content = <<6:?LEN_BYTE, 0:?LEN_BYTE, 3:?LEN_BYTE, Value1:?LEN_DWORD>>,
+			Content = <<6:?LEN_DWORD, 0:?LEN_BYTE, 3:?LEN_BYTE, Value1:?LEN_DWORD>>,
 			Xor = vdr_data_parser:bxorbytelist(Content),
 			list_to_binary([Content, Xor]);
 		true ->
-			Content = <<6:?LEN_BYTE, 0:?LEN_BYTE, 3:?LEN_BYTE, V1:?LEN_DWORD>>,
+			Content = <<6:?LEN_DWORD, 0:?LEN_BYTE, 3:?LEN_BYTE, V1:?LEN_DWORD>>,
 			Xor = vdr_data_parser:bxorbytelist(Content),
 			list_to_binary([Content, Xor])
 	end.
@@ -207,7 +211,7 @@ create_reset_all_response() ->
 	%common:loginfo("vdrtable all sockets : ~p~n", [Socks]),
 	SockList = compose_one_item_list_array_to_list(Socks),
 	close_all_sockets(SockList),
-    Content = <<2:?LEN_BYTE, 0:?LEN_BYTE, 5:?LEN_BYTE>>,
+    Content = <<2:?LEN_DWORD, 0:?LEN_BYTE, 5:?LEN_BYTE>>,
     Xor = vdr_data_parser:bxorbytelist(Content),
 	list_to_binary([Content, Xor]).
 
@@ -246,7 +250,7 @@ create_all_device_ids_response() ->
 	DIDList = compose_one_item_list_array_to_list(DIDs),
 	DIDsBin = convert_integer_list_to_4_bytes_binary_list(DIDList),
 	Size = byte_size(DIDsBin),
-    Content = <<(2+Size):?LEN_BYTE, 0:?LEN_BYTE, 5:?LEN_BYTE, DIDsBin/binary>>,
+    Content = <<(2+Size):?LEN_DWORD, 0:?LEN_BYTE, 5:?LEN_BYTE, DIDsBin/binary>>,
     Xor = vdr_data_parser:bxorbytelist(Content),
 	list_to_binary([Content, Xor]).
 		
@@ -261,7 +265,7 @@ create_all_vehicle_ids_response() ->
 	VIDList = compose_one_item_list_array_to_list(VIDs),
 	VIDsBin = convert_integer_list_to_4_bytes_binary_list(VIDList),
 	Size = byte_size(VIDsBin),
-    Content = <<(2+Size):?LEN_BYTE, 0:?LEN_BYTE, 6:?LEN_BYTE, VIDsBin/binary>>,
+    Content = <<(2+Size):?LEN_DWORD, 0:?LEN_BYTE, 6:?LEN_BYTE, VIDsBin/binary>>,
     Xor = vdr_data_parser:bxorbytelist(Content),
 	list_to_binary([Content, Xor]).
 
@@ -276,7 +280,7 @@ create_spec_vehicle_count_response(VID) ->
                                 '_', '_', '_', '_', '_', '_', '_', '_'}),
     %common:loginfo("vdrtable all vehicles : ~p~n", [VIDs]),
     Count = length(VIDs),
-    Content = <<6:?LEN_BYTE, 0:?LEN_BYTE, 7:?LEN_BYTE, Count:?LEN_DWORD>>,
+    Content = <<6:?LEN_DWORD, 0:?LEN_BYTE, 7:?LEN_BYTE, Count:?LEN_DWORD>>,
     Xor = vdr_data_parser:bxorbytelist(Content),
     list_to_binary([Content, Xor]).
 
@@ -291,7 +295,7 @@ create_spec_device_count_response(DID) ->
                                 '_', '_', '_', '_', '_', '_', '_', '_'}),
     %common:loginfo("vdrtable all devices : ~p~n", [VIDs]),
     Count = length(VIDs),
-    Content = <<6:?LEN_BYTE, 0:?LEN_BYTE, 8:?LEN_BYTE, Count:?LEN_DWORD>>,
+    Content = <<6:?LEN_DWORD, 0:?LEN_BYTE, 8:?LEN_BYTE, Count:?LEN_DWORD>>,
     Xor = vdr_data_parser:bxorbytelist(Content),
     list_to_binary([Content, Xor]).
 
@@ -305,7 +309,7 @@ create_spec_vehicle_info_response(VID) ->
                                 '_', '_', '_', '_', '_', 
                                 '_', '_', '_', '_', '_', '_', '_', '_'}),
     Count = length(VIDs),
-    Content = <<6:?LEN_BYTE, 0:?LEN_BYTE, 9:?LEN_BYTE, Count:?LEN_DWORD>>,
+    Content = <<6:?LEN_DWORD, 0:?LEN_BYTE, 9:?LEN_BYTE, Count:?LEN_DWORD>>,
     Xor = vdr_data_parser:bxorbytelist(Content),
     list_to_binary([Content, Xor]).
 
@@ -319,7 +323,7 @@ create_spec_device_info_response(DID) ->
                                 '_', '_', '_', '_', '_', 
                                 '_', '_', '_', '_', '_', '_', '_', '_'}),
     Count = length(VIDs),
-    Content = <<6:?LEN_BYTE, 0:?LEN_BYTE, 10:?LEN_BYTE, Count:?LEN_DWORD>>,
+    Content = <<6:?LEN_DWORD, 0:?LEN_BYTE, 10:?LEN_BYTE, Count:?LEN_DWORD>>,
     Xor = vdr_data_parser:bxorbytelist(Content),
     list_to_binary([Content, Xor]).
 
@@ -331,7 +335,7 @@ create_undef_count_response() ->
                                 '_', '_', '_', '_', '_', 
                                 '_', '_', '_', '_', '_', '_', '_', '_'}),
 	Count = length(VIDs),
-    Content = <<6:?LEN_BYTE, 0:?LEN_BYTE, 11:?LEN_BYTE, Count:?LEN_DWORD>>,
+    Content = <<6:?LEN_DWORD, 0:?LEN_BYTE, 11:?LEN_BYTE, Count:?LEN_DWORD>>,
     Xor = vdr_data_parser:bxorbytelist(Content),
     list_to_binary([Content, Xor]).
 
@@ -346,13 +350,62 @@ create_def_count_reponse() ->
 	Count = length(VIDs),
 	case V1 of
 		undefined ->
-		    Content = <<6:?LEN_BYTE, 0:?LEN_BYTE, 12:?LEN_BYTE, (-Count):?LEN_DWORD>>,
+		    Content = <<6:?LEN_DWORD, 0:?LEN_BYTE, 12:?LEN_BYTE, (-Count):?LEN_DWORD>>,
 		    Xor = vdr_data_parser:bxorbytelist(Content),
 		    list_to_binary([Content, Xor]);
 		_ ->
-		    Content = <<6:?LEN_BYTE, 0:?LEN_BYTE, 12:?LEN_BYTE, (V1-Count):?LEN_DWORD>>,
+		    Content = <<6:?LEN_DWORD, 0:?LEN_BYTE, 12:?LEN_BYTE, (V1-Count):?LEN_DWORD>>,
 		    Xor = vdr_data_parser:bxorbytelist(Content),
 		    list_to_binary([Content, Xor])
 	end.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%
+% [[ID0, MsgIdx0, Total0, Idx0, Body0], [ID1, MsgIdx1, Total1, Idx1, Body1], ...]
+%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+create_vehicle_stored_msg_info_reponse(VID) ->
+    BS = bit_size(VID),
+    <<VIDValue:BS>> = VID,
+    Msgs = ets:match(vdrtable, {'_', 
+                                '_', '_', '_', '_', VIDValue, 
+                                '_', '_', '_', '_', '_', 
+                                '_', '_', '_', '_', '_', 
+                                '_', '_', '_', '_', '_', 
+                                '_', '_', '_', '$1', '_', '_', '_', '_'}),
+	Bin = convert_integer_list_list_to_4_byte_binary_list(Msgs),
+	Size = byte_size(Bin),
+    Content = <<(Size+2):?LEN_DWORD, 0:?LEN_BYTE, 13:?LEN_BYTE, Bin/binary>>,
+    Xor = vdr_data_parser:bxorbytelist(Content),
+    list_to_binary([Content, Xor]).	
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%
+% [[ID0, MsgIdx0, Total0, Idx0, Body0], [ID1, MsgIdx1, Total1, Idx1, Body1], ...]
+%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+create_device_stored_msg_info_reponse(DID) ->
+    BS = bit_size(DID),
+    <<DIDValue:BS>> = DID,
+    Msgs = ets:match(vdrtable, {'_', 
+                                '_', DIDValue, '_', '_', '_', 
+                                '_', '_', '_', '_', '_', 
+                                '_', '_', '_', '_', '_', 
+                                '_', '_', '_', '_', '_', 
+                                '_', '_', '_', '$1', '_', '_', '_', '_'}),
+	Bin = convert_integer_list_list_to_4_byte_binary_list(Msgs),
+	Size = byte_size(Bin),
+    Content = <<(Size+2):?LEN_DWORD, 0:?LEN_BYTE, 14:?LEN_BYTE, Bin/binary>>,
+    Xor = vdr_data_parser:bxorbytelist(Content),
+    list_to_binary([Content, Xor]).
+
+convert_integer_list_list_to_4_byte_binary_list(List) when is_list(List),
+														   length(List) > 0 ->
+	[H|T] = List,
+	HBin = convert_integer_list_to_4_bytes_binary_list(H),
+	list_to_binary([HBin, convert_integer_list_list_to_4_byte_binary_list(T)]);
+convert_integer_list_list_to_4_byte_binary_list(_List) ->
+	<<>>.
+
 
 
