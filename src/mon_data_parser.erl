@@ -196,7 +196,12 @@ convert_integer_list_to_4_bytes_binary_list(IDList) when is_list(IDList),
 		H == undefined ->
 			convert_integer_list_to_4_bytes_binary_list(T);
 		true ->
-			list_to_binary([<<H:?LEN_DWORD>>, convert_integer_list_to_4_bytes_binary_list(T)])
+			case is_integer(H) of
+				true ->
+					list_to_binary([<<H:?LEN_DWORD>>, convert_integer_list_to_4_bytes_binary_list(T)]);
+				_ ->
+					convert_integer_list_to_4_bytes_binary_list(T)
+			end
 	end;
 convert_integer_list_to_4_bytes_binary_list(_IDList) ->
 	<<>>.
@@ -377,7 +382,8 @@ create_vehicle_stored_msg_info_reponse(VID) ->
                                 '_', '_', '_', '_', '_', 
                                 '_', '_', '_', '$1', '_', '_', '_', '_'}),
 	%common:loginfo("Stored msg : ~p~n", [Msgs]),
-	Bin = convert_integer_list_list_to_4_byte_binary_list(Msgs),
+	[[RealMsgs]] = Msgs,
+	Bin = convert_integer_list_list_to_4_byte_binary_list(RealMsgs),
 	%common:loginfo("Stored msg bin : ~p~n", [Bin]),
 	Size = byte_size(Bin),
     Content = <<(Size+2):?LEN_DWORD, 0:?LEN_BYTE, 13:?LEN_BYTE, Bin/binary>>,
@@ -398,7 +404,8 @@ create_device_stored_msg_info_reponse(DID) ->
                                 '_', '_', '_', '_', '_', 
                                 '_', '_', '_', '_', '_', 
                                 '_', '_', '_', '$1', '_', '_', '_', '_'}),
-	Bin = convert_integer_list_list_to_4_byte_binary_list(Msgs),
+	[[RealMsgs]] = Msgs,
+	Bin = convert_integer_list_list_to_4_byte_binary_list(RealMsgs),
 	Size = byte_size(Bin),
     Content = <<(Size+2):?LEN_DWORD, 0:?LEN_BYTE, 14:?LEN_BYTE, Bin/binary>>,
     Xor = vdr_data_parser:bxorbytelist(Content),

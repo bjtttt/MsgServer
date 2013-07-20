@@ -864,6 +864,9 @@ do_process_vdr_data(Socket, Data, State) ->
 		                            common:loginfo("~p sends VDR multimedia data upload response (ok) : ~p~n", [NewState#vdritem.pid, MsgBody]),
 		                            NewFlowIdx = send_data_to_vdr(16#8001, FlowIdx, MsgBody, VDRPid),
 		
+						            [VDRItem] = ets:lookup(vdrtable, Socket),
+									ets:insert(vdrtable, VDRItem#vdritem{msg=NewState#vdritem.msg}),
+									
 		                            %{ok, NewState};
 		                            {ok, NewState#vdritem{msgflownum=NewFlowIdx}};
 								_ ->
@@ -943,6 +946,9 @@ do_process_vdr_data(Socket, Data, State) ->
             MsgBody = vdr_data_processor:create_gen_resp(ID, MsgIdx, ?T_GEN_RESP_OK),
             common:loginfo("~p sends VDR (~p) response for ignore ~p : ~p~n", [NewState#vdritem.pid, NewState#vdritem.addr, ID, MsgBody]),
             NewFlowIdx = send_data_to_vdr(16#8001, FlowIdx, MsgBody, VDRPid),
+			
+            [VDRItem] = ets:lookup(vdrtable, Socket),
+			ets:insert(vdrtable, VDRItem#vdritem{msg=NewState#vdritem.msg}),
             
             {ok, NewState#vdritem{msgflownum=NewFlowIdx}};
         {warning, HeaderInfo, ErrorType, NewState} ->
@@ -951,7 +957,7 @@ do_process_vdr_data(Socket, Data, State) ->
             MsgBody = vdr_data_processor:create_gen_resp(ID, MsgIdx, ErrorType),
             common:loginfo("~p sends VDR (~p) response for warning ~p : ~p~n", [NewState#vdritem.pid, NewState#vdritem.addr, ID, MsgBody]),
             NewFlowIdx = send_data_to_vdr(16#8001, FlowIdx, MsgBody, VDRPid),
-            
+			
             {warning, NewState#vdritem{msgflownum=NewFlowIdx}};
         {error, _ErrorType, NewState} ->    % exception/parityerror/formaterror
             {error, vdrerror, NewState}
