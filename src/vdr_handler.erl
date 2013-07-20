@@ -861,7 +861,13 @@ do_process_vdr_data(Socket, Data, State) ->
                             %                                     ";CREATE TABLE IF NOT EXISTS ",TBLNAME,
                             %                                     "(`ID` INT(11) NOT NULL AUTO_INCREMENT,'MID' INT(1) NOT NULL,'TYPE' TINYINT(1) NOT NULL,'FormatCode' TINYINT(1) NOT NULL,'EventCode' TINYINT(1) NOT NULL,'PipeId' TINYINT(1) NOT NULL,PRIMARY KEY ('ID')) ENGINE=MyISAM DEFAULT CHARSET=utf8;insert into",TBLNAME,"(MID,TYPE,FormatCode,EventCode,PipeId) values(",ID,",",TYPE,",",CODE,",",EICODE,",",PIPEID,");"]), NewState),                            
                                                         
-                            {ok, NewState};
+                            FlowIdx = NewState#vdritem.msgflownum,
+                            MsgBody = vdr_data_processor:create_gen_resp(ID, MsgIdx, ?T_GEN_RESP_OK),
+                            common:loginfo("~p sends VDR multimedia event information upload response (ok) : ~p~n", [NewState#vdritem.pid, MsgBody]),
+                            NewFlowIdx = send_data_to_vdr(16#8001, FlowIdx, MsgBody, VDRPid),
+
+							%{ok, NewState};
+                            {ok, NewState#vdritem{msgflownum=NewFlowIdx}};
                         16#801 ->
                             {_Id, _Type, _Code, _EICode, _PipeId, _MsgBody, Pack} = Msg,
 							
@@ -933,7 +939,7 @@ do_process_vdr_data(Socket, Data, State) ->
             {ID, MsgIdx, _Tel, _CryptoType} = HeaderInfo,
             FlowIdx = NewState#vdritem.msgflownum,
             MsgBody = vdr_data_processor:create_gen_resp(ID, MsgIdx, ?T_GEN_RESP_OK),
-            common:loginfo("~p sends VDR (~p) response for ignore ~p : ~p~n", [State#vdritem.pid, NewState#vdritem.addr, ID, MsgBody]),
+            common:loginfo("~p sends VDR (~p) response  ~p : ~p~n", [State#vdritem.pid, NewState#vdritem.addr, ID, MsgBody]),
             NewFlowIdx = send_data_to_vdr(16#8001, FlowIdx, MsgBody, VDRPid),
             
             {ok, NewState#vdritem{msgflownum=NewFlowIdx}};
