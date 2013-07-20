@@ -67,9 +67,9 @@ integer_list_to_size_binary_list(IDs, ByteSize) when is_list(IDs),
 	[H|T] = IDs,
 	case T of
 		[] ->
-			integer_to_binary(H, ByteSize);
+			common:integer_to_size_binary(H, ByteSize);
 		_ ->
-			list_to_binary([integer_to_binary(H, ByteSize), integer_list_to_size_binary_list(T, ByteSize)])
+			list_to_binary([common:integer_to_size_binary(H, ByteSize), integer_list_to_size_binary_list(T, ByteSize)])
 	end;
 integer_list_to_size_binary_list(_IDs, _ByteSize) ->
 	<<>>.
