@@ -514,13 +514,13 @@ do_process_vdr_data(Socket, Data, State) ->
                                                         1 ->
                                                             % "authen_code" is the query condition, so Auth should be equal to VDRAuthEnCode
                                                             %{Auth} = Msg,
-                                                            [SockVdr] = SockVdrList,
-                                                            ets:insert(vdrtable, SockVdr#vdritem{id=VDRID, 
-                                                                                                 serialno=binary_to_list(VDRSerialNo), 
-                                                                                                 auth=binary_to_list(VDRAuthenCode),
-                                                                                                 vehicleid=VehicleID,
-                                                                                                 vehiclecode=binary_to_list(VehicleCode),
-                                                                                                 driverid=DriverID}),
+                                                            %[SockVdr] = SockVdrList,
+                                                            %ets:insert(vdrtable, SockVdr#vdritem{id=VDRID, 
+                                                            %                                     serialno=binary_to_list(VDRSerialNo), 
+                                                            %                                     auth=binary_to_list(VDRAuthenCode),
+                                                            %                                     vehicleid=VehicleID,
+                                                            %                                     vehiclecode=binary_to_list(VehicleCode),
+                                                            %                                     driverid=DriverID}),
                                                             
                                                             SqlUpdate = list_to_binary([<<"update device set is_online=1 where authen_code='">>, VDRAuthenCode, <<"'">>]),
                                                             %send_sql_to_db(regauth, SqlUpdate, NewState),
@@ -550,6 +550,7 @@ do_process_vdr_data(Socket, Data, State) ->
 																							              driverid=DriverID,
 		                                                                                                  msgflownum=NewFlowIdx, msg2vdr=[], msg=[], req=[],
 																							              alarmlist=[]},
+																			ets:insert(vdrtable, FinalState),
 		                                        
 		                                                                    {ok, FinalState};
 		                                                                _ ->
@@ -577,6 +578,7 @@ do_process_vdr_data(Socket, Data, State) ->
 																							              driverid=DriverID,
 		                                                                                                  msgflownum=NewFlowIdx, msg2vdr=[], msg=[], req=[],
 																							              alarmlist=[]},
+																			ets:insert(vdrtable, FinalState),
 																			
 		                                                                    {ok, FinalState};
 		                                                                _ ->
