@@ -136,19 +136,32 @@ terminate(Reason, State) ->
     VehicleID = State#vdritem.vehicleid,
     Socket = State#vdritem.socket,
     VDRPid = State#vdritem.vdrpid,
+	VDRMsgTimeoutPid = State#vdritem.vdrmsgtimeoutpid,
+	Pid = self(),
     case VDRPid of
         undefined ->
             ok;
         _ ->
-			Pid = self(),
             VDRPid ! {Pid, stop},
 			receive
 				{Pid, stopped} ->
 					ok
-			after 10000 ->
+			after ?TIME_TERMINATE_VDR ->
 					ok
 			end
     end,
+	case VDRMsgTimeoutPid of
+		undefined ->
+			ok;
+		_ ->
+			VDRMsgTimeoutPid ! {Pid, stop},
+			receive
+				{Pid, stopped} ->
+					ok
+			after ?TIME_TERMINATE_VDR ->
+					ok
+			end
+	end,
     case Socket of
         undefined ->
             ok;
@@ -239,8 +252,19 @@ safe_process_vdr_msg(Socket, Msg, State) ->
 %%% MsgIdx  : VDR message index
 %%% FlowIdx : Gateway message flow index
 %%%
-process_vdr_data(Socket, Data, State) ->
-    VDRPid = State#vdritem.vdrpid,
+process_vdr_data(Socket, Data, State) ->    
+	VdrMsgTimeoutPid = State#vdritem.vdrmsgtimeoutpid,
+	SelfPid = self(),
+	VdrMsgTimeoutPid ! {SelfPid, Socket},
+	receive
+		{SelfPid, ok} ->
+			do_process_vdr_data(Socket, Data, State)
+	after ?VDR_MSG_RESP_TIMEOUT ->
+		{error, systemerror, State}
+	end.
+
+do_process_vdr_data(Socket, Data, State) ->
+	VDRPid = State#vdritem.vdrpid,
     case vdr_data_parser:process_data(State, Data) of
         {ok, HeadInfo, Msg, NewState} ->
             {ID, MsgIdx, Tel, _CryptoType} = HeadInfo,
@@ -1258,9 +1282,9 @@ data2vdr_process(Socket) ->
             gen_tcp:send(Socket, Msg),
             %Pid ! {Pid, vdrok},
             data2vdr_process(Socket);
-        stop ->
-            common:loginfo("~p stops waiting for MSG to VDR~n", [self()]),
-            ok;
+        %stop ->
+        %    common:loginfo("~p stops waiting for MSG to VDR~n", [self()]),
+        %    ok;
         _ ->
             data2vdr_process(Socket)
     end.
@@ -1353,22 +1377,24 @@ vdr_msg_monitor_process(Pid, Socket) ->
 	receive
 		{Pid, stop} ->
 			[State] = ets:lookup(vdrtable, Socket),
-			common:loginfo("VDR (~p) socket (~p) (id:~p, serialno:~p, authen_code:~p, vehicleid:~p, vehiclecode:~p) : message monitor process received stop command",
+			common:loginfo("VDR (~p) socket (~p) (id:~p, serialno:~p, authen_code:~p, vehicleid:~p, vehiclecode:~p) : message monitor process received stop command and stops",
 						   [State#vdritem.addr,
 							State#vdritem.socket,
 							State#vdritem.id, 
 							State#vdritem.serialno, 
 							State#vdritem.auth, 
 							State#vdritem.vehicleid, 
-							State#vdritem.vehiclecode]);
+							State#vdritem.vehiclecode]),
+			Pid ! {Pid, stopped};
 		{Pid, Socket} ->
+			Pid ! {Pid, ok},
 			vdr_msg_monitor_process(Pid, Socket);
 		_ ->
 			[State] = ets:lookup(vdrtable, Socket),
-			terminate("VDR message monitor process received unknown command", State)
+			terminate("VDR message monitor process received unknown command and stops", State)
 	after ?VDR_MSG_TIMEOUT ->
 			[State] = ets:lookup(vdrtable, Socket),
-			terminate("VDR message monitor process timeout", State)
+			terminate("VDR message monitor process timeout and stops", State)
 	end.			
 
 %%%         

@@ -58,6 +58,10 @@ parse_data(RawData, State) ->
                                     create_spec_vehicle_info_response(Req);
                                 10 ->
                                     create_spec_device_info_response(Req);
+								11 ->
+									create_undef_count_response();
+								12 ->
+									create_def_count_reponse();
                                 _ ->
                                     create_unknown_msg_id_response(ID)
                             end
@@ -171,14 +175,26 @@ create_vehicle_count_response() ->
 compose_one_item_list_array_to_list(IDs) when is_list(IDs),
 											  length(IDs) > 0 ->
 	[H|T] = IDs,
-	lists:merge(H, compose_one_item_list_array_to_list(T));
+	[ID] = H,
+	if
+		ID == undefined ->
+			compose_one_item_list_array_to_list(T);
+		true ->
+			lists:merge(H, compose_one_item_list_array_to_list(T))
+	end;
 compose_one_item_list_array_to_list(_IDs) ->
 	[].
 
 convert_integer_list_to_4_bytes_binary_list(IDList) when is_list(IDList),
 														 length(IDList) > 0 ->
 	[H|T] = IDList,
-	list_to_binary([<<H:?LEN_DWORD>>, convert_integer_list_to_4_bytes_binary_list(T)]);
+	[ID] = H,
+	if
+		ID == undefined ->
+			convert_integer_list_to_4_bytes_binary_list(T);
+		true ->
+			list_to_binary([<<H:?LEN_DWORD>>, convert_integer_list_to_4_bytes_binary_list(T)])
+	end;
 convert_integer_list_to_4_bytes_binary_list(_IDList) ->
 	<<>>.
 
@@ -202,17 +218,18 @@ close_all_sockets(SockList) when is_list(SockList),
 	case common:safepeername(H) of
 		{ok, {Address, Port}} ->
 			try
-				gen_tcp:close(H)
+				gen_tcp:close(H)%,
+				%common:loginfo("Successfully closed ~p:~p : ~p~n", [Address, Port, H])
 			catch
 				Oper:Msg ->
-					common:logerror("Exception when closing ~p:~p : ~p:~p", [Address, Port, Oper, Msg])
+					common:logerror("Exception when closing ~p:~p : ~p:~p~n", [Address, Port, Oper, Msg])
 			end;
 		{error, _Reason} ->
 			try
 				gen_tcp:close(H)
 			catch
 				Oper:Msg ->
-					common:logerror("Exception when closing ~p : ~p:~p", [H, Oper, Msg])
+					common:logerror("Exception when closing ~p : ~p:~p~n", [H, Oper, Msg])
 			end
 	end,
 	close_all_sockets(T);
@@ -289,7 +306,7 @@ create_spec_vehicle_info_response(VID) ->
                                 '_', '_', '_', '_', '_', 
                                 '_', '_', '_', '_', '_', '_', '_', '_'}),
     Count = length(VIDs),
-    Content = <<6:?LEN_BYTE, 0:?LEN_BYTE, 7:?LEN_BYTE, Count:?LEN_DWORD>>,
+    Content = <<6:?LEN_BYTE, 0:?LEN_BYTE, 9:?LEN_BYTE, Count:?LEN_DWORD>>,
     Xor = vdr_data_parser:bxorbytelist(Content),
     list_to_binary([Content, Xor]).
 
@@ -303,11 +320,40 @@ create_spec_device_info_response(DID) ->
                                 '_', '_', '_', '_', '_', 
                                 '_', '_', '_', '_', '_', '_', '_', '_'}),
     Count = length(VIDs),
-    Content = <<6:?LEN_BYTE, 0:?LEN_BYTE, 8:?LEN_BYTE, Count:?LEN_DWORD>>,
+    Content = <<6:?LEN_BYTE, 0:?LEN_BYTE, 10:?LEN_BYTE, Count:?LEN_DWORD>>,
     Xor = vdr_data_parser:bxorbytelist(Content),
     list_to_binary([Content, Xor]).
 
+create_undef_count_response() ->
+	VIDs = ets:match(vdrtable, {'_', 
+                                '_', undefined, '_', '_', '_', 
+                                '_', '_', '_', '_', '_', 
+                                '_', '_', '_', '_', '_', 
+                                '_', '_', '_', '_', '_', 
+                                '_', '_', '_', '_', '_', '_', '_', '_'}),
+	Count = length(VIDs),
+    Content = <<6:?LEN_BYTE, 0:?LEN_BYTE, 11:?LEN_BYTE, Count:?LEN_DWORD>>,
+    Xor = vdr_data_parser:bxorbytelist(Content),
+    list_to_binary([Content, Xor]).
 
-
+create_def_count_reponse() ->
+	V1 = ets:info(vdrtable, size),
+	VIDs = ets:match(vdrtable, {'_', 
+                                '_', undefined, '_', '_', '_', 
+                                '_', '_', '_', '_', '_', 
+                                '_', '_', '_', '_', '_', 
+                                '_', '_', '_', '_', '_', 
+                                '_', '_', '_', '_', '_', '_', '_', '_'}),
+	Count = length(VIDs),
+	case V1 of
+		undefined ->
+		    Content = <<6:?LEN_BYTE, 0:?LEN_BYTE, 12:?LEN_BYTE, (-Count):?LEN_DWORD>>,
+		    Xor = vdr_data_parser:bxorbytelist(Content),
+		    list_to_binary([Content, Xor]);
+		_ ->
+		    Content = <<6:?LEN_BYTE, 0:?LEN_BYTE, 12:?LEN_BYTE, (V1-Count):?LEN_DWORD>>,
+		    Xor = vdr_data_parser:bxorbytelist(Content),
+		    list_to_binary([Content, Xor])
+	end.
 
 

@@ -65,6 +65,7 @@
 -define(WS2VDRFREQ, 10).
 
 -define(VDR_MSG_TIMEOUT, 120000).
+-define(VDR_MSG_RESP_TIMEOUT, 5000).
 
 %%%
 %%% There is only one super user, name is super, password is super.
