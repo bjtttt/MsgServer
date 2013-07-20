@@ -207,13 +207,26 @@ log(Module, Line, _Level, FormatFun) ->
 mysql_process() ->
     receive
         {Pid, PoolId, Sql} ->
+			SqlLen = byte_size(Sql),
 			try
 				Result = mysql:fetch(PoolId, Sql),
             	Pid ! {Pid, Result},
-            	common:loginfo("Successfully send SQL (~p) to DB : ~p~n", [Sql, PoolId])
+				if
+					SqlLen > 1024 ->
+						PartSql = binary:part(Sql, 0, 1024),
+						common:loginfo("Successfully send SQL (~p)......... to DB : ~p~n", [PartSql, PoolId]);
+					true ->
+						common:loginfo("Successfully send SQL (~p) to DB : ~p~n", [Sql, PoolId])
+				end
 			catch
 				Oper:Msg ->
-                    common:logerror("Fail to send SQL (~p) to DB : ~p~n(Operation)~p:(Message)~p", [Sql, PoolId, Oper, Msg]),
+					if
+						SqlLen > 1024 ->
+							PartSql1 = binary:part(Sql, 0, 1024),
+							common:logerror("Fail to send SQL (~p)......... to DB : ~p~n(Operation)~p:(Message)~p", [PartSql1, PoolId, Oper, Msg]);
+						true ->
+							common:logerror("Fail to send SQL (~p) to DB : ~p~n(Operation)~p:(Message)~p", [Sql, PoolId, Oper, Msg])
+					end,
                     try
                         [{db, DB}] = ets:lookup(msgservertable, db),
                         [{dbname, DBName}] = ets:lookup(msgservertable, dbname),

@@ -432,7 +432,14 @@ do_query(Sock, RecvPid, LogFun, Query, Version) ->
     Query1 = iolist_to_binary(Query),
     % commented by GUO Zhitao
 	%?Log2(LogFun, debug, "fetch ~p (id ~p)", [Query1,RecvPid]),
-	common:loginfo("fetch ~p (id ~p)", [Query1, RecvPid]),
+	Q1Len = byte_size(Query1),
+	if
+		Q1Len > 1024 ->
+			PartQ1 = binary:part(Query1, 0, 1024),
+			common:loginfo("fetch ~p......... (id ~p)", [PartQ1, RecvPid]);
+		true ->
+			common:loginfo("fetch ~p (id ~p)", [Query1, RecvPid])
+	end,
     Packet =  <<?MYSQL_QUERY_OP, Query1/binary>>,
     case do_send(Sock, Packet, 0, LogFun) of
 	ok ->

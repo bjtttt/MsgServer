@@ -176,32 +176,46 @@ restore_7d_7e_msg(State, Data) ->
 %%% State#vdritem.msg : [[ID0,MsgIdx0,Total0,Index0,Data0],[ID1,MsgIdx1,Total1,Index1,Data1],[ID2,MsgIdx2,Total2,Index2,Data2],..
 %%%
 combine_msg_packs(State, ID, MsgIdx, Total, Idx, Body) ->
+	%common:loginfo("Combine message ID (~p) : (Index)~p:(Total)~p~n", [ID, Idx, Total]),
     % Get all msg packages with the same ID
-    MsgWithID = get_msg_with_id(State#vdritem.msg, ID),        % [E || E <- State#vdritem.msg, [HID,_HFlowNum,_HTotal,_HIdx,_HBody] = E, HID == ID ]
+	StoredMsg = State#vdritem.msg,
+	%common:loginfo("Stored message : ~p~n", [StoredMsg]),
+    MsgWithID = get_msg_with_id(StoredMsg, ID),        % [E || E <- State#vdritem.msg, [HID,_HFlowNum,_HTotal,_HIdx,_HBody] = E, HID == ID ]
+	%common:loginfo("Combine message ID (~p) : with ID count ~p~n", [ID, length(MsgWithID)]),
     % Get all msg packages without the same ID
-    MsgWithoutID = get_msg_without_id(State#vdritem.msg, ID),  % [E || E <- State#vdritem.msg, [HID,_HFlowNum,_HTotal,_HIdx,_HBody] = E, HID =/= ID ]
+    MsgWithoutID = get_msg_without_id(StoredMsg, ID),  % [E || E <- State#vdritem.msg, [HID,_HFlowNum,_HTotal,_HIdx,_HBody] = E, HID =/= ID ]
+	%common:loginfo("Combine message ID (~p) : (ID count)~p:(NOT ID count)~p~n(Index)~p:(Total)~p~n", [ID, length(MsgWithID), length(MsgWithoutID), Idx, Total]),
     case MsgWithID of
         [] ->
-            NewState = State#vdritem{msg=[[ID,MsgIdx,Total,Idx,Body]|State#vdritem.msg]},
-            {notcomplete, NewState};
-        _ ->
-            NewMsgWithID = [[ID, MsgIdx, Total, Idx, Body]|del_pack_with_idx(MsgWithID, MsgIdx, Total, Idx)],
+			MergedList = lists:merge([[ID,MsgIdx,Total,Idx,Body]], StoredMsg),
+    		NewState = State#vdritem{msg=MergedList},
+			{notcomplete, NewState};
+    	_ ->
+			DelPack = del_pack_with_idx(MsgWithID, MsgIdx, Total, Idx),
+		    NewMsgWithID = lists:merge([[ID, MsgIdx, Total, Idx, Body]], DelPack),
+			%common:loginfo("DelPack : ~p~nNewMsgWithID : ~p~n", [DelPack, NewMsgWithID])
             case check_msg(NewMsgWithID, Total) of
                 ok ->
+					%common:loginfo("Combine message ID (~p) is completed with ~p packages~n", [ID, Total]),
                     Msg = compose_msg(NewMsgWithID, Total),
+					%common:loginfo("Combine message ID (~p) composes message : ~p~n", [ID, Msg]),
                     [H|_T] = Msg,
-                    [_ID, MsgIdx, _Total, _Idx, _Body] = H,
-                    case check_msg_idx(Msg, MsgIdx) of
+                    [_ID, FirstMsgIdx, _Total, _Idx, _Body] = H,
+					%common:loginfo("Combine message ID (~p) : checking message index based ~p~n", [ID, FirstMsgIdx]),
+                    case check_msg_idx(Msg, FirstMsgIdx) of
                         ok ->
                             NewState = State#vdritem{msg=MsgWithoutID},
                             BinMsg = compose_real_msg(Msg),
+							%common:loginfo("Complete message : ~p~n", [BinMsg]),
                             {complete, BinMsg, NewState};
                         error ->
-                            NewState = State#vdritem{msg=[NewMsgWithID|MsgWithoutID]},
+							MergedList = lists:merge(NewMsgWithID, MsgWithoutID),
+                            NewState = State#vdritem{msg=MergedList},
                             {notcomplete, NewState}
                     end;
                 error ->
-                    NewState = State#vdritem{msg=[NewMsgWithID|MsgWithoutID]},
+					MergedList = lists:merge(NewMsgWithID, MsgWithoutID),
+                    NewState = State#vdritem{msg=MergedList},
                     {notcomplete, NewState}
             end
     end.
@@ -267,7 +281,7 @@ del_pack_with_idx(Msg, MsgIdx, Total, Idx) ->
                                 Idx == HIdx ->
                                     del_pack_with_idx(T, MsgIdx, Total, Idx);
                                 Idx =/= HIdx ->
-                                    [H, del_pack_with_idx(T, MsgIdx, Total, Idx)]
+                                    lists:merge([H], del_pack_with_idx(T, MsgIdx, Total, Idx))
                             end;
                         DiffTotal =/= 0 ->
                             % Take the new msg package as the standard
@@ -300,6 +314,7 @@ check_msg(Packages, Total) ->
 %%% Return the missing package index list
 %%%
 del_num_from_num_list(NumList, Packages) ->
+	%common:loginfo("NumList ~p~n", [NumList]),
     case Packages of
         [] ->
             NumList;
@@ -307,6 +322,7 @@ del_num_from_num_list(NumList, Packages) ->
             [H|T] = Packages,
             [_ID, _MsgIdx, _Total, Idx, _Body] = H,
             NewNumList = [E || E <- NumList, E =/= Idx],
+			%common:loginfo("NewNumList ~p~n", [NewNumList]),
             del_num_from_num_list(NewNumList, T)
     end.
 
@@ -319,7 +335,7 @@ compose_msg(Packages, Total) ->
         Total < 1 ->
             [];
         Total >= 1 ->
-            [get_package_by_idx(Packages, Total)|compose_msg(Packages, Total-1)]
+            lists:merge([get_package_by_idx(Packages, Total)], compose_msg(Packages, Total-1))
     end.
 
 %%%
@@ -334,7 +350,7 @@ get_package_by_idx(Packages, Idx) ->
             [_ID, _MsgIdx, _Total, HIdx, _Body] = H,
             if
                 HIdx == Idx ->
-                    {ok, H};
+                    H;
                 HIdx =/= Idx ->
                     get_package_by_idx(T, Idx)
             end
@@ -351,6 +367,7 @@ check_msg_idx(Msg, MsgIdx) ->
         _ ->
             [H|T] = Msg,
             [_ID, HMsgIdx, _Total, _HIdx, _Body] = H,
+			%common:loginfo("Checking index ~p : compared index ~p", [HMsgIdx, MsgIdx]),
             DiffMsgIdx = HMsgIdx - MsgIdx,
             if
                 DiffMsgIdx == 0 ->
@@ -363,14 +380,12 @@ check_msg_idx(Msg, MsgIdx) ->
 %%%
 %%%
 %%%
-compose_real_msg(Msg) ->
-    case Msg of
-        [] ->
-            [];
-        _ ->
-            [H|T] = Msg,
-            [_ID,_MsgIdx,_Total,_HIdx,Body] = H,
-            list_to_binary([compose_real_msg(T)|Body])
-    end.
+compose_real_msg(Msges) when is_list(Msges),
+							 length(Msges) > 0 ->
+    [H|T] = Msges,
+    [_ID,_MsgIdx,_Total,_HIdx,Body] = H,
+    list_to_binary([Body, compose_real_msg(T)]);
+compose_real_msg(_Msges) ->
+	<<>>.
 
 

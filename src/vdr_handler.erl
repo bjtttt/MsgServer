@@ -66,6 +66,7 @@ handle_info({tcp, Socket, Data}, OriState) ->
 	%DataDebug = <<126,1,0,0,45,1,86,0,71,2,5,0,55,0,11,0,114,55,48,51,49,57,74,76,57,48,49,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,48,52,55,48,50,48,53,1,190,169,66,55,48,50,48,53,39,126>>,
 	%DataDebug = <<126,2,0,0,49,1,86,151,146,84,84,0,115,0,0,0,0,0,0,0,3,2,97,110,120,6,239,82,248,0,47,0,30,0,253,19,7,4,19,86,18,1,4,0,0,0,125,1,2,2,0,0,3,2,0,0,4,2,0,0,17,1,0,195,126>>,
 	%DataDebug = <<126,8,0,0,8,1,52,1,8,18,33,46,94,81,234,104,178,1,3,0,0,28,126>>,
+	%DataDebug = <<126,8,1,34,36,1,52,1,8,18,33,54,69,0,34,0,1,81,234,120,125,1,1,3,0,0,0,8,0,0,0,0,0,19,2,97,189,24,6,238,86,48,0,95,0,86,0,0,19,7,32,17,70,3,82,73,70,70,160,66,0,0,87,65,86,69,102,109,116,32,16,0,0,0,1,0,1,0,64,31,0,0,128,62,0,0,2,0,16,0,100,97,116,97,124,66,0,0,199,255,216,255,218,255,200,255,194,255,178,255,169,255,169,255,155,255,145,255,213,255,227,255,198,255,237,255,244,255,242,255,21,0,52,0,68,0,68,0,68,0,54,0,54,0,44,0,66,0,45,0,65,0,59,0,50,0,12,0,246,255,246,255,216,255,215,255,202,255,172,255,144,255,132,255,157,255,175,255,154,255,147,255,152,255,186,255,172,255,151,255,162,255,172,255,153,255,136,255,138,255,180,255,150,255,128,255,91,255,97,255,82,255,50,255,87,255,81,255,109,255,144,255,162,255,156,255,141,255,152,255,165,255,209,255,227,255,213,255,202,255,210,255,189,255,178,255,160,255,188,255,186,255,242,255,250,255,33,0,28,0,32,0,15,0,46,0,52,0,82,0,66,0,55,0,44,0,33,0,249,255,225,255,188,255,217,255,228,255,243,255,2,0,16,0,225,255,203,255,212,255,198,255,184,255,168,255,182,255,143,255,125,1,255,186,255,212,255,206,255,251,255,255,255,18,0,17,0,28,0,12,0,19,0,49,0,58,0,35,0,50,0,87,0,104,0,64,0,23,0,224,255,221,255,239,255,11,0,24,0,42,0,41,0,24,0,18,0,6,0,29,0,48,0,19,0,250,255,10,0,20,0,238,255,239,255,179,255,167,255,168,255,171,255,164,255,202,255,200,255,181,255,220,255,228,255,225,255,228,255,170,255,171,255,206,255,222,255,229,255,235,255,245,255,235,255,4,0,247,255,231,255,228,255,2,0,231,255,244,255,232,255,245,255,4,0,37,0,33,0,81,0,55,0,69,0,47,0,53,0,67,0,56,0,42,0,46,0,58,0,35,0,255,255,230,255,196,255,186,255,209,255,193,255,194,255,227,255,231,255,230,255,214,255,189,255,154,255,147,255,153,255,157,255,168,255,168,255,191,255,181,255,204,255,252,255,240,255,1,0,235,255,243,255,238,255,241,255,251,255,229,255,215,255,231,255,224,255,248,255,236,255,248,255,45,0,25,0,12,0,21,0,5,0,243,255,226,255,185,255,151,255,162,255,173,255,225,255,231,126>>,
     Msgs = common:split_msg_to_single(Data, 16#7e),
     %Msgs = common:split_msg_to_single(DataDebug, 16#7e),
 	%SqlAlarmList = list_to_binary([<<"select * from vehicle_alarm where vehicle_id=2215 and isnull(clear_time)">>]),
@@ -869,12 +870,24 @@ do_process_vdr_data(Socket, Data, State) ->
 							%{ok, NewState};
                             {ok, NewState#vdritem{msgflownum=NewFlowIdx}};
                         16#801 ->
-                            {_Id, _Type, _Code, _EICode, _PipeId, _MsgBody, Pack} = Msg,
+							%{_Id, _Type, _Code, _EICode, _PipeId, _MsgBody, Pack} = Msg,
+							%commmon:loginfo("Vehicle ~p sends multimedia data : ~p~n", [NewState#vdritem.vehicleid, binary_to_list(Pack)]),
 							
-							commmon:loginfo("@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@~nMultimedia data : ~p~n", [Pack]),
-                            
-                            {ok, NewState};
-                        16#805 ->
+                            case create_sql_from_vdr(HeadInfo, Msg, NewState) of
+                                {ok, Sql} ->
+                                    send_sql_to_db(conn, Sql, NewState),
+
+		                            FlowIdx = NewState#vdritem.msgflownum,
+		                            MsgBody = vdr_data_processor:create_gen_resp(ID, MsgIdx, ?T_GEN_RESP_OK),
+		                            common:loginfo("~p sends VDR multimedia data upload response (ok) : ~p~n", [NewState#vdritem.pid, MsgBody]),
+		                            NewFlowIdx = send_data_to_vdr(16#8001, FlowIdx, MsgBody, VDRPid),
+		
+		                            %{ok, NewState};
+		                            {ok, NewState#vdritem{msgflownum=NewFlowIdx}};
+								_ ->
+									{error, invaliderror, NewState}
+							end;								
+                       16#805 ->
                             {_RespIdx, Res, _ActLen, List} = Msg,
 
                             VehicleID = NewState#vdritem.vehicleid,                            
@@ -1315,12 +1328,24 @@ resp2ws_process(List) ->
 %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 send_sql_to_db(PoolId, Msg, State) ->
+	MsgLen = byte_size(Msg),
     case State#vdritem.dbpid of
         undefined ->
-            common:loginfo("Cannot send SQL (~p) to DB process (undefined) : ~p~n", [Msg, PoolId]),
-            ok;
+			if
+				MsgLen > 1024 ->
+					PartMsg = binary:part(Msg, 0, 1024),
+					common:logerror("Cannot send SQL (~p)... to DB process (undefined) : ~p~n", [PartMsg, PoolId]);
+				true ->
+					common:logerror("Cannot send SQL (~p) to DB process (undefined) : ~p~n", [Msg, PoolId])
+			end;
         DBPid ->
-            common:loginfo("Send SQL (~p) to DB process (~p) : ~p~n", [Msg, DBPid, PoolId]),
+			if
+				MsgLen > 1024 ->
+					PartMsg = binary:part(Msg, 0, 1024),
+					common:loginfo("Send SQL (~p)... to DB process (~p) : ~p~n", [PartMsg, DBPid, PoolId]);
+				true ->
+					common:loginfo("Send SQL (~p) to DB process (~p) : ~p~n", [Msg, DBPid, PoolId])
+			end,
             DBPid ! {State#vdritem.pid, PoolId, Msg},
             Pid = State#vdritem.pid,
             receive
@@ -1599,7 +1624,28 @@ create_sql_from_vdr(HeaderInfo, Msg, State) ->
         16#800  ->
             {ok, ""};
         16#801  ->
-            {ok, ""};
+			{_Id, _Type, _Code, _EICode, _PipeId, _MsgBody, Pack} = Msg,
+			VehicleId = State#vdritem.vehicleid,
+            {ServerYear, ServerMonth, ServerDay} = erlang:date(),
+            {ServerHour, ServerMinute, ServerSecond} = erlang:time(),
+            ServerYearS = common:integer_to_binary(ServerYear),
+            ServerMonthS = common:integer_to_binary(ServerMonth),
+            ServerDayS = common:integer_to_binary(ServerDay),
+            ServerHourS = common:integer_to_binary(ServerHour),
+            ServerMinuteS = common:integer_to_binary(ServerMinute),
+            ServerSecondS = common:integer_to_binary(ServerSecond),
+            ServerTimeS = list_to_binary([ServerYearS, <<"-">>, ServerMonthS, <<"-">>, ServerDayS, <<" ">>, ServerHourS, <<":">>, ServerMinuteS, <<":">>, ServerSecondS]),
+			%common:loginfo("Pack : ~p~n", [Pack]),
+			Pack1 = binary:replace(Pack, <<39>>, <<255,254,253,252,251,250,251,252,253,254,255,254,253,252,251,250,251,252,253,254,255>>, [global]),
+			%common:loginfo("Pack1 : ~p~n", [Pack1]),
+			Pack2 = binary:replace(Pack1, <<255,254,253,252,251,250,251,252,253,254,255,254,253,252,251,250,251,252,253,254,255>>, <<92,39>>, [global]),
+			%common:loginfo("Pack2 : ~p~n", [Pack2]),
+            SQL = list_to_binary([<<"insert into record_audio(vehicle_id, rec_time, bin) values(">>,
+							     common:integer_to_binary(VehicleId), <<", '">>,
+                                 ServerTimeS, <<"', '">>,
+							     Pack2, <<"')">>]),
+			%common:loginfo("16#801 SQL : ~p~n", [SQL]),
+            {ok, SQL};
         16#802  ->
             {ok, ""};
         16#805  ->
