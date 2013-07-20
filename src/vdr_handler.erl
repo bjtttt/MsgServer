@@ -939,7 +939,7 @@ do_process_vdr_data(Socket, Data, State) ->
             {ID, MsgIdx, _Tel, _CryptoType} = HeaderInfo,
             FlowIdx = NewState#vdritem.msgflownum,
             MsgBody = vdr_data_processor:create_gen_resp(ID, MsgIdx, ?T_GEN_RESP_OK),
-            common:loginfo("~p sends VDR (~p) response  ~p : ~p~n", [State#vdritem.pid, NewState#vdritem.addr, ID, MsgBody]),
+            common:loginfo("~p sends VDR (~p) response for ignore ~p : ~p~n", [State#vdritem.pid, NewState#vdritem.addr, ID, MsgBody]),
             NewFlowIdx = send_data_to_vdr(16#8001, FlowIdx, MsgBody, VDRPid),
             
             {ok, NewState#vdritem{msgflownum=NewFlowIdx}};
