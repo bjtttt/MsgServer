@@ -414,8 +414,6 @@ do_process_vdr_data(Socket, Data, State) ->
                                                                                               common:integer_to_binary(DeviceID),
                                                                                               <<"' where id=">>,
                                                                                               common:integer_to_binary(VehicleID)]),
-                                                            % Should we check the update result?
-                                                            %send_sql_to_db(regauth, VehicleVDRIDSql, NewState),
                                                             send_sql_to_db(conn, VehicleVDRIDSql, NewState),
                                                             
                                                             update_reg_install_time(DeviceID, DeviceRegTime, VehicleID, VehicleDeviceInstallTime, NewState),        
@@ -433,16 +431,12 @@ do_process_vdr_data(Socket, Data, State) ->
                                                                                       common:integer_to_binary(VehicleID),
                                                                                       <<"' where id=">>,
                                                                                       common:integer_to_binary(DeviceID)]),
-                                                    % Should we check the update result?
-                                                    %send_sql_to_db(regauth, VDRVehicleIDSql, NewState),
                                                     send_sql_to_db(conn, VDRVehicleIDSql, NewState),
                                                     
                                                     VehicleVDRIDSql = list_to_binary([<<"update vehicle set device_id='">>,
                                                                                       common:integer_to_binary(DeviceID),
                                                                                       <<"' where id=">>,
                                                                                       common:integer_to_binary(VehicleID)]),
-                                                    % Should we check the update result?
-                                                    %send_sql_to_db(regauth, VehicleVDRIDSql, NewState),
                                                     send_sql_to_db(conn, VehicleVDRIDSql, NewState),
 
                                                     update_reg_install_time(DeviceID, DeviceRegTime, VehicleID, VehicleDeviceInstallTime, NewState),      
@@ -490,40 +484,20 @@ do_process_vdr_data(Socket, Data, State) ->
                                                 VehicleID == undefined orelse VehicleCode==undefined ->
                                                     {error, dberror, NewState};
                                                 true ->
-                                                    % Not tested yet.
-													%VDRList = ets:match(vdrtable, '$1'),
-													%common:loginfo("VDR table : all vdritems before disconnection : ~p~n", [VDRList]),
 													SockList0 = ets:match(vdrtable, {'_', 
                                                                                      '$1', '_', '_', '_', VehicleID,
                                                                                      '_', '_', '_', '_', '_',
                                                                                      '_', '_', '_', '_', '_',
                                                                                      '_', '_', '_', '_', '_',
                                                                                      '_', '_', '_', '_', '_', '_', '_', '_'}),
-													%common:loginfo("VDR table : sockets for VehicleID ~p before disconnection : ~p~n", [VehicleID, SockList0]),
                                                     disconn_socket_by_id(SockList0),
-													%SockList1 = ets:match(vdrtable, {'_', 
-                                                    %                                 '$1', '_', '_', '_', undefined,
-                                                    %                                 '_', '_', '_', '_', '_',
-                                                    %                                 '_', '_', '_', '_', '_',
-                                                    %                                 '_', '_', '_', '_', '_',
-                                                    %                                 '_', '_', '_', '_', '_', '_', '_', '_'}),
-													%%common:loginfo("VDR table : current socket : ~p~nVDR table : sockets for VehicleID undefined before disconnection : ~p~n", [Socket, SockList1]),
-                                                    %disconn_socket_by_id(SockList1, Socket),
                                                     SockVdrList = ets:lookup(vdrtable, Socket),
                                                     case length(SockVdrList) of
                                                         1 ->
                                                             % "authen_code" is the query condition, so Auth should be equal to VDRAuthEnCode
                                                             %{Auth} = Msg,
-                                                            %[SockVdr] = SockVdrList,
-                                                            %ets:insert(vdrtable, SockVdr#vdritem{id=VDRID, 
-                                                            %                                     serialno=binary_to_list(VDRSerialNo), 
-                                                            %                                     auth=binary_to_list(VDRAuthenCode),
-                                                            %                                     vehicleid=VehicleID,
-                                                            %                                     vehiclecode=binary_to_list(VehicleCode),
-                                                            %                                     driverid=DriverID}),
                                                             
                                                             SqlUpdate = list_to_binary([<<"update device set is_online=1 where authen_code='">>, VDRAuthenCode, <<"'">>]),
-                                                            %send_sql_to_db(regauth, SqlUpdate, NewState),
                                                             send_sql_to_db(conn, SqlUpdate, NewState),
 															
 															SqlAlarmList = list_to_binary([<<"select * from vehicle_alarm where vehicle_id=">>, common:integer_to_binary(VehicleID), <<" and isnull(clear_time)">>]),
@@ -577,7 +551,7 @@ do_process_vdr_data(Socket, Data, State) ->
 		                                                                                                  vehiclecode=binary_to_list(VehicleCode),
 																							              driverid=DriverID,
 		                                                                                                  msgflownum=NewFlowIdx, msg2vdr=[], msg=[], req=[],
-																							              alarmlist=[]},
+																							              alarmlist=AlarmList},
 																			ets:insert(vdrtable, FinalState),
 																			
 		                                                                    {ok, FinalState};
@@ -947,12 +921,19 @@ do_process_vdr_data(Socket, Data, State) ->
                         16#102 ->
                             FlowIdx = NewState#vdritem.msgflownum,
                             MsgBody = vdr_data_processor:create_gen_resp(ID, MsgIdx, ?T_GEN_RESP_OK),
-                            common:loginfo("~p sends VDR (~p) response for 16#102 (ok) : ~p~n", [State#vdritem.pid, State#vdritem.addr, MsgBody]),
+                            common:loginfo("~p sends VDR (~p) response for 16#102 (ok) : ~p~n", [NewState#vdritem.pid, NewState#vdritem.addr, MsgBody]),
                             NewFlowIdx = send_data_to_vdr(16#8001, FlowIdx, MsgBody, VDRPid),
                             
                             {ok, NewState#vdritem{msgflownum=NewFlowIdx}};
                         _ ->
-                            common:loginfo("Invalid message from registered/authenticated VDR (~p) (id:~p, serialno:~p, authen_code:~p, vehicleid:~p, vehiclecode:~p) MSG ID : ~p~n", [NewState#vdritem.addr, NewState#vdritem.id, NewState#vdritem.serialno, NewState#vdritem.auth, NewState#vdritem.vehicleid, NewState#vdritem.vehiclecode, ID]),
+                            common:loginfo("Invalid message from registered/authenticated VDR (~p) (id:~p, serialno:~p, authen_code:~p, vehicleid:~p, vehiclecode:~p) MSG ID : ~p~n", 
+										   [NewState#vdritem.addr, 
+											NewState#vdritem.id, 
+											NewState#vdritem.serialno, 
+											NewState#vdritem.auth, 
+											NewState#vdritem.vehicleid, 
+											NewState#vdritem.vehiclecode, 
+											ID]),
                             {error, invaliderror, NewState}
                     end
             end;
@@ -960,7 +941,7 @@ do_process_vdr_data(Socket, Data, State) ->
             {ID, MsgIdx, _Tel, _CryptoType} = HeaderInfo,
             FlowIdx = NewState#vdritem.msgflownum,
             MsgBody = vdr_data_processor:create_gen_resp(ID, MsgIdx, ?T_GEN_RESP_OK),
-            common:loginfo("~p sends VDR (~p) response for ignore ~p : ~p~n", [State#vdritem.pid, NewState#vdritem.addr, ID, MsgBody]),
+            common:loginfo("~p sends VDR (~p) response for ignore ~p : ~p~n", [NewState#vdritem.pid, NewState#vdritem.addr, ID, MsgBody]),
             NewFlowIdx = send_data_to_vdr(16#8001, FlowIdx, MsgBody, VDRPid),
             
             {ok, NewState#vdritem{msgflownum=NewFlowIdx}};
@@ -968,7 +949,7 @@ do_process_vdr_data(Socket, Data, State) ->
             {ID, MsgIdx, _Tel, _CryptoType} = HeaderInfo,
             FlowIdx = NewState#vdritem.msgflownum,
             MsgBody = vdr_data_processor:create_gen_resp(ID, MsgIdx, ErrorType),
-            common:loginfo("~p sends VDR (~p) response for warning ~p : ~p~n", [State#vdritem.pid, NewState#vdritem.addr, ID, MsgBody]),
+            common:loginfo("~p sends VDR (~p) response for warning ~p : ~p~n", [NewState#vdritem.pid, NewState#vdritem.addr, ID, MsgBody]),
             NewFlowIdx = send_data_to_vdr(16#8001, FlowIdx, MsgBody, VDRPid),
             
             {warning, NewState#vdritem{msgflownum=NewFlowIdx}};
