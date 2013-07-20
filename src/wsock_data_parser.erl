@@ -492,6 +492,7 @@ get_string(_Data) ->
 connect_ws_to_vdr(Msg) ->
     case Msg of
         {ok, Mid, Res} ->
+			common:loginfo("WS command ID : ~p~n", [Mid]),
             case Mid of
                 16#8001 ->
                     ok;

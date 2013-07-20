@@ -175,9 +175,8 @@ create_vehicle_count_response() ->
 compose_one_item_list_array_to_list(IDs) when is_list(IDs),
 											  length(IDs) > 0 ->
 	[H|T] = IDs,
-	[ID] = H,
 	if
-		ID == undefined ->
+		H == undefined ->
 			compose_one_item_list_array_to_list(T);
 		true ->
 			lists:merge(H, compose_one_item_list_array_to_list(T))
@@ -187,10 +186,10 @@ compose_one_item_list_array_to_list(_IDs) ->
 
 convert_integer_list_to_4_bytes_binary_list(IDList) when is_list(IDList),
 														 length(IDList) > 0 ->
+	%common:loginfo("ID List : ~p~n", [IDList]),
 	[H|T] = IDList,
-	[ID] = H,
 	if
-		ID == undefined ->
+		H == undefined ->
 			convert_integer_list_to_4_bytes_binary_list(T);
 		true ->
 			list_to_binary([<<H:?LEN_DWORD>>, convert_integer_list_to_4_bytes_binary_list(T)])

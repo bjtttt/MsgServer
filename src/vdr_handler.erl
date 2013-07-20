@@ -65,6 +65,7 @@ handle_info({tcp, Socket, Data}, OriState) ->
     %DataDebug = <<126,2,0,0,46,1,86,121,16,51,112,3,44,0,8,0,0,0,0,0,17,0,0,0,0,0,0,0,0,0,0,0,0,0,0,19,3,36,35,85,35,1,4,0,0,0,0,2,2,0,0,3,2,0,0,4,2,0,0,4,126>>,
 	%DataDebug = <<126,1,0,0,45,1,86,0,71,2,5,0,55,0,11,0,114,55,48,51,49,57,74,76,57,48,49,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,48,52,55,48,50,48,53,1,190,169,66,55,48,50,48,53,39,126>>,
 	%DataDebug = <<126,2,0,0,49,1,86,151,146,84,84,0,115,0,0,0,0,0,0,0,3,2,97,110,120,6,239,82,248,0,47,0,30,0,253,19,7,4,19,86,18,1,4,0,0,0,125,1,2,2,0,0,3,2,0,0,4,2,0,0,17,1,0,195,126>>,
+	%DataDebug = <<126,8,0,0,8,1,52,1,8,18,33,46,94,81,234,104,178,1,3,0,0,28,126>>,
     Msgs = common:split_msg_to_single(Data, 16#7e),
     %Msgs = common:split_msg_to_single(DataDebug, 16#7e),
 	%SqlAlarmList = list_to_binary([<<"select * from vehicle_alarm where vehicle_id=2215 and isnull(clear_time)">>]),
@@ -849,20 +850,22 @@ do_process_vdr_data(Socket, Data, State) ->
                             
                             {ok, NewState};
                         16#800 ->
-                            {_Id, _Type, _Code, _EICode, _PipeId} = Msg,
-
-                            {ID, TYPE, CODE, EICODE, PIPEID} = Msg,
-                            {YEAR,MONTH,DATE}=date(),
-                            DBNAME = "VEHICLE_MULTIMEDIA_" ++ integer_to_list(YEAR) ++ integer_to_list(MONTH),
-                            TBLNAME = "'M_" ++ integer_to_list(DATE) ++ "'",
-                            send_sql_to_db(conn, list_to_binary(["CREATE DATABASE IF NOT EXISTS ", DBNAME,
-                                                                 ";USE ",DBNAME,
-                                                                 ";CREATE TABLE IF NOT EXISTS ",TBLNAME,
-                                                                 "(`ID` INT(11) NOT NULL AUTO_INCREMENT,'MID' INT(1) NOT NULL,'TYPE' TINYINT(1) NOT NULL,'FormatCode' TINYINT(1) NOT NULL,'EventCode' TINYINT(1) NOT NULL,'PipeId' TINYINT(1) NOT NULL,PRIMARY KEY ('ID')) ENGINE=MyISAM DEFAULT CHARSET=utf8;insert into",TBLNAME,"(MID,TYPE,FormatCode,EventCode,PipeId) values(",ID,",",TYPE,",",CODE,",",EICODE,",",PIPEID,");"]), NewState),                            
+							{_MsgId, _MsgType, _MsgCode, _MsgEICode, _MsgPipeId} = Msg,
+							
+                            %{MsgId, MsgType, MsgCode, MsgEICode, MsgPipeId} = Msg,
+                            %{Year, Month, Day} = date(),
+                            %DBNAME = "VEHICLE_MULTIMEDIA_" ++ integer_to_list(Year) ++ integer_to_list(Month),
+                            %TBLNAME = "'M_" ++ integer_to_list(Day) ++ "'",
+                            %send_sql_to_db(conn, list_to_binary(["CREATE DATABASE IF NOT EXISTS ", DBNAME,
+                            %                                     ";USE ",DBNAME,
+                            %                                     ";CREATE TABLE IF NOT EXISTS ",TBLNAME,
+                            %                                     "(`ID` INT(11) NOT NULL AUTO_INCREMENT,'MID' INT(1) NOT NULL,'TYPE' TINYINT(1) NOT NULL,'FormatCode' TINYINT(1) NOT NULL,'EventCode' TINYINT(1) NOT NULL,'PipeId' TINYINT(1) NOT NULL,PRIMARY KEY ('ID')) ENGINE=MyISAM DEFAULT CHARSET=utf8;insert into",TBLNAME,"(MID,TYPE,FormatCode,EventCode,PipeId) values(",ID,",",TYPE,",",CODE,",",EICODE,",",PIPEID,");"]), NewState),                            
                                                         
                             {ok, NewState};
                         16#801 ->
-                            {_Id, _Type, _Code, _EICode, _PipeId, _MsgBody, _Pack} = Msg,
+                            {_Id, _Type, _Code, _EICode, _PipeId, _MsgBody, Pack} = Msg,
+							
+							commmon:loginfo("@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@~nMultimedia data : ~p~n", [Pack]),
                             
                             {ok, NewState};
                         16#805 ->
