@@ -18,6 +18,13 @@
 %port:3306
 %dbname: gps_database
 
+%cd ../src
+%make
+%cd ../ebin
+%erl
+%application:start(sasl).
+%application:start(msapp).
+
 %%%
 %%% rawdisplay  : 0 -> error_logger
 %%%               1 -> terminal
