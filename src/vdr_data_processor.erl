@@ -1376,6 +1376,10 @@ create_txt_send(Flag, Text) when is_integer(Flag),
                                  byte_size(Text) > 0 ->
     <<Flag:8,Text/binary>>;
 create_txt_send(Flag, Text) when is_integer(Flag),
+                                 is_binary(Text),
+                                 byte_size(Text) == 0 ->
+    <<Flag:8>>;
+create_txt_send(Flag, Text) when is_integer(Flag),
                                  is_list(Text),
                                  length(Text) > 0 ->
     case common:is_string(Text) of
@@ -1385,6 +1389,10 @@ create_txt_send(Flag, Text) when is_integer(Flag),
         _ ->
             <<>>
     end;
+create_txt_send(Flag, Text) when is_integer(Flag),
+                                 is_list(Text),
+                                 length(Text) == 0 ->
+    <<Flag:8>>;
 create_txt_send(_Flag, _Text) ->
     <<>>.
 
