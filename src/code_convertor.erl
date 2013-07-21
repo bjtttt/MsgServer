@@ -53,33 +53,33 @@ to_gbk(Str, Encoding) when Encoding == "utf8" ->
         true -> not_supported
      end.
 
-%utf8_to_gbk([Char | S], U, RowIndex, ColIndex) when Char =/= 63,	% 1
-%													Char =/= 194,	% 2
-%													Char =/= 195,	% 2
-%													Char =/= 196,	% 2
-%													Char =/= 197,	% 2
-%													Char =/= 199,	% 2
-%													Char =/= 201,	% 2
-%													Char =/= 203,	% 2
-%													Char =/= 206,	% 2
-%													Char =/= 207,	% 2
-%													Char =/= 208,	% 2
-%													Char =/= 226,	% 3
-%													Char =/= 227,	% 3
-%													Char =/= 228,	% 3
-%													Char =/= 229,	% 3
-%													Char =/= 230,	% 3
-%													Char =/= 231,	% 3
-%													Char =/= 232,	% 3
-%													Char =/= 233,	% 3
-%													Char =/= 238,	% 3
-%													Char =/= 239 ->	% 3
-%    case Char of
-%        10 -> 
-%			utf8_to_gbk(S, [Char | U], RowIndex + 1, 0);
-%        _  -> 
-%			utf8_to_gbk(S, [Char | U], RowIndex, ColIndex + 1)
-%    end;     
+utf8_to_gbk([Char | S], U, RowIndex, ColIndex) when Char =/= 63,	% 1
+													Char =/= 194,	% 2
+													Char =/= 195,	% 2
+													Char =/= 196,	% 2
+													Char =/= 197,	% 2
+													Char =/= 199,	% 2
+													Char =/= 201,	% 2
+													Char =/= 203,	% 2
+													Char =/= 206,	% 2
+													Char =/= 207,	% 2
+													Char =/= 208,	% 2
+													Char =/= 226,	% 3
+													Char =/= 227,	% 3
+													Char =/= 228,	% 3
+													Char =/= 229,	% 3
+													Char =/= 230,	% 3
+													Char =/= 231,	% 3
+													Char =/= 232,	% 3
+													Char =/= 233,	% 3
+													Char =/= 238,	% 3
+													Char =/= 239 ->	% 3
+    case Char of
+        10 -> 
+			utf8_to_gbk(S, [Char | U], RowIndex + 1, 0);
+        _  -> 
+			utf8_to_gbk(S, [Char | U], RowIndex, ColIndex + 1)
+    end;     
 utf8_to_gbk([A, B, C | S], U, RowIndex, ColIndex) when A == 226,	% 3
 													   A == 227,	% 3
 													   A == 228,	% 3
@@ -122,6 +122,13 @@ utf8_to_gbk([A | S], U, RowIndex, ColIndex) when A == 63 ->	% 1
         Other ->  
 			utf8_to_gbk(S, list_append(Other, U), RowIndex, ColIndex + 2)
     end;    
+utf8_to_gbk([Char | S], U, RowIndex, ColIndex) ->
+    case Char of
+        10 -> 
+			utf8_to_gbk(S, [Char | U], RowIndex + 1, 0);
+        _  -> 
+			utf8_to_gbk(S, [Char | U], RowIndex, ColIndex + 1)
+    end;     
 utf8_to_gbk([], U, _RowIndex, _ColIndex) ->
      lists:reverse(U).
      
