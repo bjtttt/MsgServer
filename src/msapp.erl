@@ -47,19 +47,19 @@ start(StartType, StartArgs) ->
     ets:insert(msgservertable, {dbpid, undefined}),
     ets:insert(msgservertable, {wspid, undefined}),
     ets:insert(msgservertable, {apppid, AppPid}),
-    error_logger:info_msg("StartType : ~p~n", [StartType]),
-    error_logger:info_msg("StartArgs : ~p~n", [StartArgs]),
+    common:loginfo("StartType : ~p~n", [StartType]),
+    common:loginfo("StartArgs : ~p~n", [StartArgs]),
     ets:new(vdrtable,[ordered_set,public,named_table,{keypos,#vdritem.socket},{read_concurrency,true},{write_concurrency,true}]),
     ets:new(mantable,[set,public,named_table,{keypos,#manitem.socket},{read_concurrency,true},{write_concurrency,true}]),
     ets:new(usertable,[set,public,named_table,{keypos,#user.id},{read_concurrency,true},{write_concurrency,true}]),
     ets:new(montable,[set,public,named_table,{keypos,#monitem.socket},{read_concurrency,true},{write_concurrency,true}]),
-    error_logger:info_msg("Tables are initialized.~n"),
+    common:loginfo("Tables are initialized.~n"),
     case supervisor:start_link(mssup, []) of
         {ok, SupPid} ->
             ets:insert(msgservertable, {suppid, SupPid}),
-            error_logger:info_msg("Message server starts~n"),
-            error_logger:info_msg("Application PID is ~p~n", [AppPid]),
-            error_logger:info_msg("Supervisor PID : ~p~n", [SupPid]),
+            common:loginfo("Message server starts~n"),
+            common:loginfo("Application PID is ~p~n", [AppPid]),
+            common:loginfo("Supervisor PID : ~p~n", [SupPid]),
             case receive_db_ws_init_msg(false, false, 0) of
                 ok ->
                     %mysql:utf8connect(regauth, DB, undefined, DBUid, DBPwd, DBName, true),
@@ -68,23 +68,41 @@ start(StartType, StartArgs) ->
 					%mysql:utf8connect(conn, DB, undefined, DBUid, DBPwd, DBName, true),
 					%mysql:utf8connect(conn, DB, undefined, DBUid, DBPwd, DBName, true),
 					%mysql:utf8connect(conn, DB, undefined, DBUid, DBPwd, DBName, true),
+                    
+                    %mysql:fetch(regauth, <<"set names 'utf8">>),
+                    mysql:fetch(conn, <<"set names 'utf8">>),
+                    %mysql:fetch(cmd, <<"set names 'utf8">>),
 
                     WSPid = spawn(fun() -> wsock_client:wsock_client_process() end),
                     DBPid = spawn(fun() -> mysql:mysql_process() end),
                     DBTablePid = spawn(fun() -> db_table_deamon() end),
+                    CCPid = spawn(fun() -> code_convertor_process() end),
                     ets:insert(msgservertable, {dbpid, DBPid}),
                     ets:insert(msgservertable, {wspid, WSPid}),
                     ets:insert(msgservertable, {dbtablepid, DBTablePid}),
-                    error_logger:info_msg("WS client process PID is ~p~n", [WSPid]),
-                    error_logger:info_msg("DB client process PID is ~p~n", [DBPid]),
-                    error_logger:info_msg("DB table deamon process PID is ~p~n", [DBTablePid]),
-					
-					%mysql:fetch(regauth, <<"set names 'utf8">>),
-					mysql:fetch(conn, <<"set names 'utf8">>),
-					%mysql:fetch(cmd, <<"set names 'utf8">>),
+                    ets:insert(msgservertable, {ccpid, CCPid}),
+                    common:loginfo("WS client process PID is ~p~n", [WSPid]),
+                    common:loginfo("DB client process PID is ~p~n", [DBPid]),
+                    common:loginfo("DB table deamon process PID is ~p~n", [DBTablePid]),
+                    common:loginfo("Code convertor process PID is ~p~n", [CCPid]),
                     
-                    code_convertor:init_code_table(),
-                    error_logger:info_msg("Code table is initialized~n"),
+                    CCPid ! {self(), create},
+                    receive
+                        created ->
+                            common:loginfo("Code convertor table is created~n"),
+                            {ok, AppPid}
+                        after ?TIMEOUT_CC_INIT_PROCESS ->
+                            {error, "ERROR : code convertor table is timeout~n"}
+                    end;
+                    
+                    %code_convertor:init_code_table(),
+                    %error_logger:info_msg("Process ~p : code table is initialized~n", [self()]),
+                    %case get({utf8,228,189,160}) of
+                    %    undeifned ->
+                    %        ok;
+                    %    ValueGet ->
+                    %        ValueGet
+                    %end,
                     
                     %IconvPid = iconv:start_link(),
                     %{ok, U2G} = iconv:open("utf-8", "gbk"),
@@ -93,15 +111,15 @@ start(StartType, StartArgs) ->
                     %ets:insert(msgservertable, {u2g, U2G}),
                     %ets:insert(msgservertable, {g2u, G2U}),
 
-                    {ok, AppPid};
+                    %{ok, AppPid};
                 {error, ErrMsg} ->
                     {error, ErrMsg}
             end;
         ignore ->
-            error_logger:error_msg("Message server fails to start : ignore~n"),
+            common:logerror("Message server fails to start : ignore~n"),
             ignore;
         {error, Error} ->
-            error_logger:error_msg("Message server fails to start : ~p~n", [Error]),
+            common:logerror("Message server fails to start : ~p~n", [Error]),
             {error, Error}
     end.
 
@@ -130,7 +148,50 @@ stop(_State) ->
         _ ->
             DBTablePid ! stop
     end,
+    [{ccpid, CCPid}] = ets:lookup(msgservertable, ccpid),
+    case CCPid of
+        undefined ->
+            ok;
+        _ ->
+            CCPid ! stop
+    end,
     error_logger:info_msg("Message server stops.~n").
+
+code_convertor_process() ->
+    receive
+        {Pid, create} ->
+            code_convertor:init_code_table(),
+            common:loginfo("CC process ~p : code table is initialized~n", [self()]),
+            Pid ! created,
+            code_convertor_process();
+        {Pid, gbktoutf8, Src} ->
+            try
+                common:loginfo("CC process ~p : source GBK : ~p~n", [self(), Src]),
+                Value = code_convertor:to_utf8(Src),
+                common:loginfo("CC process ~p : dest UTF8 : ~p~n", [self(), Value]),
+                Pid ! code_convertor:to_utf8(Src)
+            catch
+                _:_ ->
+                    common:logerror("CC process ~p : EXCEPTION when converting GBK to UTF8 : ~p~n", [self(), Src]),
+                    Pid ! Src
+            end,
+            code_convertor_process();
+        {Pid, utf8togbk, Src} ->
+            try
+                common:loginfo("CC process ~p : source UTF8 : ~p~n", [self(), Src]),
+                Value = code_convertor:to_gbk(Src),
+                common:loginfo("CC process ~p : dest GBK : ~p~n", [self(), Value]),
+                Pid ! Value
+            catch
+                _:_ ->
+                    common:logerror("CC process ~p : EXCEPTION when converting UTF8 to GBK : ~p~n", [self(), Src]),
+                    Pid ! Src
+            end,
+            code_convertor_process();
+        stop ->
+            ok
+    end.
+            
 
 %%%
 %%% Will wait 20s

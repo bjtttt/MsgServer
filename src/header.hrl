@@ -25,6 +25,9 @@
 -define(TIMEOUT_MON, 3000). 
 -define(TIMEOUT_DB, 30000). 
 
+-define(TIMEOUT_CC_INIT_PROCESS, 5000). 
+-define(TIMEOUT_CC_PROCESS, 10000). 
+
 -define(TIMEOUT_DB_PROCESS, 1000). 
 -define(DB_PROCESS_TRIAL_MAX, 10). 
 -define(DB_PROCESS_FAILURE_MAX, 10). 
@@ -103,7 +106,8 @@
                     req=[],
                     msgws2vdrflownum=?WS2VDRFREQ,
                     msgws2vdr=[],            % [{MsgID, WSFlowIdx}, ...] only one item for one MsgID
-					vdrmsgtimeoutpid=undefined
+					vdrmsgtimeoutpid=undefined,
+                    ccpid=undefined
                  }).
 
 %-record(vdridsockitem, {    id=undefined,           % Vehicle ID

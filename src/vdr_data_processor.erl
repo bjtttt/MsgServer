@@ -1374,8 +1374,9 @@ create_man_confirm_alarm(_Number, _Type) ->
 create_txt_send(Flag, Text) when is_integer(Flag),
                                  is_binary(Text),
                                  byte_size(Text) > 0 ->
-	TextGbk = code_convertor:to_gbk(Text),
-    <<Flag:8,TextGbk/binary>>;
+	NewText = common:convert_utf8_to_gbk(Text),
+	TextBin = list_to_binary(NewText),
+	<<Flag:8,TextBin/binary>>;
 create_txt_send(Flag, Text) when is_integer(Flag),
                                  is_binary(Text),
                                  byte_size(Text) == 0 ->
@@ -1385,9 +1386,9 @@ create_txt_send(Flag, Text) when is_integer(Flag),
                                  length(Text) > 0 ->
     case common:is_string(Text) of
         true ->
-            TBin = list_to_binary(Text),
-			TBinGbk = code_convertor:to_gbk(TBin),
-		    <<Flag:8,TBinGbk/binary>>;
+			NewText = common:convert_utf8_to_gbk(Text),
+			TextBin = list_to_binary(NewText),
+			<<Flag:8,TextBin/binary>>;
         _ ->
             <<>>
     end;
@@ -1427,7 +1428,8 @@ get_event_binary(Events, IDLen, LenLen) when is_list(Events),
     case length(H) of
         2 ->
             [ID,Con] = H,
-			ConBin = code_convertor:to_gbk(Con),
+            NewCon = common:convert_utf8_to_gbk(Con),
+            ConBin = list_to_binary(NewCon),
             Len = byte_size(ConBin),
             case T of
                 [] ->
@@ -1437,13 +1439,14 @@ get_event_binary(Events, IDLen, LenLen) when is_list(Events),
             end;
         3 ->
             [ID,_Len,Con] = H,
-			ConBin = code_convertor:to_gbk(Con),
-			NewLen = byte_size(ConBin),
+            NewCon = common:convert_utf8_to_gbk(Con),
+            ConBin = list_to_binary(NewCon),
+            Len = byte_size(ConBin),
             case T of
                 [] ->
-                    <<ID:IDLen,NewLen:LenLen,ConBin/binary>>;
+                    <<ID:IDLen,Len:LenLen,ConBin/binary>>;
                 _ ->
-                    list_to_binary([<<ID:IDLen,NewLen:LenLen,ConBin/binary>>, get_event_binary(T, IDLen, LenLen)])
+                    list_to_binary([<<ID:IDLen,Len:LenLen,ConBin/binary>>, get_event_binary(T, IDLen, LenLen)])
             end
     end;
 get_event_binary(_Events, _IDLen, _LenLen) ->
@@ -1473,31 +1476,37 @@ parse_event_report(Bin) ->
 create_send_question(Flag, Ques, Answers) when is_integer(Flag),
 											   is_list(Ques),
 											   is_list(Answers),
-											   length(Answers) > 0 -> 
-    QuesBin = code_convertor:to_gbk(list_to_binary(Ques)),
-	QuesLen = byte_size(QuesBin),
+											   length(Answers) > 0 ->
+    NewQues = common:convert_utf8_to_gbk(Ques),
+    QuesBin = list_to_binary(NewQues),
+    Len = byte_size(QuesBin),
     Ans = get_event_binary(Answers, 8, 16),
-    <<Flag:8,QuesLen:8,QuesBin/binary,Ans/binary>>;
+    <<Flag:8,Len:8,QuesBin/binary,Ans/binary>>;
 create_send_question(Flag, Ques, Answers) when is_integer(Flag),
 											   is_list(Ques),
 											   is_list(Answers),
 											   length(Answers) == 0 -> 
-    QuesBin = code_convertor:to_gbk(list_to_binary(Ques)),
-	QuesLen = byte_size(QuesBin),
-    <<Flag:8,QuesLen:8,QuesBin/binary>>;
+    NewQues = common:convert_utf8_to_gbk(Ques),
+    QuesBin = list_to_binary(NewQues),
+    Len = byte_size(QuesBin),
+    <<Flag:8,Len:8,QuesBin/binary>>;
 create_send_question(Flag, Ques, Answers) when is_integer(Flag),
 											   is_binary(Ques),
 											   is_list(Answers),
 											   length(Answers) > 0 -> 
-	QuesLen = byte_size(code_convertor:to_gbk(Ques)),
+    NewQues = common:convert_utf8_to_gbk(Ques),
+    QuesBin = list_to_binary(NewQues),
+    Len = byte_size(QuesBin),
     Ans = get_event_binary(Answers, 8, 16),
-    <<Flag:8,QuesLen:8,Ques/binary,Ans/binary>>;
+    <<Flag:8,Len:8,QuesBin/binary,Ans/binary>>;
 create_send_question(Flag, Ques, Answers) when is_integer(Flag),
 											   is_binary(Ques),
 											   is_list(Answers),
 											   length(Answers) == 0 -> 
-	QuesLen = byte_size(code_convertor:to_gbk(Ques)),
-    <<Flag:8,QuesLen:8,Ques/binary>>;
+    NewQues = common:convert_utf8_to_gbk(Ques),
+    QuesBin = list_to_binary(NewQues),
+    Len = byte_size(QuesBin),
+    <<Flag:8,Len:8,QuesBin/binary>>;
 create_send_question(_Flag, _Ques, _Answers) ->
     <<>>.
 
@@ -1608,12 +1617,13 @@ create_tel_note(_Type, _Count, _Items) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 get_tel_book_entries(Items) when is_list(Items),
                                  length(Items) > 0 ->
-    [H|T] = Items,
+	[H|T] = Items,
     case length(H) of
         3 ->
             [Flag, Num, NameUtf8] = H,
             NumLen = byte_size(Num),
-			Name = code_convertor:to_gbk(NameUtf8),
+            NameGbk = common:convert_utf8_to_gbk(NameUtf8),
+            Name = list_to_binary(NameGbk),
             NameLen = byte_size(Name),
 			case is_integer(Flag) of
 				true ->

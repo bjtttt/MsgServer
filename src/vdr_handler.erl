@@ -23,7 +23,8 @@ init([Sock, Addr]) ->
     VdrMsgMonitorPid = spawn(fun() -> vdr_msg_monitor_process(Pid, Sock) end),
     [{dbpid, DBPid}] = ets:lookup(msgservertable, dbpid),
     [{wspid, WSPid}] = ets:lookup(msgservertable, wspid),
-    State = #vdritem{socket=Sock, pid=Pid, vdrpid=VDRPid, respwspid=RespWSPid, addr=Addr, msgflownum=1, errorcount=0, dbpid=DBPid, wspid=WSPid, vdrmsgtimeoutpid=VdrMsgMonitorPid},
+    [{ccpid, CCPid}] = ets:lookup(msgservertable, ccpid),
+    State = #vdritem{socket=Sock, pid=Pid, vdrpid=VDRPid, respwspid=RespWSPid, addr=Addr, msgflownum=1, errorcount=0, dbpid=DBPid, wspid=WSPid, vdrmsgtimeoutpid=VdrMsgMonitorPid, ccpid=CCPid},
 	%mysql:fetch(regauth, <<"set names 'utf8'">>),
 	mysql:fetch(conn, <<"set names 'utf8'">>),
 	%mysql:fetch(cmd, <<"set names 'utf8'">>),
@@ -489,7 +490,7 @@ do_process_vdr_data(Socket, Data, State) ->
                                                                                      '_', '_', '_', '_', '_',
                                                                                      '_', '_', '_', '_', '_',
                                                                                      '_', '_', '_', '_', '_',
-                                                                                     '_', '_', '_', '_', '_', '_', '_', '_'}),
+                                                                                     '_', '_', '_', '_', '_', '_', '_', '_', '_'}),
                                                     disconn_socket_by_id(SockList0),
                                                     SockVdrList = ets:lookup(vdrtable, Socket),
                                                     case length(SockVdrList) of

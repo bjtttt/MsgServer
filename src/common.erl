@@ -4,6 +4,8 @@
 
 -module(common).
 
+-include("header.hrl").
+
 -export([number_list_to_binary/2,
          convert_bcd_integer/1,
 		 %convert_integer_bcd/1,
@@ -22,7 +24,9 @@
          integer_to_2byte_binary/1,
 		 integer_to_size_binary/2,
 		 integer_list_to_size_binary_list/2,
-         float_to_binary/1]).
+         float_to_binary/1,
+         convert_gbk_to_utf8/1,
+         convert_utf8_to_gbk/1]).
 
 -export([set_sockopt/3]).
 
@@ -636,7 +640,35 @@ split_list(List, Tag) ->
                     end
             end
     end.
+   
+convert_utf8_to_gbk(Src) when is_binary(Src) orelse is_list(Src) ->
+    [{ccpid, CCPid}] = ets:lookup(msgservertable, ccpid),
+    CCPid ! {self(), utf8togbk, Src},
+    receive
+        undefined ->
+            Src;
+        Value ->
+            Value
+    after ?TIMEOUT_CC_PROCESS ->
+            Src
+    end;
+convert_utf8_to_gbk(Src) ->
+    Src.
     
+convert_gbk_to_utf8(Src) when is_binary(Src) orelse is_list(Src) ->
+    [{ccpid, CCPid}] = ets:lookup(msgservertable, ccpid),
+    CCPid ! {self(), gbk2utf8, Src},
+    receive
+        undefined ->
+            Src;
+        Value ->
+            Value
+    after ?TIMEOUT_CC_PROCESS ->
+            Src
+    end;
+convert_gbk_to_utf8(Src) ->
+    Src.
+
     
     
 
