@@ -1192,6 +1192,13 @@ get_appended_info(Bin) ->
                     case get_one_appended_info(ID, Len, <<Val:ValLen>>) of
                         error ->
                             error;
+						[] ->
+                            case get_appended_info(BinTail) of
+                                error ->
+                                    error;
+                                AppInfos ->
+                                    AppInfos
+                            end;
                         OneAppInfo ->
                             case get_appended_info(BinTail) of
                                 error ->
@@ -1340,9 +1347,13 @@ create_position_search() ->
 %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 parse_query_position_response(Bin) ->       
-    <<RespNum:16,PosMsgResp/binary>> = Bin,
-    {ok, {PosMsg}} = parse_position_info_report(PosMsgResp),
-    {ok, {RespNum, PosMsg}}.
+    <<RespFlowIdx:16,PosMsgResp/binary>> = Bin,
+    case parse_position_info_report(PosMsgResp) of
+		{ok, PosInfo} ->
+    		{ok, {RespFlowIdx, PosInfo}};
+		_ -> %{error, msgerr} ->
+			{error, msgerr}
+	end.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %

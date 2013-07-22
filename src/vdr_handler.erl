@@ -481,90 +481,97 @@ do_process_vdr_data(Socket, Data, State) ->
                                             % "id" is NOT NULL & UNIQUE, so it cannot be null. However it can be undefined because vehicle table device_id may don't be euqual to device table id 
                                             {<<"vehicle">>, <<"code">>, VehicleCode} = get_record_field(<<"vehicle">>, Rec, <<"code">>),
                                             {<<"vehicle">>, <<"driver_id">>, DriverID} = get_record_field(<<"vehicle">>, Rec, <<"driver_id">>),
-                                            if
-                                                VehicleID == undefined orelse VehicleCode==undefined ->
-                                                    {error, dberror, NewState};
-                                                true ->
-													SockList0 = ets:match(vdrtable, {'_', 
-                                                                                     '$1', '_', '_', '_', VehicleID,
-                                                                                     '_', '_', '_', '_', '_',
-                                                                                     '_', '_', '_', '_', '_',
-                                                                                     '_', '_', '_', '_', '_',
-                                                                                     '_', '_', '_', '_', '_', '_', '_', '_', '_'}),
-                                                    disconn_socket_by_id(SockList0),
-                                                    SockVdrList = ets:lookup(vdrtable, Socket),
-                                                    case length(SockVdrList) of
-                                                        1 ->
-                                                            % "authen_code" is the query condition, so Auth should be equal to VDRAuthEnCode
-                                                            %{Auth} = Msg,
-                                                            
-                                                            SqlUpdate = list_to_binary([<<"update device set is_online=1 where authen_code='">>, VDRAuthenCode, <<"'">>]),
-                                                            send_sql_to_db(conn, SqlUpdate, NewState),
-															
-															SqlAlarmList = list_to_binary([<<"select * from vehicle_alarm where vehicle_id=">>, common:integer_to_binary(VehicleID), <<" and isnull(clear_time)">>]),
-															SqlAlarmListResp = send_sql_to_db(conn, SqlAlarmList, NewState),
-															case extract_db_resp(SqlAlarmListResp) of
-																{ok, empty} ->
-																	common:loginfo("Original AlarmList : []~n"),	
-		                                                            case wsock_data_parser:create_term_online([VehicleID]) of
-		                                                                {ok, WSUpdate} ->
-		                                                                    common:loginfo("VDR (~p) WS : ~p~n~p~n", [State#vdritem.addr, WSUpdate, list_to_binary(WSUpdate)]),
-		                                                                    send_msg_to_ws(WSUpdate, NewState),
-		                                                                    %wsock_client:send(WSUpdate),
+											if
+												VehicleCode =/= undefined andalso binary_part(VehicleCode, 0, 1) == <<"?">> ->
+													common:logerror("VDR (~p) Vehicle Code has invalid character \"?\"~n and will be disconnected : ~p~n", [VehicleCode]),
+													mysql:fetch(conn, <<"set names 'utf8'">>),
+													{error, dberror, NewState};
+												true ->
+		                                            if
+		                                                VehicleID == undefined orelse VehicleCode==undefined ->
+		                                                    {error, dberror, NewState};
+		                                                true ->
+															SockList0 = ets:match(vdrtable, {'_', 
+		                                                                                     '$1', '_', '_', '_', VehicleID,
+		                                                                                     '_', '_', '_', '_', '_',
+		                                                                                     '_', '_', '_', '_', '_',
+		                                                                                     '_', '_', '_', '_', '_',
+		                                                                                     '_', '_', '_', '_', '_', '_', '_', '_', '_'}),
+		                                                    disconn_socket_by_id(SockList0),
+		                                                    SockVdrList = ets:lookup(vdrtable, Socket),
+		                                                    case length(SockVdrList) of
+		                                                        1 ->
+		                                                            % "authen_code" is the query condition, so Auth should be equal to VDRAuthEnCode
+		                                                            %{Auth} = Msg,
 		                                                            
-		                                                                    FlowIdx = NewState#vdritem.msgflownum,
-		                                                                    MsgBody = vdr_data_processor:create_gen_resp(ID, MsgIdx, ?T_GEN_RESP_OK),
-		                                                                    common:loginfo("~p sends VDR (~p) response for 16#102 (ok) : ~p~n", [State#vdritem.pid, State#vdritem.addr, MsgBody]),
-		                                                                    NewFlowIdx = send_data_to_vdr(16#8001, FlowIdx, MsgBody, VDRPid),
-																			
-																			FinalState = NewState#vdritem{id=VDRID, 
-		                                                                                                  serialno=binary_to_list(VDRSerialNo),
-		                                                                                                  auth=binary_to_list(VDRAuthenCode),
-		                                                                                                  vehicleid=VehicleID,
-		                                                                                                  vehiclecode=binary_to_list(VehicleCode),
-																							              driverid=DriverID,
-		                                                                                                  msgflownum=NewFlowIdx, msg2vdr=[], msg=[], req=[],
-																							              alarmlist=[]},
-																			ets:insert(vdrtable, FinalState),
-		                                        
-		                                                                    {ok, FinalState};
-		                                                                _ ->
-		                                                                    {error, wserror, NewState}
-		                                                            end;
-																{ok, Reses} ->
-																	AlarmList = get_alarm_list(Reses),
-																	common:loginfo("Original AlarmList : ~p~n", [AlarmList]),		                                                            
-		                                                            case wsock_data_parser:create_term_online([VehicleID]) of
-		                                                                {ok, WSUpdate} ->
-		                                                                    common:loginfo("VDR (~p) WS : ~p~n~p~n", [State#vdritem.addr, WSUpdate, list_to_binary(WSUpdate)]),
-		                                                                    send_msg_to_ws(WSUpdate, NewState),
-		                                                                    %wsock_client:send(WSUpdate),
-		                                                            
-		                                                                    FlowIdx = NewState#vdritem.msgflownum,
-		                                                                    MsgBody = vdr_data_processor:create_gen_resp(ID, MsgIdx, ?T_GEN_RESP_OK),
-		                                                                    common:loginfo("~p sends VDR (~p) response for 16#102 (ok) : ~p~n", [NewState#vdritem.pid, NewState#vdritem.addr, MsgBody]),
-		                                                                    NewFlowIdx = send_data_to_vdr(16#8001, FlowIdx, MsgBody, VDRPid),
-		                                        
-																			FinalState = NewState#vdritem{id=VDRID, 
-		                                                                                                  serialno=binary_to_list(VDRSerialNo),
-		                                                                                                  auth=binary_to_list(VDRAuthenCode),
-		                                                                                                  vehicleid=VehicleID,
-		                                                                                                  vehiclecode=binary_to_list(VehicleCode),
-																							              driverid=DriverID,
-		                                                                                                  msgflownum=NewFlowIdx, msg2vdr=[], msg=[], req=[],
-																							              alarmlist=AlarmList},
-																			ets:insert(vdrtable, FinalState),
-																			
-		                                                                    {ok, FinalState};
-		                                                                _ ->
-		                                                                    {error, wserror, NewState}
-		                                                            end
-															end;
-                                                        _ ->
-                                                            % vdrtable error
-                                                            {error, systemerror, NewState}
-                                                    end
-                                            end;
+		                                                            SqlUpdate = list_to_binary([<<"update device set is_online=1 where authen_code='">>, VDRAuthenCode, <<"'">>]),
+		                                                            send_sql_to_db(conn, SqlUpdate, NewState),
+																	
+																	SqlAlarmList = list_to_binary([<<"select * from vehicle_alarm where vehicle_id=">>, common:integer_to_binary(VehicleID), <<" and isnull(clear_time)">>]),
+																	SqlAlarmListResp = send_sql_to_db(conn, SqlAlarmList, NewState),
+																	case extract_db_resp(SqlAlarmListResp) of
+																		{ok, empty} ->
+																			common:loginfo("Original AlarmList : []~n"),	
+				                                                            case wsock_data_parser:create_term_online([VehicleID]) of
+				                                                                {ok, WSUpdate} ->
+				                                                                    common:loginfo("VDR (~p) WS : ~p~n~p~n", [State#vdritem.addr, WSUpdate, list_to_binary(WSUpdate)]),
+				                                                                    send_msg_to_ws(WSUpdate, NewState),
+				                                                                    %wsock_client:send(WSUpdate),
+				                                                            
+				                                                                    FlowIdx = NewState#vdritem.msgflownum,
+				                                                                    MsgBody = vdr_data_processor:create_gen_resp(ID, MsgIdx, ?T_GEN_RESP_OK),
+				                                                                    common:loginfo("~p sends VDR (~p) response for 16#102 (ok) : ~p~n", [State#vdritem.pid, State#vdritem.addr, MsgBody]),
+				                                                                    NewFlowIdx = send_data_to_vdr(16#8001, FlowIdx, MsgBody, VDRPid),
+																					
+																					FinalState = NewState#vdritem{id=VDRID, 
+				                                                                                                  serialno=binary_to_list(VDRSerialNo),
+				                                                                                                  auth=binary_to_list(VDRAuthenCode),
+				                                                                                                  vehicleid=VehicleID,
+				                                                                                                  vehiclecode=binary_to_list(VehicleCode),
+																									              driverid=DriverID,
+				                                                                                                  msgflownum=NewFlowIdx, msg2vdr=[], msg=[], req=[],
+																									              alarmlist=[]},
+																					ets:insert(vdrtable, FinalState),
+				                                        
+				                                                                    {ok, FinalState};
+				                                                                _ ->
+				                                                                    {error, wserror, NewState}
+				                                                            end;
+																		{ok, Reses} ->
+																			AlarmList = get_alarm_list(Reses),
+																			common:loginfo("Original AlarmList : ~p~n", [AlarmList]),		                                                            
+				                                                            case wsock_data_parser:create_term_online([VehicleID]) of
+				                                                                {ok, WSUpdate} ->
+				                                                                    common:loginfo("VDR (~p) WS : ~p~n~p~n", [State#vdritem.addr, WSUpdate, list_to_binary(WSUpdate)]),
+				                                                                    send_msg_to_ws(WSUpdate, NewState),
+				                                                                    %wsock_client:send(WSUpdate),
+				                                                            
+				                                                                    FlowIdx = NewState#vdritem.msgflownum,
+				                                                                    MsgBody = vdr_data_processor:create_gen_resp(ID, MsgIdx, ?T_GEN_RESP_OK),
+				                                                                    common:loginfo("~p sends VDR (~p) response for 16#102 (ok) : ~p~n", [NewState#vdritem.pid, NewState#vdritem.addr, MsgBody]),
+				                                                                    NewFlowIdx = send_data_to_vdr(16#8001, FlowIdx, MsgBody, VDRPid),
+				                                        
+																					FinalState = NewState#vdritem{id=VDRID, 
+				                                                                                                  serialno=binary_to_list(VDRSerialNo),
+				                                                                                                  auth=binary_to_list(VDRAuthenCode),
+				                                                                                                  vehicleid=VehicleID,
+				                                                                                                  vehiclecode=binary_to_list(VehicleCode),
+																									              driverid=DriverID,
+				                                                                                                  msgflownum=NewFlowIdx, msg2vdr=[], msg=[], req=[],
+																									              alarmlist=AlarmList},
+																					ets:insert(vdrtable, FinalState),
+																					
+				                                                                    {ok, FinalState};
+				                                                                _ ->
+				                                                                    {error, wserror, NewState}
+				                                                            end
+																	end;
+		                                                        _ ->
+		                                                            % vdrtable error
+		                                                            {error, systemerror, NewState}
+		                                                    end
+		                                            end
+											end;
                                         _ ->
                                             % DB includes no record with the given authen_code
                                             {error, dberror, NewState}
@@ -681,73 +688,14 @@ do_process_vdr_data(Socket, Data, State) ->
                             
                             {ok, NewState};
                         16#200 ->
-                            case create_sql_from_vdr(HeadInfo, Msg, NewState) of
-                                {ok, Sqls} ->
-                                    %common:loginfo("VDR (~p) DB : ~p~n", [NewState#vdritem.addr, Sql]),
-                                    send_sqls_to_db(conn, Sqls, NewState),
-                                    
-                                    FlowIdx = NewState#vdritem.msgflownum,
-                                    PreviousAlarm = NewState#vdritem.alarm,
-                                    
-                                    {H, _AppInfo} = Msg,
-                                    [AlarmSym, StateFlag, LatOri, LonOri, _Height, _Speed, _Direction, Time]= H,
-                                    {Lat, Lon} = get_not_0_lat_lon(LatOri, LonOri, NewState),
-                                    if
-                                        AlarmSym == PreviousAlarm ->
-		                                    MsgBody = vdr_data_processor:create_gen_resp(ID, MsgIdx, ?T_GEN_RESP_OK),
-		                                    common:loginfo("~p sends VDR (~p) response for 16#200 (ok) : ~p~n", [State#vdritem.pid, NewState#vdritem.addr, MsgBody]),
-		                                    NewFlowIdx = send_data_to_vdr(16#8001, FlowIdx, MsgBody, VDRPid),
-		                                    
-		                                    {ok, NewState#vdritem{msgflownum=NewFlowIdx, alarm=AlarmSym, lastlat=Lat, lastlon=Lon}};
-                                        true ->
-                                            <<Year:8, Month:8, Day:8, Hour:8, Minute:8, Second:8>> = <<Time:48>>,
-                                            YearBin = common:integer_to_binary(common:convert_bcd_integer(Year)),
-                                            MonthBin = common:integer_to_binary(common:convert_bcd_integer(Month)),
-                                            DayBin = common:integer_to_binary(common:convert_bcd_integer(Day)),
-                                            HourBin = common:integer_to_binary(common:convert_bcd_integer(Hour)),
-                                            MinuteBin = common:integer_to_binary(common:convert_bcd_integer(Minute)),
-                                            SecondBin = common:integer_to_binary(common:convert_bcd_integer(Second)),
-                                            TimeS = binary_to_list(list_to_binary([YearBin, <<"-">>, MonthBin, <<"-">>, DayBin, <<" ">>, HourBin, <<":">>, MinuteBin, <<":">>, SecondBin])),
-                                            TimeBinS = list_to_binary([<<"\"">>, YearBin, <<"-">>, MonthBin, <<"-">>, DayBin, <<" ">>, HourBin, <<":">>, MinuteBin, <<":">>, SecondBin, <<"\"">>]),
-											
-											AlarmList = update_vehicle_alarm(NewState#vdritem.vehicleid, NewState#vdritem.driverid, TimeS, AlarmSym, 0, NewState),
-											if
-												AlarmList == NewState#vdritem.alarmlist ->
-													common:loginfo("No new alarms updated~n");
-												AlarmList =/= NewState#vdritem.alarmlist ->
-		                                            {ok, WSUpdate} = wsock_data_parser:create_term_alarm([NewState#vdritem.vehicleid],
-		                                                                                                 FlowIdx,
-		                                                                                                 common:combine_strings(["\"", NewState#vdritem.vehiclecode, "\""], false),
-		                                                                                                 AlarmSym,
-		                                                                                                 StateFlag,
-		                                                                                                 Lat, 
-		                                                                                                 Lon,
-		                                                                                                 binary_to_list(TimeBinS)),
-		                                            common:loginfo("Old alarms : ~p~nNew alarms : ~p~nVDR (~p) vehicle(~p) driver(~p) WS Alarm for 0x200: ~p~n", 
-																   [NewState#vdritem.alarmlist, 
-																	AlarmList,
-																	NewState#vdritem.addr, 
-																	NewState#vdritem.vehicleid, 
-																	NewState#vdritem.driverid, 
-																	WSUpdate]),
-		                                            send_msg_to_ws(WSUpdate, NewState) %wsock_client:send(WSUpdate)
-											end,
-
-		                                    MsgBody = vdr_data_processor:create_gen_resp(ID, MsgIdx, ?T_GEN_RESP_OK),
-		                                    common:loginfo("~p sends VDR (~p) response for 16#200 (ok) : ~p~n", [State#vdritem.pid, NewState#vdritem.addr, MsgBody]),
-		                                    NewFlowIdx = send_data_to_vdr(16#8001, FlowIdx, MsgBody, VDRPid),
-		                                    
-		                                    {ok, NewState#vdritem{msgflownum=NewFlowIdx, alarm=AlarmSym, alarmlist=AlarmList, lastlat=Lat, lastlon=Lon}}
-                                    end;%,
-                                    
-                                    %report_appinfo(AppInfo, NewState);
-                                _ ->
-                                    {error, invaliderror, NewState}
-                            end;
+							process_pos_info(ID, MsgIdx, VDRPid, HeadInfo, Msg, NewState);
                         16#201 ->
-                            {_RespNum, _PosMsg} = Msg,
-            
-                            {ok, NewState};
+                            case Msg of
+								{_RespFlowIdx, PosInfo} ->
+		                            process_pos_info(ID, MsgIdx, VDRPid, HeadInfo, PosInfo, NewState);
+								_ ->
+									{error, vdrerror, NewState}
+							end;
                         16#301 ->
                             {_Id} = Msg,
                             
@@ -962,6 +910,71 @@ do_process_vdr_data(Socket, Data, State) ->
             {warning, NewState#vdritem{msgflownum=NewFlowIdx}};
         {error, _ErrorType, NewState} ->    % exception/parityerror/formaterror
             {error, vdrerror, NewState}
+    end.
+
+process_pos_info(ID, MsgIdx, VDRPid, HeadInfo, Msg, NewState) ->
+    case create_sql_from_vdr(HeadInfo, Msg, NewState) of
+        {ok, Sqls} ->
+            %common:loginfo("VDR (~p) DB : ~p~n", [NewState#vdritem.addr, Sql]),
+            send_sqls_to_db(conn, Sqls, NewState),
+            
+            FlowIdx = NewState#vdritem.msgflownum,
+            PreviousAlarm = NewState#vdritem.alarm,
+            
+            {H, _AppInfo} = Msg,
+            [AlarmSym, StateFlag, LatOri, LonOri, _Height, _Speed, _Direction, Time]= H,
+            {Lat, Lon} = get_not_0_lat_lon(LatOri, LonOri, NewState),
+            if
+                AlarmSym == PreviousAlarm ->
+                    MsgBody = vdr_data_processor:create_gen_resp(ID, MsgIdx, ?T_GEN_RESP_OK),
+                    common:loginfo("~p sends VDR (~p) response for 16#200 (ok) : ~p~n", [NewState#vdritem.pid, NewState#vdritem.addr, MsgBody]),
+                    NewFlowIdx = send_data_to_vdr(16#8001, FlowIdx, MsgBody, VDRPid),
+                    
+                    {ok, NewState#vdritem{msgflownum=NewFlowIdx, alarm=AlarmSym, lastlat=Lat, lastlon=Lon}};
+                true ->
+                    <<Year:8, Month:8, Day:8, Hour:8, Minute:8, Second:8>> = <<Time:48>>,
+                    YearBin = common:integer_to_binary(common:convert_bcd_integer(Year)),
+                    MonthBin = common:integer_to_binary(common:convert_bcd_integer(Month)),
+                    DayBin = common:integer_to_binary(common:convert_bcd_integer(Day)),
+                    HourBin = common:integer_to_binary(common:convert_bcd_integer(Hour)),
+                    MinuteBin = common:integer_to_binary(common:convert_bcd_integer(Minute)),
+                    SecondBin = common:integer_to_binary(common:convert_bcd_integer(Second)),
+                    TimeS = binary_to_list(list_to_binary([YearBin, <<"-">>, MonthBin, <<"-">>, DayBin, <<" ">>, HourBin, <<":">>, MinuteBin, <<":">>, SecondBin])),
+                    TimeBinS = list_to_binary([<<"\"">>, YearBin, <<"-">>, MonthBin, <<"-">>, DayBin, <<" ">>, HourBin, <<":">>, MinuteBin, <<":">>, SecondBin, <<"\"">>]),
+					
+					AlarmList = update_vehicle_alarm(NewState#vdritem.vehicleid, NewState#vdritem.driverid, TimeS, AlarmSym, 0, NewState),
+					if
+						AlarmList == NewState#vdritem.alarmlist ->
+							common:loginfo("No new alarms updated~n");
+						AlarmList =/= NewState#vdritem.alarmlist ->
+                            {ok, WSUpdate} = wsock_data_parser:create_term_alarm([NewState#vdritem.vehicleid],
+                                                                                 FlowIdx,
+                                                                                 common:combine_strings(["\"", NewState#vdritem.vehiclecode, "\""], false),
+                                                                                 AlarmSym,
+                                                                                 StateFlag,
+                                                                                 Lat, 
+                                                                                 Lon,
+                                                                                 binary_to_list(TimeBinS)),
+                            common:loginfo("Old alarms : ~p~nNew alarms : ~p~nVDR (~p) vehicle(~p) driver(~p) WS Alarm for 0x200: ~p~n", 
+										   [NewState#vdritem.alarmlist, 
+											AlarmList,
+											NewState#vdritem.addr, 
+											NewState#vdritem.vehicleid, 
+											NewState#vdritem.driverid, 
+											WSUpdate]),
+                            send_msg_to_ws(WSUpdate, NewState) %wsock_client:send(WSUpdate)
+					end,
+
+                    MsgBody = vdr_data_processor:create_gen_resp(ID, MsgIdx, ?T_GEN_RESP_OK),
+                    common:loginfo("~p sends VDR (~p) response for 16#200 (ok) : ~p~n", [NewState#vdritem.pid, NewState#vdritem.addr, MsgBody]),
+                    NewFlowIdx = send_data_to_vdr(16#8001, FlowIdx, MsgBody, VDRPid),
+                    
+                    {ok, NewState#vdritem{msgflownum=NewFlowIdx, alarm=AlarmSym, alarmlist=AlarmList, lastlat=Lat, lastlon=Lon}}
+            end;%,
+            
+            %report_appinfo(AppInfo, NewState);
+        _ ->
+            {error, invaliderror, NewState}
     end.
 
 get_alarm_list(AlarmList) when is_list(AlarmList),
@@ -1472,133 +1485,10 @@ create_sql_from_vdr(HeaderInfo, Msg, State) ->
         16#108  ->    
             {_Type, _Res} = Msg,
             {ok, ""};
-        16#200  ->
-            case Msg of
-                {H} ->
-                    [AlarmSym, StateFlag, LatOri, LonOri, Height, Speed, Direction, Time]= H,
-                    {Lat, Lon} = get_not_0_lat_lon(LatOri, LonOri, State),
-                    <<YY:8, MMon:8, DD:8, HH:8, MMin:8, SS:8>> = <<Time:48>>,
-                    Year = common:convert_bcd_integer(YY),
-                    Month = common:convert_bcd_integer(MMon),
-                    Day = common:convert_bcd_integer(DD),
-                    Hour = common:convert_bcd_integer(HH),
-                    Minute = common:convert_bcd_integer(MMin),
-                    Second = common:convert_bcd_integer(SS),
-                    {ServerYear, ServerMonth, ServerDay} = erlang:date(),
-                    {ServerHour, ServerMinute, ServerSecond} = erlang:time(),
-                    YearS = common:integer_to_binary(Year),
-                    MonthS = common:integer_to_binary(Month),
-                    DayS = common:integer_to_binary(Day),
-                    HourS = common:integer_to_binary(Hour),
-                    MinuteS = common:integer_to_binary(Minute),
-                    SecondS = common:integer_to_binary(Second),
-                    {ServerYear, ServerMonth, ServerDay} = erlang:date(),
-                    {ServerHour, ServerMinute, ServerSecond} = erlang:time(),
-                    YearS = common:integer_to_binary(Year),
-                    MonthS = common:integer_to_binary(Month),
-                    DayS = common:integer_to_binary(Day),
-                    HourS = common:integer_to_binary(Hour),
-                    MinuteS = common:integer_to_binary(Minute),
-                    SecondS = common:integer_to_binary(Second),
-                    TimeS = list_to_binary([YearS, <<"-">>, MonthS, <<"-">>, DayS, <<" ">>, HourS, <<":">>, MinuteS, <<":">>, SecondS]),
-                    YearDB = vdr_data_processor:get_2_number_integer_from_oct_string(integer_to_list(Year)),
-                    MonthDB = vdr_data_processor:get_2_number_integer_from_oct_string(integer_to_list(Month)),
-                    DayDB = vdr_data_processor:get_2_number_integer_from_oct_string(integer_to_list(Day)),
-                    DBBin = list_to_binary([common:integer_to_2byte_binary(YearDB),
-                                             common:integer_to_2byte_binary(MonthDB),
-                                             common:integer_to_2byte_binary(DayDB)]),
-                    ServerYearS = common:integer_to_binary(ServerYear),
-                    ServerMonthS = common:integer_to_binary(ServerMonth),
-                    ServerDayS = common:integer_to_binary(ServerDay),
-                    ServerHourS = common:integer_to_binary(ServerHour),
-                    ServerMinuteS = common:integer_to_binary(ServerMinute),
-                    ServerSecondS = common:integer_to_binary(ServerSecond),
-                    ServerTimeS = list_to_binary([ServerYearS, <<"-">>, ServerMonthS, <<"-">>, ServerDayS, <<" ">>, ServerHourS, <<":">>, ServerMinuteS, <<":">>, ServerSecondS]),
-                    VehicleID = State#vdritem.vehicleid,
-                    SQL0 = list_to_binary([<<"insert into vehicle_position_">>, DBBin,
-                                           <<"(vehicle_id, gps_time, server_time, longitude, latitude, height, speed, direction, status_flag, alarm_flag) values(">>,
-                                          common:integer_to_binary(VehicleID), <<", '">>,
-                                          TimeS, <<"', '">>,
-                                          ServerTimeS, <<"', ">>,
-                                          common:float_to_binary(Lon/1000000.0), <<", ">>,
-                                          common:float_to_binary(Lat/1000000.0), <<", ">>,
-                                          common:integer_to_binary(Height), <<", ">>,
-                                          common:float_to_binary(Speed/10.0), <<", ">>,
-                                          common:integer_to_binary(Direction), <<", ">>,
-                                          common:integer_to_binary(StateFlag), <<", ">>,
-                                          common:integer_to_binary(AlarmSym), <<")">>]),
-                    SQL1 = list_to_binary([<<"replace into vehicle_position_last(vehicle_id, gps_time, server_time, longitude, latitude, height, speed, direction, status_flag, alarm_flag) values(">>,
-                                          common:integer_to_binary(VehicleID), <<", '">>,
-                                          TimeS, <<"', '">>,
-                                          ServerTimeS, <<"', ">>,
-                                          common:float_to_binary(Lon/1000000.0), <<", ">>,
-                                          common:float_to_binary(Lat/1000000.0), <<", ">>,
-                                          common:integer_to_binary(Height), <<", ">>,
-                                          common:float_to_binary(Speed/10.0), <<", ">>,
-                                          common:integer_to_binary(Direction), <<", ">>,
-                                          common:integer_to_binary(StateFlag), <<", ">>,
-                                          common:integer_to_binary(AlarmSym), <<")">>]),
-                    {ok, [SQL0, SQL1]};
-                {H, AppInfo} ->
-                    [AlarmSym, StateFlag, Lat, Lon, Height, Speed, Direction, Time]= H,
-                    AppInfo,
-                    <<YY:8, MMon:8, DD:8, HH:8, MMin:8, SS:8>> = <<Time:48>>,
-                    Year = common:convert_bcd_integer(YY),
-                    Month = common:convert_bcd_integer(MMon),
-                    Day = common:convert_bcd_integer(DD),
-                    Hour = common:convert_bcd_integer(HH),
-                    Minute = common:convert_bcd_integer(MMin),
-                    Second = common:convert_bcd_integer(SS),
-                    {ServerYear, ServerMonth, ServerDay} = erlang:date(),
-                    {ServerHour, ServerMinute, ServerSecond} = erlang:time(),
-                    YearS = common:integer_to_binary(Year),
-                    MonthS = common:integer_to_binary(Month),
-                    DayS = common:integer_to_binary(Day),
-                    HourS = common:integer_to_binary(Hour),
-                    MinuteS = common:integer_to_binary(Minute),
-                    SecondS = common:integer_to_binary(Second),
-                    TimeS = list_to_binary([YearS, <<"-">>, MonthS, <<"-">>, DayS, <<" ">>, HourS, <<":">>, MinuteS, <<":">>, SecondS]),
-                    YearDB = vdr_data_processor:get_2_number_integer_from_oct_string(integer_to_list(Year)),
-                    MonthDB = vdr_data_processor:get_2_number_integer_from_oct_string(integer_to_list(Month)),
-                    DayDB = vdr_data_processor:get_2_number_integer_from_oct_string(integer_to_list(Day)),
-                    DBBin = list_to_binary([common:integer_to_2byte_binary(YearDB),
-                                             common:integer_to_2byte_binary(MonthDB),
-                                             common:integer_to_2byte_binary(DayDB)]),
-                    ServerYearS = common:integer_to_binary(ServerYear),
-                    ServerMonthS = common:integer_to_binary(ServerMonth),
-                    ServerDayS = common:integer_to_binary(ServerDay),
-                    ServerHourS = common:integer_to_binary(ServerHour),
-                    ServerMinuteS = common:integer_to_binary(ServerMinute),
-                    ServerSecondS = common:integer_to_binary(ServerSecond),
-                    ServerTimeS = list_to_binary([ServerYearS, <<"-">>, ServerMonthS, <<"-">>, ServerDayS, <<" ">>, ServerHourS, <<":">>, ServerMinuteS, <<":">>, ServerSecondS]),
-                    VehicleID = State#vdritem.vehicleid,
-                    SQL0 = list_to_binary([<<"insert into vehicle_position_">>, DBBin,
-                                           <<"(vehicle_id, gps_time, server_time, longitude, latitude, height, speed, direction, status_flag, alarm_flag) values(">>,
-                                          common:integer_to_binary(VehicleID), <<", '">>,
-                                          TimeS, <<"', '">>,
-                                          ServerTimeS, <<"', ">>,
-                                          common:float_to_binary(Lon/1000000.0), <<", ">>,
-                                          common:float_to_binary(Lat/1000000.0), <<", ">>,
-                                          common:integer_to_binary(Height), <<", ">>,
-                                          common:float_to_binary(Speed/10.0), <<", ">>,
-                                          common:integer_to_binary(Direction), <<", ">>,
-                                          common:integer_to_binary(StateFlag), <<", ">>,
-                                          common:integer_to_binary(AlarmSym), <<")">>]),
-                    SQL1 = list_to_binary([<<"replace into vehicle_position_last(vehicle_id, gps_time, server_time, longitude, latitude, height, speed, direction, status_flag, alarm_flag) values(">>,
-                                          common:integer_to_binary(VehicleID), <<", '">>,
-                                          TimeS, <<"', '">>,
-                                          ServerTimeS, <<"', ">>,
-                                          common:float_to_binary(Lon/1000000.0), <<", ">>,
-                                          common:float_to_binary(Lat/1000000.0), <<", ">>,
-                                          common:integer_to_binary(Height), <<", ">>,
-                                          common:float_to_binary(Speed/10.0), <<", ">>,
-                                          common:integer_to_binary(Direction), <<", ">>,
-                                          common:integer_to_binary(StateFlag), <<", ">>,
-                                          common:integer_to_binary(AlarmSym), <<")">>]),
-                    {ok, [SQL0, SQL1]}
-            end;
-        16#201  ->                          
-            {ok, ""};
+        16#200 ->
+			create_pos_info_sql(Msg, State);
+        16#201 ->
+			create_pos_info_sql(Msg, State);
         16#301  ->                          
             {ok, ""};
         16#302  ->
@@ -1655,6 +1545,242 @@ create_sql_from_vdr(HeaderInfo, Msg, State) ->
         _ ->
             {error, iderror}
     end.
+
+create_pos_info_sql(Msg, State) ->
+    case Msg of
+        {H} ->
+			common:loginfo("VDR (~p) socket (~p) (id:~p, serialno:~p, authen_code:~p, vehicleid:~p, vehiclecode:~p)~nPosition info :~n~p~n",
+						   [State#vdritem.addr,
+							State#vdritem.socket,
+							State#vdritem.id, 
+							State#vdritem.serialno, 
+							State#vdritem.auth, 
+							State#vdritem.vehicleid, 
+							State#vdritem.vehiclecode,
+							H]),
+            [AlarmSym, StateFlag, LatOri, LonOri, Height, Speed, Direction, Time]= H,
+            {Lat, Lon} = get_not_0_lat_lon(LatOri, LonOri, State),
+            <<YY:8, MMon:8, DD:8, HH:8, MMin:8, SS:8>> = <<Time:48>>,
+            Year = common:convert_bcd_integer(YY),
+            Month = common:convert_bcd_integer(MMon),
+            Day = common:convert_bcd_integer(DD),
+            Hour = common:convert_bcd_integer(HH),
+            Minute = common:convert_bcd_integer(MMin),
+            Second = common:convert_bcd_integer(SS),
+            {ServerYear, ServerMonth, ServerDay} = erlang:date(),
+            {ServerHour, ServerMinute, ServerSecond} = erlang:time(),
+            YearS = common:integer_to_binary(Year),
+            MonthS = common:integer_to_binary(Month),
+            DayS = common:integer_to_binary(Day),
+            HourS = common:integer_to_binary(Hour),
+            MinuteS = common:integer_to_binary(Minute),
+            SecondS = common:integer_to_binary(Second),
+            {ServerYear, ServerMonth, ServerDay} = erlang:date(),
+            {ServerHour, ServerMinute, ServerSecond} = erlang:time(),
+            YearS = common:integer_to_binary(Year),
+            MonthS = common:integer_to_binary(Month),
+            DayS = common:integer_to_binary(Day),
+            HourS = common:integer_to_binary(Hour),
+            MinuteS = common:integer_to_binary(Minute),
+            SecondS = common:integer_to_binary(Second),
+            TimeS = list_to_binary([YearS, <<"-">>, MonthS, <<"-">>, DayS, <<" ">>, HourS, <<":">>, MinuteS, <<":">>, SecondS]),
+            YearDB = vdr_data_processor:get_2_number_integer_from_oct_string(integer_to_list(Year)),
+            MonthDB = vdr_data_processor:get_2_number_integer_from_oct_string(integer_to_list(Month)),
+            DayDB = vdr_data_processor:get_2_number_integer_from_oct_string(integer_to_list(Day)),
+            DBBin = list_to_binary([common:integer_to_2byte_binary(YearDB),
+                                     common:integer_to_2byte_binary(MonthDB),
+                                     common:integer_to_2byte_binary(DayDB)]),
+            ServerYearS = common:integer_to_binary(ServerYear),
+            ServerMonthS = common:integer_to_binary(ServerMonth),
+            ServerDayS = common:integer_to_binary(ServerDay),
+            ServerHourS = common:integer_to_binary(ServerHour),
+            ServerMinuteS = common:integer_to_binary(ServerMinute),
+            ServerSecondS = common:integer_to_binary(ServerSecond),
+            ServerTimeS = list_to_binary([ServerYearS, <<"-">>, ServerMonthS, <<"-">>, ServerDayS, <<" ">>, ServerHourS, <<":">>, ServerMinuteS, <<":">>, ServerSecondS]),
+            VehicleID = State#vdritem.vehicleid,
+            SQL0 = list_to_binary([<<"insert into vehicle_position_">>, DBBin,
+                                   <<"(vehicle_id, gps_time, server_time, longitude, latitude, height, speed, direction, status_flag, alarm_flag) values(">>,
+                                  common:integer_to_binary(VehicleID), <<", '">>,
+                                  TimeS, <<"', '">>,
+                                  ServerTimeS, <<"', ">>,
+                                  common:float_to_binary(Lon/1000000.0), <<", ">>,
+                                  common:float_to_binary(Lat/1000000.0), <<", ">>,
+                                  common:integer_to_binary(Height), <<", ">>,
+                                  common:float_to_binary(Speed/10.0), <<", ">>,
+                                  common:integer_to_binary(Direction), <<", ">>,
+                                  common:integer_to_binary(StateFlag), <<", ">>,
+                                  common:integer_to_binary(AlarmSym), <<")">>]),
+            SQL1 = list_to_binary([<<"replace into vehicle_position_last(vehicle_id, gps_time, server_time, longitude, latitude, height, speed, direction, status_flag, alarm_flag) values(">>,
+                                  common:integer_to_binary(VehicleID), <<", '">>,
+                                  TimeS, <<"', '">>,
+                                  ServerTimeS, <<"', ">>,
+                                  common:float_to_binary(Lon/1000000.0), <<", ">>,
+                                  common:float_to_binary(Lat/1000000.0), <<", ">>,
+                                  common:integer_to_binary(Height), <<", ">>,
+                                  common:float_to_binary(Speed/10.0), <<", ">>,
+                                  common:integer_to_binary(Direction), <<", ">>,
+                                  common:integer_to_binary(StateFlag), <<", ">>,
+                                  common:integer_to_binary(AlarmSym), <<")">>]),
+            {ok, [SQL0, SQL1]};
+        {H, AppInfo} ->
+			common:loginfo("VDR (~p) socket (~p) (id:~p, serialno:~p, authen_code:~p, vehicleid:~p, vehiclecode:~p)~nPosition info :~n~p~nAdditional info :~n~p~n",
+						   [State#vdritem.addr,
+							State#vdritem.socket,
+							State#vdritem.id, 
+							State#vdritem.serialno, 
+							State#vdritem.auth, 
+							State#vdritem.vehicleid, 
+							State#vdritem.vehiclecode,
+							H, AppInfo]),
+			[AppInfo0, AppInfo1] = create_pos_app_sql_part(AppInfo),
+            [AlarmSym, StateFlag, Lat, Lon, Height, Speed, Direction, Time]= H,
+            AppInfo,
+            <<YY:8, MMon:8, DD:8, HH:8, MMin:8, SS:8>> = <<Time:48>>,
+            Year = common:convert_bcd_integer(YY),
+            Month = common:convert_bcd_integer(MMon),
+            Day = common:convert_bcd_integer(DD),
+            Hour = common:convert_bcd_integer(HH),
+            Minute = common:convert_bcd_integer(MMin),
+            Second = common:convert_bcd_integer(SS),
+            {ServerYear, ServerMonth, ServerDay} = erlang:date(),
+            {ServerHour, ServerMinute, ServerSecond} = erlang:time(),
+            YearS = common:integer_to_binary(Year),
+            MonthS = common:integer_to_binary(Month),
+            DayS = common:integer_to_binary(Day),
+            HourS = common:integer_to_binary(Hour),
+            MinuteS = common:integer_to_binary(Minute),
+            SecondS = common:integer_to_binary(Second),
+            TimeS = list_to_binary([YearS, <<"-">>, MonthS, <<"-">>, DayS, <<" ">>, HourS, <<":">>, MinuteS, <<":">>, SecondS]),
+            YearDB = vdr_data_processor:get_2_number_integer_from_oct_string(integer_to_list(Year)),
+            MonthDB = vdr_data_processor:get_2_number_integer_from_oct_string(integer_to_list(Month)),
+            DayDB = vdr_data_processor:get_2_number_integer_from_oct_string(integer_to_list(Day)),
+            DBBin = list_to_binary([common:integer_to_2byte_binary(YearDB),
+                                     common:integer_to_2byte_binary(MonthDB),
+                                     common:integer_to_2byte_binary(DayDB)]),
+            ServerYearS = common:integer_to_binary(ServerYear),
+            ServerMonthS = common:integer_to_binary(ServerMonth),
+            ServerDayS = common:integer_to_binary(ServerDay),
+            ServerHourS = common:integer_to_binary(ServerHour),
+            ServerMinuteS = common:integer_to_binary(ServerMinute),
+            ServerSecondS = common:integer_to_binary(ServerSecond),
+            ServerTimeS = list_to_binary([ServerYearS, <<"-">>, ServerMonthS, <<"-">>, ServerDayS, <<" ">>, ServerHourS, <<":">>, ServerMinuteS, <<":">>, ServerSecondS]),
+            VehicleID = State#vdritem.vehicleid,
+            SQL0 = list_to_binary([<<"insert into vehicle_position_">>, DBBin,
+                                   <<"(vehicle_id, gps_time, server_time, longitude, latitude, height, speed, direction, status_flag, alarm_flag">>, AppInfo0, <<") values(">>,
+                                  common:integer_to_binary(VehicleID), <<", '">>,
+                                  TimeS, <<"', '">>,
+                                  ServerTimeS, <<"', ">>,
+                                  common:float_to_binary(Lon/1000000.0), <<", ">>,
+                                  common:float_to_binary(Lat/1000000.0), <<", ">>,
+                                  common:integer_to_binary(Height), <<", ">>,
+                                  common:float_to_binary(Speed/10.0), <<", ">>,
+                                  common:integer_to_binary(Direction), <<", ">>,
+                                  common:integer_to_binary(StateFlag), <<", ">>,
+                                  common:integer_to_binary(AlarmSym), AppInfo1, <<")">>]),
+            SQL1 = list_to_binary([<<"replace into vehicle_position_last(vehicle_id, gps_time, server_time, longitude, latitude, height, speed, direction, status_flag, alarm_flag">>, AppInfo0, <<") values(">>,
+                                  common:integer_to_binary(VehicleID), <<", '">>,
+                                  TimeS, <<"', '">>,
+                                  ServerTimeS, <<"', ">>,
+                                  common:float_to_binary(Lon/1000000.0), <<", ">>,
+                                  common:float_to_binary(Lat/1000000.0), <<", ">>,
+                                  common:integer_to_binary(Height), <<", ">>,
+                                  common:float_to_binary(Speed/10.0), <<", ">>,
+                                  common:integer_to_binary(Direction), <<", ">>,
+                                  common:integer_to_binary(StateFlag), <<", ">>,
+                                  common:integer_to_binary(AlarmSym), AppInfo1, <<")">>]),
+            {ok, [SQL0, SQL1]}
+    end.
+
+create_pos_app_sql_part(AppInfo) when is_list(AppInfo),
+									  length(AppInfo) > 0 ->
+	[H|T] = AppInfo,
+	%common:loginfo("Pos add info : ~p~nOne pos add info : ~p~n", [AppInfo, H]),
+	case H of
+		[ID, Res] ->
+			case ID of
+				16#1 ->
+					A = <<", distance">>,
+					B = list_to_binary([<<", ">>, common:float_to_binary(Res / 10.0)]),
+					[TA, TB] = create_pos_app_sql_part(T),
+					[list_to_binary([A, TA]), list_to_binary([B, TB])];
+				16#2 ->
+					A = <<", oil">>,
+					B = list_to_binary([<<", ">>, common:float_to_binary(Res / 10.0)]),
+					[TA, TB] = create_pos_app_sql_part(T),
+					[list_to_binary([A, TA]), list_to_binary([B, TB])];
+				16#3 ->
+					A = <<", record_speed">>,
+					B = list_to_binary([<<", ">>, common:float_to_binary(Res / 10.0)]),
+					[TA, TB] = create_pos_app_sql_part(T),
+					[list_to_binary([A, TA]), list_to_binary([B, TB])];
+				16#4 ->
+					A = <<", event_man_acq">>,
+					B = list_to_binary([<<", ">>, common:integer_to_binary(Res)]),
+					[TA, TB] = create_pos_app_sql_part(T),
+					[list_to_binary([A, TA]), list_to_binary([B, TB])];
+				16#11 ->
+					A = <<", ex_speed_type">>,
+					B = list_to_binary([<<", ">>, common:integer_to_binary(Res)]),
+					[TA, TB] = create_pos_app_sql_part(T),
+					[list_to_binary([A, TA]), list_to_binary([B, TB])];
+				16#25 ->
+					A = <<", ex_state">>,
+					B = list_to_binary([<<", ">>, common:integer_to_binary(Res)]),
+					[TA, TB] = create_pos_app_sql_part(T),
+					[list_to_binary([A, TA]), list_to_binary([B, TB])];
+				16#2A ->
+					A = <<", io_state">>,
+					B = list_to_binary([<<", ">>, common:integer_to_binary(Res)]),
+					[TA, TB] = create_pos_app_sql_part(T),
+					[list_to_binary([A, TA]), list_to_binary([B, TB])];
+				16#30 ->
+					A = <<", wl_signal_amp">>,
+					B = list_to_binary([<<", ">>, common:integer_to_binary(Res)]),
+					[TA, TB] = create_pos_app_sql_part(T),
+					[list_to_binary([A, TA]), list_to_binary([B, TB])];
+				16#31 ->
+					A = <<", gnss_count">>,
+					B = list_to_binary([<<", ">>, common:integer_to_binary(Res)]),
+					[TA, TB] = create_pos_app_sql_part(T),
+					[list_to_binary([A, TA]), list_to_binary([B, TB])];
+				_ ->
+					create_pos_app_sql_part(T)
+			end;				
+		[ID, Res1, Res2] ->
+			case ID of
+				16#11 ->
+					A = <<", ex_speed_type, ex_speed_id">>,
+					B = list_to_binary([<<", ">>, common:integer_to_binary(Res1), common:integer_to_binary(Res2)]),
+					[TA, TB] = create_pos_app_sql_part(T),
+					[list_to_binary([A, TA]), list_to_binary([B, TB])];
+				16#2B ->
+					A = <<", analog_quantity_ad0, analog_quantity_ad1">>,
+					B = list_to_binary([<<", ">>, common:integer_to_binary(Res1), common:integer_to_binary(Res2)]),
+					[TA, TB] = create_pos_app_sql_part(T),
+					[list_to_binary([A, TA]), list_to_binary([B, TB])];
+				_ ->
+					create_pos_app_sql_part(T)
+			end;
+		[ID, Res1, Res2, Res3] ->
+			case ID of
+				16#12 ->
+					A = <<", alarm_add_type, alarm_add_id, alarm_add_direct">>,
+					B = list_to_binary([<<", ">>, common:integer_to_binary(Res1), common:integer_to_binary(Res2), common:integer_to_binary(Res3)]),
+					[TA, TB] = create_pos_app_sql_part(T),
+					[list_to_binary([A, TA]), list_to_binary([B, TB])];
+				16#13 ->
+					A = <<", road_alarm_id, road_alarm_time, road_alarm_result">>,
+					B = list_to_binary([<<", ">>, common:integer_to_binary(Res1), common:integer_to_binary(Res2), common:integer_to_binary(Res3)]),
+					[TA, TB] = create_pos_app_sql_part(T),
+					[list_to_binary([A, TA]), list_to_binary([B, TB])];
+				_ ->
+					create_pos_app_sql_part(T)
+			end;
+		_ ->
+			[<<>>, <<>>]
+	end;
+create_pos_app_sql_part(_AppInfo) ->
+	[<<>>, <<>>].
 
 get_not_0_lat_lon(Lat, Lon, State) ->
     case Lat of
