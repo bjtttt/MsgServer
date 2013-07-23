@@ -191,34 +191,111 @@ combine_msg_packs(State, ID, MsgIdx, Total, Idx, Body) ->
     		NewState = State#vdritem{msg=MergedList},
 			{notcomplete, NewState};
     	_ ->
-			DelPack = del_pack_with_idx(MsgWithID, MsgIdx, Total, Idx),
-		    NewMsgWithID = lists:merge([[ID, MsgIdx, Total, Idx, Body]], DelPack),
-			%common:loginfo("DelPack : ~p~nNewMsgWithID : ~p~n", [DelPack, NewMsgWithID])
-            case check_msg(NewMsgWithID, Total) of
-                ok ->
-					%common:loginfo("Combine message ID (~p) is completed with ~p packages~n", [ID, Total]),
-                    Msg = compose_msg(NewMsgWithID, Total),
-					%common:loginfo("Combine message ID (~p) composes message : ~p~n", [ID, Msg]),
-                    [H|_T] = Msg,
-                    [_ID, FirstMsgIdx, _Total, _Idx, _Body] = H,
-					%common:loginfo("Combine message ID (~p) : checking message index based ~p~n", [ID, FirstMsgIdx]),
-                    case check_msg_idx(Msg, FirstMsgIdx) of
-                        ok ->
-                            NewState = State#vdritem{msg=MsgWithoutID},
-                            BinMsg = compose_real_msg(Msg),
-							%common:loginfo("Complete message : ~p~n", [BinMsg]),
-                            {complete, BinMsg, NewState};
-                        error ->
+			case check_ignored_msg(MsgWithID, MsgIdx, Total, Idx) of
+				new ->
+					NewMsgWithID = [[ID, MsgIdx, Total, Idx, Body]],
+		            case check_msg(NewMsgWithID, Total) of
+		                ok ->
+							%common:loginfo("Combine message ID (~p) is completed with ~p packages~n", [ID, Total]),
+		                    Msg = compose_msg(NewMsgWithID, Total),
+							%common:loginfo("Combine message ID (~p) composes message : ~p~n", [ID, Msg]),
+		                    [H|_T] = Msg,
+		                    [_ID, FirstMsgIdx, _Total, _Idx, _Body] = H,
+							%common:loginfo("Combine message ID (~p) : checking message index based ~p~n", [ID, FirstMsgIdx]),
+		                    case check_msg_idx(Msg, FirstMsgIdx) of
+		                        ok ->
+		                            NewState = State#vdritem{msg=MsgWithoutID},
+		                            BinMsg = compose_real_msg(Msg),
+									%common:loginfo("Complete message : ~p~n", [BinMsg]),
+		                            {complete, BinMsg, NewState};
+		                        error ->
+									MergedList = lists:merge(NewMsgWithID, MsgWithoutID),
+		                            NewState = State#vdritem{msg=MergedList},
+		                            {notcomplete, NewState}
+		                    end;
+		                error ->
 							MergedList = lists:merge(NewMsgWithID, MsgWithoutID),
-                            NewState = State#vdritem{msg=MergedList},
-                            {notcomplete, NewState}
-                    end;
-                error ->
-					MergedList = lists:merge(NewMsgWithID, MsgWithoutID),
-                    NewState = State#vdritem{msg=MergedList},
-                    {notcomplete, NewState}
-            end
+		                    NewState = State#vdritem{msg=MergedList},
+		                    {notcomplete, NewState}
+		            end;
+				false ->
+					DelPack = del_pack_with_idx(MsgWithID, MsgIdx, Total, Idx),
+				    NewMsgWithID = lists:merge([[ID, MsgIdx, Total, Idx, Body]], DelPack),
+					%common:loginfo("DelPack : ~p~nNewMsgWithID : ~p~n", [DelPack, NewMsgWithID])
+		            case check_msg(NewMsgWithID, Total) of
+		                ok ->
+							%common:loginfo("Combine message ID (~p) is completed with ~p packages~n", [ID, Total]),
+		                    Msg = compose_msg(NewMsgWithID, Total),
+							%common:loginfo("Combine message ID (~p) composes message : ~p~n", [ID, Msg]),
+		                    [H|_T] = Msg,
+		                    [_ID, FirstMsgIdx, _Total, _Idx, _Body] = H,
+							%common:loginfo("Combine message ID (~p) : checking message index based ~p~n", [ID, FirstMsgIdx]),
+		                    case check_msg_idx(Msg, FirstMsgIdx) of
+		                        ok ->
+		                            NewState = State#vdritem{msg=MsgWithoutID},
+		                            BinMsg = compose_real_msg(Msg),
+									%common:loginfo("Complete message : ~p~n", [BinMsg]),
+		                            {complete, BinMsg, NewState};
+		                        error ->
+									MergedList = lists:merge(NewMsgWithID, MsgWithoutID),
+		                            NewState = State#vdritem{msg=MergedList},
+		                            {notcomplete, NewState}
+		                    end;
+		                error ->
+							MergedList = lists:merge(NewMsgWithID, MsgWithoutID),
+		                    NewState = State#vdritem{msg=MergedList},
+		                    {notcomplete, NewState}
+		            end;
+				_ ->
+					ok
+			end
     end.
+
+check_ignored_msg(MsgWithID, MsgIdx, Total, Idx) when is_list(MsgWithID),
+													  length(MsgWithID) > 0,
+													  is_integer(MsgIdx),
+													  is_integer(Total),
+													  is_integer(Idx),
+													  Total >= Idx ->
+	[H|_T] = MsgWithID,
+	[_ID, HMsgIdx, HTotal, HIdx, _Body] = H,
+	if
+		HTotal =/= Total ->
+			true;
+		true ->
+			if
+				HMsgIdx > MsgIdx ->
+					if
+						HIdx > Idx ->
+							Diff0 = HMsgIdx - MsgIdx,
+							Diff1 = HIdx - Idx,
+							if
+								Diff0 =/= Diff1 ->
+									true;
+								true ->
+									false
+							end;
+						true ->
+							true
+					end;
+				HMsgIdx == MsgIdx ->
+					true;
+				HMsgIdx < MsgIdx ->
+					if
+						HIdx < Idx ->
+							Diff0 = MsgIdx - HMsgIdx,
+							Diff1 = Idx - HIdx,
+							if
+								Diff0 =/= Diff1 ->
+									new;
+								true ->
+									false
+							end;
+						true ->
+							true
+					end
+			end
+	end.
 
 %%%
 %%% Msg : [[ID0,FlowNum0,Total0,Index0,Data0],[ID1,FlowNum1,Total1,Index1,Data1],[ID2,FlowNum2,Total2,Index2,Data2],...
