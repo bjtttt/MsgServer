@@ -35,6 +35,7 @@
 	     create_set_term_args/2,
          create_term_query_args/0,
          create_query_specific_term_args/2,
+         create_term_ctrl/1,
          create_term_ctrl/2,
          create_query_term_property/0,
          create_update_packet/6,
@@ -1039,6 +1040,13 @@ create_term_ctrl(Type, _Arg) when is_integer(Type),
                                  Type < 8 ->
     <<Type:8>>;
 create_term_ctrl(_Type, _Arg) ->
+    <<>>.
+
+create_term_ctrl(Type) when is_integer(Type),
+                                 Type > 2,
+                                 Type < 8 ->
+    <<Type:8>>;
+create_term_ctrl(_Type) ->
     <<>>.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
