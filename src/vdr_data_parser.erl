@@ -208,7 +208,8 @@ combine_msg_packs(State, ID, MsgIdx, Total, Idx, Body) ->
 		                            NewState = State#vdritem{msg=MsgWithoutID},
 		                            BinMsg = compose_real_msg(Msg),
 									%common:loginfo("Complete message : ~p~n", [BinMsg]),
-		                            {complete, BinMsg, NewState};
+                                    NewMissingMsgIdx4Id = remove_msgidx_4_id(MissingMsgIdx4Id, ID),
+		                            {complete, BinMsg, NewState#vdritem{missingmsgidx4id={-1,NewMissingMsgIdx4Id}}};
 		                        error ->
 									MergedList = lists:merge(NewMsgWithID, MsgWithoutID),
 		                            NewState = State#vdritem{msg=MergedList},
@@ -236,7 +237,8 @@ combine_msg_packs(State, ID, MsgIdx, Total, Idx, Body) ->
 		                            NewState = State#vdritem{msg=MsgWithoutID},
 		                            BinMsg = compose_real_msg(Msg),
 									%common:loginfo("Complete message : ~p~n", [BinMsg]),
-		                            {complete, BinMsg, NewState};
+                                    NewMissingMsgIdx4Id = remove_msgidx_4_id(MissingMsgIdx4Id, ID),
+		                            {complete, BinMsg, NewState#vdritem{missingmsgidx4id={-1,NewMissingMsgIdx4Id}}};
 		                        error ->
 									MergedList = lists:merge(NewMsgWithID, MsgWithoutID),
 		                            NewState = State#vdritem{msg=MergedList},
@@ -252,6 +254,21 @@ combine_msg_packs(State, ID, MsgIdx, Total, Idx, Body) ->
 			end
     end.
 
+remove_msgidx_4_id(MissingMsgIdxList4Id, ID) when is_list(MissingMsgIdxList4Id),
+                                                  length(MissingMsgIdxList4Id),
+                                                  is_integer(ID),
+                                                  ID > 0 ->
+    [H|T] = MissingMsgIdxList4Id,
+    {HID, _HMsg} = H,
+    if
+        HID == ID ->
+            T;
+        true ->
+            lists:merge([H], remove_msgidx_4_id(T, ID))
+    end;
+remove_msgidx_4_id(_MissingMsgIdxList4Id, _ID) ->
+    [].
+
 update_all_missing_pack_msgidx_4_id(MissingMsgIdxList4Id, ID, MissingMsgIdxList) when is_list(MissingMsgIdxList4Id),
                                                                                       length(MissingMsgIdxList4Id),
                                                                                       is_integer(ID),
@@ -259,7 +276,7 @@ update_all_missing_pack_msgidx_4_id(MissingMsgIdxList4Id, ID, MissingMsgIdxList)
                                                                                       is_list(MissingMsgIdxList),
                                                                                       length(MissingMsgIdxList) > 0 ->
     [H|T] = MissingMsgIdxList4Id,
-    {HID, HMsg} = H,
+    {HID, _HMsg} = H,
     if
         HID == ID ->
             lists:merge([{ID, MissingMsgIdxList}], T);
