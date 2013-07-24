@@ -265,35 +265,45 @@ check_ignored_msg(MsgWithID, MsgIdx, Total, Idx) when is_list(MsgWithID),
 		true ->
 			if
 				HMsgIdx > MsgIdx ->
-					if
-						HIdx > Idx ->
-							Diff0 = HMsgIdx - MsgIdx,
-							Diff1 = HIdx - Idx,
-							if
-								Diff0 =/= Diff1 ->
-									true;
-								true ->
-									false
-							end;
-						true ->
-							true
+                    Diff0 = HMsgIdx - MsgIdx,
+                    if
+                        Diff0 >= HTotal ->
+                            true;
+                        true ->
+        					if
+        						HIdx > Idx ->
+        							Diff1 = HIdx - Idx,
+        							if
+        								Diff0 =/= Diff1 ->
+        									true;
+        								true ->
+        									false
+        							end;
+        						true ->
+        							true
+                            end
 					end;
 				HMsgIdx == MsgIdx ->
 					true;
 				HMsgIdx < MsgIdx ->
-					if
-						HIdx < Idx ->
-							Diff0 = MsgIdx - HMsgIdx,
-							Diff1 = Idx - HIdx,
-							if
-								Diff0 =/= Diff1 ->
-									new;
-								true ->
-									false
-							end;
-						true ->
-							true
-					end
+                    Diff0 = MsgIdx - HMsgIdx,
+                    if
+                        Diff0 >= HTotal ->
+                            new;
+                        true ->
+        					if
+        						HIdx < Idx ->
+        							Diff1 = Idx - HIdx,
+        							if
+        								Diff0 =/= Diff1 ->
+        									new;
+        								true ->
+        									false
+        							end;
+        						true ->
+        							true
+        					end
+                    end
 			end
 	end.
 
