@@ -190,7 +190,7 @@ combine_msg_packs(State, ID, MsgIdx, Total, Idx, Body) ->
         [] ->
 			MergedList = lists:merge([[ID,MsgIdx,Total,Idx,Body]], StoredMsg),
             NewMsgPackages = update_msg_packs(MsgPackages, ID, get_missing_pack_msgidxs([[ID,MsgIdx,Total,Idx,Body]])),
-			common:loginfo("VDR (~p) (id:~p, serialno:~p, authen_code:~p, vehicleid:~p, vehiclecode:~p) new msg packages 0 : ~p~n", 
+			common:loginfo("VDR (~p) (id:~p, serialno:~p, authen_code:~p, vehicleid:~p, vehiclecode:~p)~nNew msg packages 0 : ~p~n", 
 						   [State#vdritem.addr,
 							State#vdritem.id,
 							State#vdritem.serialno,
@@ -218,7 +218,7 @@ combine_msg_packs(State, ID, MsgIdx, Total, Idx, Body) ->
 		                            BinMsg = compose_real_msg(Msg),
 									%common:loginfo("Complete message : ~p~n", [BinMsg]),
                                     NewMsgPackages = remove_msgidx_with_id(MsgPackages, ID),
-									common:loginfo("VDR (~p) (id:~p, serialno:~p, authen_code:~p, vehicleid:~p, vehiclecode:~p) new msg packages 1 : ~p~n", 
+									common:loginfo("VDR (~p) (id:~p, serialno:~p, authen_code:~p, vehicleid:~p, vehiclecode:~p)~nNew msg packages 1 : ~p~n", 
 												   [State#vdritem.addr,
 													State#vdritem.id,
 													State#vdritem.serialno,
@@ -230,7 +230,7 @@ combine_msg_packs(State, ID, MsgIdx, Total, Idx, Body) ->
 		                        error ->
 									MergedList = lists:merge(NewMsgWithID, MsgWithoutID),
                                     NewMsgPackages = update_msg_packs(MsgPackages, ID, get_missing_pack_msgidxs(NewMsgWithID)),
-									common:loginfo("VDR (~p) (id:~p, serialno:~p, authen_code:~p, vehicleid:~p, vehiclecode:~p) new msg packages 2 : ~p~n", 
+									common:loginfo("VDR (~p) (id:~p, serialno:~p, authen_code:~p, vehicleid:~p, vehiclecode:~p)~nNew msg packages 2 : ~p~n", 
 												   [State#vdritem.addr,
 													State#vdritem.id,
 													State#vdritem.serialno,
@@ -244,7 +244,7 @@ combine_msg_packs(State, ID, MsgIdx, Total, Idx, Body) ->
 		                error ->
 							MergedList = lists:merge(NewMsgWithID, MsgWithoutID),
                             NewMsgPackages = update_msg_packs(MsgPackages, ID, get_missing_pack_msgidxs(NewMsgWithID)),
-							common:loginfo("VDR (~p) (id:~p, serialno:~p, authen_code:~p, vehicleid:~p, vehiclecode:~p) new msg packages 3 : ~p~n", 
+							common:loginfo("VDR (~p) (id:~p, serialno:~p, authen_code:~p, vehicleid:~p, vehiclecode:~p)~nNew msg packages 3 : ~p~n", 
 										   [State#vdritem.addr,
 											State#vdritem.id,
 											State#vdritem.serialno,
@@ -273,7 +273,7 @@ combine_msg_packs(State, ID, MsgIdx, Total, Idx, Body) ->
 		                            BinMsg = compose_real_msg(Msg),
 									%common:loginfo("Complete message : ~p~n", [BinMsg]),
                                     NewMsgPackages = remove_msgidx_with_id(MsgPackages, ID),
-									common:loginfo("VDR (~p) (id:~p, serialno:~p, authen_code:~p, vehicleid:~p, vehiclecode:~p) new msg packages 4 : ~p~n", 
+									common:loginfo("VDR (~p) (id:~p, serialno:~p, authen_code:~p, vehicleid:~p, vehiclecode:~p)~nNew msg packages 4 : ~p~n", 
 												   [State#vdritem.addr,
 													State#vdritem.id,
 													State#vdritem.serialno,
@@ -285,7 +285,7 @@ combine_msg_packs(State, ID, MsgIdx, Total, Idx, Body) ->
 		                        error ->
 									MergedList = lists:merge(NewMsgWithID, MsgWithoutID),
                                     NewMsgPackages = update_msg_packs(MsgPackages, ID, get_missing_pack_msgidxs(NewMsgWithID)),
-									common:loginfo("VDR (~p) (id:~p, serialno:~p, authen_code:~p, vehicleid:~p, vehiclecode:~p) new msg packages 5 : ~p~n", 
+									common:loginfo("VDR (~p) (id:~p, serialno:~p, authen_code:~p, vehicleid:~p, vehiclecode:~p)~nNew msg packages 5 : ~p~n", 
 												   [State#vdritem.addr,
 													State#vdritem.id,
 													State#vdritem.serialno,
@@ -299,7 +299,7 @@ combine_msg_packs(State, ID, MsgIdx, Total, Idx, Body) ->
 		                error ->
 							MergedList = lists:merge(NewMsgWithID, MsgWithoutID),
                             NewMsgPackages = update_msg_packs(MsgPackages, ID, get_missing_pack_msgidxs(NewMsgWithID)),
-							common:loginfo("VDR (~p) (id:~p, serialno:~p, authen_code:~p, vehicleid:~p, vehiclecode:~p) new msg packages 6 : ~p~n", 
+							common:loginfo("VDR (~p) (id:~p, serialno:~p, authen_code:~p, vehicleid:~p, vehiclecode:~p)~nNew msg packages 6 : ~p~n", 
 										   [State#vdritem.addr,
 											State#vdritem.id,
 											State#vdritem.serialno,
@@ -338,7 +338,7 @@ remove_msgidx_with_id(MsgPacks, ID) when is_list(MsgPacks),
             		lists:merge([H], remove_msgidx_with_id(T, ID))
 			end
     end;
-remove_msgidx_with_id(MsgPacks, _ID) ->
+remove_msgidx_with_id(_MsgPacks, _ID) ->
     [].
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -367,7 +367,7 @@ update_msg_packs(MsgPacks, ID, MsgIdxs) when is_list(MsgPacks),
 		true ->
 			lists:merge([[H]], update_msg_packs(T, ID, MsgIdxs))
 	end;
-update_msg_packs(MsgPacks, ID, MsgIdxs) ->
+update_msg_packs(MsgPacks, _ID, _MsgIdxs) ->
 	MsgPacks.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
