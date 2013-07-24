@@ -185,6 +185,7 @@ combine_msg_packs(State, ID, MsgIdx, Total, Idx, Body) ->
     % Get all msg packages without the same ID
     MsgWithoutID = get_msg_without_id(StoredMsg, ID),  % [E || E <- State#vdritem.msg, [HID,_HFlowNum,_HTotal,_HIdx,_HBody] = E, HID =/= ID ]
 	%common:loginfo("Combine message ID (~p) : (ID count)~p:(NOT ID count)~p~n(Index)~p:(Total)~p~n", [ID, length(MsgWithID), length(MsgWithoutID), Idx, Total]),
+    {LastID, MissingMsgIdx4Id} = State#vdritem.missingmsgidx4id,
     case MsgWithID of
         [] ->
 			MergedList = lists:merge([[ID,MsgIdx,Total,Idx,Body]], StoredMsg),
@@ -250,6 +251,47 @@ combine_msg_packs(State, ID, MsgIdx, Total, Idx, Body) ->
 					ok
 			end
     end.
+
+update_all_missing_pack_msgidx_4_id(MissingMsgIdxList4Id, ID, MissingMsgIdxList) when is_list(MissingMsgIdxList4Id),
+                                                                                      length(MissingMsgIdxList4Id),
+                                                                                      is_integer(ID),
+                                                                                      ID > 0,
+                                                                                      is_list(MissingMsgIdxList),
+                                                                                      length(MissingMsgIdxList) > 0 ->
+    [H|T] = MissingMsgIdxList4Id,
+    {HID, HMsg} = H,
+    if
+        HID == ID ->
+            lists:merge([{ID, MissingMsgIdxList}], T);
+        true ->
+            lists:merge([H], update_all_missing_pack_msgidx_4_id(T, ID, MissingMsgIdxList))
+    end.                                                                                                                      
+
+get_all_missing_pack_msgidx(MsgWithID) when is_list(MsgWithID),
+                                            length(MsgWithID) > 0 ->
+    Last = lists:last(MsgWithID),
+    [_ID, LMsgIdx, _Total, LIdx, _Body] = Last,
+    if
+        LIdx == 1 ->
+            [];
+        true ->
+            MissingIdxList = del_num_from_num_list([E || E <- lists:seq(1, LIdx)], MsgWithID),
+            calc_all_missing_pack_msgidx(MissingIdxList, LIdx, LMsgIdx)
+    end;
+get_all_missing_pack_msgidx(_MsgWithID) ->
+    [].
+
+calc_all_missing_pack_msgidx(MissingIdxList, CurLastIdx, CurLastMsgIdx) when is_list(MissingIdxList),
+                                                                             length(MissingIdxList) > 0,
+                                                                             is_integer(CurLastIdx),
+                                                                             CurLastIdx > 0,
+                                                                             is_integer(CurLastMsgIdx),
+                                                                             CurLastMsgIdx > 0 ->
+    [H|T] = MissingIdxList,
+    MissingMsgIdx = CurLastMsgIdx - (CurLastIdx - H),
+    lists:merge([[MissingMsgIdx], calc_all_missing_pack_msgidx(T, CurLastIdx, CurLastMsgIdx)]);
+calc_all_missing_pack_msgidx(MissingIdxList, CurLastIdx, CurLastMsgIdx) ->
+    [].
 
 check_ignored_msg(MsgWithID, MsgIdx, Total, Idx) when is_list(MsgWithID),
 													  length(MsgWithID) > 0,
