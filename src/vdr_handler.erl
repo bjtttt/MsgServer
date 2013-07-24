@@ -896,11 +896,33 @@ do_process_vdr_data(Socket, Data, State) ->
             MsgBody = vdr_data_processor:create_gen_resp(ID, MsgIdx, ?T_GEN_RESP_OK),
             common:loginfo("~p sends VDR (~p) response for ignore ~p : ~p~n", [NewState#vdritem.pid, NewState#vdritem.addr, ID, MsgBody]),
             NewFlowIdx = send_data_to_vdr(16#8001, FlowIdx, MsgBody, VDRPid),
-			
-            [VDRItem] = ets:lookup(vdrtable, Socket),
-			ets:insert(vdrtable, VDRItem#vdritem{msg=NewState#vdritem.msg}),
             
-            {ok, NewState#vdritem{msgflownum=NewFlowIdx}};
+            {RequiredId, MissingMsgIdx4Id} = NewState#vdritem.missingmsgidx4id,
+            if
+                RequiredId > -1 ->
+                    MissingMsgIdx = find_missing_msgidx(RequiredId, MissingMsgIdx4Id),
+                    case MissingMsgIdx of
+                        [] ->
+                            [VDRItem] = ets:lookup(vdrtable, Socket),
+                            ets:insert(vdrtable, VDRItem#vdritem{msg=NewState#vdritem.msg}),
+                            
+                            {ok, NewState#vdritem{msgflownum=NewFlowIdx}};
+                        _ ->
+                            MsgBody1 = vdr_data_processor:create_resend_subpack_req(0, length(MissingMsgIdx), MissingMsgIdx),
+                            common:loginfo("~p sends VDR (~p) request for resend : ~p~n", [NewState#vdritem.pid, NewState#vdritem.addr, MsgBody1]),
+                            NewFlowIdx1 = send_data_to_vdr(16#8001, FlowIdx, MsgBody, VDRPid),
+
+                            [VDRItem] = ets:lookup(vdrtable, Socket),
+                            ets:insert(vdrtable, VDRItem#vdritem{msg=NewState#vdritem.msg}),
+                            
+                            {ok, NewState#vdritem{msgflownum=NewFlowIdx1}}
+                    end;
+                true ->
+                    [VDRItem] = ets:lookup(vdrtable, Socket),
+                    ets:insert(vdrtable, VDRItem#vdritem{msg=NewState#vdritem.msg}),
+                    
+                    {ok, NewState#vdritem{msgflownum=NewFlowIdx}}
+            end;			
         {warning, HeaderInfo, ErrorType, NewState} ->
             {ID, MsgIdx, _Tel, _CryptoType} = HeaderInfo,
             FlowIdx = NewState#vdritem.msgflownum,
@@ -912,6 +934,21 @@ do_process_vdr_data(Socket, Data, State) ->
         {error, _ErrorType, NewState} ->    % exception/parityerror/formaterror
             {error, vdrerror, NewState}
     end.
+
+find_missing_msgidx(RequiredId, MissingMsgIdx4Id) when is_integer(RequiredId),
+                                                       RequiredId > -1,
+                                                       is_list(MissingMsgIdx4Id),
+                                                       length(MissingMsgIdx4Id) > 0 ->
+    [H|T] = MissingMsgIdx4Id,
+    {HId, HMsgIdxList} = H,
+    if
+        HId == RequiredId ->
+            HMsgIdxList;
+        true ->
+            find_missing_msgidx(RequiredId, T)
+    end;
+find_missing_msgidx(_RequiredId, _MissingMsgIdx4Id) ->
+    [].
 
 process_pos_info(ID, MsgIdx, VDRPid, HeadInfo, Msg, NewState) ->
     case create_sql_from_vdr(HeadInfo, Msg, NewState) of

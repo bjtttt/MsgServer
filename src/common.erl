@@ -668,7 +668,5 @@ convert_gbk_to_utf8(Src) when is_binary(Src) orelse is_list(Src) ->
     end;
 convert_gbk_to_utf8(Src) ->
     Src.
-
-    
     
 
