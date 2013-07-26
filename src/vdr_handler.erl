@@ -603,7 +603,8 @@ do_process_vdr_data(Socket, Data, State) ->
                             common:loginfo("Gateway (~p) receives VDR (~p) general response (16#1) : RespFlowIdx (~p), RespID (~p), Res (~p)~n", [State#vdritem.pid, State#vdritem.addr, RespFlowIdx, RespID, Res]),
                             
                             if
-                                RespID == 16#8103 orelse 
+                                %RespID == 16#8003 orelse
+									RespID == 16#8103 orelse
 									RespID == 16#8203 orelse	% has issue
 									RespID == 16#8602 orelse	% need further tested
 									RespID == 16#8603 orelse
@@ -897,20 +898,25 @@ do_process_vdr_data(Socket, Data, State) ->
             common:loginfo("~p sends VDR (~p) response for ignore ~p : ~p~n", [NewState#vdritem.pid, NewState#vdritem.addr, ID, MsgBody]),
             NewFlowIdx = send_data_to_vdr(16#8001, FlowIdx, MsgBody, VDRPid),
             
-            {RequiredId, MissingMsgIdx4Id} = NewState#vdritem.missingmsgidx4id,
+            {RequiredId, MsgPackages} = NewState#vdritem.msgpackages,
             if
                 RequiredId > -1 ->
-                    MissingMsgIdx = find_missing_msgidx(RequiredId, MissingMsgIdx4Id),
+                    MissingMsgIdx = find_missing_msgidx(RequiredId, MsgPackages),
                     case MissingMsgIdx of
-                        [] ->
+                        none ->
                             [VDRItem] = ets:lookup(vdrtable, Socket),
                             ets:insert(vdrtable, VDRItem#vdritem{msg=NewState#vdritem.msg}),
                             
                             {ok, NewState#vdritem{msgflownum=NewFlowIdx}};
-                        _ ->
-                            MsgBody1 = vdr_data_processor:create_resend_subpack_req(0, length(MissingMsgIdx), MissingMsgIdx),
-                            common:loginfo("~p sends VDR (~p) request for resend : ~p~n", [NewState#vdritem.pid, NewState#vdritem.addr, MsgBody1]),
-                            NewFlowIdx1 = send_data_to_vdr(16#8001, FlowIdx, MsgBody, VDRPid),
+                        {FirstmsgIdxID, MsgIdxsID} ->
+                            MsgBody1 = vdr_data_processor:create_resend_subpack_req(FirstmsgIdxID, length(MsgIdxsID), MsgIdxsID),
+                            common:loginfo("~p sends VDR (~p) request for resend : fisrt msg id ~p, msg indexes ~p~n~p~n", 
+										   [NewState#vdritem.pid, 
+											NewState#vdritem.addr, 
+											FirstmsgIdxID, 
+											MsgIdxsID, 
+											MsgBody1]),
+                            NewFlowIdx1 = send_data_to_vdr(16#8003, FlowIdx, MsgBody, VDRPid),
 
                             [VDRItem] = ets:lookup(vdrtable, Socket),
                             ets:insert(vdrtable, VDRItem#vdritem{msg=NewState#vdritem.msg}),
@@ -935,20 +941,20 @@ do_process_vdr_data(Socket, Data, State) ->
             {error, vdrerror, NewState}
     end.
 
-find_missing_msgidx(RequiredId, MissingMsgIdx4Id) when is_integer(RequiredId),
-                                                       RequiredId > -1,
-                                                       is_list(MissingMsgIdx4Id),
-                                                       length(MissingMsgIdx4Id) > 0 ->
-    [H|T] = MissingMsgIdx4Id,
-    {HId, HMsgIdxList} = H,
+find_missing_msgidx(RequiredId, MsgPackages) when is_integer(RequiredId),
+                                                  RequiredId > -1,
+                                                  is_list(MsgPackages),
+                                                  length(MsgPackages) > 0 ->
+    [H|T] = MsgPackages,
+    [HId, HFirstmsgIdx, HMsgIdxs] = H,
     if
         HId == RequiredId ->
-            HMsgIdxList;
+            {HFirstmsgIdx, HMsgIdxs};
         true ->
-            find_missing_msgidx(RequiredId, T)
+    		find_missing_msgidx(RequiredId, T)
     end;
-find_missing_msgidx(_RequiredId, _MissingMsgIdx4Id) ->
-    [].
+find_missing_msgidx(_RequiredId, _MsgPackages) ->
+    none.
 
 process_pos_info(ID, MsgIdx, VDRPid, HeadInfo, Msg, NewState) ->
     case create_sql_from_vdr(HeadInfo, Msg, NewState) of
