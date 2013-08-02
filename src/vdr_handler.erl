@@ -531,7 +531,7 @@ do_process_vdr_data(Socket, Data, State) ->
 				                                                                                                  vehiclecode=binary_to_list(VehicleCode),
 																									              driverid=DriverID,
 				                                                                                                  msgflownum=NewFlowIdx, msg2vdr=[], msg=[], req=[],
-																									              alarmlist=[]},
+																									              alarm=0, alarmlist=[], state=0, statelist=[]},
 																					ets:insert(vdrtable, FinalState),
 				                                        
 				                                                                    {ok, FinalState};
