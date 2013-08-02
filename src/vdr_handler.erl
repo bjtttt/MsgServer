@@ -497,7 +497,7 @@ do_process_vdr_data(Socket, Data, State) ->
 		                                                                                     '_', '_', '_', '_', '_',
 		                                                                                     '_', '_', '_', '_', '_',
 		                                                                                     '_', '_', '_', '_', '_',
-																							 '_', '_', '_', '_', '_'}),
+																							 '_', '_', '_', '_', '_', '_', '_'}),
 		                                                    disconn_socket_by_id(SockList0),
 		                                                    SockVdrList = ets:lookup(vdrtable, Socket),
 		                                                    case length(SockVdrList) of
