@@ -360,7 +360,7 @@ do_process_vdr_data(Socket, Data, State) ->
 		                                                            update_reg_install_time(DeviceID, DeviceRegTime, VehicleID, VehicleDeviceInstallTime, NewState),        
 		                                                            
 		                                                            % return error to terminate VDR connection
-		                                                            {ok, NewState#vdritem{msgflownum=NewFlowIdx, msg2vdr=[], msg=[], req=[]}};
+		                                                            {ok, NewState#vdritem{msgflownum=NewFlowIdx, msg2vdr=[], msg=[], req=[], alarm=0, alarmlist=[], state=0, statelist=[]}};
 																false ->
 		                                                            MsgBody = vdr_data_processor:create_reg_resp(MsgIdx, 0, list_to_binary(DeviceAuthenCode)),
 		                                                            common:loginfo("~p sends VDR registration response (ok) (vehicle code : ~p) : ~p~n", [NewState#vdritem.pid, VehicleCode, MsgBody]),
@@ -398,7 +398,7 @@ do_process_vdr_data(Socket, Data, State) ->
                                                             NewFlowIdx = send_data_to_vdr(16#8100, FlowIdx, MsgBody, VDRPid),
                                                             
                                                             % return error to terminate VDR connection
-                                                            {ok, NewState#vdritem{msgflownum=NewFlowIdx, msg2vdr=[], msg=[], req=[]}}
+                                                            {ok, NewState#vdritem{msgflownum=NewFlowIdx, msg2vdr=[], msg=[], req=[], alarm=0, alarmlist=[], state=0, statelist=[]}}
                                                     end;
                                                 VehicleDeviceID == undefined andalso DeviceVehicleID =/= undefined -> % Vehicle registered
                                                     if
@@ -425,7 +425,7 @@ do_process_vdr_data(Socket, Data, State) ->
                                                             NewFlowIdx = send_data_to_vdr(16#8100, FlowIdx, MsgBody, VDRPid),
 
                                                             % return error to terminate VDR connection
-                                                            {ok, NewState#vdritem{msgflownum=NewFlowIdx, msg2vdr=[], msg=[], req=[]}}
+                                                            {ok, NewState#vdritem{msgflownum=NewFlowIdx, msg2vdr=[], msg=[], req=[], alarm=0, alarmlist=[], state=0, statelist=[]}}
                                                     end;
                                                 VehicleDeviceID == undefined andalso DeviceVehicleID == undefined ->
                                                     VDRVehicleIDSql = list_to_binary([<<"update device set vehicle_id='">>,
@@ -447,7 +447,7 @@ do_process_vdr_data(Socket, Data, State) ->
                                                     common:loginfo("~p sends VDR (~p) registration response (ok) (vehicle code : ~p) : ~p~n", [NewState#vdritem.pid, NewState#vdritem.addr, VehicleCode, MsgBody]),
                                                     NewFlowIdx = send_data_to_vdr(16#8100, FlowIdx, MsgBody, VDRPid),
                                                     
-                                                    {ok, NewState#vdritem{msgflownum=NewFlowIdx, msg2vdr=[], msg=[], req=[]}};
+                                                    {ok, NewState#vdritem{msgflownum=NewFlowIdx, msg2vdr=[], msg=[], req=[], alarm=0, alarmlist=[], state=0, statelist=[]}};
                                                 true -> % Impossible condition
                                                     {error, dberror, NewState}
                                             end;
@@ -539,6 +539,7 @@ do_process_vdr_data(Socket, Data, State) ->
 				                                                                    {error, wserror, NewState}
 				                                                            end;
 																		{ok, Reses} ->
+																			% Initialize the alarm list immediately after auth
 																			AlarmList = get_alarm_list(Reses),
 																			common:loginfo("Original AlarmList : ~p~n", [AlarmList]),		                                                            
 				                                                            case wsock_data_parser:create_term_online([VehicleID]) of
@@ -1021,6 +1022,12 @@ process_pos_info(ID, MsgIdx, VDRPid, HeadInfo, Msg, NewState) ->
             {error, invaliderror, NewState}
     end.
 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%
+% Return	: [{ID0, "YY-MM-DD hh:mm:ss"}, {ID1, , "YY-MM-DD hh:mm:ss"}, ...]
+% "YY-MM-DD hh:mm:ss" is alarm time.
+%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 get_alarm_list(AlarmList) when is_list(AlarmList),
 							   length(AlarmList) > 0 ->
 	[H|T] = AlarmList,
