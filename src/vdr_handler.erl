@@ -560,7 +560,7 @@ do_process_vdr_data(Socket, Data, State) ->
 				                                                                                                  vehiclecode=binary_to_list(VehicleCode),
 																									              driverid=DriverID,
 				                                                                                                  msgflownum=NewFlowIdx, msg2vdr=[], msg=[], req=[],
-																									              alarmlist=AlarmList},
+																									              alarm=0, alarmlist=AlarmList, state=0, statelist=[]},
 																					ets:insert(vdrtable, FinalState),
 																					
 				                                                                    {ok, FinalState};
@@ -957,6 +957,20 @@ find_missing_msgidx(RequiredId, MsgPackages) when is_integer(RequiredId),
 find_missing_msgidx(_RequiredId, _MsgPackages) ->
     none.
 
+create_time_list_and_binary(Time) when is_integer(Time) ->
+    <<Year:8, Month:8, Day:8, Hour:8, Minute:8, Second:8>> = <<Time:48>>,
+    YearBin = common:integer_to_binary(common:convert_bcd_integer(Year)),
+    MonthBin = common:integer_to_binary(common:convert_bcd_integer(Month)),
+    DayBin = common:integer_to_binary(common:convert_bcd_integer(Day)),
+    HourBin = common:integer_to_binary(common:convert_bcd_integer(Hour)),
+    MinuteBin = common:integer_to_binary(common:convert_bcd_integer(Minute)),
+    SecondBin = common:integer_to_binary(common:convert_bcd_integer(Second)),
+	TimeBin = list_to_binary([YearBin, <<"-">>, MonthBin, <<"-">>, DayBin, <<" ">>, HourBin, <<":">>, MinuteBin, <<":">>, SecondBin]),
+	TimeList = binary_to_list(TimeBin),
+	{TimeBin, TimeList};
+create_time_list_and_binary(_Time) ->
+	{<<"2000-01-01 00:00:00">>, "2000-01-01 00:00:00"}.
+
 process_pos_info(ID, MsgIdx, VDRPid, HeadInfo, Msg, NewState) ->
     case create_sql_from_vdr(HeadInfo, Msg, NewState) of
         {ok, Sqls} ->
@@ -965,6 +979,7 @@ process_pos_info(ID, MsgIdx, VDRPid, HeadInfo, Msg, NewState) ->
             
             FlowIdx = NewState#vdritem.msgflownum,
             PreviousAlarm = NewState#vdritem.alarm,
+            PreviousState = NewState#vdritem.state,
             
             {H, _AppInfo} = Msg,
             [AlarmSym, StateFlag, LatOri, LonOri, _Height, _Speed, _Direction, Time]= H,
@@ -977,15 +992,8 @@ process_pos_info(ID, MsgIdx, VDRPid, HeadInfo, Msg, NewState) ->
                     
                     {ok, NewState#vdritem{msgflownum=NewFlowIdx, alarm=AlarmSym, lastlat=Lat, lastlon=Lon}};
                 true ->
-                    <<Year:8, Month:8, Day:8, Hour:8, Minute:8, Second:8>> = <<Time:48>>,
-                    YearBin = common:integer_to_binary(common:convert_bcd_integer(Year)),
-                    MonthBin = common:integer_to_binary(common:convert_bcd_integer(Month)),
-                    DayBin = common:integer_to_binary(common:convert_bcd_integer(Day)),
-                    HourBin = common:integer_to_binary(common:convert_bcd_integer(Hour)),
-                    MinuteBin = common:integer_to_binary(common:convert_bcd_integer(Minute)),
-                    SecondBin = common:integer_to_binary(common:convert_bcd_integer(Second)),
-                    TimeS = binary_to_list(list_to_binary([YearBin, <<"-">>, MonthBin, <<"-">>, DayBin, <<" ">>, HourBin, <<":">>, MinuteBin, <<":">>, SecondBin])),
-                    TimeBinS = list_to_binary([<<"\"">>, YearBin, <<"-">>, MonthBin, <<"-">>, DayBin, <<" ">>, HourBin, <<":">>, MinuteBin, <<":">>, SecondBin, <<"\"">>]),
+					{TimeBin, TimeS} = create_time_list_and_binary(Time),
+                    TimeBinS = list_to_binary([<<"\"">>, TimeBin, <<"\"">>]),
 					
 					AlarmList = update_vehicle_alarm(NewState#vdritem.vehicleid, NewState#vdritem.driverid, TimeS, AlarmSym, 0, NewState),
 					if
