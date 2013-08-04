@@ -70,7 +70,7 @@ start(StartType, StartArgs) ->
 					%mysql:utf8connect(conn, DB, undefined, DBUid, DBPwd, DBName, true),
                     
                     %mysql:fetch(regauth, <<"set names 'utf8">>),
-                    mysql:fetch(conn, <<"set names 'utf8">>),
+                    %mysql:fetch(conn, <<"set names 'utf8">>),
                     %mysql:fetch(cmd, <<"set names 'utf8">>),
 
                     WSPid = spawn(fun() -> wsock_client:wsock_client_process() end),

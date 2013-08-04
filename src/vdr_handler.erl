@@ -26,7 +26,7 @@ init([Sock, Addr]) ->
     [{ccpid, CCPid}] = ets:lookup(msgservertable, ccpid),
     State = #vdritem{socket=Sock, pid=Pid, vdrpid=VDRPid, respwspid=RespWSPid, addr=Addr, msgflownum=1, errorcount=0, dbpid=DBPid, wspid=WSPid, vdrmsgtimeoutpid=VdrMsgMonitorPid, ccpid=CCPid},
 	%mysql:fetch(regauth, <<"set names 'utf8'">>),
-	mysql:fetch(conn, <<"set names 'utf8'">>),
+	%mysql:fetch(conn, <<"set names 'utf8'">>),
 	%mysql:fetch(cmd, <<"set names 'utf8'">>),
     ets:insert(vdrtable, State), 
     inet:setopts(Sock, [{active, once}]),
@@ -484,7 +484,7 @@ do_process_vdr_data(Socket, Data, State) ->
 											if
 												VehicleCode =/= undefined andalso binary_part(VehicleCode, 0, 1) == <<"?">> ->
 													common:logerror("VDR (~p) Vehicle Code has invalid character \"?\"~n and will be disconnected : ~p~n", [VehicleCode]),
-													mysql:fetch(conn, <<"set names 'utf8'">>),
+													%mysql:fetch(conn, <<"set names 'utf8'">>),
 													{error, dberror, NewState};
 												true ->
 		                                            if
