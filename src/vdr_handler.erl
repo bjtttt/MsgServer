@@ -979,27 +979,35 @@ process_pos_info(ID, MsgIdx, VDRPid, HeadInfo, Msg, NewState) ->
             
             FlowIdx = NewState#vdritem.msgflownum,
             PreviousAlarm = NewState#vdritem.alarm,
-            PreviousState = NewState#vdritem.state,
+            %PreviousState = NewState#vdritem.state,
             
             {H, _AppInfo} = Msg,
             [AlarmSym, StateFlag, LatOri, LonOri, _Height, _Speed, _Direction, Time]= H,
             {Lat, Lon} = get_not_0_lat_lon(LatOri, LonOri, NewState),
             if
                 AlarmSym == PreviousAlarm ->
-					if
-						StateFlag == PreviousState ->						% Do nothing because of no changes for state and alarm
-		                    MsgBody = vdr_data_processor:create_gen_resp(ID, MsgIdx, ?T_GEN_RESP_OK),
-		                    common:loginfo("~p sends VDR (~p) response for 16#200 (ok) : ~p~n", [NewState#vdritem.pid, NewState#vdritem.addr, MsgBody]),
-		                    NewFlowIdx = send_data_to_vdr(16#8001, FlowIdx, MsgBody, VDRPid),
-							
-							{ok, NewState#vdritem{msgflownum=NewFlowIdx, alarm=AlarmSym, state=StateFlag, lastlat=Lat, lastlon=Lon}};
-						true ->												% Update state while do nothing for alarm
-		                    MsgBody = vdr_data_processor:create_gen_resp(ID, MsgIdx, ?T_GEN_RESP_OK),
-		                    common:loginfo("~p sends VDR (~p) response for 16#200 (ok) : ~p~n", [NewState#vdritem.pid, NewState#vdritem.addr, MsgBody]),
-		                    NewFlowIdx = send_data_to_vdr(16#8001, FlowIdx, MsgBody, VDRPid),
-
-							{ok, NewState#vdritem{msgflownum=NewFlowIdx, alarm=AlarmSym, state=StateFlag, lastlat=Lat, lastlon=Lon}}
-					end;
+					%if
+					%	StateFlag == PreviousState ->						% Do nothing because of no changes for state and alarm
+		            %        MsgBody = vdr_data_processor:create_gen_resp(ID, MsgIdx, ?T_GEN_RESP_OK),
+		            %        common:loginfo("~p sends VDR (~p) response for 16#200 (ok) : ~p~n", [NewState#vdritem.pid, NewState#vdritem.addr, MsgBody]),
+		            %        NewFlowIdx = send_data_to_vdr(16#8001, FlowIdx, MsgBody, VDRPid),
+					%		
+					%		{ok, NewState#vdritem{msgflownum=NewFlowIdx, alarm=AlarmSym, state=StateFlag, lastlat=Lat, lastlon=Lon}};
+					%	true ->												% Update state while do nothing for alarm
+					%		
+					%		
+		            %        MsgBody = vdr_data_processor:create_gen_resp(ID, MsgIdx, ?T_GEN_RESP_OK),
+		            %        common:loginfo("~p sends VDR (~p) response for 16#200 (ok) : ~p~n", [NewState#vdritem.pid, NewState#vdritem.addr, MsgBody]),
+		            %        NewFlowIdx = send_data_to_vdr(16#8001, FlowIdx, MsgBody, VDRPid),
+					%
+					%		{ok, NewState#vdritem{msgflownum=NewFlowIdx, alarm=AlarmSym, state=StateFlag, lastlat=Lat, lastlon=Lon}}
+					%end;
+				
+		            MsgBody = vdr_data_processor:create_gen_resp(ID, MsgIdx, ?T_GEN_RESP_OK),
+		            common:loginfo("~p sends VDR (~p) response for 16#200 (ok) : ~p~n", [NewState#vdritem.pid, NewState#vdritem.addr, MsgBody]),
+		            NewFlowIdx = send_data_to_vdr(16#8001, FlowIdx, MsgBody, VDRPid),
+					
+					{ok, NewState#vdritem{msgflownum=NewFlowIdx, alarm=AlarmSym, state=StateFlag, lastlat=Lat, lastlon=Lon}};
                 true ->
 					{TimeBin, TimeS} = create_time_list_and_binary(Time),
                     TimeBinS = list_to_binary([<<"\"">>, TimeBin, <<"\"">>]),
@@ -1009,35 +1017,149 @@ process_pos_info(ID, MsgIdx, VDRPid, HeadInfo, Msg, NewState) ->
 						AlarmList == NewState#vdritem.alarmlist ->
 							common:loginfo("No new alarms updated~n");
 						AlarmList =/= NewState#vdritem.alarmlist ->
-                            {ok, WSUpdate} = wsock_data_parser:create_term_alarm([NewState#vdritem.vehicleid],
-                                                                                 FlowIdx,
-                                                                                 common:combine_strings(["\"", NewState#vdritem.vehiclecode, "\""], false),
-                                                                                 AlarmSym,
-                                                                                 StateFlag,
-                                                                                 Lat, 
-                                                                                 Lon,
-                                                                                 binary_to_list(TimeBinS)),
-                            common:loginfo("Old alarms : ~p~nNew alarms : ~p~nVDR (~p) vehicle(~p) driver(~p) WS Alarm for 0x200: ~p~n", 
-										   [NewState#vdritem.alarmlist, 
-											AlarmList,
-											NewState#vdritem.addr, 
-											NewState#vdritem.vehicleid, 
-											NewState#vdritem.driverid, 
-											WSUpdate]),
-                            send_msg_to_ws(WSUpdate, NewState) %wsock_client:send(WSUpdate)
+							NewSetAlarmList = find_alarm_in_lista_not_in_listb(AlarmList, NewState#vdritem.alarmlist),
+							NewClearAlarmList = find_alarm_in_lista_not_in_listb(NewState#vdritem.alarmlist, AlarmList),
+							
+							send_masg_to_ws_alarm(FlowIdx, NewSetAlarmList, 1, Lat, Lon, TimeBinS, NewState),
+							send_masg_to_ws_alarm(FlowIdx, NewClearAlarmList, 0, Lat, Lon, TimeBinS, NewState)
+							
+                            %{ok, WSUpdate} = wsock_data_parser:create_term_alarm([NewState#vdritem.vehicleid],
+                            %                                                     FlowIdx,
+                            %                                                     common:combine_strings(["\"", NewState#vdritem.vehiclecode, "\""], false),
+                            %                                                     AlarmSym,
+                            %                                                     StateFlag,
+                            %                                                     Lat, 
+                            %                                                     Lon,
+                            %                                                     binary_to_list(TimeBinS)),
+                            %common:loginfo("Old alarms : ~p~nNew alarms : ~p~nVDR (~p) vehicle(~p) driver(~p) WS Alarm for 0x200: ~p~n", 
+							%			   [NewState#vdritem.alarmlist, 
+							%				AlarmList,
+							%				NewState#vdritem.addr, 
+							%				NewState#vdritem.vehicleid, 
+							%				NewState#vdritem.driverid, 
+							%				WSUpdate]),
+                            %send_msg_to_ws(WSUpdate, NewState) %wsock_client:send(WSUpdate)
 					end,
 
                     MsgBody = vdr_data_processor:create_gen_resp(ID, MsgIdx, ?T_GEN_RESP_OK),
                     common:loginfo("~p sends VDR (~p) response for 16#200 (ok) : ~p~n", [NewState#vdritem.pid, NewState#vdritem.addr, MsgBody]),
                     NewFlowIdx = send_data_to_vdr(16#8001, FlowIdx, MsgBody, VDRPid),
                     
-                    {ok, NewState#vdritem{msgflownum=NewFlowIdx, alarm=AlarmSym, alarmlist=AlarmList, lastlat=Lat, lastlon=Lon}}
+                    {ok, NewState#vdritem{msgflownum=NewFlowIdx, alarm=AlarmSym, alarmlist=AlarmList, state=StateFlag, lastlat=Lat, lastlon=Lon}}
             end;%,
             
             %report_appinfo(AppInfo, NewState);
         _ ->
             {error, invaliderror, NewState}
     end.
+
+send_masg_to_ws_alarm(FlowIdx, AlarmList, SetClear, Lat, Lon, TimeBinS, State) when is_list(AlarmList),
+												                                    length(AlarmList) > 0,
+														                            is_binary(TimeBinS) ->
+	[H|T] = AlarmList,
+	LenT = length(T),
+	{ID, _Time} = H,
+	case SetClear of
+		true ->
+            {ok, WSUpdate} = wsock_data_parser:create_term_alarm([State#vdritem.vehicleid],
+                                                                 FlowIdx,
+                                                                 common:combine_strings(["\"", State#vdritem.vehiclecode, "\""], false),
+                                                                 ID,
+                                                                 1,
+                                                                 Lat, 
+                                                                 Lon,
+                                                                 binary_to_list(TimeBinS)),
+            common:loginfo("Old alarms : ~p~nNew alarms : ~p~nVDR (~p) vehicle(~p) driver(~p) WS Alarm for 0x200: ~p~n", 
+						   [State#vdritem.alarmlist, 
+							AlarmList,
+							State#vdritem.addr, 
+							State#vdritem.vehicleid, 
+							State#vdritem.driverid, 
+							WSUpdate]),
+            send_msg_to_ws(WSUpdate, State), %wsock_client:send(WSUpdate)
+			if
+				LenT > 0 ->
+					send_masg_to_ws_alarm(FlowIdx, T, SetClear, Lat, Lon, TimeBinS, State);
+				true ->
+					ok
+			end;
+		false ->
+            {ok, WSUpdate} = wsock_data_parser:create_term_alarm([State#vdritem.vehicleid],
+                                                                 FlowIdx,
+                                                                 common:combine_strings(["\"", State#vdritem.vehiclecode, "\""], false),
+                                                                 ID,
+                                                                 0,
+                                                                 Lat, 
+                                                                 Lon,
+                                                                 binary_to_list(TimeBinS)),
+            common:loginfo("Old alarms : ~p~nNew alarms : ~p~nVDR (~p) vehicle(~p) driver(~p) WS Alarm for 0x200: ~p~n", 
+						   [State#vdritem.alarmlist, 
+							AlarmList,
+							State#vdritem.addr, 
+							State#vdritem.vehicleid, 
+							State#vdritem.driverid, 
+							WSUpdate]),
+            send_msg_to_ws(WSUpdate, State), %wsock_client:send(WSUpdate)
+			if
+				LenT > 0 ->
+					send_masg_to_ws_alarm(FlowIdx, T, SetClear, Lat, Lon, TimeBinS, State);
+				true ->
+					ok
+			end;
+		_ ->
+			ok
+	end;
+send_masg_to_ws_alarm(_FlowIdx, _AlarmList, _SetClear, _Lat, _Lon, _TimeBinS, _State) ->
+	ok.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%
+%
+%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+find_alarm_in_lista_not_in_listb(ListA, ListB) when is_list(ListA),
+			        								is_list(ListB)->
+	LenA = length(ListA),
+	LenB = length(ListB),
+	if
+		LenA < 1 ->
+			[];
+		true ->
+			if
+				LenB < 1 ->
+					ListA;
+				true ->
+					[H|T] = ListA,
+					case find_a_in_lista(ListB, H) of
+						true ->
+							find_alarm_in_lista_not_in_listb(T, ListB);
+						false ->
+							lists:merge([[H], find_alarm_in_lista_not_in_listb(T, ListB)])
+					end
+			end
+	end;
+find_alarm_in_lista_not_in_listb(_ListA, _ListB) ->
+	[].
+					
+find_a_in_lista(ListA, A) when is_list(ListA),
+							   length(ListA) > 0 ->
+	[H|T] = ListA,
+	{ID, _Time} = H,
+	{IDA, _TimeA} = A,
+	if
+		ID == IDA ->
+			true;
+		true ->
+			LenT = length(T),
+			if
+				LenT < 1 ->
+					false;
+				true ->
+					find_a_in_lista(T, A)
+			end
+	end;
+find_a_in_lista(_ListA, _A) ->
+	false.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %
