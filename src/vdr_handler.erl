@@ -1003,12 +1003,32 @@ process_pos_info(ID, MsgIdx, VDRPid, HeadInfo, Msg, NewState) ->
 					%		{ok, NewState#vdritem{msgflownum=NewFlowIdx, alarm=AlarmSym, state=StateFlag, lastlat=Lat, lastlon=Lon}}
 					%end;
 				
+					common:loginfo("VDR (~p) (id:~p, serialno:~p, authen_code:~p, vehicleid:~p, vehiclecode:~p) : no alarm needs being updated",
+								   [NewState#vdritem.addr, 
+									NewState#vdritem.id, 
+									NewState#vdritem.serialno, 
+									NewState#vdritem.auth, 
+									NewState#vdritem.vehicleid, 
+									NewState#vdritem.vehiclecode]),
+					
 		            MsgBody = vdr_data_processor:create_gen_resp(ID, MsgIdx, ?T_GEN_RESP_OK),
 		            common:loginfo("~p sends VDR (~p) response for 16#200 (ok) : ~p~n", [NewState#vdritem.pid, NewState#vdritem.addr, MsgBody]),
 		            NewFlowIdx = send_data_to_vdr(16#8001, FlowIdx, MsgBody, VDRPid),
 					
 					{ok, NewState#vdritem{msgflownum=NewFlowIdx, alarm=AlarmSym, state=StateFlag, lastlat=Lat, lastlon=Lon}};
                 true ->
+					common:loginfo("VDR (~p) (id:~p, serialno:~p, authen_code:~p, vehicleid:~p, vehiclecode:~p) : at least one alarm needs being updated~nold alarm ~p : ~p~nnew alarm ~p : ~p",
+								   [NewState#vdritem.addr, 
+									NewState#vdritem.id, 
+									NewState#vdritem.serialno, 
+									NewState#vdritem.auth, 
+									NewState#vdritem.vehicleid, 
+									NewState#vdritem.vehiclecode,
+									PreviousAlarm,
+									common:convert_integer_to_binary_string_list(PreviousAlarm),
+									AlarmSym,
+									common:convert_integer_to_binary_string_list(AlarmSym)]),
+
 					{TimeBin, TimeS} = create_time_list_and_binary(Time),
                     TimeBinS = list_to_binary([<<"\"">>, TimeBin, <<"\"">>]),
 					
@@ -1055,7 +1075,7 @@ process_pos_info(ID, MsgIdx, VDRPid, HeadInfo, Msg, NewState) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %
-%
+% SetClear : 1 or 0
 %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 send_masg_to_ws_alarm(FlowIdx, AlarmList, SetClear, Lat, Lon, TimeBinS, State) when is_list(AlarmList),
@@ -1065,7 +1085,7 @@ send_masg_to_ws_alarm(FlowIdx, AlarmList, SetClear, Lat, Lon, TimeBinS, State) w
 	LenT = length(T),
 	{ID, _Time} = H,
 	case SetClear of
-		true ->
+		1 ->
             {ok, WSUpdate} = wsock_data_parser:create_term_alarm([State#vdritem.vehicleid],
                                                                  FlowIdx,
                                                                  common:combine_strings(["\"", State#vdritem.vehiclecode, "\""], false),
@@ -1088,7 +1108,7 @@ send_masg_to_ws_alarm(FlowIdx, AlarmList, SetClear, Lat, Lon, TimeBinS, State) w
 				true ->
 					ok
 			end;
-		false ->
+		0 ->
             {ok, WSUpdate} = wsock_data_parser:create_term_alarm([State#vdritem.vehicleid],
                                                                  FlowIdx,
                                                                  common:combine_strings(["\"", State#vdritem.vehiclecode, "\""], false),

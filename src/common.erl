@@ -7,6 +7,7 @@
 -include("header.hrl").
 
 -export([number_list_to_binary/2,
+		 convert_integer_to_binary_string_list/1,
          convert_bcd_integer/1,
 		 %convert_integer_bcd/1,
          removemsgfromlistbyflownum/2,
@@ -57,6 +58,28 @@ integer_to_size_binary(Integer, ByteSize) when is_integer(Integer),
     <<Integer:(ByteSize*8)>>;
 integer_to_size_binary(_Integer, _ByteSize) ->
     <<>>.
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%
+% Input : 5
+% 	Must >= 0
+% Output : 101
+%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+convert_integer_to_binary_string_list(Int) when is_integer(Int),
+												Int >= 0 ->
+	Bit = Int band 1,
+	BitChar = integer_to_list(Bit),
+	NewInt = Int bsr 1,
+	if
+		NewInt > 0 ->
+			lists:merge([convert_integer_to_binary_string_list(NewInt), BitChar]);
+		true ->
+			BitChar
+	end;				
+convert_integer_to_binary_string_list(Int) ->
+	integer_to_list(Int).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%
