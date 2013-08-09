@@ -286,6 +286,26 @@ do_process_data(Data) ->
                                 true ->
                                     {error, length_error}
                             end;
+						16#8108 ->
+							if
+								Len == 4 ->
+                                    {"SN", SN} = get_specific_entry(Content, "SN"),
+                                    {"LIST", List} = get_specific_entry(Content, "LIST"),
+                                    {"DATA", {obj, DATA}} = get_specific_entry(Content, "DATA"),
+                                    VIDList = get_same_key_list(List),
+                                    DataLen = length(DATA),
+                                    if
+                                        DataLen == 3 ->
+                                            {"TYPE", TYPE} = get_specific_entry(DATA, "TYPE"),
+                                            {"VERSION", VERSION} = get_specific_entry(DATA, "VERSION"),
+                                            {"PID", PID} = get_specific_entry(DATA, "PID"),
+                                            {ok, Mid, [SN, VIDList, [TYPE, VERSION, PID]]};
+                                        true ->
+                                            {error, format_error}
+                                    end;
+								true ->
+									{error, length_error}
+							end;
                         16#8202 ->
                             if
                                 Len == 4 ->
@@ -581,6 +601,19 @@ connect_ws_to_vdr(Msg) ->
                         _ ->
                             send_resp_to_ws(SN, 16#8105, VIDList, ?P_GENRESP_ERRMSG)
                     end;
+				16#8108 ->
+					[SN, VIDList, [TYPE, VERSION, PID]] = Res,
+					VerLen = length(VERSION),
+					UpgradeLen = 0,
+					UpgradeData = <<>>,
+                    Bin = vdr_data_processor:create_update_packet(TYPE, PID, VerLen, VERSION, UpgradeLen, UpgradeData),
+					Bins = common:split_msg_to_packages(Bin, ?MAX_SINGLE_MSG_LEN),
+					case Bins of
+						[] ->
+                            send_resp_to_ws(SN, 16#8202, VIDList, ?P_GENRESP_FAIL);
+						_ ->
+							ok
+					end;
                 16#8202 ->
                     [SN, VIDList, [INTERVAL, LENGTH]] = Res,
                     Bin = vdr_data_processor:create_tmp_position_track_control(INTERVAL, LENGTH),
@@ -790,6 +823,22 @@ send_del_rect_areas_msg_to_vdr(_VIDList, _DataList) ->
 %
 %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+send_msg_to_vdrs(ID, VIDList, Msg) when is_list(VIDList),
+										length(VIDList) > 0,
+										is_list(Msg),
+										length(Msg) > 0 ->
+	[H|T] = Msg,
+	send_msg_to_vdrs(ID, VIDList, H),
+	Len = length(T),
+	if
+		Len > 0 ->
+			send_msg_to_vdrs(ID, VIDList, T);
+		true ->
+			ok
+	end;
+send_msg_to_vdrs(_ID, _VIDList, Msg) when is_list(Msg),
+										  length(Msg) =< 0 ->
+	ok;
 send_msg_to_vdrs(ID, VIDList, Msg) when is_list(VIDList),
                                     length(VIDList) > 0,
                                     is_binary(Msg) ->

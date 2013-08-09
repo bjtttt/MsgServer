@@ -1116,7 +1116,7 @@ create_update_packet(Type, ProID, VerLen, Ver, UpgradeLen, UpgradeData) ->
                     VerBin = list_to_binary(Ver),
                     %UpgradeDataBin = list_to_binary(UpgradeData),
                     Bin = list_to_binary([<<Type:?LEN_BYTE>>, ProID, <<VerLen:?LEN_BYTE>>, VerBin, <<UpgradeLen:?LEN_DWORD>>, UpgradeData]),
-                    Bin
+					common:split_msg_to_packages(Bin, 1000)
             end
     end.
 

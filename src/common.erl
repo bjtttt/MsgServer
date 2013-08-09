@@ -6,7 +6,8 @@
 
 -include("header.hrl").
 
--export([number_list_to_binary/2,
+-export([split_msg_to_packages/2,
+		 number_list_to_binary/2,
 		 convert_integer_to_binary_string_list/1,
          convert_bcd_integer/1,
 		 %convert_integer_bcd/1,
@@ -34,6 +35,24 @@
 -export([safepeername/1, forcesafepeername/1, printsocketinfo/2, forceprintsocketinfo/2]).
 
 -export([logerror/1, logerror/2, loginfo/1, loginfo/2]).
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%
+%%%
+%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+split_msg_to_packages(Data, PackLen) when is_integer(PackLen),
+							    		  PackLen > 0,
+										  is_binary(Data) ->
+	Len = byte_size(Data),
+	if
+		PackLen >= Len ->
+			[Data];
+		true ->
+			H = binary:part(Data, 0, PackLen),
+			T = binary:part(Data, PackLen, Len-PackLen),
+			lists:merge([H], split_msg_to_packages(T, PackLen))
+	end.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%
