@@ -604,15 +604,23 @@ connect_ws_to_vdr(Msg) ->
 				16#8108 ->
 					[SN, VIDList, [TYPE, VERSION, PID]] = Res,
 					VerLen = length(VERSION),
-					UpgradeLen = 0,
-					UpgradeData = <<>>,
-                    Bin = vdr_data_processor:create_update_packet(TYPE, PID, VerLen, VERSION, UpgradeLen, UpgradeData),
-					Bins = common:split_msg_to_packages(Bin, ?MAX_SINGLE_MSG_LEN),
-					case Bins of
-						[] ->
-                            send_resp_to_ws(SN, 16#8202, VIDList, ?P_GENRESP_FAIL);
-						_ ->
-							ok
+					File = "..\\data\\upgrade.dat",
+					case file:read_file(File) of
+						{ok, FileBin} ->
+							UpgradeData = FileBin,
+							UpgradeLen = byte_size(UpgradeData),
+		                    Bin = vdr_data_processor:create_update_packet(TYPE, PID, VerLen, VERSION, UpgradeLen, UpgradeData),
+							Bins = common:split_msg_to_packages(Bin, ?MAX_SINGLE_MSG_LEN),
+							case Bins of
+								[] ->
+		                            send_resp_to_ws(SN, 16#8108, VIDList, ?P_GENRESP_FAIL);
+								_ ->
+									send_msg_to_vdrs(16#8108, VIDList, Bins),
+									send_resp_to_ws(SN, 16#8108, VIDList, ?P_GENRESP_OK)
+							end;
+						{error, FileReason} ->
+							common:loginfo("Cannot read file ~p : ~p~n", [File, FileReason]),
+							send_resp_to_ws(SN, 16#8108, VIDList, ?P_GENRESP_FAIL)
 					end;
                 16#8202 ->
                     [SN, VIDList, [INTERVAL, LENGTH]] = Res,
