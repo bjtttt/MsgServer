@@ -1760,7 +1760,7 @@ create_sql_from_vdr(HeaderInfo, Msg, State) ->
         16#800  ->
             {ok, ""};
         16#801  ->
-			{_Id, _Type, _Code, _EICode, _PipeId, _MsgBody, Pack} = Msg,
+			{Id, Type, Code, EICode, PipeId, _MsgBody, Pack} = Msg,
 			VehicleId = State#vdritem.vehicleid,
             {ServerYear, ServerMonth, ServerDay} = erlang:date(),
             {ServerHour, ServerMinute, ServerSecond} = erlang:time(),
@@ -1776,10 +1776,15 @@ create_sql_from_vdr(HeaderInfo, Msg, State) ->
 			%common:loginfo("Pack1 : ~p~n", [Pack1]),
 			Pack2 = binary:replace(Pack1, <<255,254,253,252,251,250,251,252,253,254,255,254,253,252,251,250,251,252,253,254,255>>, <<92,39>>, [global]),
 			%common:loginfo("Pack2 : ~p~n", [Pack2]),
-            SQL = list_to_binary([<<"insert into record_audio(vehicle_id, rec_time, bin) values(">>,
+            SQL = list_to_binary([<<"insert into record_media(vehicle_id, rec_time, mediadata, mediatype, mediaformat, mediaid, eventid, mediachannelid) values(">>,
 							     common:integer_to_binary(VehicleId), <<", '">>,
                                  ServerTimeS, <<"', '">>,
-							     Pack2, <<"')">>]),
+                                 Pack2, <<"', ">>,
+                                 Type, <<", ">>,
+                                 Id, <<", ">>,
+                                 Code, <<", ">>,
+                                 EICode, <<", ">>,
+							     PipeId, <<")">>]),
 			%common:loginfo("16#801 SQL : ~p~n", [SQL]),
             {ok, SQL};
         16#802  ->
