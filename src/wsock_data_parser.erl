@@ -610,13 +610,16 @@ connect_ws_to_vdr(Msg) ->
 							UpgradeData = FileBin,
 							UpgradeLen = byte_size(UpgradeData),
 		                    Bin = vdr_data_processor:create_update_packet(TYPE, PID, VerLen, VERSION, UpgradeLen, UpgradeData),
-							Bins = common:split_msg_to_packages(Bin, ?MAX_SINGLE_MSG_LEN),
-							case Bins of
-								[] ->
-		                            send_resp_to_ws(SN, 16#8108, VIDList, ?P_GENRESP_FAIL);
+							%Bins = common:split_msg_to_packages(Bin, ?MAX_SINGLE_MSG_LEN),
+							%case Bins of
+							%	[] ->
+							case Bin of
+								<<>> ->
+		                            send_resp_to_ws(SN, 16#8108, VIDList, ?P_GENRESP_ERRMSG);
 								_ ->
-									send_msg_to_vdrs(16#8108, VIDList, Bins),
-									send_resp_to_ws(SN, 16#8108, VIDList, ?P_GENRESP_OK)
+									update_vdrs_ws2vdr_msg_id_flowidx(16#8108, SN, VIDList, null),
+									send_msg_to_vdrs(16#8108, VIDList, Bin)%s)
+									%send_resp_to_ws(SN, 16#8108, VIDList, ?P_GENRESP_OK)
 							end;
 						{error, FileReason} ->
 							common:loginfo("Cannot read file ~p : ~p~n", [File, FileReason]),

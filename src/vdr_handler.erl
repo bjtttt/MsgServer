@@ -610,6 +610,7 @@ do_process_vdr_data(Socket, Data, State) ->
 									RespID == 16#8602 orelse	% need further tested
 									RespID == 16#8603 orelse
 									RespID == 16#8105 orelse
+									RespID == 16#8108 orelse
 									RespID == 16#8202 orelse
 									RespID == 16#8300 orelse
 									RespID == 16#8302 orelse
@@ -1490,32 +1491,61 @@ send_data_to_vdr(ID, FlowIdx, MsgBody, VDRPid) ->
             Pid = self(),
             %common:loginfo("~p send_data_to_vdr : ID (~p), FlowIdx (~p), MsgBody (~p)~n", [Pid, ID, FlowIdx, MsgBody]),
             Msg = vdr_data_processor:create_final_msg(ID, FlowIdx, MsgBody),
-			if
-				Msg == <<>> ->
-					common:loginfo("~p send_data_to_vdr NULL final message : ID (~p), FlowIdx (~p), MsgBody (~p)~n", [Pid, ID, FlowIdx, MsgBody]);
-				Msg =/= <<>> ->
-					%common:loginfo("~p send_data_to_vdr final message : ID (~p), FlowIdx (~p), Msg (~p)~n", [Pid, ID, FlowIdx, Msg]),
-					VDRPid ! {Pid, Msg},
-					%receive
-					%    {Pid, vdrok} ->
-					%        FlowIdx + 1
-					%end
-					NewFlowIdx = FlowIdx + 1,
-					NewFlowIdxRem = NewFlowIdx rem ?WS2VDRFREQ,
-					case NewFlowIdxRem of
-						0 ->
-							NewFlowIdx + 1;
+			case is_list(Msg) of
+				true ->
+					do_send_msg2vdr(VDRPid, Pid, Msg);
+				_ ->
+					case is_binary(Msg) of
+						true ->
+							if
+								Msg == <<>> ->
+									common:loginfo("~p send_data_to_vdr NULL final message : ID (~p), FlowIdx (~p), MsgBody (~p)~n", [Pid, ID, FlowIdx, MsgBody]);
+								Msg =/= <<>> ->
+									%common:loginfo("~p send_data_to_vdr final message : ID (~p), FlowIdx (~p), Msg (~p)~n", [Pid, ID, FlowIdx, Msg]),
+									do_send_msg2vdr(VDRPid, Pid, Msg),
+									%VDRPid ! {Pid, Msg},
+									%receive
+									%    {Pid, vdrok} ->
+									%        FlowIdx + 1
+									%end
+									NewFlowIdx = FlowIdx + 1,
+									NewFlowIdxRem = NewFlowIdx rem ?WS2VDRFREQ,
+									case NewFlowIdxRem of
+										0 ->
+											NewFlowIdx + 1;
+										_ ->
+											FlowIdxRem = FlowIdx rem ?WS2VDRFREQ,
+											case FlowIdxRem of
+												0 ->
+													FlowIdx + ?WS2VDRFREQ;
+												_ ->
+													NewFlowIdx
+											end
+									end
+							end;
 						_ ->
-							FlowIdxRem = FlowIdx rem ?WS2VDRFREQ,
-							case FlowIdxRem of
-								0 ->
-									FlowIdx + ?WS2VDRFREQ;
-								_ ->
-									NewFlowIdx
-							end
+							FlowIdx
 					end
 			end
     end.
+
+
+do_send_msg2vdr(VDRPid, Pid, Msg) when is_binary(Msg),
+									   byte_size(Msg) > 0 ->
+	VDRPid ! {Pid, Msg};
+do_send_msg2vdr(_VDRPid, _Pid, Msg) when is_binary(Msg),
+									   byte_size(Msg) < 1 ->
+	ok;
+do_send_msg2vdr(VDRPid, Pid, Msg) when is_list(Msg),
+									   length(Msg) > 0 ->
+	[H|T] = Msg,
+	VDRPid ! {Pid, H},
+	do_send_msg2vdr(VDRPid, Pid, T);
+do_send_msg2vdr(_VDRPid, _Pid, Msg) when is_list(Msg),
+									     length(Msg) < 1 ->
+	ok;
+do_send_msg2vdr(_VDRPid, _Pid, _Msg) ->
+	ok.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %

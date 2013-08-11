@@ -81,10 +81,16 @@
 %
 % ID        : 
 % MsgIdx    : 
-% Data      : binary 
+% Data      : binary | list(binary list)
+%
+% Return	:
+%				binary
+%				[binary, binary, ...]
 %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-create_final_msg(ID, MsgIdx, Data) ->
+create_final_msg(ID, MsgIdx, Data) when is_binary(Data),
+										byte_size(Data) > 0,
+										byte_size(Data) =< ?MAX_SINGLE_MSG_LEN ->
     %common:loginfo("vdr_data_processor:create_final_msg(ID=~p, MsgIdx=~p, Data=~p)~n", [ID, MsgIdx, Data]),
     Len = byte_size(Data),
     Header = <<ID:16, 0:2, 0:1, 0:3, Len:10, 0:48, MsgIdx:16>>,
@@ -95,7 +101,56 @@ create_final_msg(ID, MsgIdx, Data) ->
     MsgBody2 = binary:replace(MsgBody1, <<126>>, <<255, 1, 255, 2, 255, 3, 255, 4, 255, 5, 255>>, [global]),
     MsgBody3 = binary:replace(MsgBody2, <<254, 1, 254, 2, 254, 3, 254, 4, 254, 5, 254>>, <<125, 1>>, [global]),
     MsgBody4 = binary:replace(MsgBody3, <<255, 1, 255, 2, 255, 3, 255, 4, 255, 5, 255>>, <<125, 2>>, [global]),
-    list_to_binary([<<126>>, MsgBody4, <<126>>]).
+    list_to_binary([<<126>>, MsgBody4, <<126>>]);
+create_final_msg(ID, MsgIdx, Data) when is_binary(Data),
+										byte_size(Data) > ?MAX_SINGLE_MSG_LEN ->
+	DataList = common:split_msg_to_packages(Data),
+	create_final_msg(ID, MsgIdx, DataList);
+create_final_msg(ID, MsgIdx, Data) when is_list(Data),
+										length(Data) > 0 ->
+	Len = length(Data),
+	create_final_msg_list(ID, MsgIdx, Data, Len, 0);
+create_final_msg(_ID, _MsgIdx, Data) when is_list(Data),
+										length(Data) < 1 ->
+	<<>>;
+create_final_msg(_ID, _MsgIdx, _Data) ->
+	<<>>.
+
+create_final_msg_list(ID, MsgIdx, DataList, Len, Idx) when is_list(DataList),
+												 	       length(DataList) > 0,
+	    											       length(DataList) == Len,
+														   Idx > 0,
+														   Idx =< Len ->
+	[H|T] = DataList,
+	HData = create_final_msg(ID, MsgIdx, H, Len, Idx),
+	TData = create_final_msg_list(ID, MsgIdx, T, Len, Idx+1),
+	if
+		HData == <<>> ->
+			TData;
+		true ->
+			lists:merge([HData], TData)
+	end;
+create_final_msg_list(_ID, _MsgIdx, _DataList, _Len, _Idx) ->
+	[].
+
+create_final_msg(ID, MsgIdx, Data, PTotal, PIdx) when is_binary(Data),
+										              byte_size(Data) > 0,
+										              byte_size(Data) =< ?MAX_SINGLE_MSG_LEN,
+													  PTotal >= PIdx,
+													  PIdx > 0 ->
+    %common:loginfo("vdr_data_processor:create_final_msg(ID=~p, MsgIdx=~p, Data=~p)~n", [ID, MsgIdx, Data]),
+    Len = byte_size(Data),
+    Header = <<ID:16, 0:2, 1:1, 0:3, Len:10, 0:48, MsgIdx:16, PTotal:16, PIdx:16>>,
+    HeaderBody = list_to_binary([Header, Data]),
+    Parity = vdr_data_parser:bxorbytelist(HeaderBody),
+    MsgBody = list_to_binary([HeaderBody, Parity]),
+    MsgBody1 = binary:replace(MsgBody, <<125>>, <<254, 1, 254, 2, 254, 3, 254, 4, 254, 5, 254>>, [global]),
+    MsgBody2 = binary:replace(MsgBody1, <<126>>, <<255, 1, 255, 2, 255, 3, 255, 4, 255, 5, 255>>, [global]),
+    MsgBody3 = binary:replace(MsgBody2, <<254, 1, 254, 2, 254, 3, 254, 4, 254, 5, 254>>, <<125, 1>>, [global]),
+    MsgBody4 = binary:replace(MsgBody3, <<255, 1, 255, 2, 255, 3, 255, 4, 255, 5, 255>>, <<125, 2>>, [global]),
+    list_to_binary([<<126>>, MsgBody4, <<126>>]);
+create_final_msg(_ID, _MsgIdx, _Data, _PTotal, _PIdx) ->
+	<<>>.
 
 %%%
 %%% Parse terminal message body
