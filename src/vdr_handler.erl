@@ -1780,11 +1780,11 @@ create_sql_from_vdr(HeaderInfo, Msg, State) ->
 							     common:integer_to_binary(VehicleId), <<", '">>,
                                  ServerTimeS, <<"', '">>,
                                  Pack2, <<"', ">>,
-                                 Type, <<", ">>,
-                                 Id, <<", ">>,
-                                 Code, <<", ">>,
-                                 EICode, <<", ">>,
-							     PipeId, <<")">>]),
+                                 common:integer_to_binary(Type), <<", ">>,
+                                 common:integer_to_binary(Id), <<", ">>,
+                                 common:integer_to_binary(Code), <<", ">>,
+                                 common:integer_to_binary(EICode), <<", ">>,
+							     common:integer_to_binary(PipeId), <<")">>]),
 			%common:loginfo("16#801 SQL : ~p~n", [SQL]),
             {ok, SQL};
         16#802  ->

@@ -107,6 +107,13 @@ do_process_data(State, Data) ->
                                                 BodyLen == ActBodyLen ->
                                                     case combine_msg_packs(State, ID, MsgIdx, Total, Index, Body) of
                                                         {complete, Msg, NewState} ->
+															common:loginfo("VDR (~p) (id:~p, serialno:~p, authen_code:~p, vehicleid:~p, vehiclecode:~p)~nMsg packages is combined succesfully~n", 
+																		   [State#vdritem.addr,
+																			State#vdritem.id,
+																			State#vdritem.serialno,
+																			State#vdritem.auth,
+																			State#vdritem.vehicleid,
+																			State#vdritem.vehiclecode]),
                                                             case vdr_data_processor:parse_msg_body(ID, Msg) of
                                                                 {ok, Result} ->
                                                                     {ok, HeadInfo, Result, NewState};
@@ -258,7 +265,7 @@ combine_msg_packs(State, ID, MsgIdx, Total, Idx, Body) ->
 				false ->
 					DelPack = del_pack_with_idx(MsgWithID, MsgIdx, Total, Idx),
 				    NewMsgWithID = lists:merge([[ID, MsgIdx, Total, Idx, Body]], DelPack),
-					%common:loginfo("DelPack : ~p~nNewMsgWithID : ~p~n", [DelPack, NewMsgWithID])
+					%common:loginfo("DelPack : ~p~nNewMsgWithID : ~p~n", [DelPack, NewMsgWithID]),
 		            case check_msg(NewMsgWithID, Total) of
 		                ok ->
 							%common:loginfo("Combine message ID (~p) is completed with ~p packages~n", [ID, Total]),
@@ -422,6 +429,8 @@ check_ignored_msg(MsgWithID, MsgIdx, Total, Idx) when is_list(MsgWithID),
 													  Total >= Idx ->
 	[H|_T] = MsgWithID,
 	[_ID, HMsgIdx, HTotal, HIdx, _Body] = H,
+	common:loginfo("Header msg : MsgIdx ~p, Total ~p, Index ~p~nReceived msg : MsgIdx ~p, Total ~p, Index ~p",
+				   [HMsgIdx, HTotal, HIdx, MsgIdx, Total, Idx]),
 	if
 		HTotal =/= Total ->
 			true;
