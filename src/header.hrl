@@ -112,7 +112,8 @@
                     msgws2vdr=[],            % [{MsgID, WSFlowIdx}, ...] only one item for one MsgID
 					vdrmsgtimeoutpid=undefined,
                     ccpid=undefined,
-                    msgpackages={-1, []}
+                    msgpackages={-1, []},
+					tel=0
                  }).
 
 %-record(vdridsockitem, {    id=undefined,           % Vehicle ID

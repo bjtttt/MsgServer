@@ -751,7 +751,7 @@ update_vdr_ws2vdr_msg_id_flowidx(ID, FlowIdx, VID, Value) when is_integer(ID),
                                '_', '_', '_', '_', '_',
                                '_', '_', '_', '_', '_',
                                '_', '_', '_', '_', '_',
-							   '_', '_', '_', '_', '_', '_', '_'}),
+							   '_', '_', '_', '_', '_', '_', '_', '_'}),
     %common:loginfo("Res Table : ~p ~n", [Res]),
     case length(Res) of
         1 ->
@@ -876,13 +876,13 @@ send_msg_to_vdr(ID, VID, Msg) when is_binary(Msg) ->
                                '_', '_', '_', '_', '_',
                                '_', '_', '_', '_', '_',
                                '_', '_', '_', '_', '_',
-							   '_', '_', '_', '_', '_', '_', '_'}),
+							   '_', '_', '_', '_', '_', '_', '_', '_'}),
     case length(Res) of
         1 ->
             [[Sock]] = Res,
             [VDRItem] = ets:lookup(vdrtable, Sock),
             common:loginfo("WS Server : Gateway WS delegation ~p sends msg to VDR (~p) : ~p~n", [self(), VDRItem#vdritem.addr, Msg]),
-            NewFlowIdx = vdr_handler:send_data_to_vdr(ID, VDRItem#vdritem.msgws2vdrflownum, Msg, VDRItem#vdritem.vdrpid),
+            NewFlowIdx = vdr_handler:send_data_to_vdr(ID, VDRItem#vdritem.tel, VDRItem#vdritem.msgws2vdrflownum, Msg, VDRItem#vdritem.vdrpid),
             ets:insert(vdrtable, VDRItem#vdritem{msgws2vdrflownum=NewFlowIdx});
         _ ->
             common:loginfo("WS Server : Cannot find VID in vdrtable~n"),
