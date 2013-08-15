@@ -814,10 +814,13 @@ do_process_vdr_data(Socket, Data, State) ->
                                     send_sql_to_db(conn, Sql, NewState),
 
 		                            FlowIdx = NewState#vdritem.msgflownum,
-		                            MsgBody = vdr_data_processor:create_gen_resp(ID, MsgIdx, ?T_GEN_RESP_OK),
+		                            %MsgBody = vdr_data_processor:create_gen_resp(ID, MsgIdx, ?T_GEN_RESP_OK),
+		                            %common:loginfo("~p sends VDR multimedia data upload response (ok) : ~p~n", [NewState#vdritem.pid, MsgBody]),
+		                            %NewFlowIdx = send_data_to_vdr(16#8001, Tel, FlowIdx, MsgBody, VDRPid),
+									MsgBody = vdr_data_processor:create_multimedia_data_reply(16#8800),
 		                            common:loginfo("~p sends VDR multimedia data upload response (ok) : ~p~n", [NewState#vdritem.pid, MsgBody]),
 		                            NewFlowIdx = send_data_to_vdr(16#8001, Tel, FlowIdx, MsgBody, VDRPid),
-		
+									
 						            [VDRItem] = ets:lookup(vdrtable, Socket),
 									ets:insert(vdrtable, VDRItem#vdritem{msg=NewState#vdritem.msg}),
 									
@@ -919,7 +922,7 @@ do_process_vdr_data(Socket, Data, State) ->
 											FirstmsgIdxID, 
 											MsgIdxsID, 
 											MsgBody1]),
-                            NewFlowIdx1 = send_data_to_vdr(16#8003, NewState#vdritem.tel, FlowIdx, MsgBody, VDRPid),
+                            NewFlowIdx1 = send_data_to_vdr(16#8003, NewState#vdritem.tel, FlowIdx, MsgBody1, VDRPid),
 
                             [VDRItem] = ets:lookup(vdrtable, Socket),
                             ets:insert(vdrtable, VDRItem#vdritem{msg=NewState#vdritem.msg}),
