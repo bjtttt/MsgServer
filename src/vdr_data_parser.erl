@@ -34,7 +34,7 @@ process_data(State, Data) ->
     try do_process_data(State, Data)
     catch
         _:Why ->
-            common:loginfo("Parsing VDR data exception : ~p~n", [Why]),
+            common:loginfo("Parsing VDR data exception : ~p~n~p", [Why, Data]),
             {error, exception, State}
     end.
 
