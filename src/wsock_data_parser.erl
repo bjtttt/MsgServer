@@ -431,9 +431,10 @@ do_process_data(Data) ->
                                     VIDList = get_same_key_list(List),
                                     DataLen = length(DATA),
                                     if
-                                        DataLen == 10 ->
-                                            {"ID", ID} = get_specific_entry(DATA, "ID"),
+                                        DataLen == 11 ->
+                                            {"CID", CID} = get_specific_entry(DATA, "CID"),
                                             {"CMD", CMD} = get_specific_entry(DATA, "CMD"),
+                                            {"NUM", NUM} = get_specific_entry(DATA, "NUM"),
                                             {"T", T} = get_specific_entry(DATA, "T"),
                                             {"SF", SF} = get_specific_entry(DATA, "SF"),
                                             {"R", R} = get_specific_entry(DATA, "R"),
@@ -442,7 +443,7 @@ do_process_data(Data) ->
                                             {"CO", CO} = get_specific_entry(DATA, "CO"),
                                             {"S", S} = get_specific_entry(DATA, "S"),
                                             {"CH", CH} = get_specific_entry(DATA, "CH"),
-                                            {ok, Mid, [SN, VIDList, [ID, CMD, T, SF, R, Q, B, CO, S, CH]]};
+                                            {ok, Mid, [SN, VIDList, [CID, CMD, NUM, T, SF, R, Q, B, CO, S, CH]]};
                                         true ->
                                             {error, format_error}
                                     end;
@@ -693,8 +694,8 @@ connect_ws_to_vdr(Msg) ->
                             %send_resp_to_ws(SN, 16#8500, VIDList, ?P_GENRESP_OK)
                     end;
                 16#8801 ->
-                    [SN, VIDList, [ID, CMD, T, SF, R, Q, B, CO, S, CH]] = Res,
-                    Bin = vdr_data_processor:create_imm_photo_cmd(ID, CMD, T, SF, R, Q, B, CO, S, CH),
+                    [SN, VIDList, [CID, CMD, NUM, T, SF, R, Q, B, CO, S, CH]] = Res,
+                    Bin = vdr_data_processor:create_imm_photo_cmd(CID, CMD, NUM, T, SF, R, Q, B, CO, S, CH),
                     case Bin of
                         <<>> ->
                             send_resp_to_ws(SN, 16#8801, VIDList, ?P_GENRESP_ERRMSG);

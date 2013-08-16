@@ -64,7 +64,7 @@
          create_multimedia_data_reply/1,
 		 create_multimedia_data_reply/2,
          create_multimedia_data_reply/3,
-         create_imm_photo_cmd/10,
+         create_imm_photo_cmd/11,
          create_stomuldata_search/15,
          create_stomuldata_update/16,
          create_record_start_order/4,
@@ -2277,35 +2277,42 @@ create_multimedia_data_reply(_Id, _Count, _IDs) ->
 % 0x8801
 %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-create_imm_photo_cmd(Id,Cmd,Time,SF,PPI,Quality,Bri,Contrast,Sat,Chroma) when is_integer(Id),
-                                                                              Id > 0,
-                                                                              is_integer(Cmd),
-                                                                              Cmd >= 0,
-                                                                              Cmd =< 16#FFFF,
-                                                                              is_integer(Time),
-                                                                              is_integer(SF),
-                                                                              SF >= 0,
-                                                                              SF =< 1,
-                                                                              is_integer(PPI),
-                                                                              PPI >= 1,
-                                                                              PPI =< 8,
-                                                                              is_integer(Quality),
-                                                                              Quality >= 1,
-                                                                              Quality =< 10,
-                                                                              is_integer(Bri),
-                                                                              Bri >= 0,
-                                                                              Bri =< 255,
-                                                                              is_integer(Contrast),
-                                                                              Contrast >= 0,
-                                                                              Contrast =< 127,
-                                                                              is_integer(Sat),
-                                                                              Sat >= 0,
-                                                                              Sat =< 127,
-                                                                              is_integer(Chroma),
-                                                                              Chroma >= 0,
-                                                                              Chroma =< 255 ->
-    <<Id:8,Cmd:16,Time:16,SF:8,PPI:8,Quality:8,Bri:8,Contrast:8,Sat:8,Chroma:8>>;
-create_imm_photo_cmd(_Id,_Cmd,_Time,_SF,_PPI,_Quality,_Bri,_Contrast,_Sat,_Chroma) ->
+create_imm_photo_cmd(Cid,Cmd,Num,Time,SF,PPI,Quality,Bri,Contrast,Sat,Chroma) when is_integer(Cid),
+                                                                                   Cid > 0,
+                                                                                   is_integer(Cmd),
+                                                                                   Cmd >= 0,
+                                                                                   Cmd =< 16#FFFF,
+																				   is_integer(Num),
+																				   Num >= 0,
+                                                                                   is_integer(Time),
+                                                                                   is_integer(SF),
+                                                                                   SF >= 0,
+                                                                                   SF =< 1,
+                                                                                   is_integer(PPI),
+                                                                                   PPI >= 1,
+                                                                                   PPI =< 8,
+                                                                                   is_integer(Quality),
+                                                                                   Quality >= 1,
+                                                                                   Quality =< 10,
+                                                                                   is_integer(Bri),
+                                                                                   Bri >= 0,
+                                                                                   Bri =< 255,
+                                                                                   is_integer(Contrast),
+                                                                                   Contrast >= 0,
+                                                                                   Contrast =< 127,
+                                                                                   is_integer(Sat),
+                                                                                   Sat >= 0,
+                                                                                   Sat =< 127,
+                                                                                   is_integer(Chroma),
+                                                                                   Chroma >= 0,
+                                                                                   Chroma =< 255 ->
+    if
+		Cmd == 0 orelse Cmd == 16#FFFF ->
+			<<Cid:8,Cmd:16,Time:8,SF:8,PPI:8,Quality:8,Bri:8,Contrast:8,Sat:8,Chroma:8>>;
+		true ->
+			<<Cid:8,Num:16,Time:8,SF:8,PPI:8,Quality:8,Bri:8,Contrast:8,Sat:8,Chroma:8>>
+	end;
+create_imm_photo_cmd(_Cid,_Cmd,_Num,_Time,_SF,_PPI,_Quality,_Bri,_Contrast,_Sat,_Chroma) ->
     <<>>.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
