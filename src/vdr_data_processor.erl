@@ -72,7 +72,8 @@
          create_data_dl_transparent/2,
          %create_data_ul_send/2,         
          create_platform_rsa/2,
-		 get_tel_book_entries/1
+		 get_tel_book_entries/1,
+		 get_list_from_bin/2
 	]).
 
 -export([get_2_number_integer_from_oct_string/1]).
@@ -2308,9 +2309,9 @@ create_imm_photo_cmd(Cid,Cmd,Num,Time,SF,PPI,Quality,Bri,Contrast,Sat,Chroma) wh
                                                                                    Chroma =< 255 ->
     if
 		Cmd == 0 orelse Cmd == 16#FFFF ->
-			<<Cid:8,Cmd:16,Time:8,SF:8,PPI:8,Quality:8,Bri:8,Contrast:8,Sat:8,Chroma:8>>;
+			<<Cid:8,Cmd:16,Time:16,SF:8,PPI:8,Quality:8,Bri:8,Contrast:8,Sat:8,Chroma:8>>;
 		true ->
-			<<Cid:8,Num:16,Time:8,SF:8,PPI:8,Quality:8,Bri:8,Contrast:8,Sat:8,Chroma:8>>
+			<<Cid:8,Num:16,Time:16,SF:8,PPI:8,Quality:8,Bri:8,Contrast:8,Sat:8,Chroma:8>>
 	end;
 create_imm_photo_cmd(_Cid,_Cmd,_Num,_Time,_SF,_PPI,_Quality,_Bri,_Contrast,_Sat,_Chroma) ->
     <<>>.
@@ -2329,7 +2330,7 @@ parse_imm_photo_cmd_response(Bin) ->
             <<RespIdx:?LEN_WORD, Res:?LEN_BYTE, Count:?LEN_WORD, Tail/binary>> = Bin,
             case Res of
                 0 ->
-                    List = get_list_from_bin(<<Tail:(Len-5*?LEN_BYTE)>>, ?LEN_DWORD),
+                    List = get_list_from_bin(Tail, ?LEN_DWORD),%<<Tail:(Len-5*?LEN_BYTE)>>, ?LEN_DWORD),
                     ActLen = length(List),
                     if
                         Count == ActLen ->
