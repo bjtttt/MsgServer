@@ -107,7 +107,7 @@ do_process_data(State, Data) ->
                                                 BodyLen == ActBodyLen ->
                                                     case combine_msg_packs(State, ID, MsgIdx, Total, Index, Body) of
                                                         {complete, Msg, NewState} ->
-															common:loginfo("VDR (~p) (id:~p, serialno:~p, authen_code:~p, vehicleid:~p, vehiclecode:~p)~nMsg packages is combined succesfully~n", 
+															common:loginfo("VDR (~p) (id:~p, serialno:~p, authen_code:~p, vehicleid:~p, vehiclecode:~p)~nMsg packages is combined successfully~n", 
 																		   [State#vdritem.addr,
 																			State#vdritem.id,
 																			State#vdritem.serialno,

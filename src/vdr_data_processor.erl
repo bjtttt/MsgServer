@@ -2230,7 +2230,7 @@ parse_multi_media_data_update(Bin) when is_binary(Bin),
 										byte_size(Bin) >= 36 ->
     <<Id:32,Type:8,Code:8,EICode:8,PipeId:8,MsgBody:(28*8),Pack/binary>> = Bin,
 	if
-		Id > 0 andalso Type >= 0 andalso Type =< 2 andalso Code >= 0 andalso Code =< 4 andalso EICode >= 0 andalso EICode =< 3 ->
+		Id > 0 andalso Type >= 0 andalso Type =< 2 andalso Code >= 0 andalso Code =< 5 andalso EICode >= 0 andalso EICode =< 3 ->
             case parse_position_info_report(<<MsgBody:(28*8)>>) of
                 {ok, Resp} ->
 		            {ok, {Id, Type, Code, EICode, PipeId, Resp, Pack}};
