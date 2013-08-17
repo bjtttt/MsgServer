@@ -807,12 +807,12 @@ do_process_vdr_data(Socket, Data, State) ->
 							%{ok, NewState};
                             {ok, NewState#vdritem{msgflownum=NewFlowIdx}};
                         16#801 ->
-							{MediaId, _Type, _Code, _EICode, _PipeId, _MsgBody, _Pack} = Msg,
+							{MediaId, _Type, _Code, _EICode, _PipeId, _MsgBody, _PosInfo, _Pack} = Msg,
 							%commmon:loginfo("Vehicle ~p sends multimedia data : ~p~n", [NewState#vdritem.vehicleid, binary_to_list(Pack)]),
 							
                             case create_sql_from_vdr(HeadInfo, Msg, NewState) of
-                                {ok, Sql} ->
-                                    send_sql_to_db(conn, Sql, NewState),
+                                {ok, Sqls} ->
+                                    send_sqls_to_db(conn, Sqls, NewState),
 
 		                            FlowIdx = NewState#vdritem.msgflownum,
 		                            %MsgBody = vdr_data_processor:create_gen_resp(ID, MsgIdx, ?T_GEN_RESP_OK),
@@ -1765,7 +1765,7 @@ create_sql_from_vdr(HeaderInfo, Msg, State) ->
         16#800  ->
             {ok, ""};
         16#801  ->
-			{Id, Type, Code, EICode, PipeId, _MsgBody, Pack} = Msg,
+			{Id, Type, Code, EICode, PipeId, MsgBody, Pack} = Msg,
 			VehicleId = State#vdritem.vehicleid,
             {ServerYear, ServerMonth, ServerDay} = erlang:date(),
             {ServerHour, ServerMinute, ServerSecond} = erlang:time(),
@@ -1790,8 +1790,9 @@ create_sql_from_vdr(HeaderInfo, Msg, State) ->
                                  common:integer_to_binary(Id), <<", ">>,
                                  common:integer_to_binary(EICode), <<", ">>,
 							     common:integer_to_binary(PipeId), <<")">>]),
+			{ok, [SQL0, SQL1]} = create_pos_info_sql(MsgBody, State),
 			%common:loginfo("16#801 SQL : ~p~n", [SQL]),
-            {ok, SQL};
+            {ok, [SQL, SQL0, SQL1]};
         16#802  ->
             {ok, ""};
         16#805  ->
@@ -1800,7 +1801,7 @@ create_sql_from_vdr(HeaderInfo, Msg, State) ->
             {ok, ""};
         16#901 ->
             {ok, ""};
-        16#a00 ->
+        16#A00 ->
             {ok, ""};
         _ ->
             {error, iderror}
