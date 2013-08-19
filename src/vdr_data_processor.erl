@@ -2230,9 +2230,11 @@ parse_multi_media_event_update(_Bin) ->
 parse_multi_media_data_update(Bin) when is_binary(Bin),
 										byte_size(Bin) >= 36 ->
     <<Id:32,Type:8,Code:8,EICode:8,PipeId:8,MsgBody:(28*8),Pack/binary>> = Bin,
+	common:loginfo("Media ID : ~p, Media Type : ~p, Media Code : ~p Event Code : ~p, Channel ID : ~p~n", 
+				   [Id, Type, Code, EICode, PipeId]),
 	if
 		Id > 0 andalso Type >= 0 andalso Type =< 2 andalso Code >= 0 andalso Code =< 5 andalso EICode >= 0 andalso EICode =< 3 ->
-            case parse_position_info_report(<<MsgBody:(28*8)>>) of
+			case parse_position_info_report(<<MsgBody:(28*8)>>) of
                 {ok, Resp} ->
 		            {ok, {Id, Type, Code, EICode, PipeId, Resp, Pack}};
                 _ ->

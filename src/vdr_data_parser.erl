@@ -107,13 +107,13 @@ do_process_data(State, Data) ->
                                                 BodyLen == ActBodyLen ->
                                                     case combine_msg_packs(State, ID, MsgIdx, Total, Index, Body) of
                                                         {complete, Msg, NewState} ->
-															common:loginfo("VDR (~p) (id:~p, serialno:~p, authen_code:~p, vehicleid:~p, vehiclecode:~p)~nMsg packages is combined successfully~n", 
+															common:loginfo("VDR (~p) (id:~p, serialno:~p, authen_code:~p, vehicleid:~p, vehiclecode:~p)~nMsg packages is combined successfully (ID :~p)~n", 
 																		   [State#vdritem.addr,
 																			State#vdritem.id,
 																			State#vdritem.serialno,
 																			State#vdritem.auth,
 																			State#vdritem.vehicleid,
-																			State#vdritem.vehiclecode]),
+																			State#vdritem.vehiclecode, ID]),
                                                             case vdr_data_processor:parse_msg_body(ID, Msg) of
                                                                 {ok, Result} ->
                                                                     {ok, HeadInfo, Result, NewState};
@@ -564,6 +564,7 @@ check_msg(Packages, Total) ->
                     error
             end;
         Len =/= Total ->
+			%common:logerror("Parameter error : Packages length ~p =/= Total ~p~n", [Len, Total]),
             error
     end.
 
@@ -573,7 +574,7 @@ check_msg(Packages, Total) ->
 %%% Return the missing package index list
 %%%
 del_num_from_num_list(NumList, Packages) ->
-	%common:loginfo("NumList ~p~n", [NumList]),
+	%common:loginfo("Current NumList ~p~n", [NumList]),
     case Packages of
         [] ->
             NumList;
@@ -581,7 +582,7 @@ del_num_from_num_list(NumList, Packages) ->
             [H|T] = Packages,
             [_ID, _MsgIdx, _Total, Idx, _Body] = H,
             NewNumList = [E || E <- NumList, E =/= Idx],
-			%common:loginfo("NewNumList ~p~n", [NewNumList]),
+			%common:loginfo("New NumList ~p~n", [NewNumList]),
             del_num_from_num_list(NewNumList, T)
     end.
 

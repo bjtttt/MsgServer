@@ -807,9 +807,8 @@ do_process_vdr_data(Socket, Data, State) ->
 							%{ok, NewState};
                             {ok, NewState#vdritem{msgflownum=NewFlowIdx}};
                         16#801 ->
-							{MediaId, _Type, _Code, _EICode, _PipeId, _MsgBody, _PosInfo, _Pack} = Msg,
+							{MediaId, _Type, _Code, _EICode, _PipeId, _PosInfo, _Pack} = Msg,
 							%commmon:loginfo("Vehicle ~p sends multimedia data : ~p~n", [NewState#vdritem.vehicleid, binary_to_list(Pack)]),
-							
                             case create_sql_from_vdr(HeadInfo, Msg, NewState) of
                                 {ok, Sqls} ->
                                     send_sqls_to_db(conn, Sqls, NewState),
@@ -1790,6 +1789,14 @@ create_sql_from_vdr(HeaderInfo, Msg, State) ->
                                  common:integer_to_binary(Id), <<", ">>,
                                  common:integer_to_binary(EICode), <<", ">>,
 							     common:integer_to_binary(PipeId), <<")">>]),
+            %SQL2 = list_to_binary([<<"insert into record_media(vehicle_id, rec_time, mediatype, mediaformat, mediaid, eventid, mediachannelid) values(">>,
+			%				     common:integer_to_binary(VehicleId), <<", '">>,
+            %                     ServerTimeS, <<"', ">>,
+            %                     common:integer_to_binary(Type), <<", ">>,
+            %                     common:integer_to_binary(Code), <<", ">>,
+            %                     common:integer_to_binary(Id), <<", ">>,
+            %                     common:integer_to_binary(EICode), <<", ">>,
+			%				     common:integer_to_binary(PipeId), <<")">>]),
 			{ok, [SQL0, SQL1]} = create_pos_info_sql(MsgBody, State),
 			%common:loginfo("16#801 SQL : ~p~n", [SQL]),
             {ok, [SQL, SQL0, SQL1]};
