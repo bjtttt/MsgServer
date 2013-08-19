@@ -2253,7 +2253,7 @@ parse_multi_media_data_update(_Bin) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 create_multimedia_data_reply(Id) when is_integer(Id),
                                       Id > 0 ->
-    <<Id:32, 0:8>>;
+    <<Id:32>>;%, 0:8>>;
 create_multimedia_data_reply(_Id) ->
     <<>>.
 
