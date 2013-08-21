@@ -114,6 +114,13 @@ do_process_data(State, Data) ->
 																			State#vdritem.auth,
 																			State#vdritem.vehicleid,
 																			State#vdritem.vehiclecode, ID]),
+															%common:loginfo("VDR (~p) (id:~p, serialno:~p, authen_code:~p, vehicleid:~p, vehiclecode:~p)~nMsg packages is combined successfully (ID :~p)~n~p~n", 
+															%			   [State#vdritem.addr,
+															%				State#vdritem.id,
+															%				State#vdritem.serialno,
+															%				State#vdritem.auth,
+															%				State#vdritem.vehicleid,
+															%				State#vdritem.vehiclecode, ID, Msg]),
                                                             case vdr_data_processor:parse_msg_body(ID, Msg) of
                                                                 {ok, Result} ->
                                                                     {ok, HeadInfo, Result, NewState};
