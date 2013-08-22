@@ -610,21 +610,23 @@ connect_ws_to_vdr(Msg) ->
 						{ok, FileBin} ->
 							UpgradeData = FileBin,
 							UpgradeLen = byte_size(UpgradeData),
-							%common:loginfo("1~n"),
+							common:loginfo("1~n"),
 		                    Bins = vdr_data_processor:create_update_packet(TYPE, PID, VerLen, VERSION, UpgradeLen, UpgradeData),
-							%common:loginfo("2~n"),
+							common:loginfo("2~n"),
 							%Bins = common:split_msg_to_packages(Bin, ?MAX_SINGLE_MSG_LEN),
 							%case Bins of
 							%	[] ->
 							case Bins of
 								[] ->
-									%common:loginfo("3~n"),
-		                            send_resp_to_ws(SN, 16#8108, VIDList, ?P_GENRESP_ERRMSG);
+									common:loginfo("3~n"),
+		                            send_resp_to_ws(SN, 16#8108, VIDList, ?P_GENRESP_ERRMSG),
+									common:loginfo("4~n");
 								_ ->
-									%common:loginfo("4~n"),
+									common:loginfo("5~n"),
 									update_vdrs_ws2vdr_msg_id_flowidx(16#8108, SN, VIDList, null),
-									%common:loginfo("5~n"),
-									send_msg_to_vdrs(16#8108, VIDList, Bins)%s)
+									common:loginfo("6~n"),
+									send_msg_to_vdrs(16#8108, VIDList, Bins),%s)
+									common:loginfo("7~n");
 									%send_resp_to_ws(SN, 16#8108, VIDList, ?P_GENRESP_OK)
 							end;
 						{error, FileReason} ->
