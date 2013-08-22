@@ -1510,16 +1510,25 @@ send_data_to_vdr(ID, Tel, FlowIdx, MsgBody, VDRPid) ->
 							Header = binary:part(MsgBody, 0, 20),
 							if
 								Header == ?SUB_PACK_INDI_HEADER ->
+									%common:loginfo("0.1"),
 									Total = binary:part(MsgBody, 20, 2),
+									%common:loginfo("0.2 Total ~p", [Total]),
 									<<TotalInt:16>> = Total,
+									%common:loginfo("0.3 TotalInt ~p", [TotalInt]),
 									Index = binary:part(MsgBody, 22, 2),
+									%common:loginfo("0.4 Index ~p", [Index]),
 									<<IndexInt:16>> = Index,
+									%common:loginfo("0.5 IndexInt ~p", [IndexInt]),
 									Tail = binary:part(MsgBody, 24, MsgLen-24),
+									%common:loginfo("0.6"),
 									Msg = vdr_data_processor:create_final_msg(ID, Tel, FlowIdx, Tail, TotalInt, IndexInt),
+									%common:loginfo("0.7"),
 									case is_list(Msg) of
 										true ->
+											%common:loginfo("0.8"),
 											do_send_msg2vdr(VDRPid, Pid, Msg);
 										_ ->
+											%common:loginfo("0.9"),
 											case is_binary(Msg) of
 												true ->
 													if

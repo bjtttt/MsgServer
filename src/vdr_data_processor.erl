@@ -29,6 +29,7 @@
 -export([parse_msg_body/2]).
 
 -export([create_final_msg/4,
+         create_final_msg/6,
          create_gen_resp/3, 
          create_resend_subpack_req/3,
          create_reg_resp/3,
@@ -140,7 +141,9 @@ create_final_msg(ID, Tel, MsgIdx, Data, PTotal, PIdx) when is_binary(Data),
 													       PTotal >= PIdx,
 													       PIdx > 0 ->
     %common:loginfo("vdr_data_processor:create_final_msg(ID=~p, Tel=~p, MsgIdx=~p, Data=~p)~n", [ID, Tel, MsgIdx, Data]),
-    Len = byte_size(Data),
+    %common:loginfo("1.1.1.2.1"),
+	Len = byte_size(Data),
+	%common:loginfo("1.1.1.2.2"),
     Header = <<ID:16, 0:2, 1:1, 0:3, Len:10, Tel:48, MsgIdx:16, PTotal:16, PIdx:16>>,
     HeaderBody = list_to_binary([Header, Data]),
     Parity = vdr_data_parser:bxorbytelist(HeaderBody),
@@ -151,6 +154,7 @@ create_final_msg(ID, Tel, MsgIdx, Data, PTotal, PIdx) when is_binary(Data),
     MsgBody4 = binary:replace(MsgBody3, <<255, 1, 255, 2, 255, 3, 255, 4, 255, 5, 255>>, <<125, 2>>, [global]),
     list_to_binary([<<126>>, MsgBody4, <<126>>]);
 create_final_msg(_ID, _Tel, _MsgIdx, _Data, _PTotal, _PIdx) ->
+	%common:loginfo("1.1.1.1.1"),
 	<<>>.
 
 %%%
