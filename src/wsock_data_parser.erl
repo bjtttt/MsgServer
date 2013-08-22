@@ -625,7 +625,7 @@ connect_ws_to_vdr(Msg) ->
 									%common:loginfo("5"),
 									update_vdrs_ws2vdr_msg_id_flowidx(16#8108, SN, VIDList, null),
 									%common:loginfo("6"),
-									common:loginfo("Bins~n~p", [Bins]),
+									%common:loginfo("Bins~n~p", [Bins]),
 									send_msg_to_vdrs(16#8108, VIDList, Bins)%,%s)
 									%common:loginfo("7")
 									%send_resp_to_ws(SN, 16#8108, VIDList, ?P_GENRESP_OK)
