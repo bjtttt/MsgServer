@@ -571,7 +571,7 @@ check_msg(Packages, Total) ->
                     error
             end;
         Len =/= Total ->
-			%common:logerror("Parameter error : Packages length ~p =/= Total ~p~n", [Len, Total]),
+			common:logerror("Check message error : Packages length ~p =/= Total ~p~n", [Len, Total]),
             error
     end.
 
@@ -581,7 +581,7 @@ check_msg(Packages, Total) ->
 %%% Return the missing package index list
 %%%
 del_num_from_num_list(NumList, Packages) ->
-	%common:loginfo("Current NumList ~p~n", [NumList]),
+	common:loginfo("Delete number from number list : current number list ~p~n", [NumList]),
     case Packages of
         [] ->
             NumList;
@@ -589,7 +589,7 @@ del_num_from_num_list(NumList, Packages) ->
             [H|T] = Packages,
             [_ID, _MsgIdx, _Total, Idx, _Body] = H,
             NewNumList = [E || E <- NumList, E =/= Idx],
-			%common:loginfo("New NumList ~p~n", [NewNumList]),
+			common:loginfo("Delete number from number list : new number list ~p without ~p~n", [NewNumList, Idx]),
             del_num_from_num_list(NewNumList, T)
     end.
 

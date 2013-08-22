@@ -907,7 +907,15 @@ do_process_vdr_data(Socket, Data, State) ->
             {RequiredId, MsgPackages} = NewState#vdritem.msgpackages,
             if
                 RequiredId > -1 ->
+                    common:loginfo("~p starts sending VDR (~p) request for resend : required msg id ~p~n", 
+								   [NewState#vdritem.pid, 
+									NewState#vdritem.addr, 
+									RequiredId]),
                     MissingMsgIdx = find_missing_msgidx(RequiredId, MsgPackages),
+                    common:loginfo("~p starts sending VDR (~p) request for resend : finding missing msg index ~p~n", 
+								   [NewState#vdritem.pid, 
+									NewState#vdritem.addr, 
+									MissingMsgIdx]),
                     case MissingMsgIdx of
                         none ->
                             [VDRItem] = ets:lookup(vdrtable, Socket),
@@ -1775,30 +1783,57 @@ create_sql_from_vdr(HeaderInfo, Msg, State) ->
             ServerMinuteS = common:integer_to_binary(ServerMinute),
             ServerSecondS = common:integer_to_binary(ServerSecond),
             ServerTimeS = list_to_binary([ServerYearS, <<"-">>, ServerMonthS, <<"-">>, ServerDayS, <<" ">>, ServerHourS, <<":">>, ServerMinuteS, <<":">>, ServerSecondS]),
+            ServerTimeSFile = list_to_binary([ServerYearS, <<"_">>, ServerMonthS, <<"_">>, ServerDayS, <<"_">>, ServerHourS, <<"_">>, ServerMinuteS, <<"_">>, ServerSecondS]),
 			%file:write_file("media0", Pack),
 			%common:loginfo("Pack : ~p~n", [Pack]),
-			Pack1 = binary:replace(Pack, <<39>>, <<255,254,253,252,251,250,251,252,253,254,255,254,253,252,251,250,251,252,253,254,255>>, [global]),
+			%Pack1 = binary:replace(Pack, <<39>>, <<255,254,253,252,251,250,251,252,253,254,255,254,253,252,251,250,251,252,253,254,255>>, [global]),
 			%common:loginfo("Pack1 : ~p~n", [Pack1]),
-			Pack2 = binary:replace(Pack1, <<255,254,253,252,251,250,251,252,253,254,255,254,253,252,251,250,251,252,253,254,255>>, <<92,39>>, [global]),
+			%Pack2 = binary:replace(Pack1, <<255,254,253,252,251,250,251,252,253,254,255,254,253,252,251,250,251,252,253,254,255>>, <<92,39>>, [global]),
 			%common:loginfo("Pack2 : ~p~n", [Pack2]),
+			case file:make_dir("media") of
+				ok ->
+					common:loginfo("Successfully create directory media~n");
+				{error, DirError} ->
+					common:logerror("Cannot create directory media : ~p~n", [DirError])
+			end,
+			case file:get_cwd() of
+				{ok, Dir} ->
+					common:loginfo("Current directory ~p~n", [Dir]);
+				{error, CwdError} ->
+					common:logerror("Cannot get the current directory : ~p~n", [CwdError])
+			end,
+			FileName = common:combine_strings(["media/",
+											   integer_to_list(State#vdritem.tel), "_",
+											   binary_to_list(ServerTimeSFile), "_",
+											   integer_to_list(Id), "_",
+											   integer_to_list(Type), "_",
+											   integer_to_list(Code), "_",
+											   integer_to_list(EICode), "_",
+											   integer_to_list(PipeId), ".dat"], false),											   										    
+			case file:write_file(FileName, Pack) of
+				ok ->
+					common:loginfo("Successfully save media file ~p~n", [FileName]);
+				{error, FileError} ->
+					common:logerror("Cannot save media file ~p : ~p~n", [FileName, FileError])
+			end,
 			%file:write_file("media1", Pack2),
-            SQL = list_to_binary([<<"insert into record_media(vehicle_id, rec_time, mediadata, mediatype, mediaformat, mediaid, eventid, mediachannelid) values(">>,
-							     common:integer_to_binary(VehicleId), <<", '">>,
-                                 ServerTimeS, <<"', '">>,
-                                 Pack2, <<"', ">>,
-                                 common:integer_to_binary(Type), <<", ">>,
-                                 common:integer_to_binary(Code), <<", ">>,
-                                 common:integer_to_binary(Id), <<", ">>,
-                                 common:integer_to_binary(EICode), <<", ">>,
-							     common:integer_to_binary(PipeId), <<")">>]),
-            %SQL2 = list_to_binary([<<"insert into record_media(vehicle_id, rec_time, mediatype, mediaformat, mediaid, eventid, mediachannelid) values(">>,
+            %SQL = list_to_binary([<<"insert into record_media(vehicle_id, rec_time, mediadata, mediatype, mediaformat, mediaid, eventid, mediachannelid) values(">>,
 			%				     common:integer_to_binary(VehicleId), <<", '">>,
-            %                     ServerTimeS, <<"', ">>,
+            %                     ServerTimeS, <<"', '">>,
+            %                     Pack2, <<"', ">>,
             %                     common:integer_to_binary(Type), <<", ">>,
             %                     common:integer_to_binary(Code), <<", ">>,
             %                     common:integer_to_binary(Id), <<", ">>,
             %                     common:integer_to_binary(EICode), <<", ">>,
 			%				     common:integer_to_binary(PipeId), <<")">>]),
+            SQL = list_to_binary([<<"insert into record_media(vehicle_id, rec_time, mediatype, mediaformat, mediaid, eventid, mediachannelid) values(">>,
+							     common:integer_to_binary(VehicleId), <<", '">>,
+                                 ServerTimeS, <<"', ">>,
+                                 common:integer_to_binary(Type), <<", ">>,
+                                 common:integer_to_binary(Code), <<", ">>,
+                                 common:integer_to_binary(Id), <<", ">>,
+                                 common:integer_to_binary(EICode), <<", ">>,
+							     common:integer_to_binary(PipeId), <<")">>]),
 			{ok, [SQL0, SQL1]} = create_pos_info_sql(MsgBody, State),
 			%common:loginfo("16#801 SQL : ~p~n", [SQL]),
             {ok, [SQL, SQL0, SQL1]};
