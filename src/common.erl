@@ -52,7 +52,7 @@ split_msg_to_packages(Data, PackLen) when is_integer(PackLen),
 	if
 		Len > 1 ->
 			%common:loginfo("1.4"),
-			add_sub_pack_suffix_to_bin_list(Bins, [], Len),
+			add_sub_pack_suffix_to_bin_list(Bins, [], Len);%,
 			%common:loginfo("1.5");
 		true ->
 			Bins
