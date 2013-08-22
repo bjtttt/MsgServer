@@ -847,30 +847,43 @@ send_msg_to_vdrs(ID, VIDList, Msg) when is_list(VIDList),
 										length(VIDList) > 0,
 										is_list(Msg),
 										length(Msg) > 0 ->
+	common:loginfo("2.1"),
 	[H|T] = Msg,
+	common:loginfo("2.2"),
 	send_msg_to_vdrs(ID, VIDList, H),
+	common:loginfo("2.3"),
 	Len = length(T),
+	common:loginfo("2.4"),
 	if
 		Len > 0 ->
-			send_msg_to_vdrs(ID, VIDList, T);
+			common:loginfo("2.5"),
+			send_msg_to_vdrs(ID, VIDList, T),
+			common:loginfo("2.6");
 		true ->
 			ok
 	end;
 send_msg_to_vdrs(_ID, _VIDList, Msg) when is_list(Msg),
 										  length(Msg) =< 0 ->
+	common:loginfo("4.1"),
 	ok;
 send_msg_to_vdrs(ID, VIDList, Msg) when is_list(VIDList),
                                         length(VIDList) > 0,
                                         is_binary(Msg) ->
-    [H|T] = VIDList,
+    common:loginfo("3.1"),
+	[H|T] = VIDList,
+	common:loginfo("3.2"),
     send_msg_to_vdr(ID, H, Msg),
+	common:loginfo("3.3"),
     case T of
         [] ->
             ok;
         _ ->
-            send_msg_to_vdrs(ID, T, Msg)
+			common:loginfo("3.4"),
+            send_msg_to_vdrs(ID, T, Msg),
+			common:loginfo("3.5")
     end;
 send_msg_to_vdrs(_ID, _VDRList, _Msg) ->
+	common:loginfo("5.1"),
     ok.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
