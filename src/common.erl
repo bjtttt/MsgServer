@@ -82,17 +82,17 @@ add_sub_pack_suffix_to_bin_list(SrcList, DestList, TotalLen) when is_list(SrcLis
 	DestLen = length(DestList),
 	common:loginfo("1.1.2"),
 	[H|T] = SrcList,
-	common:loginfo("1.1.3"),
+	common:loginfo("1.1.3 ~p : ~p", [TotalLen, DestLen+1]),
 	HNew = list_to_binary([?SUB_PACK_INDI_HEADER,
-					       common:integer_to_2byte_binary(TotalLen),
-					       common:integer_to_2byte_binary(DestLen+1),
+					       <<TotalLen:16>>,
+					       <<(DestLen+1):16>>,
 						   H]),
 	common:loginfo("1.1.4"),
 	DestListNew = lists:merge(DestList, [HNew]),
 	common:loginfo("1.1.5"),
 	add_sub_pack_suffix_to_bin_list(T, DestListNew, TotalLen);
 add_sub_pack_suffix_to_bin_list(_SrcList, DestList, _TotalLen) when is_list(DestList) ->
-	common:loginfo("1.1.6"),
+	common:loginfo("1.1.6~n~p", [DestList]),
 	DestList;
 add_sub_pack_suffix_to_bin_list(_SrcList, _DestList, _TotalLen) ->
 	common:loginfo("1.1.7"),
@@ -165,7 +165,8 @@ integer_list_to_size_binary_list(_IDs, _ByteSize) ->
 	<<>>.
 
 %%%
-%%%
+%%% It is only for this case : 10 -> <<"10">>
+%%% Not for 10 -> <<0, 10>> which should use <<10:16>>
 %%%
 integer_to_2byte_binary(Integer) when is_integer(Integer) ->
     List = integer_to_list(Integer),
