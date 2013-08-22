@@ -44,6 +44,20 @@
 split_msg_to_packages(Data, PackLen) when is_integer(PackLen),
 							    		  PackLen > 0,
 										  is_binary(Data) ->
+	Bins = do_split_msg_to_packages(Data, PackLen),
+	Len = length(Bins),
+	if
+		Len > 1 ->
+			add_sub_pack_suffix_to_bin_list(Bins, [], Len);
+		true ->
+			Bins
+	end;
+split_msg_to_packages(_Data, _PackLen) ->
+	[].
+
+do_split_msg_to_packages(Data, PackLen) when is_integer(PackLen),
+							    		     PackLen > 0,
+										     is_binary(Data) ->
 	Len = byte_size(Data),
 	if
 		PackLen >= Len ->
@@ -51,8 +65,26 @@ split_msg_to_packages(Data, PackLen) when is_integer(PackLen),
 		true ->
 			H = binary:part(Data, 0, PackLen),
 			T = binary:part(Data, PackLen, Len-PackLen),
-			lists:merge([H], split_msg_to_packages(T, PackLen))
-	end.
+			lists:merge([H], do_split_msg_to_packages(T, PackLen))
+	end;
+do_split_msg_to_packages(_Data, _PackLen) ->
+	[].
+
+add_sub_pack_suffix_to_bin_list(SrcList, DestList, TotalLen) when is_list(SrcList),
+																  length(SrcList) > 0,
+																  is_list(DestList) ->
+	DestLen = length(DestList),
+	[H|T] = SrcList,
+	HNew = list_to_binary([?SUB_PACK_INDI_HEADER,
+					       common:integer_to_2byte_binary(TotalLen),
+					       common:integer_to_2byte_binary(DestLen+1),
+						   H]),
+	DestListNew = [DestList|HNew],
+	add_sub_pack_suffix_to_bin_list(T, DestListNew, TotalLen);
+add_sub_pack_suffix_to_bin_list(_SrcList, DestList, _TotalLen) when is_list(DestList) ->
+	DestList;
+add_sub_pack_suffix_to_bin_list(_SrcList, _DestList, _TotalLen) ->
+	[].
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%

@@ -1502,45 +1502,174 @@ send_data_to_vdr(ID, Tel, FlowIdx, MsgBody, VDRPid) ->
         _ ->
             Pid = self(),
             %common:loginfo("~p send_data_to_vdr : ID (~p), FlowIdx (~p), MsgBody (~p)~n", [Pid, ID, FlowIdx, MsgBody]),
-            Msg = vdr_data_processor:create_final_msg(ID, Tel, FlowIdx, MsgBody),
-			case is_list(Msg) of
+			case is_binary(MsgBody) of
 				true ->
-					do_send_msg2vdr(VDRPid, Pid, Msg);
-				_ ->
-					case is_binary(Msg) of
-						true ->
+					MsgLen = byte_size(MsgBody),
+					if
+						MsgLen > 24 ->
+							Header = binary:part(MsgBody, 0, 20),
 							if
-								Msg == <<>> ->
-									common:loginfo("~p send_data_to_vdr NULL final message : ID (~p), FlowIdx (~p), MsgBody (~p)~n", [Pid, ID, FlowIdx, MsgBody]);
-								Msg =/= <<>> ->
-									%common:loginfo("~p send_data_to_vdr final message : ID (~p), FlowIdx (~p), Msg (~p)~n", [Pid, ID, FlowIdx, Msg]),
-									do_send_msg2vdr(VDRPid, Pid, Msg),
-									%VDRPid ! {Pid, Msg},
-									%receive
-									%    {Pid, vdrok} ->
-									%        FlowIdx + 1
-									%end
-									NewFlowIdx = FlowIdx + 1,
-									NewFlowIdxRem = NewFlowIdx rem ?WS2VDRFREQ,
-									case NewFlowIdxRem of
-										0 ->
-											NewFlowIdx + 1;
+								Header == ?SUB_PACK_INDI_HEADER ->
+									Total = binary:part(MsgBody, 20, 2),
+									<<TotalInt:16>> = Total,
+									Index = binary:part(MsgBody, 22, 2),
+									<<IndexInt:16>> = Index,
+									Tail = binary:part(MsgBody, 24, MsgLen-24),
+									Msg = vdr_data_processor:create_final_msg(ID, Tel, FlowIdx, Tail, TotalInt, IndexInt),
+									case is_list(Msg) of
+										true ->
+											do_send_msg2vdr(VDRPid, Pid, Msg);
 										_ ->
-											FlowIdxRem = FlowIdx rem ?WS2VDRFREQ,
-											case FlowIdxRem of
-												0 ->
-													FlowIdx + ?WS2VDRFREQ;
+											case is_binary(Msg) of
+												true ->
+													if
+														Msg == <<>> ->
+															common:loginfo("~p send_data_to_vdr NULL final message : ID (~p), FlowIdx (~p), MsgBody (~p)~n", [Pid, ID, FlowIdx, MsgBody]);
+														Msg =/= <<>> ->
+															%common:loginfo("~p send_data_to_vdr final message : ID (~p), FlowIdx (~p), Msg (~p)~n", [Pid, ID, FlowIdx, Msg]),
+															do_send_msg2vdr(VDRPid, Pid, Msg),
+															%VDRPid ! {Pid, Msg},
+															%receive
+															%    {Pid, vdrok} ->
+															%        FlowIdx + 1
+															%end
+															NewFlowIdx = FlowIdx + 1,
+															NewFlowIdxRem = NewFlowIdx rem ?WS2VDRFREQ,
+															case NewFlowIdxRem of
+																0 ->
+																	NewFlowIdx + 1;
+																_ ->
+																	FlowIdxRem = FlowIdx rem ?WS2VDRFREQ,
+																	case FlowIdxRem of
+																		0 ->
+																			FlowIdx + ?WS2VDRFREQ;
+																		_ ->
+																			NewFlowIdx
+																	end
+															end
+													end;
 												_ ->
-													NewFlowIdx
+													FlowIdx
+											end
+									end;
+								true ->
+						            Msg = vdr_data_processor:create_final_msg(ID, Tel, FlowIdx, MsgBody),
+									case is_list(Msg) of
+										true ->
+											do_send_msg2vdr(VDRPid, Pid, Msg);
+										_ ->
+											case is_binary(Msg) of
+												true ->
+													if
+														Msg == <<>> ->
+															common:loginfo("~p send_data_to_vdr NULL final message : ID (~p), FlowIdx (~p), MsgBody (~p)~n", [Pid, ID, FlowIdx, MsgBody]);
+														Msg =/= <<>> ->
+															%common:loginfo("~p send_data_to_vdr final message : ID (~p), FlowIdx (~p), Msg (~p)~n", [Pid, ID, FlowIdx, Msg]),
+															do_send_msg2vdr(VDRPid, Pid, Msg),
+															%VDRPid ! {Pid, Msg},
+															%receive
+															%    {Pid, vdrok} ->
+															%        FlowIdx + 1
+															%end
+															NewFlowIdx = FlowIdx + 1,
+															NewFlowIdxRem = NewFlowIdx rem ?WS2VDRFREQ,
+															case NewFlowIdxRem of
+																0 ->
+																	NewFlowIdx + 1;
+																_ ->
+																	FlowIdxRem = FlowIdx rem ?WS2VDRFREQ,
+																	case FlowIdxRem of
+																		0 ->
+																			FlowIdx + ?WS2VDRFREQ;
+																		_ ->
+																			NewFlowIdx
+																	end
+															end
+													end;
+												_ ->
+													FlowIdx
 											end
 									end
 							end;
+						true ->
+				            Msg = vdr_data_processor:create_final_msg(ID, Tel, FlowIdx, MsgBody),
+							case is_list(Msg) of
+								true ->
+									do_send_msg2vdr(VDRPid, Pid, Msg);
+								_ ->
+									case is_binary(Msg) of
+										true ->
+											if
+												Msg == <<>> ->
+													common:loginfo("~p send_data_to_vdr NULL final message : ID (~p), FlowIdx (~p), MsgBody (~p)~n", [Pid, ID, FlowIdx, MsgBody]);
+												Msg =/= <<>> ->
+													%common:loginfo("~p send_data_to_vdr final message : ID (~p), FlowIdx (~p), Msg (~p)~n", [Pid, ID, FlowIdx, Msg]),
+													do_send_msg2vdr(VDRPid, Pid, Msg),
+													%VDRPid ! {Pid, Msg},
+													%receive
+													%    {Pid, vdrok} ->
+													%        FlowIdx + 1
+													%end
+													NewFlowIdx = FlowIdx + 1,
+													NewFlowIdxRem = NewFlowIdx rem ?WS2VDRFREQ,
+													case NewFlowIdxRem of
+														0 ->
+															NewFlowIdx + 1;
+														_ ->
+															FlowIdxRem = FlowIdx rem ?WS2VDRFREQ,
+															case FlowIdxRem of
+																0 ->
+																	FlowIdx + ?WS2VDRFREQ;
+																_ ->
+																	NewFlowIdx
+															end
+													end
+											end;
+										_ ->
+											FlowIdx
+									end
+							end
+					end;
+				_ ->
+		            Msg = vdr_data_processor:create_final_msg(ID, Tel, FlowIdx, MsgBody),
+					case is_list(Msg) of
+						true ->
+							do_send_msg2vdr(VDRPid, Pid, Msg);
 						_ ->
-							FlowIdx
+							case is_binary(Msg) of
+								true ->
+									if
+										Msg == <<>> ->
+											common:loginfo("~p send_data_to_vdr NULL final message : ID (~p), FlowIdx (~p), MsgBody (~p)~n", [Pid, ID, FlowIdx, MsgBody]);
+										Msg =/= <<>> ->
+											%common:loginfo("~p send_data_to_vdr final message : ID (~p), FlowIdx (~p), Msg (~p)~n", [Pid, ID, FlowIdx, Msg]),
+											do_send_msg2vdr(VDRPid, Pid, Msg),
+											%VDRPid ! {Pid, Msg},
+											%receive
+											%    {Pid, vdrok} ->
+											%        FlowIdx + 1
+											%end
+											NewFlowIdx = FlowIdx + 1,
+											NewFlowIdxRem = NewFlowIdx rem ?WS2VDRFREQ,
+											case NewFlowIdxRem of
+												0 ->
+													NewFlowIdx + 1;
+												_ ->
+													FlowIdxRem = FlowIdx rem ?WS2VDRFREQ,
+													case FlowIdxRem of
+														0 ->
+															FlowIdx + ?WS2VDRFREQ;
+														_ ->
+															NewFlowIdx
+													end
+											end
+									end;
+								_ ->
+									FlowIdx
+							end
 					end
 			end
     end.
-
 
 do_send_msg2vdr(VDRPid, Pid, Msg) when is_binary(Msg),
 									   byte_size(Msg) > 0 ->

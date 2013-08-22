@@ -137,8 +137,8 @@ create_final_msg_list(_ID, _Tel, _MsgIdx, _DataList, _Len, _Idx) ->
 create_final_msg(ID, Tel, MsgIdx, Data, PTotal, PIdx) when is_binary(Data),
 										                   byte_size(Data) > 0,
 										                   byte_size(Data) =< ?MAX_SINGLE_MSG_LEN,
-													  PTotal >= PIdx,
-													  PIdx > 0 ->
+													       PTotal >= PIdx,
+													       PIdx > 0 ->
     %common:loginfo("vdr_data_processor:create_final_msg(ID=~p, Tel=~p, MsgIdx=~p, Data=~p)~n", [ID, Tel, MsgIdx, Data]),
     Len = byte_size(Data),
     Header = <<ID:16, 0:2, 1:1, 0:3, Len:10, Tel:48, MsgIdx:16, PTotal:16, PIdx:16>>,
@@ -1157,24 +1157,25 @@ parse_query_term_prop_response(Bin) ->
 % I don't know whether it is correct to process BYTE[n] by list_to_binary
 %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-create_update_packet(Type, ProID, VerLen, Ver, UpgradeLen, UpgradeData) ->
-    Len0 = length(Ver),
-    if
-        VerLen =/= Len0 ->
-            <<>>;
-        true ->
-            Len1 = byte_size(UpgradeData),
-            if
-                Len1 =/= UpgradeLen ->
-                    <<>>;
-                true ->
-                    %ProIDBin = list_to_binary(ProID),
-                    VerBin = list_to_binary(Ver),
-                    %UpgradeDataBin = list_to_binary(UpgradeData),
-                    Bin = list_to_binary([<<Type:?LEN_BYTE>>, ProID, <<VerLen:?LEN_BYTE>>, VerBin, <<UpgradeLen:?LEN_DWORD>>, UpgradeData]),
-					common:split_msg_to_packages(Bin, 1000)
-            end
-    end.
+create_update_packet(Type, ProID, VerLen, Ver, UpgradeLen, UpgradeData) when is_list(ProID),
+  																			 is_list(Ver),
+																			 length(Ver) == VerLen,
+																			 is_binary(UpgradeData),
+																			 byte_size(UpgradeData) == UpgradeLen ->
+    ProIDBin = list_to_binary(ProID),
+    VerBin = list_to_binary(Ver),
+    %UpgradeDataBin = list_to_binary(UpgradeData),
+    Bin = list_to_binary([<<Type:?LEN_BYTE>>, ProIDBin, <<VerLen:?LEN_BYTE>>, VerBin, <<UpgradeLen:?LEN_DWORD>>, UpgradeData]),
+	common:split_msg_to_packages(Bin, 1000);
+create_update_packet(Type, ProID, VerLen, Ver, UpgradeLen, UpgradeData) when is_binary(ProID),
+  																			 is_binary(Ver),
+																			 byte_size(Ver) == VerLen,
+																			 is_binary(UpgradeData),
+																			 byte_size(UpgradeData) == UpgradeLen ->
+    Bin = list_to_binary([<<Type:?LEN_BYTE>>, ProID, <<VerLen:?LEN_BYTE>>, Ver, <<UpgradeLen:?LEN_DWORD>>, UpgradeData]),
+	common:split_msg_to_packages(Bin, 1000);
+create_update_packet(_Type, _ProID, _VerLen, _Ver, _UpgradeLen, _UpgradeData) ->
+	[].
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %
