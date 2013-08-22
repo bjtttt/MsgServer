@@ -54,6 +54,24 @@ start(StartType, StartArgs) ->
     ets:new(usertable,[set,public,named_table,{keypos,#user.id},{read_concurrency,true},{write_concurrency,true}]),
     ets:new(montable,[set,public,named_table,{keypos,#monitem.socket},{read_concurrency,true},{write_concurrency,true}]),
     common:loginfo("Tables are initialized.~n"),
+	case file:get_cwd() of
+		{ok, Dir} ->
+			common:loginfo("Current directory ~p~n", [Dir]);
+		{error, CwdError} ->
+			common:logerror("Cannot get the current directory : ~p~n", [CwdError])
+	end,
+	case file:make_dir("media") of
+		ok ->
+			common:loginfo("Successfully create directory media~n");
+		{error, DirError0} ->
+			common:logerror("Cannot create directory media : ~p~n", [DirError0])
+	end,
+	case file:make_dir("upgrade") of
+		ok ->
+			common:loginfo("Successfully create directory upgrade~n");
+		{error, DirError1} ->
+			common:logerror("Cannot create directory upgrade : ~p~n", [DirError1])
+	end,
     case supervisor:start_link(mssup, []) of
         {ok, SupPid} ->
             ets:insert(msgservertable, {suppid, SupPid}),

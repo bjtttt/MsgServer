@@ -1790,18 +1790,18 @@ create_sql_from_vdr(HeaderInfo, Msg, State) ->
 			%common:loginfo("Pack1 : ~p~n", [Pack1]),
 			%Pack2 = binary:replace(Pack1, <<255,254,253,252,251,250,251,252,253,254,255,254,253,252,251,250,251,252,253,254,255>>, <<92,39>>, [global]),
 			%common:loginfo("Pack2 : ~p~n", [Pack2]),
-			case file:make_dir("media") of
-				ok ->
-					common:loginfo("Successfully create directory media~n");
-				{error, DirError} ->
-					common:logerror("Cannot create directory media : ~p~n", [DirError])
-			end,
-			case file:get_cwd() of
-				{ok, Dir} ->
-					common:loginfo("Current directory ~p~n", [Dir]);
-				{error, CwdError} ->
-					common:logerror("Cannot get the current directory : ~p~n", [CwdError])
-			end,
+			%case file:make_dir("media") of
+			%	ok ->
+			%		common:loginfo("Successfully create directory media~n");
+			%	{error, DirError} ->
+			%		common:logerror("Cannot create directory media : ~p~n", [DirError])
+			%end,
+			%case file:get_cwd() of
+			%	{ok, Dir} ->
+			%		common:loginfo("Current directory ~p~n", [Dir]);
+			%	{error, CwdError} ->
+			%		common:logerror("Cannot get the current directory : ~p~n", [CwdError])
+			%end,
 			FileName = common:combine_strings(["media/",
 											   integer_to_list(State#vdritem.tel), "_",
 											   binary_to_list(ServerTimeSFile), "_",
