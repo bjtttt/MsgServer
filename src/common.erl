@@ -43,9 +43,11 @@
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 split_msg_to_packages(Data, PackLen) when is_integer(PackLen),
 							    		  PackLen > 0,
-										  is_binary(Data) ->
+										  is_binary(Data),
+										  PackLen =< byte_size(Data) ->
 	%common:loginfo("1.1"),
 	Bins = do_split_msg_to_packages(Data, PackLen),
+	%common:loginfo("Bins~n~p", [Bins]),
 	%common:loginfo("1.2"),
 	Len = length(Bins),
 	%common:loginfo("1.3"),
@@ -57,12 +59,18 @@ split_msg_to_packages(Data, PackLen) when is_integer(PackLen),
 		true ->
 			Bins
 	end;
+split_msg_to_packages(Data, PackLen) when is_integer(PackLen),
+							    		  PackLen > 0,
+										  is_binary(Data),
+										  PackLen >= byte_size(Data) ->
+	[Data];
 split_msg_to_packages(_Data, _PackLen) ->
 	[].
 
 do_split_msg_to_packages(Data, PackLen) when is_integer(PackLen),
 							    		     PackLen > 0,
-										     is_binary(Data) ->
+										     is_binary(Data),
+											 PackLen < byte_size(Data) ->
 	Len = byte_size(Data),
 	if
 		PackLen >= Len ->
@@ -70,8 +78,14 @@ do_split_msg_to_packages(Data, PackLen) when is_integer(PackLen),
 		true ->
 			H = binary:part(Data, 0, PackLen),
 			T = binary:part(Data, PackLen, Len-PackLen),
-			lists:merge([H], do_split_msg_to_packages(T, PackLen))
+			%common:loginfo("Total size ~p : New subpackage size ~p : Left size ~p~n~p", [Len, byte_size(H), byte_size(T), H]),
+			[H|do_split_msg_to_packages(T, PackLen)]
 	end;
+do_split_msg_to_packages(Data, PackLen) when is_integer(PackLen),
+							    		     PackLen > 0,
+										     is_binary(Data),
+											 PackLen >= byte_size(Data)->
+	[Data];
 do_split_msg_to_packages(_Data, _PackLen) ->
 	[].
 
