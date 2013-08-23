@@ -8,6 +8,7 @@
 
 -export([split_msg_to_packages/2,
 		 number_list_to_binary/2,
+		 make_sure_n_byte_binary/2,
 		 convert_integer_to_binary_string_list/1,
          convert_bcd_integer/1,
 		 %convert_integer_bcd/1,
@@ -111,6 +112,14 @@ add_sub_pack_suffix_to_bin_list(_SrcList, DestList, _TotalLen) when is_list(Dest
 add_sub_pack_suffix_to_bin_list(_SrcList, _DestList, _TotalLen) ->
 	%common:loginfo("1.1.7"),
 	[].
+
+make_sure_n_byte_binary(Bin, N) when is_binary(Bin),
+									 N > 0 ->
+	Size = bit_size(Bin),
+	<<Int:Size>> = Bin,
+	<<Int:(N*?LEN_BYTE)>>;
+make_sure_n_byte_binary(_Bin, _N) ->
+	<<>>.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%

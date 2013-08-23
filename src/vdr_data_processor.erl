@@ -1166,7 +1166,7 @@ create_update_packet(Type, ProID, VerLen, Ver, UpgradeLen, UpgradeData) when is_
 																			 length(Ver) == VerLen,
 																			 is_binary(UpgradeData),
 																			 byte_size(UpgradeData) == UpgradeLen ->
-    ProIDBin = list_to_binary(ProID),
+    ProIDBin = common:make_sure_n_byte_binary(list_to_binary(ProID), 5),
     VerBin = list_to_binary(Ver),
     %UpgradeDataBin = list_to_binary(UpgradeData),
     Bin = list_to_binary([<<Type:?LEN_BYTE>>, ProIDBin, <<VerLen:?LEN_BYTE>>, VerBin, <<UpgradeLen:?LEN_DWORD>>, UpgradeData]),
@@ -1176,7 +1176,7 @@ create_update_packet(Type, ProID, VerLen, Ver, UpgradeLen, UpgradeData) when is_
 																			 byte_size(Ver) == VerLen,
 																			 is_binary(UpgradeData),
 																			 byte_size(UpgradeData) == UpgradeLen ->
-    Bin = list_to_binary([<<Type:?LEN_BYTE>>, ProID, <<VerLen:?LEN_BYTE>>, Ver, <<UpgradeLen:?LEN_DWORD>>, UpgradeData]),
+    Bin = list_to_binary([<<Type:?LEN_BYTE>>, common:make_sure_n_byte_binary(ProID, 5), <<VerLen:?LEN_BYTE>>, Ver, <<UpgradeLen:?LEN_DWORD>>, UpgradeData]),
 	common:split_msg_to_packages(Bin, ?MAX_SINGLE_MSG_LEN);
 create_update_packet(_Type, _ProID, _VerLen, _Ver, _UpgradeLen, _UpgradeData) ->
 	[].
