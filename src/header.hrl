@@ -54,7 +54,8 @@
 -define(P_GENRESP_NOTSUPPORT, 3).
 -define(P_GENRESP_ALARMACK, 4).
 
--define(MAX_SINGLE_MSG_LEN, 1000).
+-define(MAX_SINGLE_MSG_LEN, 512).
+-define(MULTI_MSG_INTERVAL, 250).
 
 -define(LEN_BYTE, 8).
 -define(LEN_WORD, 16).

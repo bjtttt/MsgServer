@@ -857,6 +857,7 @@ send_msg_to_vdrs(ID, VIDList, Msg) when is_list(VIDList),
 	%common:loginfo("2.4"),
 	if
 		Len > 0 ->
+			timer:sleep(?MULTI_MSG_INTERVAL),
 			%common:loginfo("2.5"),
 			send_msg_to_vdrs(ID, VIDList, T);%,
 			%common:loginfo("2.6");
@@ -879,6 +880,7 @@ send_msg_to_vdrs(ID, VIDList, Msg) when is_list(VIDList),
         [] ->
             ok;
         _ ->
+			timer:sleep(?MULTI_MSG_INTERVAL),
 			%common:loginfo("3.4"),
             send_msg_to_vdrs(ID, T, Msg)%,
 			%common:loginfo("3.5")
