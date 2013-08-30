@@ -776,9 +776,21 @@ do_process_vdr_data(Socket, Data, State) ->
                             
                             {ok, NewState};
                         16#702 ->
-                            {_DrvState, _Time, _IcReadResult, _NameLen, _N, _CerNum, _OrgLen, _O, _Validity} = Msg,
-                            
-                            {ok, NewState};
+                            %{_DrvState, _Time, _IcReadResult, _NameLen, _N, _C, _OrgLen, _O, _Validity} = Msg,
+                            case create_sql_from_vdr(HeadInfo, Msg, NewState) of
+								{ok, Sql} ->
+									send_sql_to_db(conn, Sql, NewState),
+                                                        
+		                            FlowIdx = NewState#vdritem.msgflownum,
+		                            MsgBody = vdr_data_processor:create_gen_resp(ID, MsgIdx, ?T_GEN_RESP_OK),
+		                            common:loginfo("~p sends VDR driver info update response (ok) : ~p~n", [NewState#vdritem.pid, MsgBody]),
+		                            NewFlowIdx = send_data_to_vdr(16#8001, Tel, FlowIdx, MsgBody, VDRPid),
+		
+									%{ok, NewState};
+		                            {ok, NewState#vdritem{msgflownum=NewFlowIdx}};
+ 								_ ->
+									{error, invaliderror, NewState}
+							end;								
                         16#704 ->
                             {_Len, _Type, _Positions} = Msg,
                             
@@ -1902,7 +1914,39 @@ create_sql_from_vdr(HeaderInfo, Msg, State) ->
         16#701  ->
             {ok, ""};
         16#702  ->
-            {ok, ""};
+			{DrvState, Time, IcReadResult, _NameLen, N, C, _OrgLen, O, Validity} = Msg,
+            <<YY:8, MMon:8, DD:8, HH:8, MMin:8, SS:8>> = <<Time:48>>,
+            Year = common:convert_bcd_integer(YY),
+            Month = common:convert_bcd_integer(MMon),
+            Day = common:convert_bcd_integer(DD),
+            Hour = common:convert_bcd_integer(HH),
+            Minute = common:convert_bcd_integer(MMin),
+            Second = common:convert_bcd_integer(SS),
+            YearS = common:integer_to_binary(Year),
+            MonthS = common:integer_to_binary(Month),
+            DayS = common:integer_to_binary(Day),
+            HourS = common:integer_to_binary(Hour),
+            MinuteS = common:integer_to_binary(Minute),
+            SecondS = common:integer_to_binary(Second),
+            TimeS = list_to_binary([YearS, <<"-">>, MonthS, <<"-">>, DayS, <<" ">>, HourS, <<":">>, MinuteS, <<":">>, SecondS]),
+            <<YY1:16, MMon1:8, DD1:8>> = <<Validity:32>>,
+            Year1 = common:convert_bcd_integer(YY1),
+            Month1 = common:convert_bcd_integer(MMon1),
+            Day1 = common:convert_bcd_integer(DD1),
+            Year1S = common:integer_to_binary(Year1),
+            Month1S = common:integer_to_binary(Month1),
+            Day1S = common:integer_to_binary(Day1),
+            ValidityS = list_to_binary([Year1S, <<"-">>, Month1S, <<"-">>, Day1S]),
+            SQL = list_to_binary([<<"insert into driver(vehicle_id, certificate_code, remark, name, effectivedate, online, type, status) values(">>,
+								  common:integer_to_binary(State#vdritem.vehicleid), <<", '">>,
+                                  list_to_binary(C), <<"', '">>,
+                                  list_to_binary(O), <<"', '">>,
+                                  list_to_binary(N), <<"', ">>,
+                                  ValidityS, <<", ">>,
+								  TimeS, <<", ">>,
+								  IcReadResult, <<", ">>,
+								  DrvState, <<")">>]),
+            {ok, SQL};
         16#704  ->
             {ok, ""};
         16#705  ->

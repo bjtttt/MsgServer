@@ -2138,13 +2138,15 @@ create_report_driver_id_request() ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 parse_driver_id_report(Bin) ->
     <<State:8,Time:48,IcReadResult:8,NameLen:8,Tail0/binary>> = Bin,
-    NameBinLen = NameLen * 8,
-    <<Name:NameBinLen,CerNum:20,OrgLen:8,Tail1/binary>> = Tail0,
-    OrgBinLen = OrgLen * 8,
+    NameBinLen = NameLen*8,
+	CerNumLen = 20*8,
+    <<Name:NameBinLen,CerNum:CerNumLen,OrgLen:8,Tail1/binary>> = Tail0,
+    OrgBinLen = OrgLen*8,
     <<Org:OrgBinLen,Validity:32>> = Tail1,
-    N=binary_to_list(Name),
-    O=binary_to_list(Org),
-    {ok,{State,Time,IcReadResult,NameLen,N,CerNum,OrgLen,O,Validity}}.
+    N=binary_to_list(<<Name:NameBinLen>>),
+    C=binary_to_list(<<CerNum:CerNumLen>>),
+    O=binary_to_list(<<Org:OrgBinLen>>),
+    {ok,{State,Time,IcReadResult,NameLen,N,C,OrgLen,O,Validity}}.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %
