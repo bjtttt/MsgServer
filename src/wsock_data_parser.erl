@@ -264,6 +264,16 @@ do_process_data(Data) ->
                                 true ->
                                     {error, length_error}
                             end;
+                        16#8702 ->
+                            if
+                                Len == 3 ->
+                                    {"LIST", List} = get_specific_entry(Content, "LIST"),
+                                    {"SN", SN} = get_specific_entry(Content, "SN"),
+                                    VIDList = get_same_key_list(List),
+                                    {ok, Mid, [SN, VIDList]};
+                                true ->
+                                    {error, length_error}
+                            end;
                         16#8105 ->
                             if
                                 Len == 4 ->
@@ -574,6 +584,17 @@ connect_ws_to_vdr(Msg) ->
                         _ ->
                             send_resp_to_ws(SN, 16#8603, VIDList, ?P_GENRESP_ERRMSG)
                     end;
+                16#8702 ->
+                    [SN, VIDList] = Res,
+                    Bin = vdr_data_processor:create_report_driver_id_request(),
+                    %case Bin of
+                    %    <<>> ->
+                    %        send_resp_to_ws(SN, 16#8202, VIDList, ?P_GENRESP_ERRMSG);
+                    %    _ ->
+					update_vdrs_ws2vdr_msg_id_flowidx(16#8702, SN, VIDList, null),
+                    send_msg_to_vdrs(16#8702, VIDList, Bin);%,
+                    %        %send_resp_to_ws(SN, 16#8702, VIDList, ?P_GENRESP_OK)
+                    %end;
                 16#8105 ->
                     [SN, VIDList, CMDPAR] = Res,
                     case tuple_size(CMDPAR) of
