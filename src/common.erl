@@ -790,8 +790,8 @@ get_str_bin_to_bin_list(S) when is_binary(S),
 	T = binary:part(S, 1, byte_size(S)-1),
 	<<HInt:8>> = H,
 	[integer_to_list(HInt)|get_str_bin_to_bin_list(T)];
-get_str_bin_to_bin_list(S) ->
-	common:loginfo("Unknown format : ~p", [S]).
+get_str_bin_to_bin_list(_S) ->
+	[].
 
 
 
