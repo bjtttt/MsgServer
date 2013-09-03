@@ -1884,7 +1884,7 @@ create_sql_from_vdr(HeaderInfo, Msg, State) ->
 		            Day1S = common:integer_to_binary(Day1),
 		            ValidityS = list_to_binary([Year1S, <<"-">>, Month1S, <<"-">>, Day1S]),
 					ONew = common:convert_gbk_to_utf8(O),
-					NNew = common:convert_utf8_to_gbk(N),
+					NNew = common:convert_gbk_to_utf8(N),
 		            SQL = list_to_binary([<<"insert into driver_record(vehicle_id, certificate_code, remark, name, effectivedate, ontime, status, type) values(">>,
 										  common:integer_to_binary(State#vdritem.vehicleid), <<", '">>,
 		                                  list_to_binary(C), <<"', '">>,
