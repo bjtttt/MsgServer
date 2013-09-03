@@ -6,8 +6,13 @@
 
 -export([to_utf8/1, to_utf8/2, to_gbk/1, to_gbk/2, init_code_table/0]).
 
+to_utf8(Str) when is_list(Str) ->
+	to_utf8(Str, "gbk");›
+to_utf8(Str) when is_binary(Str) ->
+	BinStr = binary_to_list(Str),
+	to_utf8(BinStr, "gbk");
 to_utf8(Str) ->
-	to_utf8(Str, "gbk").
+	Str.
 
 to_utf8(Str, Encoding) when Encoding == "gbk" ->
      if is_binary(Str) ->    

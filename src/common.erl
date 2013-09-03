@@ -29,7 +29,8 @@
 		 integer_list_to_size_binary_list/2,
          float_to_binary/1,
          convert_gbk_to_utf8/1,
-         convert_utf8_to_gbk/1]).
+         convert_utf8_to_gbk/1,
+		 get_str_bin_to_bin_list/1]).
 
 -export([set_sockopt/3]).
 
@@ -779,4 +780,26 @@ convert_gbk_to_utf8(Src) when is_binary(Src) orelse is_list(Src) ->
 convert_gbk_to_utf8(Src) ->
     Src.
     
+get_str_bin_to_bin_list(S) when is_list(S),
+							    length(S) > 0 ->
+	B = list_to_binary(S),
+	get_str_bin_to_bin_list(B);
+get_str_bin_to_bin_list(S) when is_binary(S),
+							    byte_size(S) > 0 ->
+	H = binary:part(S, 0, 1),
+	T = binary:part(S, 1, byte_size(S)-1),
+	<<HInt:8>> = H,
+	[integer_to_list(HInt)|get_str_bin_to_bin_list(T)];
+get_str_bin_to_bin_list(S) ->
+	common:loginfo("Unknown format : ~p", [S]).
+
+
+
+
+
+
+
+
+
+
 
