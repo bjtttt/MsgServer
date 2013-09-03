@@ -266,7 +266,7 @@ do_process_data(Data) ->
                             end;
                         16#8702 ->
                             if
-                                Len == 3 ->
+                                Len == 3 orelse Len == 4->
                                     {"LIST", List} = get_specific_entry(Content, "LIST"),
                                     {"SN", SN} = get_specific_entry(Content, "SN"),
                                     VIDList = get_same_key_list(List),
@@ -869,45 +869,32 @@ send_msg_to_vdrs(ID, VIDList, Msg) when is_list(VIDList),
 										length(VIDList) > 0,
 										is_list(Msg),
 										length(Msg) > 0 ->
-	%common:loginfo("2.1"),
 	[H|T] = Msg,
-	%common:loginfo("2.2"),
 	send_msg_to_vdrs(ID, VIDList, H),
-	%common:loginfo("2.3"),
 	Len = length(T),
-	%common:loginfo("2.4"),
 	if
 		Len > 0 ->
 			timer:sleep(?MULTI_MSG_INTERVAL),
-			%common:loginfo("2.5"),
 			send_msg_to_vdrs(ID, VIDList, T);%,
-			%common:loginfo("2.6");
 		true ->
 			ok
 	end;
 send_msg_to_vdrs(_ID, _VIDList, Msg) when is_list(Msg),
 										  length(Msg) =< 0 ->
-	%common:loginfo("4.1"),
 	ok;
 send_msg_to_vdrs(ID, VIDList, Msg) when is_list(VIDList),
                                         length(VIDList) > 0,
                                         is_binary(Msg) ->
-    %common:loginfo("3.1"),
 	[H|T] = VIDList,
-	%common:loginfo("3.2"),
     send_msg_to_vdr(ID, H, Msg),
-	%common:loginfo("3.3"),
     case T of
         [] ->
             ok;
         _ ->
 			timer:sleep(?MULTI_MSG_INTERVAL),
-			%common:loginfo("3.4"),
             send_msg_to_vdrs(ID, T, Msg)%,
-			%common:loginfo("3.5")
     end;
 send_msg_to_vdrs(_ID, _VDRList, _Msg) ->
-	%common:loginfo("5.1"),
     ok.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -929,9 +916,7 @@ send_msg_to_vdr(ID, VID, Msg) when is_binary(Msg) ->
             [VDRItem] = ets:lookup(vdrtable, Sock),
             common:loginfo("WS Server : Gateway WS delegation ~p sends msg to VDR (~p) : ~p~n", [self(), VDRItem#vdritem.addr, Msg]),
             NewFlowIdx = vdr_handler:send_data_to_vdr(ID, VDRItem#vdritem.tel, VDRItem#vdritem.msgws2vdrflownum, Msg, VDRItem#vdritem.vdrpid),
-			%common:loginfo("0.1.1.1"),
             ets:insert(vdrtable, VDRItem#vdritem{msgws2vdrflownum=NewFlowIdx});%,
-			%common:loginfo("0.1.1.2");
         _ ->
             common:loginfo("WS Server : Cannot find VID in vdrtable~n"),
             ok

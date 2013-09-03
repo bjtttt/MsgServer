@@ -91,7 +91,6 @@
 %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 create_final_msg(ID, Tel, MsgIdx, Data) when is_binary(Data),
-										     byte_size(Data) > 0,
 										     byte_size(Data) =< ?MAX_SINGLE_MSG_LEN ->
     %common:loginfo("vdr_data_processor:create_final_msg(ID=~p, Tel=~p, MsgIdx=~p, Data=~p)~n", [ID, Tel, MsgIdx, Data]),
     Len = byte_size(Data),
@@ -113,7 +112,7 @@ create_final_msg(ID, Tel, MsgIdx, Data) when is_list(Data),
 	Len = length(Data),
 	create_final_msg_list(ID, Tel, MsgIdx, Data, Len, 0);
 create_final_msg(_ID, _Tel, _MsgIdx, Data) when is_list(Data),
-										        length(Data) < 1 ->
+										        length(Data) < 0 ->
 	<<>>;
 create_final_msg(_ID, _Tel, _MsgIdx, _Data) ->
 	<<>>.
@@ -136,7 +135,6 @@ create_final_msg_list(_ID, _Tel, _MsgIdx, _DataList, _Len, _Idx) ->
 	[].
 
 create_final_msg(ID, Tel, MsgIdx, Data, PTotal, PIdx) when is_binary(Data),
-										                   byte_size(Data) > 0,
 										                   byte_size(Data) =< ?MAX_SINGLE_MSG_LEN,
 													       PTotal >= PIdx,
 													       PIdx > 0 ->

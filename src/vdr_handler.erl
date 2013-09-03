@@ -1514,7 +1514,6 @@ send_data_to_vdr(ID, Tel, FlowIdx, MsgBody, VDRPid) ->
             FlowIdx;
         _ ->
             Pid = self(),
-            %common:loginfo("~p send_data_to_vdr : ID (~p), FlowIdx (~p), MsgBody (~p)~n", [Pid, ID, FlowIdx, MsgBody]),
 			case is_binary(MsgBody) of
 				true ->
 					MsgLen = byte_size(MsgBody),
@@ -1523,175 +1522,74 @@ send_data_to_vdr(ID, Tel, FlowIdx, MsgBody, VDRPid) ->
 							Header = binary:part(MsgBody, 0, 20),
 							if
 								Header == ?SUB_PACK_INDI_HEADER ->
-									%common:loginfo("0.1"),
 									Total = binary:part(MsgBody, 20, 2),
-									%common:loginfo("0.2 Total ~p", [Total]),
 									<<TotalInt:16>> = Total,
-									%common:loginfo("0.3 TotalInt ~p", [TotalInt]),
 									Index = binary:part(MsgBody, 22, 2),
-									%common:loginfo("0.4 Index ~p", [Index]),
 									<<IndexInt:16>> = Index,
-									%common:loginfo("0.5 IndexInt ~p", [IndexInt]),
 									Tail = binary:part(MsgBody, 24, MsgLen-24),
-									%common:loginfo("0.6"),
 									Msg = vdr_data_processor:create_final_msg(ID, Tel, FlowIdx, Tail, TotalInt, IndexInt),
-									%common:loginfo("0.7"),
-									case is_list(Msg) of
-										true ->
-											%common:loginfo("0.8"),
-											do_send_msg2vdr(VDRPid, Pid, Msg);
-										_ ->
-											%common:loginfo("0.9"),
-											case is_binary(Msg) of
-												true ->
-													if
-														Msg == <<>> ->
-															common:loginfo("~p send_data_to_vdr NULL final message : ID (~p), FlowIdx (~p), MsgBody (~p)~n", [Pid, ID, FlowIdx, MsgBody]);
-														Msg =/= <<>> ->
-															%common:loginfo("~p send_data_to_vdr final message : ID (~p), FlowIdx (~p), Msg (~p)~n", [Pid, ID, FlowIdx, Msg]),
-															do_send_msg2vdr(VDRPid, Pid, Msg),
-															%VDRPid ! {Pid, Msg},
-															%receive
-															%    {Pid, vdrok} ->
-															%        FlowIdx + 1
-															%end
-															NewFlowIdx = FlowIdx + 1,
-															NewFlowIdxRem = NewFlowIdx rem ?WS2VDRFREQ,
-															case NewFlowIdxRem of
-																0 ->
-																	NewFlowIdx + 1;
-																_ ->
-																	FlowIdxRem = FlowIdx rem ?WS2VDRFREQ,
-																	case FlowIdxRem of
-																		0 ->
-																			FlowIdx + ?WS2VDRFREQ;
-																		_ ->
-																			NewFlowIdx
-																	end
-															end
-													end;
-												_ ->
-													FlowIdx
-											end
-									end;
+									do_send_data_to_vdr(VDRPid, Pid, Msg, ID, FlowIdx);
 								true ->
 						            Msg = vdr_data_processor:create_final_msg(ID, Tel, FlowIdx, MsgBody),
-									case is_list(Msg) of
-										true ->
-											do_send_msg2vdr(VDRPid, Pid, Msg);
-										_ ->
-											case is_binary(Msg) of
-												true ->
-													if
-														Msg == <<>> ->
-															common:loginfo("~p send_data_to_vdr NULL final message : ID (~p), FlowIdx (~p), MsgBody (~p)~n", [Pid, ID, FlowIdx, MsgBody]);
-														Msg =/= <<>> ->
-															%common:loginfo("~p send_data_to_vdr final message : ID (~p), FlowIdx (~p), Msg (~p)~n", [Pid, ID, FlowIdx, Msg]),
-															do_send_msg2vdr(VDRPid, Pid, Msg),
-															%VDRPid ! {Pid, Msg},
-															%receive
-															%    {Pid, vdrok} ->
-															%        FlowIdx + 1
-															%end
-															NewFlowIdx = FlowIdx + 1,
-															NewFlowIdxRem = NewFlowIdx rem ?WS2VDRFREQ,
-															case NewFlowIdxRem of
-																0 ->
-																	NewFlowIdx + 1;
-																_ ->
-																	FlowIdxRem = FlowIdx rem ?WS2VDRFREQ,
-																	case FlowIdxRem of
-																		0 ->
-																			FlowIdx + ?WS2VDRFREQ;
-																		_ ->
-																			NewFlowIdx
-																	end
-															end
-													end;
-												_ ->
-													FlowIdx
-											end
-									end
+									do_send_data_to_vdr(VDRPid, Pid, Msg, ID, FlowIdx)
 							end;
 						true ->
 				            Msg = vdr_data_processor:create_final_msg(ID, Tel, FlowIdx, MsgBody),
-							case is_list(Msg) of
-								true ->
-									do_send_msg2vdr(VDRPid, Pid, Msg);
-								_ ->
-									case is_binary(Msg) of
-										true ->
-											if
-												Msg == <<>> ->
-													common:loginfo("~p send_data_to_vdr NULL final message : ID (~p), FlowIdx (~p), MsgBody (~p)~n", [Pid, ID, FlowIdx, MsgBody]);
-												Msg =/= <<>> ->
-													%common:loginfo("~p send_data_to_vdr final message : ID (~p), FlowIdx (~p), Msg (~p)~n", [Pid, ID, FlowIdx, Msg]),
-													do_send_msg2vdr(VDRPid, Pid, Msg),
-													%VDRPid ! {Pid, Msg},
-													%receive
-													%    {Pid, vdrok} ->
-													%        FlowIdx + 1
-													%end
-													NewFlowIdx = FlowIdx + 1,
-													NewFlowIdxRem = NewFlowIdx rem ?WS2VDRFREQ,
-													case NewFlowIdxRem of
-														0 ->
-															NewFlowIdx + 1;
-														_ ->
-															FlowIdxRem = FlowIdx rem ?WS2VDRFREQ,
-															case FlowIdxRem of
-																0 ->
-																	FlowIdx + ?WS2VDRFREQ;
-																_ ->
-																	NewFlowIdx
-															end
-													end
-											end;
-										_ ->
-											FlowIdx
-									end
-							end
+							do_send_data_to_vdr(VDRPid, Pid, Msg, ID, FlowIdx)
 					end;
 				_ ->
 		            Msg = vdr_data_processor:create_final_msg(ID, Tel, FlowIdx, MsgBody),
-					case is_list(Msg) of
-						true ->
-							do_send_msg2vdr(VDRPid, Pid, Msg);
-						_ ->
-							case is_binary(Msg) of
-								true ->
-									if
-										Msg == <<>> ->
-											common:loginfo("~p send_data_to_vdr NULL final message : ID (~p), FlowIdx (~p), MsgBody (~p)~n", [Pid, ID, FlowIdx, MsgBody]);
-										Msg =/= <<>> ->
-											%common:loginfo("~p send_data_to_vdr final message : ID (~p), FlowIdx (~p), Msg (~p)~n", [Pid, ID, FlowIdx, Msg]),
-											do_send_msg2vdr(VDRPid, Pid, Msg),
-											%VDRPid ! {Pid, Msg},
-											%receive
-											%    {Pid, vdrok} ->
-											%        FlowIdx + 1
-											%end
-											NewFlowIdx = FlowIdx + 1,
-											NewFlowIdxRem = NewFlowIdx rem ?WS2VDRFREQ,
-											case NewFlowIdxRem of
-												0 ->
-													NewFlowIdx + 1;
-												_ ->
-													FlowIdxRem = FlowIdx rem ?WS2VDRFREQ,
-													case FlowIdxRem of
-														0 ->
-															FlowIdx + ?WS2VDRFREQ;
-														_ ->
-															NewFlowIdx
-													end
-											end
-									end;
-								_ ->
-									FlowIdx
-							end
-					end
+					do_send_data_to_vdr(VDRPid, Pid, Msg, ID, FlowIdx)
 			end
     end.
+
+do_send_data_to_vdr(VDRPid, Pid, Msg, ID, FlowIdx) ->
+	case is_list(Msg) of
+		true ->
+			do_send_msg2vdr(VDRPid, Pid, Msg);
+		_ ->
+			case is_binary(Msg) of
+				true ->
+					if
+						Msg == <<>> andalso ID =/= 16#8702 ->
+							common:loginfo("~p send_data_to_vdr NULL final message : ID (~p), FlowIdx (~p), Msg (~p)~n", [Pid, ID, FlowIdx, Msg]);
+						Msg == <<>> andalso ID == 16#8702 ->
+							do_send_msg2vdr(VDRPid, Pid, Msg),
+							%VDRPid ! {Pid, Msg},
+							%receive
+							%    {Pid, vdrok} ->
+							%        FlowIdx + 1
+							%end
+							get_new_flow_index(FlowIdx);
+						Msg =/= <<>> ->
+							do_send_msg2vdr(VDRPid, Pid, Msg),
+							%VDRPid ! {Pid, Msg},
+							%receive
+							%    {Pid, vdrok} ->
+							%        FlowIdx + 1
+							%end
+							get_new_flow_index(FlowIdx)
+					end;
+				_ ->
+					FlowIdx
+			end
+	end.
+
+get_new_flow_index(FlowIdx) ->
+	NewFlowIdx = FlowIdx + 1,
+	NewFlowIdxRem = NewFlowIdx rem ?WS2VDRFREQ,
+	case NewFlowIdxRem of
+		0 ->
+			NewFlowIdx + 1;
+		_ ->
+			FlowIdxRem = FlowIdx rem ?WS2VDRFREQ,
+			case FlowIdxRem of
+				0 ->
+					FlowIdx + ?WS2VDRFREQ;
+				_ ->
+					NewFlowIdx
+			end
+	end.
 
 do_send_msg2vdr(VDRPid, Pid, Msg) when is_binary(Msg),
 									   byte_size(Msg) > 0 ->
@@ -1933,10 +1831,10 @@ create_sql_from_vdr(HeaderInfo, Msg, State) ->
 			            MinuteS = common:integer_to_binary(Minute),
 			            SecondS = common:integer_to_binary(Second),
 			            TimeS = list_to_binary([YearS, <<"-">>, MonthS, <<"-">>, DayS, <<" ">>, HourS, <<":">>, MinuteS, <<":">>, SecondS]),
-			            SQL = list_to_binary([<<"insert into driver(vehicle_id, online, status) values(">>,
-											  common:integer_to_binary(State#vdritem.vehicleid), <<", ">>,
-											  TimeS, <<", ">>,
-											  DrvState, <<")">>]),
+			            SQL = list_to_binary([<<"insert into driver_record(vehicle_id, ontime, type) values(">>,
+											  common:integer_to_binary(State#vdritem.vehicleid), <<", '">>,
+											  TimeS, <<"', ">>,
+											  common:integer_to_binary(DrvState), <<")">>]),
 			            {ok, SQL};
 				MsgSize == 3 ->
 					{DrvState, Time, IcReadResult} = Msg,
@@ -1954,11 +1852,11 @@ create_sql_from_vdr(HeaderInfo, Msg, State) ->
 			            MinuteS = common:integer_to_binary(Minute),
 			            SecondS = common:integer_to_binary(Second),
 			            TimeS = list_to_binary([YearS, <<"-">>, MonthS, <<"-">>, DayS, <<" ">>, HourS, <<":">>, MinuteS, <<":">>, SecondS]),
-			            SQL = list_to_binary([<<"insert into driver(vehicle_id, online, type, status) values(">>,
-											  common:integer_to_binary(State#vdritem.vehicleid), <<", ">>,
-											  TimeS, <<", ">>,
-											  IcReadResult, <<", ">>,
-											  DrvState, <<")">>]),
+			            SQL = list_to_binary([<<"insert into driver_record(vehicle_id, ontime, status, type) values(">>,
+											  common:integer_to_binary(State#vdritem.vehicleid), <<", '">>,
+											  TimeS, <<"', ">>,
+											  common:integer_to_binary(IcReadResult), <<", ">>,
+											  common:integer_to_binary(DrvState), <<")">>]),
 			            {ok, SQL};
 				MsgSize == 9 ->
 					{DrvState, Time, IcReadResult, _NameLen, N, C, _OrgLen, O, Validity} = Msg,
@@ -1984,15 +1882,15 @@ create_sql_from_vdr(HeaderInfo, Msg, State) ->
 		            Month1S = common:integer_to_binary(Month1),
 		            Day1S = common:integer_to_binary(Day1),
 		            ValidityS = list_to_binary([Year1S, <<"-">>, Month1S, <<"-">>, Day1S]),
-		            SQL = list_to_binary([<<"insert into driver(vehicle_id, certificate_code, remark, name, effectivedate, online, type, status) values(">>,
+		            SQL = list_to_binary([<<"insert into driver_record(vehicle_id, certificate_code, remark, name, effectivedate, ontime, status, type) values(">>,
 										  common:integer_to_binary(State#vdritem.vehicleid), <<", '">>,
 		                                  list_to_binary(C), <<"', '">>,
 		                                  list_to_binary(O), <<"', '">>,
 		                                  list_to_binary(N), <<"', ">>,
-		                                  ValidityS, <<", ">>,
-										  TimeS, <<", ">>,
-										  IcReadResult, <<", ">>,
-										  DrvState, <<")">>]),
+		                                  ValidityS, <<", '">>,
+										  TimeS, <<"', ">>,
+										  common:integer_to_binary(IcReadResult), <<", ">>,
+										  common:integer_to_binary(DrvState), <<")">>]),
 		            {ok, SQL}
 			end;
         16#704  ->
