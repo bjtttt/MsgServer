@@ -2149,8 +2149,11 @@ parse_driver_id_report(Bin) ->
 				    <<Org:OrgBinLen,Validity:32>> = Tail1,
 				    N=binary_to_list(<<Name:NameBinLen>>),
 				    C=binary_to_list(<<CerNum:CerNumLen>>),
+					RevC = lists:reverse(C),
+					NewRevC = remove_tail_0_char_from_list_head(RevC),
+					NewC = lists:reverse(NewRevC),
 				    O=binary_to_list(<<Org:OrgBinLen>>),
-				    {ok,{State,Time,IcReadResult,NameLen,N,C,OrgLen,O,Validity}};
+				    {ok,{State,Time,IcReadResult,NameLen,N,NewC,OrgLen,O,Validity}};
 				IcReadResult == 16#1 orelse 
 					IcReadResult == 16#2 orelse 
 					IcReadResult == 16#3 orelse 
@@ -2164,6 +2167,17 @@ parse_driver_id_report(Bin) ->
 		true ->
 			{error, errmsg}
 	end.
+
+remove_tail_0_char_from_list_head(List) when is_list(List),
+								       length(List) > 0 ->
+	[H|T] = List,
+	case H of
+		0 ->
+			remove_tail_0_char_from_list_head(T);
+		_ ->
+			T
+	end.
+	
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %
