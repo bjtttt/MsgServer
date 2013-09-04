@@ -252,8 +252,8 @@ do_process_data(Data) ->
                                             {"ET", ET} = get_specific_entry(DATA, "ET"),
                                             {"MAX_S", MAX_S} = get_specific_entry(DATA, "MAX_S"),
                                             {"LENGTH", LENGTH} = get_specific_entry(DATA, "LENGTH"),
-                                            RECT = get_rect_area_list(LIST),
-                                            {ok, Mid, [SN, VIDList, FLAG, RECT, ID, PROPERTY, CENTER_LAT, CENTER_LNG, RADIUS, ST, ET, MAX_S, LENGTH]};
+                                            IDS = get_rect_area_list(LIST),
+                                            {ok, Mid, [SN, VIDList, FLAG, IDS, ID, PROPERTY, CENTER_LAT, CENTER_LNG, RADIUS, ST, ET, MAX_S, LENGTH]};
                                         true ->
                                             {error, format_error}
                                     end;
@@ -333,8 +333,8 @@ do_process_data(Data) ->
                                             {"ET", ET} = get_specific_entry(DATA, "ET"),
                                             {"MAX_S", MAX_S} = get_specific_entry(DATA, "MAX_S"),
                                             {"LENGTH", LENGTH} = get_specific_entry(DATA, "LENGTH"),
-                                            RECT = get_rect_area_list(LIST),
-                                            {ok, Mid, [SN, VIDList, FLAG, RECT, ID, PROPERTY, ZEN_LAT, ZEN_LNG, NUM, ST, ET, MAX_S, LENGTH]};
+                                            IDS = get_rect_area_list(LIST),
+                                            {ok, Mid, [SN, VIDList, FLAG, IDS, ID, PROPERTY, ZEN_LAT, ZEN_LNG, NUM, ST, ET, MAX_S, LENGTH]};
                                         true ->
                                             {error, format_error}
                                     end;
@@ -660,8 +660,8 @@ connect_ws_to_vdr(Msg) ->
                             %send_resp_to_ws(SN, 16#8203, VIDList, ?P_GENRESP_OK)
                     end;
                 16#8600 ->
-                    [SN, VIDList, FLAG, RECT, ID, PROPERTY, CENTER_LAT, CENTER_LNG, RADIUS, ST, ET, MAX_S, LENGTH] = Res,
-                    Bin = vdr_data_processor:create_set_circle_area(FLAG, RECT, ID, PROPERTY, CENTER_LAT, CENTER_LNG, RADIUS, ST, ET, MAX_S, LENGTH),
+                    [SN, VIDList, FLAG, IDS, ID, PROPERTY, CENTER_LAT, CENTER_LNG, RADIUS, ST, ET, MAX_S, LENGTH] = Res,
+                    Bin = vdr_data_processor:create_set_circle_area(FLAG, IDS, ID, PROPERTY, CENTER_LAT, CENTER_LNG, RADIUS, ST, ET, MAX_S, LENGTH),
                     case Bin of
                         <<>> ->
                             send_resp_to_ws(SN, 16#8600, VIDList, ?P_GENRESP_ERRMSG);
@@ -700,6 +700,27 @@ connect_ws_to_vdr(Msg) ->
                             %send_resp_to_ws(SN, 16#8603, VIDList, ?P_GENRESP_OK);
                         _ ->
                             send_resp_to_ws(SN, 16#8603, VIDList, ?P_GENRESP_ERRMSG)
+                    end;
+                16#8604 ->
+                    [SN, VIDList, FLAG, IDS, ID, PROPERTY, ZEN_LAT, ZEN_LNG, NUM, ST, ET, MAX_S, LENGTH] = Res,
+                    Bin = 0,%vdr_data_processor:create_set_polygon_area(FLAG, IDS, ID, PROPERTY, CENTER_LAT, CENTER_LNG, RADIUS, ST, ET, MAX_S, LENGTH),
+                    case Bin of
+                        <<>> ->
+                            send_resp_to_ws(SN, 16#8604, VIDList, ?P_GENRESP_ERRMSG);
+                        _ ->
+                            update_vdrs_ws2vdr_msg_id_flowidx(16#8604, SN, VIDList, null),
+                            send_msg_to_vdrs(16#8604, VIDList, Bin)%,
+                            %send_resp_to_ws(SN, 16#8602, VIDList, ?P_GENRESP_OK)
+                    end;
+                16#8605 ->
+                    [SN, VIDList, DataList] = Res,
+                    update_vdrs_ws2vdr_msg_id_flowidx(16#8605, SN, VIDList, null),
+                    case send_del_circle_areas_msg_to_vdr(VIDList, DataList) of
+                        ok ->
+                            ok;
+                            %send_resp_to_ws(SN, 16#8605, VIDList, ?P_GENRESP_OK);
+                        _ ->
+                            send_resp_to_ws(SN, 16#8605, VIDList, ?P_GENRESP_ERRMSG)
                     end;
                 16#8702 ->
                     [SN, VIDList] = Res,

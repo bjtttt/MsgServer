@@ -1794,9 +1794,9 @@ parse_car_con_response(Msg) ->
 %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 create_set_circle_area(SetArr,AreaCount,AreaId,AreaArr,Latitude,Longitude,Radius,Stime,Etime,Hspeed,OSTime) ->
-    St = list_to_binary(Stime),
-    Et = list_to_binary(Etime),
-    <<SetArr:8,AreaCount:8,AreaId:32,AreaArr:16,Latitude:32,Longitude:32,Radius:32,St:48,Et:48,Hspeed:16,OSTime:8>>.
+    St = convert_datetime_to_bcd(Stime),
+    Et = convert_datetime_to_bcd(Etime),
+    list_to_binary([<<SetArr:8,AreaCount:8,AreaId:32,AreaArr:16,Latitude:32,Longitude:32,Radius:32>>,St,Et,<<Hspeed:16,OSTime:8>>]).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %
@@ -1987,8 +1987,10 @@ create_del_rect_area(_Count, _IDs) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 create_set_polygon_area(Id,Prop,StartTime,StopTime,MaxSpeed,OSTime,_PointsCount,Points) ->
     Len = length(Points),
+    St = convert_datetime_to_bcd(StartTime),
+    Et = convert_datetime_to_bcd(StopTime),
     PointsBin = get_polygon_area_point_entries(Points),
-    <<Id:32,Prop:16,StartTime:48,StopTime:48,MaxSpeed:16,OSTime:8,Len:16,PointsBin/binary>>.
+    list_to_binary([<<Id:32,Prop:16>>,St,Et,<<MaxSpeed:16,OSTime:8,Len:16>>,PointsBin]).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %
