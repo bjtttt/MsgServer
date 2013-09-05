@@ -754,7 +754,7 @@ split_list(List, Tag) ->
    
 convert_utf8_to_gbk(Src) when is_binary(Src) orelse is_list(Src) ->
     [{ccpid, CCPid}] = ets:lookup(msgservertable, ccpid),
-    CCPid ! {self(), utf8togbk, Src},
+    CCPid ! {self(), utf82gbk, Src},
     receive
         undefined ->
             Src;

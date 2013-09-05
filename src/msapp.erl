@@ -182,6 +182,18 @@ code_convertor_process() ->
             common:loginfo("CC process ~p : code table is initialized~n", [self()]),
             Pid ! created,
             code_convertor_process();
+        {Pid, gbktoutf8, Src} ->
+            try
+                common:loginfo("CC process ~p : source GBK from ~p : ~p~n", [self(), Src]),
+                Value = code_convertor:to_utf8(Src),
+                common:loginfo("CC process ~p : dest UTF8 : ~p~n", [self(), Value]),
+                Pid ! code_convertor:to_utf8(Src)
+            catch
+                _:_ ->
+                    common:logerror("CC process ~p : EXCEPTION when converting GBK to UTF8 : ~p~n", [self(), Src]),
+                    Pid ! Src
+            end,
+            code_convertor_process();
         {Pid, gbk2utf8, Src} ->
             try
                 common:loginfo("CC process ~p : source GBK from ~p : ~p~n", [self(), Src]),
@@ -195,6 +207,18 @@ code_convertor_process() ->
             end,
             code_convertor_process();
         {Pid, utf82gbk, Src} ->
+            try
+                common:loginfo("CC process ~p : source UTF8 from ~p : ~p~n", [self(), Src]),
+                Value = code_convertor:to_gbk(Src),
+                common:loginfo("CC process ~p : dest GBK : ~p~n", [self(), Value]),
+                Pid ! Value
+            catch
+                _:_ ->
+                    common:logerror("CC process ~p : EXCEPTION when converting UTF8 to GBK : ~p~n", [self(), Src]),
+                    Pid ! Src
+            end,
+            code_convertor_process();
+        {Pid, utf8togbk, Src} ->
             try
                 common:loginfo("CC process ~p : source UTF8 from ~p : ~p~n", [self(), Src]),
                 Value = code_convertor:to_gbk(Src),
