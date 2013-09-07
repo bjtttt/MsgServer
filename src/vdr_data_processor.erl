@@ -1793,10 +1793,19 @@ parse_car_con_response(Msg) ->
 % 0x8600
 %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-create_set_circle_area(SetArr,AreaCount,AreaId,AreaArr,Latitude,Longitude,Radius,Stime,Etime,Hspeed,OSTime) ->
+create_set_circle_area(SetArr,AreaCount,AreaId,AreaArr,Latitude,Longitude,Radius,Stime,Etime,Hspeed,OSTime) when is_integer(Radius) ->
     St = convert_datetime_to_bcd(Stime),
     Et = convert_datetime_to_bcd(Etime),
-    list_to_binary([<<SetArr:8,AreaCount:8,AreaId:32,AreaArr:16,Latitude:32,Longitude:32,Radius:32>>,St,Et,<<Hspeed:16,OSTime:8>>]).
+	Lat = round(convert_null_to_zero(Latitude) * 1000000),
+	Lng = round(convert_null_to_zero(Longitude) * 1000000),
+    list_to_binary([<<SetArr:8,AreaCount:8,AreaId:32,AreaArr:16,Lat:32,Lng:32,Radius:32>>,St,Et,<<Hspeed:16,OSTime:8>>]);
+create_set_circle_area(SetArr,AreaCount,AreaId,AreaArr,Latitude,Longitude,Radius,Stime,Etime,Hspeed,OSTime) when is_float(Radius) ->
+    St = convert_datetime_to_bcd(Stime),
+    Et = convert_datetime_to_bcd(Etime),
+	Lat = round(convert_null_to_zero(Latitude) * 1000000),
+	Lng = round(convert_null_to_zero(Longitude) * 1000000),
+	R = round(Radius),
+    list_to_binary([<<SetArr:8,AreaCount:8,AreaId:32,AreaArr:16,Lat:32,Lng:32,R:32>>,St,Et,<<Hspeed:16,OSTime:8>>]).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %

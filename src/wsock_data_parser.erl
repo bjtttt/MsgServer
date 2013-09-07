@@ -240,20 +240,34 @@ do_process_data(Data) ->
                                     VIDList = get_same_key_list(List),
                                     DataLen = length(DATA),
                                     if
-                                        DataLen == 11 ->
+                                        DataLen == 2 ->
                                             {"FLAG", FLAG} = get_specific_entry(DATA, "FLAG"),
-                                            {"LIST", LIST} = get_specific_entry(DATA, "LIST"),
-                                            {"ID", ID} = get_specific_entry(DATA, "ID"),
-                                            {"PROPERTY", PROPERTY} = get_specific_entry(DATA, "PROPERTY"),
-                                            {"CENTER_LAT", CENTER_LAT} = get_specific_entry(DATA, "CENTER_LAT"),
-                                            {"CENTER_LNG", CENTER_LNG} = get_specific_entry(DATA, "CENTER_LNG"),
-                                            {"RADIUS", RADIUS} = get_specific_entry(DATA, "RADIUS"),
-                                            {"ST", ST} = get_specific_entry(DATA, "ST"),
-                                            {"ET", ET} = get_specific_entry(DATA, "ET"),
-                                            {"MAX_S", MAX_S} = get_specific_entry(DATA, "MAX_S"),
-                                            {"LENGTH", LENGTH} = get_specific_entry(DATA, "LENGTH"),
-                                            IDS = get_rect_area_list(LIST),
-                                            {ok, Mid, [SN, VIDList, FLAG, IDS, ID, PROPERTY, CENTER_LAT, CENTER_LNG, RADIUS, ST, ET, MAX_S, LENGTH]};
+                                            {"LIST", [{obj, LIST}]} = get_specific_entry(DATA, "LIST"),
+											ListLen = length(LIST),
+											if
+												ListLen == 9 ->
+		                                            {"ID", ID} = get_specific_entry(LIST, "ID"),
+		                                            {"PROPERTY", PROPERTY} = get_specific_entry(LIST, "PROPERTY"),
+		                                            {"CENCER_LAT", CENCER_LAT} = get_specific_entry(LIST, "CENCER_LAT"),
+		                                            {"CENCER_LNG", CENCER_LNG} = get_specific_entry(LIST, "CENCER_LNG"),
+		                                            {"CENTER_LAT", CENTER_LAT} = get_specific_entry(LIST, "CENTER_LAT"),
+		                                            {"CENTER_LNG", CENTER_LNG} = get_specific_entry(LIST, "CENTER_LNG"),
+		                                            {"RADIUS", RADIUS} = get_specific_entry(LIST, "RADIUS"),
+		                                            {"ST", ST} = get_specific_entry(LIST, "ST"),
+		                                            {"ET", ET} = get_specific_entry(LIST, "ET"),
+		                                            {"MAX_S", MAX_S} = get_specific_entry(LIST, "MAX_S"),
+		                                            {"LENGTH", LENGTH} = get_specific_entry(LIST, "LENGTH"),
+													if
+														CENCER_LAT == null ->
+															{ok, Mid, [SN, VIDList, FLAG, ID, PROPERTY, CENTER_LAT, CENTER_LNG, RADIUS, ST, ET, MAX_S, LENGTH]};
+														CENTER_LAT == null ->
+															{ok, Mid, [SN, VIDList, FLAG, ID, PROPERTY, CENCER_LAT, CENCER_LNG, RADIUS, ST, ET, MAX_S, LENGTH]};
+														true ->
+															{error, format_error}
+													end;
+												true ->
+													{error, format_error}
+											end;
                                         true ->
                                             {error, format_error}
                                     end;
@@ -321,20 +335,25 @@ do_process_data(Data) ->
                                     VIDList = get_same_key_list(List),
                                     DataLen = length(DATA),
                                     if
-                                        DataLen == 11 ->
+                                        DataLen == 2 ->
                                             {"FLAG", FLAG} = get_specific_entry(DATA, "FLAG"),
-                                            {"LIST", LIST} = get_specific_entry(DATA, "LIST"),
-                                            {"ID", ID} = get_specific_entry(DATA, "ID"),
-                                            {"PROPERTY", PROPERTY} = get_specific_entry(DATA, "PROPERTY"),
-                                            {"ZEN_LAT", ZEN_LAT} = get_specific_entry(DATA, "ZEN_LAT"),
-                                            {"ZEN_LNG", ZEN_LNG} = get_specific_entry(DATA, "ZEN_LNG"),
-                                            {"NUM", NUM} = get_specific_entry(DATA, "NUM"),
-                                            {"ST", ST} = get_specific_entry(DATA, "ST"),
-                                            {"ET", ET} = get_specific_entry(DATA, "ET"),
-                                            {"MAX_S", MAX_S} = get_specific_entry(DATA, "MAX_S"),
-                                            {"LENGTH", LENGTH} = get_specific_entry(DATA, "LENGTH"),
-                                            IDS = get_rect_area_list(LIST),
-                                            {ok, Mid, [SN, VIDList, FLAG, IDS, ID, PROPERTY, ZEN_LAT, ZEN_LNG, NUM, ST, ET, MAX_S, LENGTH]};
+                                            {"LIST", [{obj, LIST}]} = get_specific_entry(DATA, "LIST"),
+											ListLen = length(LIST),
+											if
+												ListLen == 8 ->
+		                                            {"ID", ID} = get_specific_entry(LIST, "ID"),
+		                                            {"PROPERTY", PROPERTY} = get_specific_entry(LIST, "PROPERTY"),
+		                                            {"PTS", PTS} = get_specific_entry(LIST, "PTS"),
+		                                            {"NUM", NUM} = get_specific_entry(LIST, "NUM"),
+		                                            {"ST", ST} = get_specific_entry(LIST, "ST"),
+		                                            {"ET", ET} = get_specific_entry(LIST, "ET"),
+		                                            {"MAX_S", MAX_S} = get_specific_entry(LIST, "MAX_S"),
+		                                            {"LENGTH", LENGTH} = get_specific_entry(LIST, "LENGTH"),
+													LATLNGS = get_lng_lat_from_pts(PTS),
+                                           	 		{ok, Mid, [SN, VIDList, FLAG, ID, PROPERTY, PTS, NUM, ST, ET, MAX_S, LENGTH]};
+												true ->
+													{error, format_error}
+											end;
                                         true ->
                                             {error, format_error}
                                     end;
@@ -660,8 +679,8 @@ connect_ws_to_vdr(Msg) ->
                             %send_resp_to_ws(SN, 16#8203, VIDList, ?P_GENRESP_OK)
                     end;
                 16#8600 ->
-                    [SN, VIDList, FLAG, IDS, ID, PROPERTY, CENTER_LAT, CENTER_LNG, RADIUS, ST, ET, MAX_S, LENGTH] = Res,
-                    Bin = vdr_data_processor:create_set_circle_area(FLAG, IDS, ID, PROPERTY, CENTER_LAT, CENTER_LNG, RADIUS, ST, ET, MAX_S, LENGTH),
+                    [SN, VIDList, FLAG, ID, PROPERTY, CENTER_LAT, CENTER_LNG, RADIUS, ST, ET, MAX_S, LENGTH] = Res,
+                    Bin = vdr_data_processor:create_set_circle_area(FLAG, 1, ID, PROPERTY, CENTER_LAT, CENTER_LNG, RADIUS, ST, ET, MAX_S, LENGTH),
                     case Bin of
                         <<>> ->
                             send_resp_to_ws(SN, 16#8600, VIDList, ?P_GENRESP_ERRMSG);
@@ -1236,6 +1255,27 @@ get_man_alarm_ack_list(List) when is_list(List),
             [[ASN, TYPE]| get_answer_list(T)]
 	end;					
 get_man_alarm_ack_list(_List) ->
+    [].
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%
+% List  : [{obj,[{"lng1",1},{"lat1",1}]}, {obj,[{"lng2",2},{"lat2",2}, ...]
+%
+% Return    :
+%       [[lng1, lat1], [lng2, lat2], ...]|[]
+%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+get_lng_lat_from_pts(PTS) when is_list(PTS),
+                               length(PTS) > 0 ->
+    [H|T] = PTS,
+    {obj, [{"LNG", LNG},{"LAT", LAT}]} = H,
+    case T of
+        [] ->
+            [[LNG, LAT]];
+        _ ->
+            [[LNG, LAT]| get_lng_lat_from_pts(T)]
+	end;					
+get_lng_lat_from_pts(_PTS) ->
     [].
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
