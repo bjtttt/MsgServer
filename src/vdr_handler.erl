@@ -488,7 +488,7 @@ do_process_vdr_data(Socket, Data, State) ->
                                             {<<"vehicle">>, <<"driver_id">>, DriverID} = get_record_field(<<"vehicle">>, Rec, <<"driver_id">>),
 											if
 												VehicleCode =/= undefined andalso binary_part(VehicleCode, 0, 1) == <<"?">> ->
-													common:logerror("VDR (~p) Vehicle Code has invalid character \"?\"~n and will be disconnected : ~p~n", [VehicleCode]),
+													common:logerror("VDR (~p) Vehicle Code has invalid character \"?\" and will be disconnected : ~p~n", [State#vdritem.addr, VehicleCode]),
 													%mysql:fetch(conn, <<"set names 'utf8'">>),
 													{error, dberror, NewState};
 												true ->
