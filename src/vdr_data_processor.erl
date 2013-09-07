@@ -1994,32 +1994,27 @@ create_del_rect_area(_Count, _IDs) ->
 % Points : [[Lat0, Lon0], [Lat1, Lon1], [Lat2, Lon2], ...]
 %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-create_set_polygon_area(Id,Prop,StartTime,StopTime,MaxSpeed,OSTime,_PointsCount,Points) ->
-    Len = length(Points),
+create_set_polygon_area(Id,Prop,StartTime,StopTime,MaxSpeed,OSTime,PointsCount,Points) ->
+    %Len = length(Points),
     St = convert_datetime_to_bcd(StartTime),
     Et = convert_datetime_to_bcd(StopTime),
     PointsBin = get_polygon_area_point_entries(Points),
-    list_to_binary([<<Id:32,Prop:16>>,St,Et,<<MaxSpeed:16,OSTime:8,Len:16>>,PointsBin]).
+    list_to_binary([<<Id:32,Prop:16>>,St,Et,<<MaxSpeed:16,OSTime:8,PointsCount:16>>,PointsBin]).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %
 %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-get_polygon_area_point_entries(Items) ->
-    case Items of
-        [] ->
-            <<>>;
-        _ ->
-            [H|T] = Items,
-            {Lat,Lon} = H,
-            case T of
-                [] ->
-                    <<Lat:32,Lon:32>>;
-                _ ->
-                    list_to_binary([<<Lat:32,Lon:32>>, get_polygon_area_point_entries(T)])
-            end
-    end.                                   
-    
+get_polygon_area_point_entries(Items) when is_list(Items),
+										   length(Items) > 0 ->
+    [H|T] = Items,
+    [Lat,Lon] = H,
+	LatVal = round(convert_null_to_zero(Lat) * 1000000),
+	LonVal = round(convert_null_to_zero(Lon) * 1000000),
+	list_to_binary([<<LatVal:32,LonVal:32>>, get_polygon_area_point_entries(T)]);
+ get_polygon_area_point_entries(_Items) ->
+	<<>>.
+   
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %
 % 0x8605

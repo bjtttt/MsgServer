@@ -350,7 +350,7 @@ do_process_data(Data) ->
 		                                            {"MAX_S", MAX_S} = get_specific_entry(LIST, "MAX_S"),
 		                                            {"LENGTH", LENGTH} = get_specific_entry(LIST, "LENGTH"),
 													LATLNGS = get_lng_lat_from_pts(PTS),
-                                           	 		{ok, Mid, [SN, VIDList, FLAG, ID, PROPERTY, PTS, NUM, ST, ET, MAX_S, LENGTH]};
+                                           	 		{ok, Mid, [SN, VIDList, FLAG, ID, PROPERTY, LATLNGS, NUM, ST, ET, MAX_S, LENGTH]};
 												true ->
 													{error, format_error}
 											end;
@@ -721,8 +721,8 @@ connect_ws_to_vdr(Msg) ->
                             send_resp_to_ws(SN, 16#8603, VIDList, ?P_GENRESP_ERRMSG)
                     end;
                 16#8604 ->
-                    [SN, VIDList, FLAG, IDS, ID, PROPERTY, ZEN_LAT, ZEN_LNG, NUM, ST, ET, MAX_S, LENGTH] = Res,
-                    Bin = 0,%vdr_data_processor:create_set_polygon_area(FLAG, IDS, ID, PROPERTY, CENTER_LAT, CENTER_LNG, RADIUS, ST, ET, MAX_S, LENGTH),
+                    [SN, VIDList, _FLAG, ID, PROPERTY, LATLNGS, NUM, ST, ET, MAX_S, LENGTH] = Res,
+                    Bin = vdr_data_processor:create_set_polygon_area(ID, PROPERTY, ST, ET, MAX_S, LENGTH, NUM, LATLNGS),
                     case Bin of
                         <<>> ->
                             send_resp_to_ws(SN, 16#8604, VIDList, ?P_GENRESP_ERRMSG);
@@ -1268,7 +1268,7 @@ get_man_alarm_ack_list(_List) ->
 get_lng_lat_from_pts(PTS) when is_list(PTS),
                                length(PTS) > 0 ->
     [H|T] = PTS,
-    {obj, [{"LNG", LNG},{"LAT", LAT}]} = H,
+	{obj, [{"lng", LNG},{"lat", LAT}]} = H,
     case T of
         [] ->
             [[LNG, LAT]];
