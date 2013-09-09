@@ -2011,7 +2011,7 @@ get_polygon_area_point_entries(Items) when is_list(Items),
     [Lat,Lon] = H,
 	LatVal = round(convert_null_to_zero(Lat) * 1000000),
 	LonVal = round(convert_null_to_zero(Lon) * 1000000),
-	list_to_binary([<<LatVal:32,LonVal:32>>, get_polygon_area_point_entries(T)]);
+	list_to_binary([<<LonVal:32,LatVal:32>>, get_polygon_area_point_entries(T)]);
  get_polygon_area_point_entries(_Items) ->
 	<<>>.
    
