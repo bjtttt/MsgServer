@@ -1822,10 +1822,10 @@ create_del_circle_area(Count,IDs) ->
             if
                 Len > 125 ->
                     {IDs1, _IDs2} = lists:split(125, IDs),
-                    IDsBin = list_to_binary(IDs1),
+                    IDsBin = common:integer_list_to_size_binary_list(IDs1, 4),
                     <<Len:8,IDsBin/binary>>;
                 Len =< 125 ->
-                    IDsBin = list_to_binary(IDs),
+                    IDsBin = common:integer_list_to_size_binary_list(IDs, 4),
                     <<Len:8,IDsBin/binary>>
             end
     end.
@@ -1982,8 +1982,16 @@ create_del_rect_area(Count, IDList) when is_list(IDList),
         Count == 0 ->
             <<Count:8>>;
         Count =/= 0 ->
-            IDListBin = list_to_binary([<<X:?LEN_DWORD>> || X <- IDList]),
-            <<Count:8,IDListBin/binary>>
+            Len = length(IDList),
+            if
+                Len > 125 ->
+                    {IDs1, _IDs2} = lists:split(125, IDList),
+                    IDsBin = common:integer_list_to_size_binary_list(IDs1, 4),
+                    <<Len:8,IDsBin/binary>>;
+                Len =< 125 ->
+                    IDsBin = common:integer_list_to_size_binary_list(IDList, 4),
+                    <<Len:8,IDsBin/binary>>
+            end
     end;
 create_del_rect_area(_Count, _IDs) ->
     <<>>.
@@ -2030,10 +2038,10 @@ create_del_polygon_area(Count, IDs) ->
             if
                 Len > 125 ->
                     {IDs1, _IDs2} = lists:split(125, IDs),
-                    IDsBin = list_to_binary(IDs1),
+                    IDsBin = common:integer_list_to_size_binary_list(IDs1, 4),
                     <<Len:8,IDsBin/binary>>;
                 Len =< 125 ->
-                    IDsBin = list_to_binary(IDs),
+                    IDsBin = common:integer_list_to_size_binary_list(IDs, 4),
                     <<Len:8,IDsBin/binary>>
             end
     end.
@@ -2082,10 +2090,10 @@ create_del_lines(Count, IDs) ->
             if
                 Len > 125 ->
                     {IDs1, _IDs2} = lists:split(125, IDs),
-                    IDsBin = list_to_binary(IDs1),
+                    IDsBin = common:integer_list_to_size_binary_list(IDs1, 4),
                     <<Len:8,IDsBin/binary>>;
                 Len =< 125 ->
-                    IDsBin = list_to_binary(IDs),
+                    IDsBin = common:integer_list_to_size_binary_list(IDs, 4),
                     <<Len:8,IDsBin/binary>>
             end
     end.

@@ -379,6 +379,57 @@ do_process_data(Data) ->
                                 true ->
                                     {error, length_error}
                             end;
+                        16#8606 ->
+                            if
+                                Len == 4 ->
+                                    {"SN", SN} = get_specific_entry(Content, "SN"),
+                                    {"LIST", List} = get_specific_entry(Content, "LIST"),
+                                    {"DATA", {obj, DATA}} = get_specific_entry(Content, "DATA"),
+                                    VIDList = get_same_key_list(List),
+                                    DataLen = length(DATA),
+                                    if
+                                        DataLen == 2 ->
+                                            {"FLAG", FLAG} = get_specific_entry(DATA, "FLAG"),
+                                            {"LIST", [{obj, LIST}]} = get_specific_entry(DATA, "LIST"),
+											ListLen = length(LIST),
+											if
+												ListLen == 6 ->
+		                                            {"ID", ID} = get_specific_entry(LIST, "ID"),
+		                                            {"PROPERTY", PROPERTY} = get_specific_entry(LIST, "PROPERTY"),
+		                                            {"NUM", NUM} = get_specific_entry(LIST, "NUM"),
+		                                            {"ST", ST} = get_specific_entry(LIST, "ST"),
+		                                            {"ET", ET} = get_specific_entry(LIST, "ET"),
+		                                            {"TURNLIST", TURNLIST} = get_specific_entry(LIST, "TURNLIST"),
+													TURNITEMS = get_items_from_turnlist(TURNLIST),
+                                           	 		{ok, Mid, [SN, VIDList, FLAG, ID, PROPERTY, NUM, ST, ET, TURNITEMS]};
+												true ->
+													{error, format_error}
+											end;
+                                        true ->
+                                            {error, format_error}
+                                    end;
+                                true ->
+                                    {error, length_error}
+                            end;
+                        16#8607 ->
+                            if
+                                Len == 4 ->
+                                    {"SN", SN} = get_specific_entry(Content, "SN"),
+                                    {"LIST", List} = get_specific_entry(Content, "LIST"),
+                                    {"DATA", {obj, DATA}} = get_specific_entry(Content, "DATA"),
+                                    VIDList = get_same_key_list(List),
+                                    DataLen = length(DATA),
+                                    if
+                                        DataLen == 1 ->
+                                            {"LIST", LIST} = get_specific_entry(DATA, "LIST"),
+                                            IDS = get_same_key_list(LIST),
+                                            {ok, Mid, [SN, VIDList, IDS]};
+                                        true ->
+                                            {error, format_error}
+                                    end;
+                                true ->
+                                    {error, length_error}
+                            end;
                         16#8702 ->
                             if
                                 Len == 3 orelse Len == 4->
@@ -734,12 +785,34 @@ connect_ws_to_vdr(Msg) ->
                 16#8605 ->
                     [SN, VIDList, DataList] = Res,
                     update_vdrs_ws2vdr_msg_id_flowidx(16#8605, SN, VIDList, null),
-                    case send_del_circle_areas_msg_to_vdr(VIDList, DataList) of
+                    case send_del_polygon_areas_msg_to_vdr(VIDList, DataList) of
                         ok ->
                             ok;
                             %send_resp_to_ws(SN, 16#8605, VIDList, ?P_GENRESP_OK);
                         _ ->
                             send_resp_to_ws(SN, 16#8605, VIDList, ?P_GENRESP_ERRMSG)
+                    end;
+                16#8606 ->
+					[SN, VIDList, _FLAG, ID, PROPERTY, NUM, ST, ET, TURNITEMS] = Res,
+                    %[ID, SID, LNG, LAT, WIDTH, SPROPERTY, MAXT, MINT, MAXS]
+                    Bin = vdr_data_processor:create_set_lines(ID, PROPERTY, ST, ET, NUM, TURNITEMS),
+                    case Bin of
+                        <<>> ->
+                            send_resp_to_ws(SN, 16#8606, VIDList, ?P_GENRESP_ERRMSG);
+                        _ ->
+                            update_vdrs_ws2vdr_msg_id_flowidx(16#8606, SN, VIDList, null),
+                            send_msg_to_vdrs(16#8606, VIDList, Bin)%,
+                            %send_resp_to_ws(SN, 16#8602, VIDList, ?P_GENRESP_OK)
+                    end;
+                16#8607 ->
+                    [SN, VIDList, DataList] = Res,
+                    update_vdrs_ws2vdr_msg_id_flowidx(16#8607, SN, VIDList, null),
+                    case send_del_lines_msg_to_vdr(VIDList, DataList) of
+                        ok ->
+                            ok;
+                            %send_resp_to_ws(SN, 16#8607, VIDList, ?P_GENRESP_OK);
+                        _ ->
+                            send_resp_to_ws(SN, 16#8607, VIDList, ?P_GENRESP_ERRMSG)
                     end;
                 16#8702 ->
                     [SN, VIDList] = Res,
@@ -1022,8 +1095,8 @@ send_del_circle_areas_msg_to_vdr(VIDList, DataList) when is_list(VIDList),
                                                          is_list(DataList),
                                                          length(DataList) > 125 ->
     {H, T} = lists:split(125, DataList),
-    ResH = send_del_rect_areas_msg_to_vdr(VIDList, H),
-    ResT = send_del_rect_areas_msg_to_vdr(VIDList, T),
+    ResH = send_del_circle_areas_msg_to_vdr(VIDList, H),
+    ResT = send_del_circle_areas_msg_to_vdr(VIDList, T),
     if
         ResH =/= ok orelse ResT =/= ok ->
             error;
@@ -1034,7 +1107,7 @@ send_del_circle_areas_msg_to_vdr(VIDList, DataList) when is_list(VIDList),
                                                          length(VIDList) > 0,
                                                          is_list(DataList),
                                                          length(DataList) =< 125 ->
-    Bin = vdr_data_processor:create_del_rect_area(length(DataList), DataList),
+    Bin = vdr_data_processor:create_del_circle_area(length(DataList), DataList),
     case Bin of
         <<>> ->
             error;
@@ -1042,6 +1115,60 @@ send_del_circle_areas_msg_to_vdr(VIDList, DataList) when is_list(VIDList),
             send_msg_to_vdrs(16#8601, VIDList, Bin)
     end;
 send_del_circle_areas_msg_to_vdr(_VIDList, _DataList) ->
+    error.
+
+send_del_polygon_areas_msg_to_vdr(VIDList, DataList) when is_list(VIDList),
+                                                          length(VIDList) > 0,
+                                                          is_list(DataList),
+                                                          length(DataList) > 125 ->
+    {H, T} = lists:split(125, DataList),
+    ResH = send_del_polygon_areas_msg_to_vdr(VIDList, H),
+    ResT = send_del_polygon_areas_msg_to_vdr(VIDList, T),
+    if
+        ResH =/= ok orelse ResT =/= ok ->
+            error;
+        true ->
+            ok
+    end;
+send_del_polygon_areas_msg_to_vdr(VIDList, DataList) when is_list(VIDList),
+                                                          length(VIDList) > 0,
+                                                          is_list(DataList),
+                                                          length(DataList) =< 125 ->
+    Bin = vdr_data_processor:create_del_polygon_area(length(DataList), DataList),
+    case Bin of
+        <<>> ->
+            error;
+        _ ->
+            send_msg_to_vdrs(16#8605, VIDList, Bin)
+    end;
+send_del_polygon_areas_msg_to_vdr(_VIDList, _DataList) ->
+    error.
+
+send_del_lines_msg_to_vdr(VIDList, DataList) when is_list(VIDList),
+                                                  length(VIDList) > 0,
+                                                  is_list(DataList),
+                                                  length(DataList) > 125 ->
+    {H, T} = lists:split(125, DataList),
+    ResH = send_del_lines_msg_to_vdr(VIDList, H),
+    ResT = send_del_lines_msg_to_vdr(VIDList, T),
+    if
+        ResH =/= ok orelse ResT =/= ok ->
+            error;
+        true ->
+            ok
+    end;
+send_del_lines_msg_to_vdr(VIDList, DataList) when is_list(VIDList),
+                                                  length(VIDList) > 0,
+                                                  is_list(DataList),
+                                                  length(DataList) =< 125 ->
+    Bin = vdr_data_processor:create_del_lines(length(DataList), DataList),
+    case Bin of
+        <<>> ->
+            error;
+        _ ->
+            send_msg_to_vdrs(16#8607, VIDList, Bin)
+    end;
+send_del_lines_msg_to_vdr(_VIDList, _DataList) ->
     error.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -1276,6 +1403,25 @@ get_lng_lat_from_pts(PTS) when is_list(PTS),
             [[LNG, LAT]| get_lng_lat_from_pts(T)]
 	end;					
 get_lng_lat_from_pts(_PTS) ->
+    [].
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%
+% [ID, SID, LNG, LAT, WIDTH, SPROPERTY, MAXT, MINT, MAXS]
+%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+get_items_from_turnlist(TURNLIST) when is_list(TURNLIST),
+									   length(TURNLIST) ->
+    [H|T] = TURNLIST,
+	{obj, [{"id", ID},{"sid", SID},{"lng", LNG},{"lat", LAT},{"width", WIDTH},{"sproperty", SPROPERTY},{"max_t", MAXT},{"min_t", MINT},{"max_s", MAXS}]} = H,
+    case T of
+        [] ->
+            [[ID, SID, LNG, LAT, WIDTH, SPROPERTY, MAXT, MINT, MAXS]];
+        _ ->
+            [[ID, SID, LNG, LAT, WIDTH, SPROPERTY, MAXT, MINT, MAXS]| get_items_from_turnlist(T)]
+	end;					
+get_items_from_turnlist(_TURNLIST) ->
     [].
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

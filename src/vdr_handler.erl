@@ -618,6 +618,8 @@ do_process_vdr_data(Socket, Data, State) ->
 									RespID == 16#8603 orelse
 									RespID == 16#8604 orelse	% need further tested
 									RespID == 16#8605 orelse
+									RespID == 16#8606 orelse	% need further tested
+									RespID == 16#8607 orelse
 									RespID == 16#8105 orelse
 									RespID == 16#8108 orelse
 									RespID == 16#8202 orelse
