@@ -31,5 +31,5 @@
   {registered, [mssup]},
   {applications, [kernel, sasl, stdlib]},
   %{mod, {msapp, [6000, 6201, 6005, "42.96.146.34", 9090, "42.96.146.34", "gps_database", "optimus", "opt123450", 1, 1]}}
-  {mod, {msapp, [6000, 6201, 6005, "42.96.146.34", 9090, "42.96.146.34", "gps_database", "optimus", "opt123450", 5, 1, 0]}}
+  {mod, {msapp, [6000, 6201, 6005, "42.96.146.34", 9090, "42.96.146.34", "gps_database", "optimus", "opt123450", 5, 1, 1]}}
  ]}.
