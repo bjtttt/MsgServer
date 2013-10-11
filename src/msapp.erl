@@ -32,7 +32,7 @@
 %%%               1 -> log
 %%%
 start(StartType, StartArgs) ->
-    [PortVDR, PortMon, PortMP, WS, PortWS, DB, DBName, DBUid, DBPwd, MaxR, MaxT] = StartArgs,
+    [PortVDR, PortMon, PortMP, WS, PortWS, DB, DBName, DBUid, DBPwd, MaxR, MaxT, Mode] = StartArgs,
     AppPid = self(),
     ets:new(msgservertable,[set,public,named_table,{keypos,1},{read_concurrency,true},{write_concurrency,true}]),
     ets:insert(msgservertable, {portvdr, PortVDR}),
@@ -46,6 +46,7 @@ start(StartType, StartArgs) ->
     ets:insert(msgservertable, {dbpwd, DBPwd}),
     ets:insert(msgservertable, {maxr, MaxR}),
     ets:insert(msgservertable, {maxt, MaxT}),
+    ets:insert(msgservertable, {mode, Mode}),
     ets:insert(msgservertable, {dbpid, undefined}),
     ets:insert(msgservertable, {wspid, undefined}),
     ets:insert(msgservertable, {apppid, AppPid}),
@@ -80,7 +81,7 @@ start(StartType, StartArgs) ->
             common:loginfo("Message server starts~n"),
             common:loginfo("Application PID is ~p~n", [AppPid]),
             common:loginfo("Supervisor PID : ~p~n", [SupPid]),
-            case receive_db_ws_init_msg(false, false, 0) of
+            case receive_db_ws_init_msg(false, false, 0, Mode) of
                 ok ->
                     %mysql:utf8connect(regauth, DB, undefined, DBUid, DBPwd, DBName, true),
                     mysql:utf8connect(conn, DB, undefined, DBUid, DBPwd, DBName, true),
@@ -92,46 +93,50 @@ start(StartType, StartArgs) ->
                     %mysql:fetch(regauth, <<"set names 'utf8">>),
                     %mysql:fetch(conn, <<"set names 'utf8">>),
                     %mysql:fetch(cmd, <<"set names 'utf8">>),
-
-                    WSPid = spawn(fun() -> wsock_client:wsock_client_process() end),
-                    DBPid = spawn(fun() -> mysql:mysql_process() end),
-                    DBTablePid = spawn(fun() -> db_table_deamon() end),
-                    CCPid = spawn(fun() -> code_convertor_process() end),
-                    ets:insert(msgservertable, {dbpid, DBPid}),
-                    ets:insert(msgservertable, {wspid, WSPid}),
-                    ets:insert(msgservertable, {dbtablepid, DBTablePid}),
-                    ets:insert(msgservertable, {ccpid, CCPid}),
-                    common:loginfo("WS client process PID is ~p~n", [WSPid]),
-                    common:loginfo("DB client process PID is ~p~n", [DBPid]),
-                    common:loginfo("DB table deamon process PID is ~p~n", [DBTablePid]),
-                    common:loginfo("Code convertor process PID is ~p~n", [CCPid]),
-                    
-                    CCPid ! {self(), create},
-                    receive
-                        created ->
-                            common:loginfo("Code convertor table is created~n"),
-                            {ok, AppPid}
-                        after ?TIMEOUT_CC_INIT_PROCESS ->
-                            {error, "ERROR : code convertor table is timeout~n"}
-                    end;
-                    
-                    %code_convertor:init_code_table(),
-                    %error_logger:info_msg("Process ~p : code table is initialized~n", [self()]),
-                    %case get({utf8,228,189,160}) of
-                    %    undeifned ->
-                    %        ok;
-                    %    ValueGet ->
-                    %        ValueGet
-                    %end,
-                    
-                    %IconvPid = iconv:start_link(),
-                    %{ok, U2G} = iconv:open("utf-8", "gbk"),
-                    %{ok, G2U} = iconv:open("gbk", "utf-8"),
-                    %ets:insert(msgservertable, {iconvpid, IconvPid}),
-                    %ets:insert(msgservertable, {u2g, U2G}),
-                    %ets:insert(msgservertable, {g2u, G2U}),
-
-                    %{ok, AppPid};
+					
+					if
+						Mode == 1 ->
+		                    WSPid = spawn(fun() -> wsock_client:wsock_client_process() end),
+		                    DBPid = spawn(fun() -> mysql:mysql_process() end),
+		                    DBTablePid = spawn(fun() -> db_table_deamon() end),
+		                    CCPid = spawn(fun() -> code_convertor_process() end),
+		                    ets:insert(msgservertable, {dbpid, DBPid}),
+		                    ets:insert(msgservertable, {wspid, WSPid}),
+		                    ets:insert(msgservertable, {dbtablepid, DBTablePid}),
+		                    ets:insert(msgservertable, {ccpid, CCPid}),
+		                    common:loginfo("WS client process PID is ~p~n", [WSPid]),
+		                    common:loginfo("DB client process PID is ~p~n", [DBPid]),
+		                    common:loginfo("DB table deamon process PID is ~p~n", [DBTablePid]),
+		                    common:loginfo("Code convertor process PID is ~p~n", [CCPid]),
+		                    
+		                    CCPid ! {self(), create},
+		                    receive
+		                        created ->
+		                            common:loginfo("Code convertor table is created~n"),
+		                            {ok, AppPid}
+		                        after ?TIMEOUT_CC_INIT_PROCESS ->
+		                            {error, "ERROR : code convertor table is timeout~n"}
+		                    end;
+						true ->
+		                    DBPid = spawn(fun() -> mysql:mysql_process() end),
+		                    DBTablePid = spawn(fun() -> db_table_deamon() end),
+		                    CCPid = spawn(fun() -> code_convertor_process() end),
+		                    ets:insert(msgservertable, {dbpid, DBPid}),
+		                    ets:insert(msgservertable, {dbtablepid, DBTablePid}),
+		                    ets:insert(msgservertable, {ccpid, CCPid}),
+		                    common:loginfo("DB client process PID is ~p~n", [DBPid]),
+		                    common:loginfo("DB table deamon process PID is ~p~n", [DBTablePid]),
+		                    common:loginfo("Code convertor process PID is ~p~n", [CCPid]),
+		                    
+		                    CCPid ! {self(), create},
+		                    receive
+		                        created ->
+		                            common:loginfo("Code convertor table is created~n"),
+		                            {ok, AppPid}
+		                        after ?TIMEOUT_CC_INIT_PROCESS ->
+		                            {error, "ERROR : code convertor table is timeout~n"}
+		                    end
+					end;
                 {error, ErrMsg} ->
                     {error, ErrMsg}
             end;
@@ -250,42 +255,81 @@ code_convertor_process() ->
 %%%
 %%% Will wait 20s
 %%%
-receive_db_ws_init_msg(WSOK, DBOK, Count) ->
+receive_db_ws_init_msg(WSOK, DBOK, Count, Mode) ->
     if
         Count >= 20 ->
-            if
-                WSOK == false andalso DBOK == false ->
-                    {error, "DB and WS both are not ready"};
-                WSOK == true andalso DBOK == false ->
-                    {error, "DB is not ready"};
-                WSOK == false andalso DBOK == true ->
-                    {error, "WS is not ready"};
-                WSOK == true andalso DBOK == true ->
-                    ok;
-                true ->
-                    {error, "Unknown DB and WS states"}
-            end;
+			if
+				Mode == 1 ->
+		            if
+		                WSOK == false andalso DBOK == false ->
+		                    {error, "DB and WS both are not ready"};
+		                WSOK == true andalso DBOK == false ->
+		                    {error, "DB is not ready"};
+		                WSOK == false andalso DBOK == true ->
+		                    {error, "WS is not ready"};
+		                WSOK == true andalso DBOK == true ->
+		                    ok;
+		                true ->
+		                    {error, "Unknown DB and WS states"}
+		            end;
+				true ->
+		            if
+		                DBOK == true ->
+		                    ok;
+		                DBOK == false ->
+		                    {error, "DB is not ready"};
+		                true ->
+		                    {error, "Unknown DB and WS states"}
+		            end
+			end;
         true ->
-            receive
-                {_DBPid, dbok} ->
-                    if
-                        WSOK == true ->
-                            ok;
-                        true ->
-                            receive_db_ws_init_msg(WSOK, true, Count+1)
-                    end;
-                {_WSPid, wsok} ->
-                    if
-                        DBOK == true ->
-                            ok;
-                        true ->
-                            receive_db_ws_init_msg(true, DBOK, Count+1)
-                    end;
-                _ ->
-                    receive_db_ws_init_msg(WSOK, DBOK, Count+1)
-            after ?WAIT_LOOP_INTERVAL ->
-                    receive_db_ws_init_msg(WSOK, DBOK, Count+1)
-            end
+			if
+				Mode == 1 ->
+					if
+		                WSOK == true andalso DBOK == true ->
+		                    ok;
+						true ->
+				            receive
+				                {_DBPid, dbok} ->
+				                    if
+				                        WSOK == true ->
+				                            ok;
+				                        true ->
+				                            receive_db_ws_init_msg(WSOK, true, Count+1, Mode)
+				                    end;
+				                {_WSPid, wsok} ->
+				                    if
+				                        DBOK == true ->
+				                            ok;
+				                        true ->
+				                            receive_db_ws_init_msg(true, DBOK, Count+1, Mode)
+				                    end;
+				                _ ->
+				                    receive_db_ws_init_msg(WSOK, DBOK, Count+1, Mode)
+				            after ?WAIT_LOOP_INTERVAL ->
+				                    receive_db_ws_init_msg(WSOK, DBOK, Count+1, Mode)
+				            end
+					end;
+				true ->
+					if
+		                DBOK == true ->
+		                    ok;
+						true ->
+				            receive
+				                {_DBPid, dbok} ->
+				                    if
+				                        WSOK == true ->
+				                            ok;
+				                        true ->
+				                            receive_db_ws_init_msg(WSOK, true, Count+1, Mode)
+				                    end;
+				                _ ->
+				                    receive_db_ws_init_msg(WSOK, DBOK, Count+1, Mode)
+				            after ?WAIT_LOOP_INTERVAL ->
+				                    receive_db_ws_init_msg(WSOK, DBOK, Count+1, Mode)
+				            end
+					end
+			end
     end.                
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

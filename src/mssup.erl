@@ -244,6 +244,7 @@ init([]) ->
     [{dbpwd, DBPwd}] = ets:lookup(msgservertable, dbpwd),
     [{maxr, MaxR}] = ets:lookup(msgservertable, maxr),
     [{maxt, MaxT}] = ets:lookup(msgservertable, maxt),
+    [{mode, Mode}] = ets:lookup(msgservertable, mode),
     % Listen VDR connection
     VDRServer = {
 				 vdr_server,                             % Id       = internal id
@@ -327,12 +328,21 @@ init([]) ->
     %            },
     %Children = [VDRServer, VDRHandler, ManServer, ManHandler, MonServer, MonHandler, DBClient],
     %Children = [VDRServer, VDRHandler, MPServer, MPHandler, MonServer, MonHandler, DBClient, WSClient],%, Iconv],
-    Children = [VDRServer, VDRHandler, MonServer, MonHandler, DBClient, WSClient],%, Iconv],
+	if
+		Mode == 1 ->
+    		Children = [VDRServer, VDRHandler, MonServer, MonHandler, DBClient, WSClient],%, Iconv],
+		    RestartStrategy = {one_for_one, MaxR, MaxT},
+		    {ok, {RestartStrategy, Children}};
+		true ->
+     		Children = [VDRServer, VDRHandler, MonServer, MonHandler, DBClient],%, Iconv],
+		    RestartStrategy = {one_for_one, MaxR, MaxT},
+		    {ok, {RestartStrategy, Children}}
+	end;
     %Children = [VDRServer, VDRHandler, MonServer, MonHandler, WSClient],
     %Children = [VDRServer, VDRHandler, MonServer, MonHandler, DBClient],
     %Children = [VDRServer, VDRHandler, MonServer, MonHandler],
-    RestartStrategy = {one_for_one, MaxR, MaxT},
-    {ok, {RestartStrategy, Children}};
+    %RestartStrategy = {one_for_one, MaxR, MaxT},
+    %{ok, {RestartStrategy, Children}};
 %%%
 %%% I don't know what this function for. :-(
 %%% However, it is necessary.
