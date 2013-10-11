@@ -32,7 +32,7 @@
 %%%               1 -> log
 %%%
 start(StartType, StartArgs) ->
-    [PortVDR, PortMon, PortMP, WS, PortWS, DB, DBName, DBUid, DBPwd] = StartArgs,
+    [PortVDR, PortMon, PortMP, WS, PortWS, DB, DBName, DBUid, DBPwd, MaxR, MaxT] = StartArgs,
     AppPid = self(),
     ets:new(msgservertable,[set,public,named_table,{keypos,1},{read_concurrency,true},{write_concurrency,true}]),
     ets:insert(msgservertable, {portvdr, PortVDR}),
@@ -44,6 +44,8 @@ start(StartType, StartArgs) ->
     ets:insert(msgservertable, {dbname, DBName}),
     ets:insert(msgservertable, {dbuid, DBUid}),
     ets:insert(msgservertable, {dbpwd, DBPwd}),
+    ets:insert(msgservertable, {maxr, MaxR}),
+    ets:insert(msgservertable, {maxt, MaxT}),
     ets:insert(msgservertable, {dbpid, undefined}),
     ets:insert(msgservertable, {wspid, undefined}),
     ets:insert(msgservertable, {apppid, AppPid}),

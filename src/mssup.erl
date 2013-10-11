@@ -242,6 +242,8 @@ init([]) ->
     [{dbname, DBName}] = ets:lookup(msgservertable, dbname),
     [{dbuid, DBUid}] = ets:lookup(msgservertable, dbuid),
     [{dbpwd, DBPwd}] = ets:lookup(msgservertable, dbpwd),
+    [{maxr, MaxR}] = ets:lookup(msgservertable, maxr),
+    [{maxt, MaxT}] = ets:lookup(msgservertable, maxt),
     % Listen VDR connection
     VDRServer = {
 				 vdr_server,                             % Id       = internal id
@@ -329,7 +331,7 @@ init([]) ->
     %Children = [VDRServer, VDRHandler, MonServer, MonHandler, WSClient],
     %Children = [VDRServer, VDRHandler, MonServer, MonHandler, DBClient],
     %Children = [VDRServer, VDRHandler, MonServer, MonHandler],
-    RestartStrategy = {one_for_one, 0, 1},
+    RestartStrategy = {one_for_one, MaxR, MaxT},
     {ok, {RestartStrategy, Children}};
 %%%
 %%% I don't know what this function for. :-(
