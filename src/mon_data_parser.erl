@@ -66,6 +66,10 @@ parse_data(RawData, State) ->
 									create_vehicle_stored_msg_info_reponse(Req);
 								14 ->
 									create_device_stored_msg_info_reponse(Req);
+								15 ->
+									create_ws_log_reponse(Req);
+								16 ->
+									create_db_log_reponse(Req);
                                 _ ->
                                     create_unknown_msg_id_response(ID)
                             end
@@ -374,6 +378,30 @@ create_def_count_reponse() ->
 		    Xor = vdr_data_parser:bxorbytelist(Content),
 		    list_to_binary([Content, Xor])
 	end.
+
+create_ws_log_reponse(_Req) ->
+    [{wslog, WSLog}] = ets:lookup(msgservertable, wslog),
+	extract_log_info(WSLog, []).
+
+create_db_log_reponse(_Req) ->
+    [{dblog, DBLog}] = ets:lookup(msgservertable, dblog),
+	extract_log_info(DBLog, []).
+
+extract_log_info(Log, Res) when is_list(Log),
+								length(Log) > 0,
+								is_list(Res) ->
+	[H|T] = Log,
+	{Num, S} = H,
+	NumS = integer_to_list(Num),
+	ItemS = lists:append(lists:append(lists:append(NumS, " - "), S), ";"),
+	extract_log_info(T, lists:append(Res, ItemS));
+extract_log_info(Log, Res) when is_list(Log),
+								length(Log) == 0,
+								is_list(Res) ->
+	
+	list_to_binary(Res);
+extract_log_info(_Log, _Res) ->
+	<<>>.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %
