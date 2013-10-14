@@ -70,6 +70,10 @@ parse_data(RawData, State) ->
 									create_ws_log_reponse(Req);
 								16 ->
 									create_db_log_reponse(Req);
+								17 ->
+									clear_ws_log_reponse(Req);
+								18 ->
+									clear_db_log_reponse(Req);
                                 _ ->
                                     create_unknown_msg_id_response(ID)
                             end
@@ -379,30 +383,6 @@ create_def_count_reponse() ->
 		    list_to_binary([Content, Xor])
 	end.
 
-create_ws_log_reponse(_Req) ->
-    [{wslog, WSLog}] = ets:lookup(msgservertable, wslog),
-	extract_log_info(WSLog, []).
-
-create_db_log_reponse(_Req) ->
-    [{dblog, DBLog}] = ets:lookup(msgservertable, dblog),
-	extract_log_info(DBLog, []).
-
-extract_log_info(Log, Res) when is_list(Log),
-								length(Log) > 0,
-								is_list(Res) ->
-	[H|T] = Log,
-	{Num, S} = H,
-	NumS = integer_to_list(Num),
-	ItemS = lists:append(lists:append(lists:append(NumS, " - "), S), ";"),
-	extract_log_info(T, lists:append(Res, ItemS));
-extract_log_info(Log, Res) when is_list(Log),
-								length(Log) == 0,
-								is_list(Res) ->
-	
-	list_to_binary(Res);
-extract_log_info(_Log, _Res) ->
-	<<>>.
-
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %
 % [[ID0, MsgIdx0, Total0, Idx0, Body0], [ID1, MsgIdx1, Total1, Idx1, Body1], ...]
@@ -457,6 +437,50 @@ convert_integer_list_list_to_4_byte_binary_list(List) when is_list(List),
 	list_to_binary([HBin, convert_integer_list_list_to_4_byte_binary_list(T)]);
 convert_integer_list_list_to_4_byte_binary_list(_List) ->
 	<<>>.
+
+create_ws_log_reponse(_Req) ->
+    [{wslog, WSLog}] = ets:lookup(msgservertable, wslog),
+	Msg = extract_log_info(WSLog, []),
+	MsgLen = length(Msg),
+	Content = <<(MsgLen+2):?LEN_DWORD, 0:?LEN_BYTE, 15:?LEN_BYTE, Msg/binary>>,
+    Xor = vdr_data_parser:bxorbytelist(Content),
+    list_to_binary([Content, Xor]).
+
+create_db_log_reponse(_Req) ->
+    [{dblog, DBLog}] = ets:lookup(msgservertable, dblog),
+	Msg = extract_log_info(DBLog, []),
+	MsgLen = length(Msg),
+	Content = <<(MsgLen+2):?LEN_DWORD, 0:?LEN_BYTE, 16:?LEN_BYTE, Msg/binary>>,
+    Xor = vdr_data_parser:bxorbytelist(Content),
+    list_to_binary([Content, Xor]).
+
+extract_log_info(Log, Res) when is_list(Log),
+								length(Log) > 0,
+								is_list(Res) ->
+	[H|T] = Log,
+	{Num, S} = H,
+	NumS = integer_to_list(Num),
+	ItemS = lists:append(lists:append(lists:append(NumS, " - "), S), ";"),
+	extract_log_info(T, lists:append(Res, ItemS));
+extract_log_info(Log, Res) when is_list(Log),
+								length(Log) == 0,
+								is_list(Res) ->
+	
+	list_to_binary(Res);
+extract_log_info(_Log, _Res) ->
+	<<>>.
+
+clear_ws_log_reponse(_Req) ->
+    ets:insert(msgservertable, {wslog, []}),
+    Content = <<2:?LEN_DWORD, 0:?LEN_BYTE, 17:?LEN_BYTE>>,
+    Xor = vdr_data_parser:bxorbytelist(Content),
+	list_to_binary([Content, Xor]).
+
+clear_db_log_reponse(_Req) ->
+    ets:insert(msgservertable, {dblog, []}),
+    Content = <<2:?LEN_DWORD, 0:?LEN_BYTE, 18:?LEN_BYTE>>,
+    Xor = vdr_data_parser:bxorbytelist(Content),
+	list_to_binary([Content, Xor]).
 
 
 

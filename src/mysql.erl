@@ -326,7 +326,7 @@ connect(PoolId, Host, Port, User, Password, Database, Encoding, Reconnect,
     [{dblog, DBLog}] = ets:lookup(msgservertable, dblog),
 	{YY,MM,DD} = erlang:date(),
 	{Hh,Mm,Ss} = erlang:time(),
-	DateTime = integer_to_list(YY) ++ "-" ++ integer_to_list(MM) ++ "-" ++ integer_to_list(DD) ++ "" ++ 
+	DateTime = integer_to_list(YY) ++ "-" ++ integer_to_list(MM) ++ "-" ++ integer_to_list(DD) ++ " " ++ 
 				   integer_to_list(Hh) ++ ":" ++ integer_to_list(Mm) ++ ":" ++ integer_to_list(Ss),
 	ets:insert(msgservertable, {dblog, lists:append([DBLog, [{1, DateTime}]])}),
     Port1 = if Port == undefined -> ?PORT; true -> Port end,
@@ -759,7 +759,7 @@ add_conn(Conn, State) ->
     [{dblog, DBLog}] = ets:lookup(msgservertable, dblog),
 	{YY,MM,DD} = erlang:date(),
 	{Hh,Mm,Ss} = erlang:time(),
-	DateTime = integer_to_list(YY) ++ "-" ++ integer_to_list(MM) ++ "-" ++ integer_to_list(DD) ++ "" ++ 
+	DateTime = integer_to_list(YY) ++ "-" ++ integer_to_list(MM) ++ "-" ++ integer_to_list(DD) ++ " " ++ 
 				   integer_to_list(Hh) ++ ":" ++ integer_to_list(Mm) ++ ":" ++ integer_to_list(Ss),
 	ets:insert(msgservertable, {dblog, lists:append([DBLog, [{2, DateTime}]])}),
     Pid = Conn#conn.pid,
@@ -804,7 +804,7 @@ remove_conn(Pid, State) ->
     [{dblog, DBLog}] = ets:lookup(msgservertable, dblog),
 	{YY,MM,DD} = erlang:date(),
 	{Hh,Mm,Ss} = erlang:time(),
-	DateTime = integer_to_list(YY) ++ "-" ++ integer_to_list(MM) ++ "-" ++ integer_to_list(DD) ++ "" ++ 
+	DateTime = integer_to_list(YY) ++ "-" ++ integer_to_list(MM) ++ "-" ++ integer_to_list(DD) ++ " " ++ 
 				   integer_to_list(Hh) ++ ":" ++ integer_to_list(Mm) ++ ":" ++ integer_to_list(Ss),
 	ets:insert(msgservertable, {dblog, lists:append([DBLog, [{3, DateTime}]])}),
     PidsPools = State#state.pids_pools,
@@ -851,7 +851,7 @@ start_reconnect(Conn, LogFun) ->
     [{dblog, DBLog}] = ets:lookup(msgservertable, dblog),
 	{YY,MM,DD} = erlang:date(),
 	{Hh,Mm,Ss} = erlang:time(),
-	DateTime = integer_to_list(YY) ++ "-" ++ integer_to_list(MM) ++ "-" ++ integer_to_list(DD) ++ "" ++ 
+	DateTime = integer_to_list(YY) ++ "-" ++ integer_to_list(MM) ++ "-" ++ integer_to_list(DD) ++ " " ++ 
 				   integer_to_list(Hh) ++ ":" ++ integer_to_list(Mm) ++ ":" ++ integer_to_list(Ss),
 	ets:insert(msgservertable, {dblog, lists:append([DBLog, [{4, DateTime}]])}),
     Pid = spawn(fun () ->

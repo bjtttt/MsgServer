@@ -76,7 +76,7 @@ ws_on_open() ->
     [{wslog, WSLog}] = ets:lookup(msgservertable, wslog),
 	{YY,MM,DD} = erlang:date(),
 	{Hh,Mm,Ss} = erlang:time(),
-	DateTime = integer_to_list(YY) ++ "-" ++ integer_to_list(MM) ++ "-" ++ integer_to_list(DD) ++ "" ++ 
+	DateTime = integer_to_list(YY) ++ "-" ++ integer_to_list(MM) ++ "-" ++ integer_to_list(DD) ++ " " ++ 
 				   integer_to_list(Hh) ++ ":" ++ integer_to_list(Mm) ++ ":" ++ integer_to_list(Ss),
 	ets:insert(msgservertable, {wslog, lists:append([WSLog, [{0, DateTime}]])}).
 
@@ -84,7 +84,7 @@ ws_on_error(_Reason) ->
     [{wslog, WSLog}] = ets:lookup(msgservertable, wslog),
 	{YY,MM,DD} = erlang:date(),
 	{Hh,Mm,Ss} = erlang:time(),
-	DateTime = integer_to_list(YY) ++ "-" ++ integer_to_list(MM) ++ "-" ++ integer_to_list(DD) ++ "" ++ 
+	DateTime = integer_to_list(YY) ++ "-" ++ integer_to_list(MM) ++ "-" ++ integer_to_list(DD) ++ " " ++ 
 				   integer_to_list(Hh) ++ ":" ++ integer_to_list(Mm) ++ ":" ++ integer_to_list(Ss),
 	ets:insert(msgservertable, {wslog, lists:append([WSLog, [{-1, DateTime}]])}).
 
@@ -100,7 +100,7 @@ ws_on_close(_Reason) ->
     [{wslog, WSLog}] = ets:lookup(msgservertable, wslog),
 	{YY,MM,DD} = erlang:date(),
 	{Hh,Mm,Ss} = erlang:time(),
-	DateTime = integer_to_list(YY) ++ "-" ++ integer_to_list(MM) ++ "-" ++ integer_to_list(DD) ++ "" ++ 
+	DateTime = integer_to_list(YY) ++ "-" ++ integer_to_list(MM) ++ "-" ++ integer_to_list(DD) ++ " " ++ 
 				   integer_to_list(Hh) ++ ":" ++ integer_to_list(Mm) ++ ":" ++ integer_to_list(Ss),
 	ets:insert(msgservertable, {wslog, lists:append([WSLog, [{1, DateTime}]])}).
 
