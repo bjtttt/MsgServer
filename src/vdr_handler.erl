@@ -475,23 +475,130 @@ do_process_vdr_data(Socket, Data, State) ->
                                         {ok, empty} ->
                                             {error, dberror, NewState};
                                         {ok, [Rec]} ->
-                                            % "id" is PK, so it cannot be null or empty
-                                            {<<"device">>, <<"id">>, VDRID} = get_record_field(<<"device">>, Rec, <<"id">>),
-                                            % "serial" is NOT NULL & UNIQUE, so it cannot be null or undefined
-                                            {<<"device">>, <<"serial_no">>, VDRSerialNo} = get_record_field(<<"device">>, Rec, <<"serial_no">>),
-                                            % "authen_code" is NOT NULL & UNIQUE, so it cannot be null or undefined
-                                            {<<"device">>, <<"authen_code">>, VDRAuthenCode} = get_record_field(<<"device">>, Rec, <<"authen_code">>),
-                                            % "id" is PK, so it cannot be null. However it can be undefined because vehicle table device_id may don't be euqual to device table id 
-                                            {<<"vehicle">>, <<"id">>, VehicleID} = get_record_field(<<"vehicle">>, Rec, <<"id">>),
                                             % "id" is NOT NULL & UNIQUE, so it cannot be null. However it can be undefined because vehicle table device_id may don't be euqual to device table id 
                                             {<<"vehicle">>, <<"code">>, VehicleCode} = get_record_field(<<"vehicle">>, Rec, <<"code">>),
-                                            {<<"vehicle">>, <<"driver_id">>, DriverID} = get_record_field(<<"vehicle">>, Rec, <<"driver_id">>),
 											if
 												VehicleCode =/= undefined andalso binary_part(VehicleCode, 0, 1) == <<"?">> ->
-													common:logerror("VDR (~p) Vehicle Code has invalid character \"?\" and will be disconnected : ~p~n", [State#vdritem.addr, VehicleCode]),
-													%mysql:fetch(conn, <<"set names 'utf8'">>),
-													{error, dberror, NewState};
+				                                    SqlResp1 = send_sql_to_db(conn, Sql, NewState),
+				                                    case extract_db_resp(SqlResp1) of
+				                                        {ok, empty} ->
+				                                            {error, dberror, NewState};
+				                                        {ok, [Rec1]} ->
+				                                            % "id" is NOT NULL & UNIQUE, so it cannot be null. However it can be undefined because vehicle table device_id may don't be euqual to device table id 
+				                                            {<<"vehicle">>, <<"code">>, VehicleCode1} = get_record_field(<<"vehicle">>, Rec1, <<"code">>),
+															if
+																VehicleCode1 =/= undefined andalso binary_part(VehicleCode1, 0, 1) == <<"?">> ->
+																	common:logerror("VDR (~p) Vehicle Code has invalid character \"?\" and will be disconnected : ~p~n", [State#vdritem.addr, VehicleCode1]),
+																	%mysql:fetch(conn, <<"set names 'utf8'">>),
+																	{error, dberror, NewState};
+																true ->
+						                                            % "id" is PK, so it cannot be null or empty
+						                                            {<<"device">>, <<"id">>, VDRID} = get_record_field(<<"device">>, Rec1, <<"id">>),
+						                                            % "serial" is NOT NULL & UNIQUE, so it cannot be null or undefined
+						                                            {<<"device">>, <<"serial_no">>, VDRSerialNo} = get_record_field(<<"device">>, Rec1, <<"serial_no">>),
+						                                            % "authen_code" is NOT NULL & UNIQUE, so it cannot be null or undefined
+						                                            {<<"device">>, <<"authen_code">>, VDRAuthenCode} = get_record_field(<<"device">>, Rec1, <<"authen_code">>),
+						                                            % "id" is PK, so it cannot be null. However it can be undefined because vehicle table device_id may don't be euqual to device table id 
+						                                            {<<"vehicle">>, <<"id">>, VehicleID} = get_record_field(<<"vehicle">>, Rec1, <<"id">>),
+						                                            {<<"vehicle">>, <<"driver_id">>, DriverID} = get_record_field(<<"vehicle">>, Rec1, <<"driver_id">>),
+						                                            if
+						                                                VehicleID == undefined orelse VehicleCode1==undefined ->
+						                                                    {error, dberror, NewState};
+						                                                true ->
+																			SockList0 = ets:match(vdrtable, {'_', 
+						                                                                                     '$1', '_', '_', '_', VehicleID,
+						                                                                                     '_', '_', '_', '_', '_',
+						                                                                                     '_', '_', '_', '_', '_',
+						                                                                                     '_', '_', '_', '_', '_',
+						                                                                                     '_', '_', '_', '_', '_',
+																											 '_', '_', '_', '_', '_', '_', '_', '_'}),
+						                                                    disconn_socket_by_id(SockList0),
+						                                                    SockVdrList = ets:lookup(vdrtable, Socket),
+						                                                    case length(SockVdrList) of
+						                                                        1 ->
+						                                                            % "authen_code" is the query condition, so Auth should be equal to VDRAuthEnCode
+						                                                            %{Auth} = Msg,
+						                                                            
+						                                                            SqlUpdate = list_to_binary([<<"update device set is_online=1 where authen_code='">>, VDRAuthenCode, <<"'">>]),
+						                                                            send_sql_to_db(conn, SqlUpdate, NewState),
+																					
+																					SqlAlarmList = list_to_binary([<<"select * from vehicle_alarm where vehicle_id=">>, common:integer_to_binary(VehicleID), <<" and isnull(clear_time)">>]),
+																					SqlAlarmListResp = send_sql_to_db(conn, SqlAlarmList, NewState),
+																					case extract_db_resp(SqlAlarmListResp) of
+																						{ok, empty} ->
+																							common:loginfo("Original AlarmList : []~n"),	
+								                                                            case wsock_data_parser:create_term_online([VehicleID]) of
+								                                                                {ok, WSUpdate} ->
+								                                                                    common:loginfo("VDR (~p) WS : ~p~n~p~n", [State#vdritem.addr, WSUpdate, list_to_binary(WSUpdate)]),
+								                                                                    send_msg_to_ws(WSUpdate, NewState),
+								                                                                    %wsock_client:send(WSUpdate),
+								                                                            
+								                                                                    FlowIdx = NewState#vdritem.msgflownum,
+								                                                                    MsgBody = vdr_data_processor:create_gen_resp(ID, MsgIdx, ?T_GEN_RESP_OK),
+								                                                                    common:loginfo("~p sends VDR (~p) response for 16#102 (ok) : ~p~n", [State#vdritem.pid, State#vdritem.addr, MsgBody]),
+								                                                                    NewFlowIdx = send_data_to_vdr(16#8001, Tel, FlowIdx, MsgBody, VDRPid),
+																									
+																									FinalState = NewState#vdritem{id=VDRID, 
+								                                                                                                  serialno=binary_to_list(VDRSerialNo),
+								                                                                                                  auth=binary_to_list(VDRAuthenCode),
+								                                                                                                  vehicleid=VehicleID,
+								                                                                                                  vehiclecode=binary_to_list(VehicleCode1),
+																													              driverid=DriverID,
+								                                                                                                  msgflownum=NewFlowIdx, msg2vdr=[], msg=[], req=[],
+																													              alarm=0, alarmlist=[], state=0, statelist=[], tel=Tel},
+																									ets:insert(vdrtable, FinalState),
+								                                        
+								                                                                    {ok, FinalState};
+								                                                                _ ->
+								                                                                    {error, wserror, NewState}
+								                                                            end;
+																						{ok, Reses} ->
+																							% Initialize the alarm list immediately after auth
+																							AlarmList = get_alarm_list(Reses),
+																							common:loginfo("Original AlarmList : ~p~n", [AlarmList]),		                                                            
+								                                                            case wsock_data_parser:create_term_online([VehicleID]) of
+								                                                                {ok, WSUpdate} ->
+								                                                                    common:loginfo("VDR (~p) WS : ~p~n~p~n", [State#vdritem.addr, WSUpdate, list_to_binary(WSUpdate)]),
+								                                                                    send_msg_to_ws(WSUpdate, NewState),
+								                                                                    %wsock_client:send(WSUpdate),
+								                                                            
+								                                                                    FlowIdx = NewState#vdritem.msgflownum,
+								                                                                    MsgBody = vdr_data_processor:create_gen_resp(ID, MsgIdx, ?T_GEN_RESP_OK),
+								                                                                    common:loginfo("~p sends VDR (~p) response for 16#102 (ok) : ~p~n", [NewState#vdritem.pid, NewState#vdritem.addr, MsgBody]),
+								                                                                    NewFlowIdx = send_data_to_vdr(16#8001, Tel, FlowIdx, MsgBody, VDRPid),
+								                                        
+																									FinalState = NewState#vdritem{id=VDRID, 
+								                                                                                                  serialno=binary_to_list(VDRSerialNo),
+								                                                                                                  auth=binary_to_list(VDRAuthenCode),
+								                                                                                                  vehicleid=VehicleID,
+								                                                                                                  vehiclecode=binary_to_list(VehicleCode1),
+																													              driverid=DriverID,
+								                                                                                                  msgflownum=NewFlowIdx, msg2vdr=[], msg=[], req=[],
+																													              alarm=0, alarmlist=AlarmList, state=0, statelist=[], tel=Tel},
+																									ets:insert(vdrtable, FinalState),
+																									
+								                                                                    {ok, FinalState};
+								                                                                _ ->
+								                                                                    {error, wserror, NewState}
+								                                                            end
+																					end;
+						                                                        _ ->
+						                                                            % vdrtable error
+						                                                            {error, systemerror, NewState}
+						                                                    end
+						                                            end
+															end
+													end;
 												true ->
+		                                            % "id" is PK, so it cannot be null or empty
+		                                            {<<"device">>, <<"id">>, VDRID} = get_record_field(<<"device">>, Rec, <<"id">>),
+		                                            % "serial" is NOT NULL & UNIQUE, so it cannot be null or undefined
+		                                            {<<"device">>, <<"serial_no">>, VDRSerialNo} = get_record_field(<<"device">>, Rec, <<"serial_no">>),
+		                                            % "authen_code" is NOT NULL & UNIQUE, so it cannot be null or undefined
+		                                            {<<"device">>, <<"authen_code">>, VDRAuthenCode} = get_record_field(<<"device">>, Rec, <<"authen_code">>),
+		                                            % "id" is PK, so it cannot be null. However it can be undefined because vehicle table device_id may don't be euqual to device table id 
+		                                            {<<"vehicle">>, <<"id">>, VehicleID} = get_record_field(<<"vehicle">>, Rec, <<"id">>),
+		                                            {<<"vehicle">>, <<"driver_id">>, DriverID} = get_record_field(<<"vehicle">>, Rec, <<"driver_id">>),
 		                                            if
 		                                                VehicleID == undefined orelse VehicleCode==undefined ->
 		                                                    {error, dberror, NewState};

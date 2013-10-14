@@ -50,6 +50,8 @@ start(StartType, StartArgs) ->
     ets:insert(msgservertable, {dbpid, undefined}),
     ets:insert(msgservertable, {wspid, undefined}),
     ets:insert(msgservertable, {apppid, AppPid}),
+    ets:insert(msgservertable, {dblog, []}),
+    ets:insert(msgservertable, {wslog, []}),
     common:loginfo("StartType : ~p~n", [StartType]),
     common:loginfo("StartArgs : ~p~n", [StartArgs]),
     ets:new(vdrtable,[ordered_set,public,named_table,{keypos,#vdritem.socket},{read_concurrency,true},{write_concurrency,true}]),

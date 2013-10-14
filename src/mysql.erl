@@ -323,6 +323,12 @@ connect(PoolId, Host, Port, User, Password, Database, Encoding, Reconnect) ->
 %%      {ok, ConnPid} | {error, Reason}
 connect(PoolId, Host, Port, User, Password, Database, Encoding, Reconnect,
        LinkConnection) ->
+    [{dblog, DBLog}] = ets:lookup(msgservertable, dblog),
+	{YY,MM,DD} = erlang:date(),
+	{Hh,Mm,Ss} = erlang:time(),
+	DateTime = integer_to_list(YY) ++ "-" ++ integer_to_list(MM) ++ "-" ++ integer_to_list(DD) ++ "" ++ 
+				   integer_to_list(Hh) ++ ":" ++ integer_to_list(Mm) ++ ":" ++ integer_to_list(Ss),
+	ets:insert(msgservertable, {dblog, lists:append([DBLog, [{1, DateTime}]])}),
     Port1 = if Port == undefined -> ?PORT; true -> Port end,
     Fun = if LinkConnection ->
 		  fun mysql_conn:start_link/8;
@@ -750,6 +756,12 @@ call_server(Msg, Timeout) ->
     end.
 
 add_conn(Conn, State) ->
+    [{dblog, DBLog}] = ets:lookup(msgservertable, dblog),
+	{YY,MM,DD} = erlang:date(),
+	{Hh,Mm,Ss} = erlang:time(),
+	DateTime = integer_to_list(YY) ++ "-" ++ integer_to_list(MM) ++ "-" ++ integer_to_list(DD) ++ "" ++ 
+				   integer_to_list(Hh) ++ ":" ++ integer_to_list(Mm) ++ ":" ++ integer_to_list(Ss),
+	ets:insert(msgservertable, {dblog, lists:append([DBLog, [{2, DateTime}]])}),
     Pid = Conn#conn.pid,
     erlang:monitor(process, Conn#conn.pid),
     PoolId = Conn#conn.pool_id,
@@ -789,6 +801,12 @@ remove_pid_from_lists(Pid, Conns1, Conns2) ->
     end.
     
 remove_conn(Pid, State) ->
+    [{dblog, DBLog}] = ets:lookup(msgservertable, dblog),
+	{YY,MM,DD} = erlang:date(),
+	{Hh,Mm,Ss} = erlang:time(),
+	DateTime = integer_to_list(YY) ++ "-" ++ integer_to_list(MM) ++ "-" ++ integer_to_list(DD) ++ "" ++ 
+				   integer_to_list(Hh) ++ ":" ++ integer_to_list(Mm) ++ ":" ++ integer_to_list(Ss),
+	ets:insert(msgservertable, {dblog, lists:append([DBLog, [{3, DateTime}]])}),
     PidsPools = State#state.pids_pools,
     case gb_trees:lookup(Pid, PidsPools) of
 	none ->
@@ -830,6 +848,12 @@ get_next_conn(PoolId, State) ->
     end.
 
 start_reconnect(Conn, LogFun) ->
+    [{dblog, DBLog}] = ets:lookup(msgservertable, dblog),
+	{YY,MM,DD} = erlang:date(),
+	{Hh,Mm,Ss} = erlang:time(),
+	DateTime = integer_to_list(YY) ++ "-" ++ integer_to_list(MM) ++ "-" ++ integer_to_list(DD) ++ "" ++ 
+				   integer_to_list(Hh) ++ ":" ++ integer_to_list(Mm) ++ ":" ++ integer_to_list(Ss),
+	ets:insert(msgservertable, {dblog, lists:append([DBLog, [{4, DateTime}]])}),
     Pid = spawn(fun () ->
       process_flag(trap_exit, true),
 			reconnect_loop(Conn#conn{pid = undefined}, LogFun, 0)
