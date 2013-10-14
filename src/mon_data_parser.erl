@@ -441,7 +441,7 @@ convert_integer_list_list_to_4_byte_binary_list(_List) ->
 create_ws_log_reponse(_Req) ->
     [{wslog, WSLog}] = ets:lookup(msgservertable, wslog),
 	Msg = extract_log_info(WSLog, []),
-	MsgLen = length(Msg),
+	MsgLen = byte_size(Msg),
 	Content = <<(MsgLen+2):?LEN_DWORD, 0:?LEN_BYTE, 15:?LEN_BYTE, Msg/binary>>,
     Xor = vdr_data_parser:bxorbytelist(Content),
     list_to_binary([Content, Xor]).
@@ -449,7 +449,7 @@ create_ws_log_reponse(_Req) ->
 create_db_log_reponse(_Req) ->
     [{dblog, DBLog}] = ets:lookup(msgservertable, dblog),
 	Msg = extract_log_info(DBLog, []),
-	MsgLen = length(Msg),
+	MsgLen = byte_size(Msg),
 	Content = <<(MsgLen+2):?LEN_DWORD, 0:?LEN_BYTE, 16:?LEN_BYTE, Msg/binary>>,
     Xor = vdr_data_parser:bxorbytelist(Content),
     list_to_binary([Content, Xor]).
