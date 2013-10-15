@@ -75,15 +75,10 @@ handle_info({tcp, Socket, Data}, OriState) ->
 	%DataDebug = <<126,7,2,0,50,1,52,1,8,18,33,0,11,1,19,9,3,21,8,87,0,8,53,54,185,220,192,237,212,177,49,50,51,52,53,54,55,56,56,56,57,48,49,50,51,52,57,57,0,0,8,183,162,214,164,187,250,185,185,0,24,7,5,118,126>>,
     Msgs = common:split_msg_to_single(Data, 16#7e),
     %Msgs = common:split_msg_to_single(DataDebug, 16#7e),
-	%SqlAlarmList = list_to_binary([<<"select * from vehicle_alarm where vehicle_id=2215 and isnull(clear_time)">>]),
-	%DBAlarmListResp = send_sql_to_db(conn, SqlAlarmList, State),
-	%{ok, DBAlarmList} = extract_db_resp(DBAlarmListResp),
-	%AlarmList = get_alarm_list(DBAlarmList),
-	%common:loginfo("Original AlarmList : ~p~n", [AlarmList]),
     case Msgs of
         [] ->
             ErrCount = State#vdritem.errorcount + 1,
-            common:loginfo("VDR (~p) data empty : continous error count is ~p (max is 3)~n", [State#vdritem.addr, ErrCount]),
+            common:logerr("VDR (~p) data empty : continous error count is ~p (max is 3)~n", [State#vdritem.addr, ErrCount]),
             if
                 ErrCount >= ?MAX_VDR_ERR_COUNT ->
                     {stop, vdrerror, State#vdritem{errorcount=ErrCount}};
@@ -95,7 +90,7 @@ handle_info({tcp, Socket, Data}, OriState) ->
             case process_vdr_msges(Socket, Msgs, State) of
                 {error, vdrerror, NewState} ->
                     ErrCount = NewState#vdritem.errorcount + 1,
-                    common:loginfo("VDR (~p) data error : continous count is ~p (max is 3)~n", [NewState#vdritem.addr, ErrCount]),
+                    common:logerr("VDR (~p) data error : continous count is ~p (max is 3)~n", [NewState#vdritem.addr, ErrCount]),
                     if
                         ErrCount >= ?MAX_VDR_ERR_COUNT ->
                             {stop, vdrerror, NewState#vdritem{errorcount=ErrCount}};
@@ -181,7 +176,7 @@ terminate(Reason, State) ->
             ok;
         _ ->
             {ok, WSUpdate} = wsock_data_parser:create_term_offline([VehicleID]),
-            common:loginfo("~p~n~p~n", [WSUpdate, list_to_binary(WSUpdate)]),
+            %common:loginfo("~p~n~p~n", [WSUpdate, list_to_binary(WSUpdate)]),
             send_msg_to_ws(WSUpdate, State)
     end,
     case Auth of
@@ -529,9 +524,8 @@ do_process_vdr_data(Socket, Data, State) ->
 																							common:loginfo("Original AlarmList : []~n"),	
 								                                                            case wsock_data_parser:create_term_online([VehicleID]) of
 								                                                                {ok, WSUpdate} ->
-								                                                                    common:loginfo("VDR (~p) WS : ~p~n~p~n", [State#vdritem.addr, WSUpdate, list_to_binary(WSUpdate)]),
+								                                                                    %common:loginfo("VDR (~p) WS : ~p~n~p~n", [State#vdritem.addr, WSUpdate, list_to_binary(WSUpdate)]),
 								                                                                    send_msg_to_ws(WSUpdate, NewState),
-								                                                                    %wsock_client:send(WSUpdate),
 								                                                            
 								                                                                    FlowIdx = NewState#vdritem.msgflownum,
 								                                                                    MsgBody = vdr_data_processor:create_gen_resp(ID, MsgIdx, ?T_GEN_RESP_OK),
@@ -558,9 +552,8 @@ do_process_vdr_data(Socket, Data, State) ->
 																							common:loginfo("Original AlarmList : ~p~n", [AlarmList]),		                                                            
 								                                                            case wsock_data_parser:create_term_online([VehicleID]) of
 								                                                                {ok, WSUpdate} ->
-								                                                                    common:loginfo("VDR (~p) WS : ~p~n~p~n", [State#vdritem.addr, WSUpdate, list_to_binary(WSUpdate)]),
+								                                                                    %common:loginfo("VDR (~p) WS : ~p~n~p~n", [State#vdritem.addr, WSUpdate, list_to_binary(WSUpdate)]),
 								                                                                    send_msg_to_ws(WSUpdate, NewState),
-								                                                                    %wsock_client:send(WSUpdate),
 								                                                            
 								                                                                    FlowIdx = NewState#vdritem.msgflownum,
 								                                                                    MsgBody = vdr_data_processor:create_gen_resp(ID, MsgIdx, ?T_GEN_RESP_OK),
@@ -627,9 +620,8 @@ do_process_vdr_data(Socket, Data, State) ->
 																			common:loginfo("Original AlarmList : []~n"),	
 				                                                            case wsock_data_parser:create_term_online([VehicleID]) of
 				                                                                {ok, WSUpdate} ->
-				                                                                    common:loginfo("VDR (~p) WS : ~p~n~p~n", [State#vdritem.addr, WSUpdate, list_to_binary(WSUpdate)]),
+				                                                                    %common:loginfo("VDR (~p) WS : ~p~n~p~n", [State#vdritem.addr, WSUpdate, list_to_binary(WSUpdate)]),
 				                                                                    send_msg_to_ws(WSUpdate, NewState),
-				                                                                    %wsock_client:send(WSUpdate),
 				                                                            
 				                                                                    FlowIdx = NewState#vdritem.msgflownum,
 				                                                                    MsgBody = vdr_data_processor:create_gen_resp(ID, MsgIdx, ?T_GEN_RESP_OK),
@@ -656,9 +648,8 @@ do_process_vdr_data(Socket, Data, State) ->
 																			common:loginfo("Original AlarmList : ~p~n", [AlarmList]),		                                                            
 				                                                            case wsock_data_parser:create_term_online([VehicleID]) of
 				                                                                {ok, WSUpdate} ->
-				                                                                    common:loginfo("VDR (~p) WS : ~p~n~p~n", [State#vdritem.addr, WSUpdate, list_to_binary(WSUpdate)]),
+				                                                                    %common:loginfo("VDR (~p) WS : ~p~n~p~n", [State#vdritem.addr, WSUpdate, list_to_binary(WSUpdate)]),
 				                                                                    send_msg_to_ws(WSUpdate, NewState),
-				                                                                    %wsock_client:send(WSUpdate),
 				                                                            
 				                                                                    FlowIdx = NewState#vdritem.msgflownum,
 				                                                                    MsgBody = vdr_data_processor:create_gen_resp(ID, MsgIdx, ?T_GEN_RESP_OK),
@@ -751,7 +742,7 @@ do_process_vdr_data(Socket, Data, State) ->
                                                                                                TargetWSID,
                                                                                                [VehicleID],
                                                                                                Res),
-                                            common:loginfo("Gateway receives VDR (~p) response to WS request ~p : ~p~n", [NewState#vdritem.addr, RespID, WSUpdate]),
+                                            %common:loginfo("Gateway receives VDR (~p) response to WS request ~p : ~p~n", [NewState#vdritem.addr, RespID, WSUpdate]),
                                             send_msg_to_ws(WSUpdate, NewState);
                                         ItemCount ->
                                             common:logerror("(FATAL) vdritem.msgws2vdr has ~p item(s) for wsid ~p~n", [ItemCount, RespID])
@@ -837,7 +828,7 @@ do_process_vdr_data(Socket, Data, State) ->
                                     {ok, WSUpdate} = wsock_data_parser:create_term_answer(TargetWSFlowIdx,
 																						  [VehicleID],
                                                                                           [AnswerID]),
-                                    common:loginfo("Gateway receives VDR (~p) response to WS request ~p : ~p~n", [NewState#vdritem.addr, 16#8302, WSUpdate]),
+                                    %common:loginfo("Gateway receives VDR (~p) response to WS request ~p : ~p~n", [NewState#vdritem.addr, 16#8302, WSUpdate]),
                                     send_msg_to_ws(WSUpdate, NewState);
                                 ItemCount ->
                                     common:logerror("(FATAL) vdritem.msgws2vdr has ~p item(s) for wsid ~p~n", [ItemCount, 16#8302])
@@ -873,7 +864,7 @@ do_process_vdr_data(Socket, Data, State) ->
                                                                                                   FlagBit bxor NewResBit,
                                                                                                   [VehicleID],
                                                                                                   [InfoState]),
-                                    common:loginfo("Gateway receives VDR (~p) response to WS request ~p : ~p~n", [NewState#vdritem.addr, 16#8500, WSUpdate]),
+                                    %common:loginfo("Gateway receives VDR (~p) response to WS request ~p : ~p~n", [NewState#vdritem.addr, 16#8500, WSUpdate]),
                                     send_msg_to_ws(WSUpdate, NewState);
                                 ItemCount ->
                                     common:logerror("(FATAL) vdritem.msgws2vdr has ~p item(s) for wsid ~p~n", [ItemCount, 16#8500])
@@ -973,7 +964,7 @@ do_process_vdr_data(Socket, Data, State) ->
                                                                                         [VehicleID],
 																						Res,
 																						List),
-                                    common:loginfo("Gateway receives VDR (~p) response to WS request ~p : ~p~n", [NewState#vdritem.addr, 16#8801, WSUpdate]),
+                                    %common:loginfo("Gateway receives VDR (~p) response to WS request ~p : ~p~n", [NewState#vdritem.addr, 16#8801, WSUpdate]),
                                     send_msg_to_ws(WSUpdate, NewState);
                                 ItemCount ->
                                     common:logerror("(FATAL) vdritem.msgws2vdr has ~p item(s) for wsid ~p~n", [ItemCount, 16#8801])
