@@ -691,14 +691,14 @@ do_process_vdr_data(Socket, Data, State) ->
                             {error, invaliderror, State}
                     end;
                 true ->
-					common:loginfo("VDR (~p) (id:~p, serialno:~p, authen_code:~p, vehicleid:~p, vehiclecode:~p) MSG ID (~p), MSG Index (~p), MSG Tel (~p)~n",
-								   [NewState#vdritem.addr, 
-									NewState#vdritem.id, 
-									NewState#vdritem.serialno, 
-									NewState#vdritem.auth, 
-									NewState#vdritem.vehicleid, 
-									NewState#vdritem.vehiclecode, 
-									ID, MsgIdx, Tel]),
+					%common:loginfo("VDR (~p) (id:~p, serialno:~p, authen_code:~p, vehicleid:~p, vehiclecode:~p) MSG ID (~p), MSG Index (~p), MSG Tel (~p)~n",
+					%			   [NewState#vdritem.addr, 
+					%				NewState#vdritem.id, 
+					%				NewState#vdritem.serialno, 
+					%				NewState#vdritem.auth, 
+					%				NewState#vdritem.vehicleid, 
+					%				NewState#vdritem.vehiclecode, 
+					%				ID, MsgIdx, Tel]),
                     case ID of
                         16#1 ->     % VDR general response
                             {RespFlowIdx, RespID, Res} = Msg,
