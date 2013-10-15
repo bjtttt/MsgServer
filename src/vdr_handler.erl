@@ -529,7 +529,7 @@ do_process_vdr_data(Socket, Data, State) ->
 								                                                            
 								                                                                    FlowIdx = NewState#vdritem.msgflownum,
 								                                                                    MsgBody = vdr_data_processor:create_gen_resp(ID, MsgIdx, ?T_GEN_RESP_OK),
-								                                                                    common:loginfo("~p sends VDR (~p) response for 16#102 (ok) : ~p~n", [State#vdritem.pid, State#vdritem.addr, MsgBody]),
+								                                                                    %common:loginfo("~p sends VDR (~p) response for 16#102 (ok) : ~p~n", [State#vdritem.pid, State#vdritem.addr, MsgBody]),
 								                                                                    NewFlowIdx = send_data_to_vdr(16#8001, Tel, FlowIdx, MsgBody, VDRPid),
 																									
 																									FinalState = NewState#vdritem{id=VDRID, 
@@ -557,7 +557,7 @@ do_process_vdr_data(Socket, Data, State) ->
 								                                                            
 								                                                                    FlowIdx = NewState#vdritem.msgflownum,
 								                                                                    MsgBody = vdr_data_processor:create_gen_resp(ID, MsgIdx, ?T_GEN_RESP_OK),
-								                                                                    common:loginfo("~p sends VDR (~p) response for 16#102 (ok) : ~p~n", [NewState#vdritem.pid, NewState#vdritem.addr, MsgBody]),
+								                                                                    %common:loginfo("~p sends VDR (~p) response for 16#102 (ok) : ~p~n", [NewState#vdritem.pid, NewState#vdritem.addr, MsgBody]),
 								                                                                    NewFlowIdx = send_data_to_vdr(16#8001, Tel, FlowIdx, MsgBody, VDRPid),
 								                                        
 																									FinalState = NewState#vdritem{id=VDRID, 
@@ -625,7 +625,7 @@ do_process_vdr_data(Socket, Data, State) ->
 				                                                            
 				                                                                    FlowIdx = NewState#vdritem.msgflownum,
 				                                                                    MsgBody = vdr_data_processor:create_gen_resp(ID, MsgIdx, ?T_GEN_RESP_OK),
-				                                                                    common:loginfo("~p sends VDR (~p) response for 16#102 (ok) : ~p~n", [State#vdritem.pid, State#vdritem.addr, MsgBody]),
+				                                                                    %common:loginfo("~p sends VDR (~p) response for 16#102 (ok) : ~p~n", [State#vdritem.pid, State#vdritem.addr, MsgBody]),
 				                                                                    NewFlowIdx = send_data_to_vdr(16#8001, Tel, FlowIdx, MsgBody, VDRPid),
 																					
 																					FinalState = NewState#vdritem{id=VDRID, 
@@ -653,7 +653,7 @@ do_process_vdr_data(Socket, Data, State) ->
 				                                                            
 				                                                                    FlowIdx = NewState#vdritem.msgflownum,
 				                                                                    MsgBody = vdr_data_processor:create_gen_resp(ID, MsgIdx, ?T_GEN_RESP_OK),
-				                                                                    common:loginfo("~p sends VDR (~p) response for 16#102 (ok) : ~p~n", [NewState#vdritem.pid, NewState#vdritem.addr, MsgBody]),
+				                                                                    %common:loginfo("~p sends VDR (~p) response for 16#102 (ok) : ~p~n", [NewState#vdritem.pid, NewState#vdritem.addr, MsgBody]),
 				                                                                    NewFlowIdx = send_data_to_vdr(16#8001, Tel, FlowIdx, MsgBody, VDRPid),
 				                                        
 																					FinalState = NewState#vdritem{id=VDRID, 
@@ -774,7 +774,7 @@ do_process_vdr_data(Socket, Data, State) ->
         
                                     FlowIdx = NewState#vdritem.msgflownum,
                                     MsgBody = vdr_data_processor:create_gen_resp(ID, MsgIdx, ?T_GEN_RESP_OK),
-                                    common:loginfo("~p sends VDR (~p) response for 16#3 (Position) : ~p~n", [State#vdritem.pid, NewState#vdritem.addr, MsgBody]),
+                                    %common:loginfo("~p sends VDR (~p) response for 16#3 (Position) : ~p~n", [State#vdritem.pid, NewState#vdritem.addr, MsgBody]),
                                     NewFlowIdx = send_data_to_vdr(16#8001, Tel, FlowIdx, MsgBody, VDRPid),
         
                                     % return error to terminate connection with VDR
@@ -1000,7 +1000,7 @@ do_process_vdr_data(Socket, Data, State) ->
                         16#102 ->
                             FlowIdx = NewState#vdritem.msgflownum,
                             MsgBody = vdr_data_processor:create_gen_resp(ID, MsgIdx, ?T_GEN_RESP_OK),
-                            common:loginfo("~p sends VDR (~p) response for 16#102 (ok) : ~p~n", [NewState#vdritem.pid, NewState#vdritem.addr, MsgBody]),
+                            %common:loginfo("~p sends VDR (~p) response for 16#102 (ok) : ~p~n", [NewState#vdritem.pid, NewState#vdritem.addr, MsgBody]),
                             NewFlowIdx = send_data_to_vdr(16#8001, Tel, FlowIdx, MsgBody, VDRPid),
                             
                             {ok, NewState#vdritem{msgflownum=NewFlowIdx}};
@@ -1020,7 +1020,7 @@ do_process_vdr_data(Socket, Data, State) ->
             {ID, MsgIdx, _Tel, _CryptoType} = HeaderInfo,
             FlowIdx = NewState#vdritem.msgflownum,
             MsgBody = vdr_data_processor:create_gen_resp(ID, MsgIdx, ?T_GEN_RESP_OK),
-            common:loginfo("~p sends VDR (~p) response for ignore ~p : ~p~n", [NewState#vdritem.pid, NewState#vdritem.addr, ID, MsgBody]),
+            %common:loginfo("~p sends VDR (~p) response for ignore ~p : ~p~n", [NewState#vdritem.pid, NewState#vdritem.addr, ID, MsgBody]),
             NewFlowIdx = send_data_to_vdr(16#8001, NewState#vdritem.tel, FlowIdx, MsgBody, VDRPid),
             
             {RequiredId, MsgPackages} = NewState#vdritem.msgpackages,
@@ -1066,7 +1066,7 @@ do_process_vdr_data(Socket, Data, State) ->
             {ID, MsgIdx, _Tel, _CryptoType} = HeaderInfo,
             FlowIdx = NewState#vdritem.msgflownum,
             MsgBody = vdr_data_processor:create_gen_resp(ID, MsgIdx, ErrorType),
-            common:loginfo("~p sends VDR (~p) response for warning ~p : ~p~n", [NewState#vdritem.pid, NewState#vdritem.addr, ID, MsgBody]),
+            %common:loginfo("~p sends VDR (~p) response for warning ~p : ~p~n", [NewState#vdritem.pid, NewState#vdritem.addr, ID, MsgBody]),
             NewFlowIdx = send_data_to_vdr(16#8001, NewState#vdritem.tel, FlowIdx, MsgBody, VDRPid),
 			
             {warning, NewState#vdritem{msgflownum=NewFlowIdx}};
@@ -1144,7 +1144,7 @@ process_pos_info(ID, MsgIdx, VDRPid, HeadInfo, Msg, NewState) ->
 									NewState#vdritem.vehiclecode]),
 					
 		            MsgBody = vdr_data_processor:create_gen_resp(ID, MsgIdx, ?T_GEN_RESP_OK),
-		            common:loginfo("~p sends VDR (~p) response for 16#200 (ok) : ~p~n", [NewState#vdritem.pid, NewState#vdritem.addr, MsgBody]),
+		            %common:loginfo("~p sends VDR (~p) response for 16#200 (ok) : ~p~n", [NewState#vdritem.pid, NewState#vdritem.addr, MsgBody]),
 		            NewFlowIdx = send_data_to_vdr(16#8001, NewState#vdritem.tel, FlowIdx, MsgBody, VDRPid),
 					
 					{ok, NewState#vdritem{msgflownum=NewFlowIdx, alarm=AlarmSym, state=StateFlag, lastlat=Lat, lastlon=Lon}};
@@ -1194,7 +1194,7 @@ process_pos_info(ID, MsgIdx, VDRPid, HeadInfo, Msg, NewState) ->
 					end,
 
                     MsgBody = vdr_data_processor:create_gen_resp(ID, MsgIdx, ?T_GEN_RESP_OK),
-                    common:loginfo("~p sends VDR (~p) response for 16#200 (ok) : ~p~n", [NewState#vdritem.pid, NewState#vdritem.addr, MsgBody]),
+                    %common:loginfo("~p sends VDR (~p) response for 16#200 (ok) : ~p~n", [NewState#vdritem.pid, NewState#vdritem.addr, MsgBody]),
                     NewFlowIdx = send_data_to_vdr(16#8001, NewState#vdritem.tel, FlowIdx, MsgBody, VDRPid),
                     
                     {ok, NewState#vdritem{msgflownum=NewFlowIdx, alarm=AlarmSym, alarmlist=AlarmList, state=StateFlag, lastlat=Lat, lastlon=Lon}}
