@@ -76,7 +76,7 @@ process_data(Data) ->
     try do_process_data(Data)
     catch
         _:Why ->
-            common:loginfo("Parsing management data exception : ~p~n", [Why]),
+            common:logerr("Parsing management data exception : ~p~n", [Why]),
             {error, exception, Why}
     end.
 
@@ -90,7 +90,7 @@ process_data(Data) ->
 %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 do_process_data(Data) ->
-    common:loginfo("WS Server MSG : ~p~n", [Data]),
+    %common:loginfo("WS Server MSG : ~p~n", [Data]),
     case rfc4627:decode(Data) of
         {ok, Erl, _Rest} ->
             {obj, Content} = Erl,
@@ -163,15 +163,10 @@ do_process_data(Data) ->
                                     {"SN", SN} = get_specific_entry(Content, "SN"),
                                     {"LIST", List} = get_specific_entry(Content, "LIST"),
 									VIDList = get_same_key_list(List),
-									%common:loginfo("0X6001 Data : ~p~n", [Data]),
 									DataStr = get_string(Data),
-									%common:loginfo("0X6001 DataStr : ~p~n", [DataStr]),
 									Index = string:str(DataStr, "\"DATA\"") + 7,
-									%common:loginfo("0X6001 Index : ~p~n", [Index]),
 									MsgLen = length(DataStr),
-									%common:loginfo("0X6001 MsgLen : ~p~n", [MsgLen]),
 									Part = string:sub_string(DataStr, Index, MsgLen-1),
-									%common:loginfo("0X6001 Part : ~p~n", [Part]),
                                     {ok, Mid, [SN, VIDList, Part]};
                                 true ->
                                     {error, length_error}
@@ -653,15 +648,10 @@ do_process_data(Data) ->
                                     {"SN", SN} = get_specific_entry(Content, "SN"),
                                     {"LIST", List} = get_specific_entry(Content, "LIST"),
 									VIDList = get_same_key_list(List),
-									common:loginfo("0X8900 Data : ~p~n", [Data]),
 									DataStr = get_string(Data),
-									common:loginfo("0X8900 DataStr : ~p~n", [DataStr]),
 									Index = string:str(DataStr, "\"DATA\"") + 7,
-									common:loginfo("0X8900 Index : ~p~n", [Index]),
 									MsgLen = length(DataStr),
-									common:loginfo("0X8900 MsgLen: ~p~n", [MsgLen]),
 									Part = string:sub_string(DataStr, Index, MsgLen-1),
-									common:loginfo("0X8900 Part : ~p~n", [Part]),
                                     {ok, Mid, [SN, VIDList, Part]};
                                 true ->
                                     {error, length_error}
@@ -689,7 +679,7 @@ get_string(_Data) ->
 connect_ws_to_vdr(Msg) ->
     case Msg of
         {ok, Mid, Res} ->
-			common:loginfo("WS command ID : ~p~n", [Mid]),
+			%common:loginfo("WS command ID : ~p~n", [Mid]),
             case Mid of
                 16#8001 ->
                     ok;
@@ -702,7 +692,6 @@ connect_ws_to_vdr(Msg) ->
                 16#6001 ->
 					[SN, VIDList, DataPart] = Res,
 					Bin = vdr_data_processor:create_data_dl_transparent(16#ff, DataPart),
-					%common:loginfo("0X6001 Bin : ~p~n", [Bin]),
 					update_vdrs_ws2vdr_msg_id_flowidx(16#6001, SN, VIDList, null),
 					send_msg_to_vdrs(16#6001, VIDList, Bin);
                 16#8103 ->
@@ -861,29 +850,16 @@ connect_ws_to_vdr(Msg) ->
 						{ok, FileBin} ->
 							UpgradeData = FileBin,
 							UpgradeLen = byte_size(UpgradeData),
-							%common:loginfo("1"),
-		                    Bins = vdr_data_processor:create_update_packet(TYPE, PID, VerLen, VERSION, UpgradeLen, UpgradeData),
-							%common:loginfo("2"),
-							%Bins = common:split_msg_to_packages(Bin, ?MAX_SINGLE_MSG_LEN),
-							%case Bins of
-							%	[] ->
+							Bins = vdr_data_processor:create_update_packet(TYPE, PID, VerLen, VERSION, UpgradeLen, UpgradeData),
 							case Bins of
 								[] ->
-									%common:loginfo("3"),
-		                            send_resp_to_ws(SN, 16#8108, VIDList, ?P_GENRESP_ERRMSG);%,
-									%common:loginfo("4");
+		                            send_resp_to_ws(SN, 16#8108, VIDList, ?P_GENRESP_ERRMSG);
 								_ ->
-									%common:loginfo("5"),
 									update_vdrs_ws2vdr_msg_id_flowidx(16#8108, SN, VIDList, null),
-									%common:loginfo("6"),
-									%common:loginfo("Bins~n~p", [Bins]),
-									send_msg_to_vdrs(16#8108, VIDList, Bins)%,%s)
-									%common:loginfo("7")
-									%send_resp_to_ws(SN, 16#8108, VIDList, ?P_GENRESP_OK)
+									send_msg_to_vdrs(16#8108, VIDList, Bins)
 							end;
 						{error, FileReason} ->
-							%common:loginfo("6~n"),
-							common:loginfo("Cannot read file ~p : ~p~n", [File, FileReason]),
+							common:logerr("Cannot read file ~p : ~p~n", [File, FileReason]),
 							send_resp_to_ws(SN, 16#8108, VIDList, ?P_GENRESP_FAIL)
 					end;
                 16#8202 ->
@@ -978,7 +954,6 @@ connect_ws_to_vdr(Msg) ->
                 16#8900 ->
 					[SN, VIDList, DataPart] = Res,
 					Bin = vdr_data_processor:create_data_dl_transparent(16#ff, DataPart),
-					common:loginfo("0X8900 Bin : ~p~n", [Bin]),
 					update_vdrs_ws2vdr_msg_id_flowidx(16#8900, SN, VIDList, null),
 					send_msg_to_vdrs(16#8900, VIDList, Bin);
                 _ -> % Impossible
@@ -1013,17 +988,13 @@ update_vdr_ws2vdr_msg_id_flowidx(ID, FlowIdx, VID, Value) when is_integer(ID),
                                '_', '_', '_', '_', '_',
                                '_', '_', '_', '_', '_',
 							   '_', '_', '_', '_', '_', '_', '_', '_'}),
-    %common:loginfo("Res Table : ~p ~n", [Res]),
     case length(Res) of
         1 ->
             [[Sock]] = Res,
             [VDRItem] = ets:lookup(vdrtable, Sock),
-            %common:loginfo("Current WS message list : ~p~n", [VDRItem#vdritem.msgws2vdr]),
             MsgList = update_ws2vdrmsglist(VDRItem#vdritem.msgws2vdr, ID, FlowIdx, Value),
-            common:loginfo("WSClient : VehicleID (~p) vdritem.msgws2vdr : ~p~n", [VID, MsgList]),
+            %common:loginfo("WSClient : VehicleID (~p) vdritem.msgws2vdr : ~p~n", [VID, MsgList]),
             ets:insert(vdrtable, VDRItem#vdritem{msgws2vdr=MsgList});
-            %[VDRItem1] = ets:lookup(vdrtable, Sock),
-            %common:loginfo("Current WS message list : ~p~n", [VDRItem1#vdritem.msgws2vdr]);
         ResCount ->
             common:logerror("(FATAL) WSClient : vdrtable has ~p item(s) for VechileID ~p~n", [ResCount, VID])
     end.
@@ -1047,7 +1018,7 @@ send_resp_to_ws(SN, ID, VIDList, Type) ->
     [{wspid, WSPid}] = ets:lookup(msgservertable, wspid),
     case wsock_data_parser:create_gen_resp(SN, ID, VIDList, Type) of
         {ok, WSResp} ->
-            common:loginfo("WS Client : gateway send response for ws msg (~p) to WS (~p) : ~p~n", [ID, WSPid, WSResp]),
+            %common:loginfo("WS Client : gateway send response for ws msg (~p) to WS (~p) : ~p~n", [ID, WSPid, WSResp]),
             Pid = self(),
             WSPid ! {Pid, WSResp},
             receive
@@ -1225,11 +1196,11 @@ send_msg_to_vdr(ID, VID, Msg) when is_binary(Msg) ->
         1 ->
             [[Sock]] = Res,
             [VDRItem] = ets:lookup(vdrtable, Sock),
-            common:loginfo("WS Server : Gateway WS delegation ~p sends msg to VDR (~p) : ~p~n", [self(), VDRItem#vdritem.addr, Msg]),
+            %common:loginfo("WS Server : Gateway WS delegation ~p sends msg to VDR (~p) : ~p~n", [self(), VDRItem#vdritem.addr, Msg]),
             NewFlowIdx = vdr_handler:send_data_to_vdr(ID, VDRItem#vdritem.tel, VDRItem#vdritem.msgws2vdrflownum, Msg, VDRItem#vdritem.vdrpid),
             ets:insert(vdrtable, VDRItem#vdritem{msgws2vdrflownum=NewFlowIdx});%,
         _ ->
-            common:loginfo("WS Server : Cannot find VID in vdrtable~n"),
+            common:logerr("WS Server : Cannot find VID in vdrtable~n"),
             ok
     end;
 send_msg_to_vdr(_ID, _VID, _Msg) ->

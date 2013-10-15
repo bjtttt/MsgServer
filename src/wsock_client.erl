@@ -53,11 +53,9 @@
 wsock_client_process() ->
     receive
 		{Pid, test} ->
-            common:loginfo("WS client process : received test WS request from PID ~p~n", [Pid]),
 			Pid ! ok,
 			wsock_client_process();
         {Pid, WSMsg} ->
-            common:loginfo("WS client process : data received from ~p : ~p~n", [Pid, WSMsg]),
             wsock_client:send(WSMsg),
             Pid ! {Pid, wsok},
             wsock_client_process();
@@ -92,7 +90,7 @@ ws_on_message(Type, Msg) ->
     try wsock_data_parser:process_wsock_message(Type, Msg)
     catch
         Err:Info ->
-            common:loginfo("WS process : ~p:~p when processing wsock msg : ~p~n", [Err, Info, Msg]),
+            common:logerr("WS process : ~p:~p when processing wsock msg : ~p~n", [Err, Info, Msg]),
             {error, exception}
     end.
 

@@ -210,14 +210,14 @@ mysql_process() ->
 			SqlLen = byte_size(Sql),
 			try
 				Result = mysql:fetch(PoolId, Sql),
-            	Pid ! {Pid, Result},
-				if
-					SqlLen > 1024 ->
-						PartSql = binary:part(Sql, 0, 1024),
-						common:loginfo("Successfully send SQL (~p)......... to DB : ~p~n", [PartSql, PoolId]);
-					true ->
-						common:loginfo("Successfully send SQL (~p) to DB : ~p~n", [Sql, PoolId])
-				end
+            	Pid ! {Pid, Result}%,
+				%if
+				%	SqlLen > 1024 ->
+				%		PartSql = binary:part(Sql, 0, 1024),
+				%		common:loginfo("Successfully send SQL (~p)......... to DB : ~p~n", [PartSql, PoolId]);
+				%	true ->
+				%		common:loginfo("Successfully send SQL (~p) to DB : ~p~n", [Sql, PoolId])
+				%end
 			catch
 				Oper:Msg ->
 					if
@@ -241,7 +241,7 @@ mysql_process() ->
 			end,
             mysql_process();
 		{Pid, test} ->
-            common:loginfo("DB process : received test DB request from PID ~p~n", [Pid]),
+            %common:loginfo("DB process : received test DB request from PID ~p~n", [Pid]),
 			Pid ! ok,
 			mysql_process();
         stop ->

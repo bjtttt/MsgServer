@@ -47,17 +47,11 @@ split_msg_to_packages(Data, PackLen) when is_integer(PackLen),
 							    		  PackLen > 0,
 										  is_binary(Data),
 										  PackLen =< byte_size(Data) ->
-	%common:loginfo("1.1"),
 	Bins = do_split_msg_to_packages(Data, PackLen),
-	%common:loginfo("Bins~n~p", [Bins]),
-	%common:loginfo("1.2"),
 	Len = length(Bins),
-	%common:loginfo("1.3"),
 	if
 		Len > 1 ->
-			%common:loginfo("1.4"),
 			add_sub_pack_suffix_to_bin_list(Bins, [], Len);%,
-			%common:loginfo("1.5");
 		true ->
 			Bins
 	end;
@@ -94,24 +88,17 @@ do_split_msg_to_packages(_Data, _PackLen) ->
 add_sub_pack_suffix_to_bin_list(SrcList, DestList, TotalLen) when is_list(SrcList),
 																  length(SrcList) > 0,
 																  is_list(DestList) ->
-	%common:loginfo("1.1.1"),
 	DestLen = length(DestList),
-	%common:loginfo("1.1.2"),
 	[H|T] = SrcList,
-	%common:loginfo("1.1.3 ~p : ~p", [TotalLen, DestLen+1]),
 	HNew = list_to_binary([?SUB_PACK_INDI_HEADER,
 					       <<TotalLen:16>>,
 					       <<(DestLen+1):16>>,
 						   H]),
-	%common:loginfo("1.1.4"),
 	DestListNew = lists:merge(DestList, [HNew]),
-	%common:loginfo("1.1.5"),
 	add_sub_pack_suffix_to_bin_list(T, DestListNew, TotalLen);
 add_sub_pack_suffix_to_bin_list(_SrcList, DestList, _TotalLen) when is_list(DestList) ->
-	%common:loginfo("1.1.6~n~p", [DestList]),
 	DestList;
 add_sub_pack_suffix_to_bin_list(_SrcList, _DestList, _TotalLen) ->
-	%common:loginfo("1.1.7"),
 	[].
 
 make_sure_n_byte_binary(Bin, N) when is_binary(Bin),

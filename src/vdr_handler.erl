@@ -1763,24 +1763,25 @@ resp2ws_process(List) ->
 %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 send_sql_to_db(PoolId, Msg, State) ->
-	MsgLen = byte_size(Msg),
+	%MsgLen = byte_size(Msg),
     case State#vdritem.dbpid of
         undefined ->
-			if
-				MsgLen > 1024 ->
-					PartMsg = binary:part(Msg, 0, 1024),
-					common:logerror("Cannot send SQL (~p)... to DB process (undefined) : ~p~n", [PartMsg, PoolId]);
-				true ->
-					common:logerror("Cannot send SQL (~p) to DB process (undefined) : ~p~n", [Msg, PoolId])
-			end;
+			ok;
+			%if
+			%	MsgLen > 1024 ->
+			%		PartMsg = binary:part(Msg, 0, 1024),
+			%		common:logerror("Cannot send SQL (~p)... to DB process (undefined) : ~p~n", [PartMsg, PoolId]);
+			%	true ->
+			%		common:logerror("Cannot send SQL (~p) to DB process (undefined) : ~p~n", [Msg, PoolId])
+			%end;
         DBPid ->
-			if
-				MsgLen > 1024 ->
-					PartMsg = binary:part(Msg, 0, 1024),
-					common:loginfo("Send SQL (~p)... to DB process (~p) : ~p~n", [PartMsg, DBPid, PoolId]);
-				true ->
-					common:loginfo("Send SQL (~p) to DB process (~p) : ~p~n", [Msg, DBPid, PoolId])
-			end,
+			%if
+			%	MsgLen > 1024 ->
+			%		PartMsg = binary:part(Msg, 0, 1024),
+			%		common:loginfo("Send SQL (~p)... to DB process (~p) : ~p~n", [PartMsg, DBPid, PoolId]);
+			%	true ->
+			%		common:loginfo("Send SQL (~p) to DB process (~p) : ~p~n", [Msg, DBPid, PoolId])
+			%end,
             DBPid ! {State#vdritem.pid, PoolId, Msg},
             Pid = State#vdritem.pid,
             receive
@@ -2093,7 +2094,6 @@ create_sql_from_vdr(HeaderInfo, Msg, State) ->
 							      common:integer_to_binary(PipeId), <<", '">>,
 								  list_to_binary(FileNameDB), <<"')">>]),
 			{ok, [SQL0, SQL1]} = create_pos_info_sql(MsgBody, State),
-			%common:loginfo("16#801 SQL : ~p~n", [SQL]),
             {ok, [SQL, SQL0, SQL1]};
         16#802  ->
             {ok, ""};
@@ -2257,7 +2257,6 @@ create_pos_info_sql(Msg, State) ->
 create_pos_app_sql_part(AppInfo) when is_list(AppInfo),
 									  length(AppInfo) > 0 ->
 	[H|T] = AppInfo,
-	%common:loginfo("Pos add info : ~p~nOne pos add info : ~p~n", [AppInfo, H]),
 	case H of
 		[ID, Res] ->
 			case ID of
@@ -2460,83 +2459,4 @@ get_record_field(Table, Record, Field) ->
                     get_record_field(Table, T, Field)
             end
     end.                    
-
-%%%
-%%% {update, {mysql_result, ColumnDefition, Results, AffectedRows, InsertID, Error, ErrorCode, ErrorSqlState}}
-%%%
-%%% Return :
-%%%     {ok, AffectedRows}
-%%%     error
-%%%
-%check_db_update(Msg) ->
-%    case Msg of
-%        {update, {mysql_result, _, _, AffectedRows, _, _, _, _}} ->
-%            {ok, AffectedRows};
-%        _ ->
-%            error
-%    end.
-
-%%%
-%%% This process is send msg from the management to the VDR.
-%%% Each time when sending msg from the management to the VDR, a flag should be set in vdritem.
-%%% If the ack from the VDR is received in handle_info({tcp,Socket,Data},State), this flag will be cleared.
-%%% After the defined TIMEOUT is achived, it means VDR cannot response and the TIMEOUT should be adjusted and this msg will be sent again.
-%%% (Please refer to the specification for this mechanism.)
-%%%
-%%% Still in design
-%%%
-%data2vdr_process(Pid, Socket) ->
-%    receive
-%        {FromPid, {ok, Data}} ->
-%            if 
-%                FromPid == Pid ->
-%                    {ID, MsgIdx, Res} = Data,
-%                    case vdr_data_processor:create_gen_resp(ID, MsgIdx, Res) of
-%                        {ok, Bin} ->
-%                            gen_tcp:send(Socket, Bin);
-%                        error ->
-%                            common:logerror("Data2VDR process : message type error unknown PID ~p : ~p~n", [FromPid, Res])
-%                    end;
-%                FromPid =/= Pid ->
-%                    common:logerror("Data2VDR process : message from unknown PID ~p : ~p~n", [FromPid, Data])
-%            end,        
-%            data2vdr_process(Pid, Socket);
-%        {FromPid, {data, Data}} ->
-%            if 
-%                FromPid == Pid ->
-%                    gen_tcp:send(Socket, Data);
-%                FromPid =/= Pid ->
-%                    common:logerror("VDR server send data to VDR process : message from unknown PID ~p : ~p~n", [FromPid, Data])
-%            end,        
-%            data2vdr_process(Pid, Socket);
-%        {FromPid, Data} ->
-%            common:logerror("VDR server send data to VDR process : unknown message from PID ~p : ~p~n", [FromPid, Data]),
-%            data2vdr_process(Pid, Socket);
-%        stop ->
-%            ok
-%    after ?TIMEOUT_DATA_VDR ->
-%        %common:loginfo("VDR server send data to VDR process process : receiving PID message timeout after ~p~n", [?TIMEOUT_DB]),
-%        data2vdr_process(Pid, Socket)
-%    end.
-
-%%%
-%%% Compose body, header and parity
-%%% Calculate XOR value
-%%% 0x7d -> 0x7d0x1 & 0x7e -> 0x7d0x2
-%%%
-%%% return {Response, NewState}
-%%%
-%createresp(HeaderInfo, Result, State) ->
-%    {ID, FlowNum, TelNum, CryptoType} = HeaderInfo,
-%    RespFlowNum = State#vdritem.msgflownum,
-%    Body = <<FlowNum:16, ID:16, Result:8>>,
-%    BodyLen = bit_size(Body),
-%    BodyProp = <<0:2, 0:1, CryptoType:3, BodyLen:10>>,
-%    Header = <<128, 1, BodyProp:16, TelNum:48, RespFlowNum:16>>,
-%    HeaderBody = <<Header, Body>>,
-%    XOR = vdr_data_parser:bxorbytelist(HeaderBody),
-%    RawData = binary:replace(<<HeaderBody, XOR>>, <<125>>, <<125,1>>, [global]),
-%    RawDataNew = binary:replace(RawData, <<126>>, <<125,2>>, [global]),
-%    {<<126, RawDataNew, 126>>, State#vdritem{msgflownum=RespFlowNum+1}}.
-
 

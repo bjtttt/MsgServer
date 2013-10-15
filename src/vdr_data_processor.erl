@@ -92,7 +92,6 @@
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 create_final_msg(ID, Tel, MsgIdx, Data) when is_binary(Data),
 										     byte_size(Data) =< ?MAX_SINGLE_MSG_LEN ->
-    %common:loginfo("vdr_data_processor:create_final_msg(ID=~p, Tel=~p, MsgIdx=~p, Data=~p)~n", [ID, Tel, MsgIdx, Data]),
     Len = byte_size(Data),
     Header = <<ID:16, 0:2, 0:1, 0:3, Len:10, Tel:48, MsgIdx:16>>,
     HeaderBody = list_to_binary([Header, Data]),
@@ -138,10 +137,7 @@ create_final_msg(ID, Tel, MsgIdx, Data, PTotal, PIdx) when is_binary(Data),
 										                   byte_size(Data) =< ?MAX_SINGLE_MSG_LEN,
 													       PTotal >= PIdx,
 													       PIdx > 0 ->
-    %common:loginfo("vdr_data_processor:create_final_msg(ID=~p, Tel=~p, MsgIdx=~p, Data=~p)~n", [ID, Tel, MsgIdx, Data]),
-    %common:loginfo("1.1.1.2.1"),
 	Len = byte_size(Data),
-	%common:loginfo("1.1.1.2.2"),
     Header = <<ID:16, 0:2, 1:1, 0:3, Len:10, Tel:48, MsgIdx:16, PTotal:16, PIdx:16>>,
     HeaderBody = list_to_binary([Header, Data]),
     Parity = vdr_data_parser:bxorbytelist(HeaderBody),
@@ -152,7 +148,6 @@ create_final_msg(ID, Tel, MsgIdx, Data, PTotal, PIdx) when is_binary(Data),
     MsgBody4 = binary:replace(MsgBody3, <<255, 1, 255, 2, 255, 3, 255, 4, 255, 5, 255>>, <<125, 2>>, [global]),
     list_to_binary([<<126>>, MsgBody4, <<126>>]);
 create_final_msg(_ID, _Tel, _MsgIdx, _Data, _PTotal, _PIdx) ->
-	%common:loginfo("1.1.1.1.1"),
 	<<>>.
 
 %%%
@@ -450,7 +445,6 @@ create_set_term_args(_Count, _ArgList) ->
 %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 compose_term_args_binary(ID, Value) when is_list(ID) ->
-    common:loginfo("vdr_data_processor:compose_term_args_binary(ID, Value) : (LIST)~p, ~p~n", [ID, Value]),
     case common:is_dec_integer_string(ID) of
         true ->
             IDInt = list_to_integer(ID),
@@ -465,7 +459,6 @@ compose_term_args_binary(ID, Value) when is_list(ID) ->
             end
     end;
 compose_term_args_binary(ID, Value) when is_integer(ID) ->
-    common:loginfo("vdr_data_processor:compose_term_args_binary(ID, Value) : (DEC)~p, ~p~n", [ID, Value]),
     if
         ID > 16#7, ID =< 16#F ->
             <<ID:?LEN_DWORD, 0:?LEN_BYTE>>;
@@ -516,9 +509,6 @@ compose_term_args_binary(ID, Value) when is_integer(ID) ->
                     ActLen = byte_size(Bin),
                     list_to_binary([<<ID:?LEN_DWORD>>, <<ActLen:?LEN_BYTE>>, Bin])
             end;
-            %Bin = list_to_binary(Value),
-            %ActLen = byte_size(Bin),
-            %list_to_binary([<<ID:?LEN_DWORD>>, <<ActLen:?LEN_BYTE>>, Bin]);
         ID >= 16#1B, ID =< 16#1C ->
             ActLen = ?LEN_DWORD_BYTE,
             <<ID:?LEN_DWORD, ActLen:?LEN_BYTE, Value:?LEN_DWORD>>;
@@ -2282,8 +2272,6 @@ parse_multi_media_event_update(_Bin) ->
 parse_multi_media_data_update(Bin) when is_binary(Bin),
 										byte_size(Bin) >= 36 ->
     <<Id:32,Type:8,Code:8,EICode:8,PipeId:8,MsgBody:(28*8),Pack/binary>> = Bin,
-	common:loginfo("Media ID : ~p, Media Type : ~p, Media Code : ~p Event Code : ~p, Channel ID : ~p~n", 
-				   [Id, Type, Code, EICode, PipeId]),
 	if
 		Id > 0 andalso Type >= 0 andalso Type =< 2 andalso Code >= 0 andalso Code =< 5 andalso EICode >= 0 andalso EICode =< 3 ->
 			case parse_position_info_report(<<MsgBody:(28*8)>>) of

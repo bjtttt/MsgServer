@@ -34,7 +34,7 @@ process_data(State, Data) ->
     try do_process_data(State, Data)
     catch
         _:Why ->
-            common:loginfo("Parsing VDR data exception : ~p~n~p", [Why, Data]),
+            common:logerr("Parsing VDR data exception : ~p~n~p", [Why, Data]),
             {error, exception, State}
     end.
 
@@ -114,13 +114,6 @@ do_process_data(State, Data) ->
 																			State#vdritem.auth,
 																			State#vdritem.vehicleid,
 																			State#vdritem.vehiclecode, ID]),
-															%common:loginfo("VDR (~p) (id:~p, serialno:~p, authen_code:~p, vehicleid:~p, vehiclecode:~p)~nMsg packages is combined successfully (ID :~p)~n~p~n", 
-															%			   [State#vdritem.addr,
-															%				State#vdritem.id,
-															%				State#vdritem.serialno,
-															%				State#vdritem.auth,
-															%				State#vdritem.vehicleid,
-															%				State#vdritem.vehiclecode, ID, Msg]),
                                                             case vdr_data_processor:parse_msg_body(ID, Msg) of
                                                                 {ok, Result} ->
                                                                     {ok, HeadInfo, Result, NewState};
@@ -190,15 +183,11 @@ restore_7d_7e_msg(State, Data) ->
 %%% State#vdritem.msg : [[ID0,MsgIdx0,Total0,Index0,Data0],[ID1,MsgIdx1,Total1,Index1,Data1],[ID2,MsgIdx2,Total2,Index2,Data2],..
 %%%
 combine_msg_packs(State, ID, MsgIdx, Total, Idx, Body) ->
-	%common:loginfo("Combine message ID (~p) : (Index)~p:(Total)~p~n", [ID, Idx, Total]),
     % Get all msg packages with the same ID
 	StoredMsg = State#vdritem.msg,
-	%common:loginfo("Stored message : ~p~n", [StoredMsg]),
     MsgWithID = get_msg_with_id(StoredMsg, ID),        % [E || E <- State#vdritem.msg, [HID,_HFlowNum,_HTotal,_HIdx,_HBody] = E, HID == ID ]
-	%common:loginfo("Combine message ID (~p) : with ID count ~p~n", [ID, length(MsgWithID)]),
     % Get all msg packages without the same ID
     MsgWithoutID = get_msg_without_id(StoredMsg, ID),  % [E || E <- State#vdritem.msg, [HID,_HFlowNum,_HTotal,_HIdx,_HBody] = E, HID =/= ID ]
-	%common:loginfo("Combine message ID (~p) : (ID count)~p:(NOT ID count)~p~n(Index)~p:(Total)~p~n", [ID, length(MsgWithID), length(MsgWithoutID), Idx, Total]),
     {_LastID, MsgPackages} = State#vdritem.msgpackages,
     case MsgWithID of
         [] ->
@@ -220,17 +209,13 @@ combine_msg_packs(State, ID, MsgIdx, Total, Idx, Body) ->
 					NewMsgWithID = [[ID, MsgIdx, Total, Idx, Body]],
 		            case check_msg(NewMsgWithID, Total) of
 		                ok ->
-							%common:loginfo("Combine message ID (~p) is completed with ~p packages~n", [ID, Total]),
 		                    Msg = compose_msg(NewMsgWithID, Total),
-							%common:loginfo("Combine message ID (~p) composes message : ~p~n", [ID, Msg]),
 		                    [H|_T] = Msg,
 		                    [_ID, FirstMsgIdx, _Total, _Idx, _Body] = H,
-							%common:loginfo("Combine message ID (~p) : checking message index based ~p~n", [ID, FirstMsgIdx]),
 		                    case check_msg_idx(Msg, FirstMsgIdx) of
 		                        ok ->
 		                            NewState = State#vdritem{msg=MsgWithoutID},
 		                            BinMsg = compose_real_msg(Msg),
-									%common:loginfo("Complete message : ~p~n", [BinMsg]),
                                     NewMsgPackages = remove_msgidx_with_id(MsgPackages, ID),
 									common:loginfo("VDR (~p) (id:~p, serialno:~p, authen_code:~p, vehicleid:~p, vehiclecode:~p)~nNew msg packages 1 : ~p~n", 
 												   [State#vdritem.addr,
@@ -272,20 +257,15 @@ combine_msg_packs(State, ID, MsgIdx, Total, Idx, Body) ->
 				false ->
 					DelPack = del_pack_with_idx(MsgWithID, MsgIdx, Total, Idx),
 				    NewMsgWithID = lists:merge([[ID, MsgIdx, Total, Idx, Body]], DelPack),
-					%common:loginfo("DelPack : ~p~nNewMsgWithID : ~p~n", [DelPack, NewMsgWithID]),
 		            case check_msg(NewMsgWithID, Total) of
 		                ok ->
-							%common:loginfo("Combine message ID (~p) is completed with ~p packages~n", [ID, Total]),
 		                    Msg = compose_msg(NewMsgWithID, Total),
-							%common:loginfo("Combine message ID (~p) composes message : ~p~n", [ID, Msg]),
 		                    [H|_T] = Msg,
 		                    [_ID, FirstMsgIdx, _Total, _Idx, _Body] = H,
-							%common:loginfo("Combine message ID (~p) : checking message index based ~p~n", [ID, FirstMsgIdx]),
 		                    case check_msg_idx(Msg, FirstMsgIdx) of
 		                        ok ->
 		                            NewState = State#vdritem{msg=MsgWithoutID},
 		                            BinMsg = compose_real_msg(Msg),
-									%common:loginfo("Complete message : ~p~n", [BinMsg]),
                                     NewMsgPackages = remove_msgidx_with_id(MsgPackages, ID),
 									common:loginfo("VDR (~p) (id:~p, serialno:~p, authen_code:~p, vehicleid:~p, vehiclecode:~p)~nNew msg packages 4 : ~p~n", 
 												   [State#vdritem.addr,
@@ -634,7 +614,6 @@ check_msg_idx(Msg, MsgIdx) ->
         _ ->
             [H|T] = Msg,
             [_ID, HMsgIdx, _Total, _HIdx, _Body] = H,
-			%common:loginfo("Checking index ~p : compared index ~p", [HMsgIdx, MsgIdx]),
             DiffMsgIdx = HMsgIdx - MsgIdx,
             if
                 DiffMsgIdx == 0 ->

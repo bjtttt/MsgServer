@@ -198,7 +198,6 @@ compose_one_item_list_array_to_list(_IDs) ->
 
 convert_integer_list_to_4_bytes_binary_list(IDList) when is_list(IDList),
 														 length(IDList) > 0 ->
-	%common:loginfo("ID List : ~p~n", [IDList]),
 	[H|T] = IDList,
 	if
 		H == undefined ->
@@ -222,7 +221,6 @@ create_reset_all_response() ->
                                  '_', '_', '_', '_', '_', 
                                  '_', '_', '_', '_', '_',
 								 '_', '_', '_', '_', '_', '_', '_', '_'}),
-	%common:loginfo("vdrtable all sockets : ~p~n", [Socks]),
 	SockList = compose_one_item_list_array_to_list(Socks),
 	close_all_sockets(SockList),
     Content = <<2:?LEN_DWORD, 0:?LEN_BYTE, 5:?LEN_BYTE>>,
@@ -235,8 +233,7 @@ close_all_sockets(SockList) when is_list(SockList),
 	case common:safepeername(H) of
 		{ok, {Address, Port}} ->
 			try
-				gen_tcp:close(H)%,
-				%common:loginfo("Successfully closed ~p:~p : ~p~n", [Address, Port, H])
+				gen_tcp:close(H)
 			catch
 				Oper:Msg ->
 					common:logerror("Exception when closing ~p:~p : ~p:~p~n", [Address, Port, Oper, Msg])
@@ -277,7 +274,6 @@ create_all_vehicle_ids_response() ->
                                 '_', '_', '_', '_', '_', 
                                 '_', '_', '_', '_', '_',
 								'_', '_', '_', '_', '_', '_', '_', '_'}),
-	%common:loginfo("vdrtable all vehicle IDs : ~p~n", [VIDs]),
 	VIDList = compose_one_item_list_array_to_list(VIDs),
 	VIDsBin = convert_integer_list_to_4_bytes_binary_list(VIDList),
 	Size = byte_size(VIDsBin),
@@ -295,7 +291,6 @@ create_spec_vehicle_count_response(VID) ->
                                 '_', '_', '_', '_', '_', 
                                 '_', '_', '_', '_', '_',
 								'_', '_', '_', '_', '_', '_', '_', '_'}),
-    %common:loginfo("vdrtable all vehicles : ~p~n", [VIDs]),
     Count = length(VIDs),
     Content = <<6:?LEN_DWORD, 0:?LEN_BYTE, 7:?LEN_BYTE, Count:?LEN_DWORD>>,
     Xor = vdr_data_parser:bxorbytelist(Content),
@@ -311,7 +306,6 @@ create_spec_device_count_response(DID) ->
                                 '_', '_', '_', '_', '_', 
                                 '_', '_', '_', '_', '_',
 								'_', '_', '_', '_', '_', '_', '_', '_'}),
-    %common:loginfo("vdrtable all devices : ~p~n", [VIDs]),
     Count = length(VIDs),
     Content = <<6:?LEN_DWORD, 0:?LEN_BYTE, 8:?LEN_BYTE, Count:?LEN_DWORD>>,
     Xor = vdr_data_parser:bxorbytelist(Content),
@@ -320,7 +314,6 @@ create_spec_device_count_response(DID) ->
 create_spec_vehicle_info_response(VID) ->
     BS = bit_size(VID),
     <<VIDValue:BS>> = VID,
-	%common:loginfo("Special vehicle VID : ~p~n", [VIDValue]),
     VIDs = ets:match(vdrtable, {'$1', 
                                 '_', '_', '_', '_', VIDValue, 
                                 '_', '_', '_', '_', '_', 
@@ -328,7 +321,6 @@ create_spec_vehicle_info_response(VID) ->
                                 '_', '_', '_', '_', '_', 
                                 '_', '_', '_', '_', '_',
 								'_', '_', '_', '_', '_', '_', '_', '_'}),
-	%common:loginfo("Special vehicles : ~p~n", [VIDs]),
     Count = length(VIDs),
     Content = <<6:?LEN_DWORD, 0:?LEN_BYTE, 9:?LEN_BYTE, Count:?LEN_DWORD>>,
     Xor = vdr_data_parser:bxorbytelist(Content),
@@ -391,7 +383,6 @@ create_def_count_reponse() ->
 create_vehicle_stored_msg_info_reponse(VID) ->
     BS = bit_size(VID),
     <<VIDValue:BS>> = VID,
-	%common:loginfo("Stored msg VID : ~p~n", [VIDValue]),
     Msgs = ets:match(vdrtable, {'_', 
                                 '_', '_', '_', '_', VIDValue, 
                                 '_', '_', '_', '_', '_', 
@@ -399,10 +390,8 @@ create_vehicle_stored_msg_info_reponse(VID) ->
                                 '_', '_', '_', '_', '_', 
                                 '_', '_', '_', '_', '_',
 								'$1', '_', '_', '_', '_', '_', '_', '_'}),
-	%common:loginfo("Stored msg : ~p~n", [Msgs]),
 	[[RealMsgs]] = Msgs,
 	Bin = convert_integer_list_list_to_4_byte_binary_list(RealMsgs),
-	%common:loginfo("Stored msg bin : ~p~n", [Bin]),
 	Size = byte_size(Bin),
     Content = <<(Size+2):?LEN_DWORD, 0:?LEN_BYTE, 13:?LEN_BYTE, Bin/binary>>,
     Xor = vdr_data_parser:bxorbytelist(Content),
