@@ -760,7 +760,7 @@ do_process_vdr_data(Socket, Data, State) ->
                             %{} = Msg,
                             FlowIdx = NewState#vdritem.msgflownum,
                             MsgBody = vdr_data_processor:create_gen_resp(ID, MsgIdx, ?T_GEN_RESP_OK),
-                            common:loginfo("Gateway (~p) sends VDR (~p) response for 16#2 (Pulse) : ~p~n", [State#vdritem.pid, State#vdritem.addr, MsgBody]),
+                            %common:loginfo("Gateway (~p) sends VDR (~p) response for 16#2 (Pulse) : ~p~n", [State#vdritem.pid, State#vdritem.addr, MsgBody]),
                             NewFlowIdx = send_data_to_vdr(16#8001, Tel, FlowIdx, MsgBody, VDRPid),
 
                             {ok, NewState#vdritem{msgflownum=NewFlowIdx}};
@@ -1726,7 +1726,7 @@ data2vdr_process(Socket) ->
 			common:loginfo("~p stops waiting for MSG to VDR by ~p~n", [self(), Pid]),
 			Pid ! {Pid, stopped};
         {Pid, Msg} ->
-            common:loginfo("~p receives MSG to VDR from ~p : ~p~n", [self(), Pid, Msg]),
+            %common:loginfo("~p receives MSG to VDR from ~p : ~p~n", [self(), Pid, Msg]),
             gen_tcp:send(Socket, Msg),
             %Pid ! {Pid, vdrok},
             data2vdr_process(Socket);
