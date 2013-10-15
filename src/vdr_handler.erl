@@ -1135,13 +1135,13 @@ process_pos_info(ID, MsgIdx, VDRPid, HeadInfo, Msg, NewState) ->
 					%		{ok, NewState#vdritem{msgflownum=NewFlowIdx, alarm=AlarmSym, state=StateFlag, lastlat=Lat, lastlon=Lon}}
 					%end;
 				
-					common:loginfo("VDR (~p) (id:~p, serialno:~p, authen_code:~p, vehicleid:~p, vehiclecode:~p) : no alarm needs being updated",
-								   [NewState#vdritem.addr, 
-									NewState#vdritem.id, 
-									NewState#vdritem.serialno, 
-									NewState#vdritem.auth, 
-									NewState#vdritem.vehicleid, 
-									NewState#vdritem.vehiclecode]),
+					%common:loginfo("VDR (~p) (id:~p, serialno:~p, authen_code:~p, vehicleid:~p, vehiclecode:~p) : no alarm needs being updated",
+					%			   [NewState#vdritem.addr, 
+					%				NewState#vdritem.id, 
+					%				NewState#vdritem.serialno, 
+					%				NewState#vdritem.auth, 
+					%				NewState#vdritem.vehicleid, 
+					%				NewState#vdritem.vehiclecode]),
 					
 		            MsgBody = vdr_data_processor:create_gen_resp(ID, MsgIdx, ?T_GEN_RESP_OK),
 		            %common:loginfo("~p sends VDR (~p) response for 16#200 (ok) : ~p~n", [NewState#vdritem.pid, NewState#vdritem.addr, MsgBody]),
