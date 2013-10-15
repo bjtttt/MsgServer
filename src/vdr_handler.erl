@@ -273,7 +273,7 @@ do_process_vdr_data(Socket, Data, State) ->
             {ID, MsgIdx, Tel, _CryptoType} = HeadInfo,
             if
                 State#vdritem.id == undefined ->
-            		common:loginfo("Unknown VDR (~p) MSG ID (~p), MSG Index (~p), MSG Tel (~p)~n", [NewState#vdritem.addr, ID, MsgIdx, Tel]),
+            		%common:loginfo("Unknown VDR (~p) MSG ID (~p), MSG Index (~p), MSG Tel (~p)~n", [NewState#vdritem.addr, ID, MsgIdx, Tel]),
                     case ID of
                         16#100 ->
                             % Not complete
@@ -521,7 +521,7 @@ do_process_vdr_data(Socket, Data, State) ->
 																					SqlAlarmListResp = send_sql_to_db(conn, SqlAlarmList, NewState),
 																					case extract_db_resp(SqlAlarmListResp) of
 																						{ok, empty} ->
-																							common:loginfo("Original AlarmList : []~n"),	
+																							%common:loginfo("Original AlarmList : []~n"),	
 								                                                            case wsock_data_parser:create_term_online([VehicleID]) of
 								                                                                {ok, WSUpdate} ->
 								                                                                    %common:loginfo("VDR (~p) WS : ~p~n~p~n", [State#vdritem.addr, WSUpdate, list_to_binary(WSUpdate)]),
@@ -549,7 +549,7 @@ do_process_vdr_data(Socket, Data, State) ->
 																						{ok, Reses} ->
 																							% Initialize the alarm list immediately after auth
 																							AlarmList = get_alarm_list(Reses),
-																							common:loginfo("Original AlarmList : ~p~n", [AlarmList]),		                                                            
+																							%common:loginfo("Original AlarmList : ~p~n", [AlarmList]),		                                                            
 								                                                            case wsock_data_parser:create_term_online([VehicleID]) of
 								                                                                {ok, WSUpdate} ->
 								                                                                    %common:loginfo("VDR (~p) WS : ~p~n~p~n", [State#vdritem.addr, WSUpdate, list_to_binary(WSUpdate)]),
@@ -617,7 +617,7 @@ do_process_vdr_data(Socket, Data, State) ->
 																	SqlAlarmListResp = send_sql_to_db(conn, SqlAlarmList, NewState),
 																	case extract_db_resp(SqlAlarmListResp) of
 																		{ok, empty} ->
-																			common:loginfo("Original AlarmList : []~n"),	
+																			%common:loginfo("Original AlarmList : []~n"),	
 				                                                            case wsock_data_parser:create_term_online([VehicleID]) of
 				                                                                {ok, WSUpdate} ->
 				                                                                    %common:loginfo("VDR (~p) WS : ~p~n~p~n", [State#vdritem.addr, WSUpdate, list_to_binary(WSUpdate)]),
@@ -645,7 +645,7 @@ do_process_vdr_data(Socket, Data, State) ->
 																		{ok, Reses} ->
 																			% Initialize the alarm list immediately after auth
 																			AlarmList = get_alarm_list(Reses),
-																			common:loginfo("Original AlarmList : ~p~n", [AlarmList]),		                                                            
+																			%common:loginfo("Original AlarmList : ~p~n", [AlarmList]),		                                                            
 				                                                            case wsock_data_parser:create_term_online([VehicleID]) of
 				                                                                {ok, WSUpdate} ->
 				                                                                    %common:loginfo("VDR (~p) WS : ~p~n~p~n", [State#vdritem.addr, WSUpdate, list_to_binary(WSUpdate)]),
