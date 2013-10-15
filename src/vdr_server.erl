@@ -50,10 +50,10 @@ init([PortVDR]) ->
             % Create first accepting process	        
 			case prim_inet:async_accept(LSock, -1) of
                 {ok, Ref} ->
-                    common:loginfo("vdr_server:init([~p]) : prim_inet:async_accept accept ok~n", [PortVDR]),
+                    %common:loginfo("vdr_server:init([~p]) : prim_inet:async_accept accept ok~n", [PortVDR]),
                     {ok, #serverstate{lsock=LSock, acceptor=Ref}};
                 Error ->
-                    common:logi("vdr_server:init([~p]) : prim_inet:async_accept accept fails : ~p~n", [PortVDR, Error]),
+                    common:logerr("vdr_server:init([~p]) : prim_inet:async_accept accept fails : ~p~n", [PortVDR, Error]),
                     {stop, Error}
             end;
 		{error, Reason} ->	        
