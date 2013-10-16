@@ -845,7 +845,8 @@ connect_ws_to_vdr(Msg) ->
 				16#8108 ->
 					[SN, VIDList, [TYPE, VERSION, PID]] = Res,
 					VerLen = byte_size(VERSION),
-					File = "upgrade/upgrade.dat",
+					[{path, Path}] = ets:lookup(msgservertable, path),
+					File = Path ++ "/upgrade/upgrade.dat",
 					case file:read_file(File) of
 						{ok, FileBin} ->
 							UpgradeData = FileBin,

@@ -32,7 +32,7 @@
 %%%               1 -> log
 %%%
 start(StartType, StartArgs) ->
-    [PortVDR, PortMon, PortMP, WS, PortWS, DB, DBName, DBUid, DBPwd, MaxR, MaxT, Mode] = StartArgs,
+    [PortVDR, PortMon, PortMP, WS, PortWS, DB, DBName, DBUid, DBPwd, MaxR, MaxT, Mode, Path] = StartArgs,
     AppPid = self(),
     ets:new(msgservertable,[set,public,named_table,{keypos,1},{read_concurrency,true},{write_concurrency,true}]),
     ets:insert(msgservertable, {portvdr, PortVDR}),
@@ -47,6 +47,7 @@ start(StartType, StartArgs) ->
     ets:insert(msgservertable, {maxr, MaxR}),
     ets:insert(msgservertable, {maxt, MaxT}),
     ets:insert(msgservertable, {mode, Mode}),
+    ets:insert(msgservertable, {path, Path}),
     ets:insert(msgservertable, {dbpid, undefined}),
     ets:insert(msgservertable, {wspid, undefined}),
     ets:insert(msgservertable, {apppid, AppPid}),
@@ -59,24 +60,24 @@ start(StartType, StartArgs) ->
     ets:new(usertable,[set,public,named_table,{keypos,#user.id},{read_concurrency,true},{write_concurrency,true}]),
     ets:new(montable,[set,public,named_table,{keypos,#monitem.socket},{read_concurrency,true},{write_concurrency,true}]),
     common:loginfo("Tables are initialized.~n"),
-	case file:get_cwd() of
-		{ok, Dir} ->
-			common:loginfo("Current directory ~p~n", [Dir]);
-		{error, CwdError} ->
-			common:logerror("Cannot get the current directory : ~p~n", [CwdError])
-	end,
-	case file:make_dir("media") of
-		ok ->
-			common:loginfo("Successfully create directory media~n");
-		{error, DirError0} ->
-			common:logerror("Cannot create directory media : ~p~n", [DirError0])
-	end,
-	case file:make_dir("upgrade") of
-		ok ->
-			common:loginfo("Successfully create directory upgrade~n");
-		{error, DirError1} ->
-			common:logerror("Cannot create directory upgrade : ~p~n", [DirError1])
-	end,
+	%case file:get_cwd() of
+	%	{ok, Dir} ->
+	%		common:loginfo("Current directory ~p~n", [Dir]);
+	%	{error, CwdError} ->
+	%		common:logerror("Cannot get the current directory : ~p~n", [CwdError])
+	%end,
+	%case file:make_dir("media") of
+	%	ok ->
+	%		common:loginfo("Successfully create directory media~n");
+	%	{error, DirError0} ->
+	%		common:logerror("Cannot create directory media : ~p~n", [DirError0])
+	%end,
+	%case file:make_dir("upgrade") of
+	%	ok ->
+	%		common:loginfo("Successfully create directory upgrade~n");
+	%	{error, DirError1} ->
+	%		common:logerror("Cannot create directory upgrade : ~p~n", [DirError1])
+	%end,
     case supervisor:start_link(mssup, []) of
         {ok, SupPid} ->
             ets:insert(msgservertable, {suppid, SupPid}),
