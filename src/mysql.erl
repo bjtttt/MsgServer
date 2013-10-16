@@ -239,15 +239,18 @@ mysql_process(Num) ->
                     end,
 					Pid ! {Pid,<<"">>}
 			end,
-			if
-				(Num/10000)*10000 == Num ->
-					ets:insert(msgservertable, {dbcount, Num/10000})
-			end,
+			%if
+			%	(Num/10000)*10000 == Num ->
+			%		ets:insert(msgservertable, {dbcount, Num/10000})
+			%end,
             mysql_process(Num+1);
 		{Pid, test} ->
             %common:loginfo("DB process : received test DB request from PID ~p~n", [Pid]),
 			Pid ! ok,
 			mysql_process(Num);
+        {Pid, count} ->
+			Pid ! Num,
+            mysql_process(Num);
         stop ->
             ok;
         _ ->

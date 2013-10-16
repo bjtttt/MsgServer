@@ -58,10 +58,10 @@ wsock_client_process(Num) ->
         {Pid, WSMsg} ->
             wsock_client:send(WSMsg),
             Pid ! {Pid, wsok},
-			if
-				(Num/10000)*10000 == Num ->
-					ets:insert(msgservertable, {dbcount, Num/10000})
-			end,
+			%if
+			%	(Num/10000)*10000 == Num ->
+			%		ets:insert(msgservertable, {dbcount, Num/10000})
+			%end,
             wsock_client_process(Num+1);
         stop ->
             ok;

@@ -74,6 +74,10 @@ parse_data(RawData, State) ->
 									clear_ws_log_reponse(Req);
 								18 ->
 									clear_db_log_reponse(Req);
+								19 ->
+									get_ws_count_reponse(Req);
+								20 ->
+									get_db_count_reponse(Req);
                                 _ ->
                                     create_unknown_msg_id_response(ID)
                             end
@@ -471,5 +475,8 @@ clear_db_log_reponse(_Req) ->
     Xor = vdr_data_parser:bxorbytelist(Content),
 	list_to_binary([Content, Xor]).
 
+get_ws_count_reponse(_Req) ->
+	<<>>.
 
-
+get_db_count_reponse(_Req) ->
+	<<>>.
