@@ -55,6 +55,9 @@ wsock_client_process(Num) ->
 		{Pid, test} ->
 			Pid ! ok,
 			wsock_client_process(Num);
+        {Pid, count} ->
+			Pid ! Num,
+            wsock_client_process(Num);
         {Pid, WSMsg} ->
             wsock_client:send(WSMsg),
             Pid ! {Pid, wsok},

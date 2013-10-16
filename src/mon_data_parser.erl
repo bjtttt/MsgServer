@@ -476,7 +476,36 @@ clear_db_log_reponse(_Req) ->
 	list_to_binary([Content, Xor]).
 
 get_ws_count_reponse(_Req) ->
-	<<>>.
+	Res = ets:lookup(msgservertable, wspid),
+	case Res of
+		{wspid, WSPid} ->
+			WSPid ! {self(), count},
+			receive
+				Num ->
+					Content = <<6:?LEN_DWORD, 0:?LEN_BYTE, 19:?LEN_BYTE, Num:?LEN_DWORD>>,
+					Xor = vdr_data_parser:bxorbytelist(Content),
+					list_to_binary([Content, Xor])
+			end;
+		[] ->
+			Content = <<6:?LEN_DWORD, 0:?LEN_BYTE, 19:?LEN_BYTE, 0:?LEN_DWORD>>,
+			Xor = vdr_data_parser:bxorbytelist(Content),
+			list_to_binary([Content, Xor])
+	end.
 
 get_db_count_reponse(_Req) ->
-	<<>>.
+	Res = ets:lookup(msgservertable, dbpid),
+	case Res of
+		{dbpid, DBPid} ->
+			DBPid ! {self(), count},
+			receive
+				Num ->
+					Content = <<6:?LEN_DWORD, 0:?LEN_BYTE, 20:?LEN_BYTE, Num:?LEN_DWORD>>,
+					Xor = vdr_data_parser:bxorbytelist(Content),
+					list_to_binary([Content, Xor])
+			end;
+		[] ->
+			Content = <<6:?LEN_DWORD, 0:?LEN_BYTE, 20:?LEN_BYTE, 0:?LEN_DWORD>>,
+			Xor = vdr_data_parser:bxorbytelist(Content),
+			list_to_binary([Content, Xor])
+	end.
+
