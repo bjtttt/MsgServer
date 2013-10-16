@@ -26,7 +26,7 @@
 -export([init/1, connecting/2, open/2, closing/2]).
 -export([handle_event/3, handle_sync_event/4, handle_info/3, terminate/3, code_change/4]).
 
--export([wsock_client_process/0]).
+-export([wsock_client_process/1]).
 
 -record(callbacks, {
     on_open = fun()-> ws_on_open() end,% undefined end,
@@ -50,19 +50,23 @@
 % Interface process
 %
 %%%%%%%%%%%%%%%%%%%%%
-wsock_client_process() ->
+wsock_client_process(Num) ->
     receive
 		{Pid, test} ->
 			Pid ! ok,
-			wsock_client_process();
+			wsock_client_process(Num);
         {Pid, WSMsg} ->
             wsock_client:send(WSMsg),
             Pid ! {Pid, wsok},
-            wsock_client_process();
+			if
+				(Num/10000)*10000 == Num ->
+					ets:insert(msgservertable, {dbcount, Num/10000})
+			end,
+            wsock_client_process(Num+1);
         stop ->
             ok;
         _ ->
-            wsock_client_process()
+            wsock_client_process(Num)
     end.
 
 %%%%%%%%%%%%%%%%%%%%%

@@ -138,7 +138,7 @@
 	 code_change/3
 	]).
 
--export([mysql_process/0]).
+-export([mysql_process/1]).
 
 %% Records
 -include("mysql.hrl").
@@ -204,7 +204,7 @@ log(Module, Line, _Level, FormatFun) ->
 % Interface process
 %
 %%%%%%%%%%%%%%%%%%%%%
-mysql_process() ->
+mysql_process(Num) ->
     receive
         {Pid, PoolId, Sql} ->
 			SqlLen = byte_size(Sql),
@@ -239,15 +239,19 @@ mysql_process() ->
                     end,
 					Pid ! {Pid,<<"">>}
 			end,
-            mysql_process();
+			if
+				(Num/10000)*10000 == Num ->
+					ets:insert(msgservertable, {dbcount, Num/10000})
+			end,
+            mysql_process(Num+1);
 		{Pid, test} ->
             %common:loginfo("DB process : received test DB request from PID ~p~n", [Pid]),
 			Pid ! ok,
-			mysql_process();
+			mysql_process(Num);
         stop ->
             ok;
         _ ->
-            mysql_process()
+            mysql_process(Num)
     end.
 
 %% @doc Starts the MySQL client gen_server process.

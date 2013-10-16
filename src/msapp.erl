@@ -51,6 +51,8 @@ start(StartType, StartArgs) ->
     ets:insert(msgservertable, {dbpid, undefined}),
     ets:insert(msgservertable, {wspid, undefined}),
     ets:insert(msgservertable, {apppid, AppPid}),
+    ets:insert(msgservertable, {wscount, 0}),
+    ets:insert(msgservertable, {dbcount, 0}),
     ets:insert(msgservertable, {dblog, []}),
     ets:insert(msgservertable, {wslog, []}),
     common:loginfo("StartType : ~p~n", [StartType]),
@@ -99,8 +101,8 @@ start(StartType, StartArgs) ->
 					
 					if
 						Mode == 1 ->
-		                    WSPid = spawn(fun() -> wsock_client:wsock_client_process() end),
-		                    DBPid = spawn(fun() -> mysql:mysql_process() end),
+		                    WSPid = spawn(fun() -> wsock_client:wsock_client_process(0) end),
+		                    DBPid = spawn(fun() -> mysql:mysql_process(0) end),
 		                    DBTablePid = spawn(fun() -> db_table_deamon() end),
 		                    CCPid = spawn(fun() -> code_convertor_process() end),
 		                    ets:insert(msgservertable, {dbpid, DBPid}),
@@ -121,7 +123,7 @@ start(StartType, StartArgs) ->
 		                            {error, "ERROR : code convertor table is timeout~n"}
 		                    end;
 						true ->
-		                    DBPid = spawn(fun() -> mysql:mysql_process() end),
+		                    DBPid = spawn(fun() -> mysql:mysql_process(0) end),
 		                    DBTablePid = spawn(fun() -> db_table_deamon() end),
 		                    CCPid = spawn(fun() -> code_convertor_process() end),
 		                    ets:insert(msgservertable, {dbpid, DBPid}),
