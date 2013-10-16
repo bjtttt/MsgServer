@@ -66,18 +66,18 @@ start(StartType, StartArgs) ->
 	%	{error, CwdError} ->
 	%		common:logerror("Cannot get the current directory : ~p~n", [CwdError])
 	%end,
-	%case file:make_dir("media") of
-	%	ok ->
-	%		common:loginfo("Successfully create directory media~n");
-	%	{error, DirError0} ->
-	%		common:logerror("Cannot create directory media : ~p~n", [DirError0])
-	%end,
-	%case file:make_dir("upgrade") of
-	%	ok ->
-	%		common:loginfo("Successfully create directory upgrade~n");
-	%	{error, DirError1} ->
-	%		common:logerror("Cannot create directory upgrade : ~p~n", [DirError1])
-	%end,
+	case file:make_dir(Path ++ "/media") of
+		ok ->
+			common:loginfo("Successfully create directory media~n");
+		{error, DirError0} ->
+			common:logerror("Cannot create directory media : ~p~n", [DirError0])
+	end,
+	case file:make_dir(Path ++ "/upgrade") of
+		ok ->
+			common:loginfo("Successfully create directory upgrade~n");
+		{error, DirError1} ->
+			common:logerror("Cannot create directory upgrade : ~p~n", [DirError1])
+	end,
     case supervisor:start_link(mssup, []) of
         {ok, SupPid} ->
             ets:insert(msgservertable, {suppid, SupPid}),
