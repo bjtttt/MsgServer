@@ -2,6 +2,8 @@
 %%%
 %%%
 
+-define(SUP_WAIT_INTVL_MS, 3000).
+
 -define(MAX_VDR_ERR_COUNT, 3).
 
 -define(DEF_PORT_DB, 3306).

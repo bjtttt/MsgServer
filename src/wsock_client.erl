@@ -86,7 +86,7 @@ wsock_client_process_err(Num1, Num2) ->
 		{Pid, abnormal} ->
 			Pid ! {self(), abnormal},
 			common:loginfo("WS process ~p : ignore starting abnormal WS process according to ~p~n", [self(), Pid]),
-			wsock_client_process(Num1, Num2);
+			wsock_client_process_err(Num1, Num2);
 		{Pid, test} ->
 			Pid ! ok,
 			wsock_client_process_err(Num1, Num2);
@@ -114,9 +114,9 @@ ws_on_open() ->
 	DateTime = integer_to_list(YY) ++ "-" ++ integer_to_list(MM) ++ "-" ++ integer_to_list(DD) ++ " " ++ 
 				   integer_to_list(Hh) ++ ":" ++ integer_to_list(Mm) ++ ":" ++ integer_to_list(Ss),
 	ets:insert(msgservertable, {wslog, lists:append([WSLog, [{0, DateTime}]])}),
-	[{sysinit4ws, SysInit4WS}] = ets:lookup(msgservertable, sysinit4ws),
-	if
-		SysInit4WS == false ->
+	%[{sysinit4ws, SysInit4WS}] = ets:lookup(msgservertable, sysinit4ws),
+	%if
+	%	SysInit4WS == false ->
 			[{wspid, WSPid}] = ets:lookup(msgservertable, wspid),
 			if
 				WSPid =/= undefined ->
@@ -126,9 +126,9 @@ ws_on_open() ->
 						{WSPid, normal} ->
 							common:loginfo("WS process : ws_on_open() has switched WS process (~p) to normal state~n", [WSPid])
 					end
-			end;
-		true ->
-			ets:insert(msgservertable, {sysinit4ws, false})
+	%		end;
+	%	true ->
+	%		ets:insert(msgservertable, {sysinit4ws, false})
 	end.
 
 ws_on_error(_Reason) ->
