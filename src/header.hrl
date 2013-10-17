@@ -2,7 +2,7 @@
 %%%
 %%%
 
--define(SUP_WAIT_INTVL_MS, 3000).
+-define(SUP_WAIT_INTVL_MS, 5000).
 
 -define(MAX_VDR_ERR_COUNT, 3).
 
@@ -119,7 +119,8 @@
 					vdrmsgtimeoutpid=undefined,
                     ccpid=undefined,
                     msgpackages={-1, []},
-					tel=0
+					tel=0,
+					linkpid=undefined
                  }).
 
 %-record(vdridsockitem, {    id=undefined,           % Vehicle ID

@@ -50,7 +50,8 @@ start(StartType, StartArgs) ->
     ets:insert(msgservertable, {path, Path}),
     ets:insert(msgservertable, {dbpid, undefined}),
     ets:insert(msgservertable, {wspid, undefined}),
-    ets:insert(msgservertable, {sysinit4ws, true}),
+    ets:insert(msgservertable, {linkpid, undefined}),
+    %ets:insert(msgservertable, {sysinit4ws, true}),
     ets:insert(msgservertable, {apppid, AppPid}),
     %ets:insert(msgservertable, {wscount, 0}),
     %ets:insert(msgservertable, {dbcount, 0}),
@@ -104,10 +105,12 @@ start(StartType, StartArgs) ->
 						Mode == 1 ->
 		                    WSPid = spawn(fun() -> wsock_client:wsock_client_process(0, 0) end),
 		                    DBPid = spawn(fun() -> mysql:mysql_process(0, 0) end),
+		                    LinkPid = spawn(fun() -> connection_info_process(0, 0, 0, 0, 0, 0) end),
 		                    DBTablePid = spawn(fun() -> db_table_deamon() end),
 		                    CCPid = spawn(fun() -> code_convertor_process() end),
 		                    ets:insert(msgservertable, {dbpid, DBPid}),
 		                    ets:insert(msgservertable, {wspid, WSPid}),
+		                    ets:insert(msgservertable, {linkpid, LinkPid}),
 		                    ets:insert(msgservertable, {dbtablepid, DBTablePid}),
 		                    ets:insert(msgservertable, {ccpid, CCPid}),
 		                    common:loginfo("WS client process PID is ~p~n", [WSPid]),
@@ -125,9 +128,11 @@ start(StartType, StartArgs) ->
 		                    end;
 						true ->
 		                    DBPid = spawn(fun() -> mysql:mysql_process(0, 0) end),
+		                    LinkPid = spawn(fun() -> connection_info_process(0, 0, 0, 0, 0, 0) end),
 		                    DBTablePid = spawn(fun() -> db_table_deamon() end),
 		                    CCPid = spawn(fun() -> code_convertor_process() end),
 		                    ets:insert(msgservertable, {dbpid, DBPid}),
+		                    ets:insert(msgservertable, {linkpid, LinkPid}),
 		                    ets:insert(msgservertable, {dbtablepid, DBTablePid}),
 		                    ets:insert(msgservertable, {ccpid, CCPid}),
 		                    common:loginfo("DB client process PID is ~p~n", [DBPid]),
@@ -171,6 +176,13 @@ stop(_State) ->
             ok;
         _ ->
             WSPid ! stop
+    end,
+    [{linkpid, LinkPid}] = ets:lookup(msgservertable, linkpid),
+    case LinkPid of
+        undefined ->
+            ok;
+        _ ->
+            LinkPid ! stop
     end,
     [{dbtablepid, DBTablePid}] = ets:lookup(msgservertable, dbtablepid),
     case DBTablePid of
@@ -257,6 +269,30 @@ code_convertor_process() ->
 	%		code_convertor_process()
     end.
             
+connection_info_process(Conn, CharDisc, RegDisc, AuthDisc, ErrDisc, ClientDisc) ->
+	receive
+		stop ->
+			ok;
+		{_Pid, test} ->
+			connection_info_process(Conn+1, CharDisc, RegDisc, AuthDisc, ErrDisc, ClientDisc);
+		{_Pid, conn} ->
+			connection_info_process(Conn+1, CharDisc, RegDisc, AuthDisc, ErrDisc, ClientDisc);
+		{_Pid, chardisc} ->
+			connection_info_process(Conn, CharDisc+1, RegDisc, AuthDisc, ErrDisc, ClientDisc);
+		{_Pid, regdisc} ->
+			connection_info_process(Conn, CharDisc, RegDisc+1, AuthDisc, ErrDisc, ClientDisc);
+		{_Pid, authdisc} ->
+			connection_info_process(Conn, CharDisc, RegDisc, AuthDisc+1, ErrDisc, ClientDisc);
+		{_Pid, errdisc} ->
+			connection_info_process(Conn, CharDisc, RegDisc, AuthDisc, ErrDisc+1, ClientDisc);
+		{_Pid, clientdisc} ->
+			connection_info_process(Conn, CharDisc, RegDisc, AuthDisc, ErrDisc, ClientDisc+1);
+		{Pid, count} ->
+			Pid ! {Conn, CharDisc, RegDisc, AuthDisc, ErrDisc, ClientDisc},
+			connection_info_process(Conn, CharDisc, RegDisc, AuthDisc, ErrDisc, ClientDisc);
+		_ ->
+			connection_info_process(Conn, CharDisc, RegDisc, AuthDisc, ErrDisc, ClientDisc)
+	end.
 
 %%%
 %%% Will wait 20s
