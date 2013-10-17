@@ -104,11 +104,14 @@ ws_on_open() ->
 				   integer_to_list(Hh) ++ ":" ++ integer_to_list(Mm) ++ ":" ++ integer_to_list(Ss),
 	ets:insert(msgservertable, {wslog, lists:append([WSLog, [{0, DateTime}]])}),
 	[{wspid, WSPid}] = ets:lookup(msgservertable, wspid),
-	WSPid ! {self(), ok},
-	receive
-		ok ->
-			ok
+	if
+		WSPid =/= undefined ->
+			WSPid ! {self(), ok}
 	end.
+	%receive
+	%	ok ->
+	%		ok
+	%end.
 
 ws_on_error(_Reason) ->
     [{wslog, WSLog}] = ets:lookup(msgservertable, wslog),
@@ -134,10 +137,9 @@ ws_on_close(_Reason) ->
 				   integer_to_list(Hh) ++ ":" ++ integer_to_list(Mm) ++ ":" ++ integer_to_list(Ss),
 	ets:insert(msgservertable, {wslog, lists:append([WSLog, [{1, DateTime}]])}),
 	[{wspid, WSPid}] = ets:lookup(msgservertable, wspid),
-	WSPid ! {self(), error},
-	receive
-		ok ->
-			ok
+	if
+		WSPid =/= undefined ->
+			WSPid ! {self(), error}
 	end.
 
 %%%%%%%%%%%%%%%%%%%%%
