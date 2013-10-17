@@ -108,11 +108,11 @@ ws_on_open() ->
 	[{wspid, WSPid}] = ets:lookup(msgservertable, wspid),
 	if
 		WSPid =/= undefined ->
-			common:loginfo("WS process : switch WS process to normal state~n"),
+			common:loginfo("WS process : ws_on_open() switchs WS process (~p) to normal state~n", [WSPid]),
 			WSPid ! {self(), ok},
 			receive
 				ok ->
-					ok
+					common:loginfo("WS process : ws_on_open() has switched WS process (~p) to normal state~n", [WSPid])
 			end
 	end.
 
@@ -142,11 +142,11 @@ ws_on_close(_Reason) ->
 	[{wspid, WSPid}] = ets:lookup(msgservertable, wspid),
 	if
 		WSPid =/= undefined ->
-			common:loginfo("WS process : switch WS process to abnormal state~n"),
+			common:loginfo("WS process : ws_on_close(_Reason) switchs WS process (~p) to abnormal state~n", [WSPid]),
 			WSPid ! {self(), error},
 			receive
 				ok ->
-					ok
+					common:loginfo("WS process : ws_on_close(_Reason) has switched WS process (~p) to abnormal state~n", [WSPid])
 			end
 	end.
 
