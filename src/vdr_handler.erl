@@ -112,8 +112,21 @@ handle_info({tcp, Socket, Data}, OriState) ->
 						ErrType == cherror ->
 							if
 								State#vdritem.linkpid =/= undefined ->
-									State#vdritem.linkpid ! {self(), chardisc};
-								true ->
+									State#vdritem.linkpid ! {self(), chardisc}
+							end;
+						ErrType == regerror ->
+							if
+								State#vdritem.linkpid =/= undefined ->
+									State#vdritem.linkpid ! {self(), regdisc}
+							end;
+						ErrType == autherror ->
+							if
+								State#vdritem.linkpid =/= undefined ->
+									State#vdritem.linkpid ! {self(), authdisc}
+							end;
+						true ->
+							if
+								State#vdritem.linkpid =/= undefined ->
 									State#vdritem.linkpid ! {self(), errdisc}
 							end
 					end,
