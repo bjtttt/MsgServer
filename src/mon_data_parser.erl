@@ -478,16 +478,23 @@ clear_db_log_reponse(_Req) ->
 get_ws_count_reponse(_Req) ->
 	Res = ets:lookup(msgservertable, wspid),
 	case Res of
-		{wspid, WSPid} ->
-			WSPid ! {self(), count},
-			receive
-				Num ->
-					Content = <<6:?LEN_DWORD, 0:?LEN_BYTE, 19:?LEN_BYTE, Num:?LEN_DWORD>>,
+		[{wspid, WSPid}] ->
+			if
+				WSPid =/= undefined ->
+					WSPid ! {self(), count},
+					receive
+						{Num1, Num2} ->
+							Content = <<10:?LEN_DWORD, 0:?LEN_BYTE, 19:?LEN_BYTE, Num1:?LEN_DWORD, Num2:?LEN_DWORD>>,
+							Xor = vdr_data_parser:bxorbytelist(Content),
+							list_to_binary([Content, Xor])
+					end;
+				true ->
+					Content = <<10:?LEN_DWORD, 0:?LEN_BYTE, 19:?LEN_BYTE, 0:?LEN_DWORD, 0:?LEN_DWORD>>,
 					Xor = vdr_data_parser:bxorbytelist(Content),
 					list_to_binary([Content, Xor])
 			end;
-		[] ->
-			Content = <<6:?LEN_DWORD, 0:?LEN_BYTE, 19:?LEN_BYTE, 0:?LEN_DWORD>>,
+		_ ->
+			Content = <<10:?LEN_DWORD, 0:?LEN_BYTE, 19:?LEN_BYTE, 0:?LEN_DWORD, 0:?LEN_DWORD>>,
 			Xor = vdr_data_parser:bxorbytelist(Content),
 			list_to_binary([Content, Xor])
 	end.
@@ -495,16 +502,23 @@ get_ws_count_reponse(_Req) ->
 get_db_count_reponse(_Req) ->
 	Res = ets:lookup(msgservertable, dbpid),
 	case Res of
-		{dbpid, DBPid} ->
-			DBPid ! {self(), count},
-			receive
-				Num ->
-					Content = <<6:?LEN_DWORD, 0:?LEN_BYTE, 20:?LEN_BYTE, Num:?LEN_DWORD>>,
+		[{dbpid, DBPid}] ->
+			if
+				DBPid =/= undefined ->
+					DBPid ! {self(), count},
+					receive
+						{Num1, Num2} ->
+							Content = <<10:?LEN_DWORD, 0:?LEN_BYTE, 20:?LEN_BYTE, Num1:?LEN_DWORD, Num2:?LEN_DWORD>>,
+							Xor = vdr_data_parser:bxorbytelist(Content),
+							list_to_binary([Content, Xor])
+					end;
+				true ->
+					Content = <<6:?LEN_DWORD, 0:?LEN_BYTE, 20:?LEN_BYTE, 0:?LEN_DWORD, 0:?LEN_DWORD>>,
 					Xor = vdr_data_parser:bxorbytelist(Content),
 					list_to_binary([Content, Xor])
 			end;
-		[] ->
-			Content = <<6:?LEN_DWORD, 0:?LEN_BYTE, 20:?LEN_BYTE, 0:?LEN_DWORD>>,
+		_ ->
+			Content = <<10:?LEN_DWORD, 0:?LEN_BYTE, 20:?LEN_BYTE, 0:?LEN_DWORD, 0:?LEN_DWORD>>,
 			Xor = vdr_data_parser:bxorbytelist(Content),
 			list_to_binary([Content, Xor])
 	end.

@@ -138,7 +138,7 @@
 	 code_change/3
 	]).
 
--export([mysql_process/1]).
+-export([mysql_process/2]).
 
 %% Records
 -include("mysql.hrl").
@@ -204,8 +204,11 @@ log(Module, Line, _Level, FormatFun) ->
 % Interface process
 %
 %%%%%%%%%%%%%%%%%%%%%
-mysql_process(Num) ->
+mysql_process(Num1, Num2) ->
     receive
+		{Pid, error} ->
+			Pid ! ok,
+			mysql_process_err(Num1, Num2);
         {Pid, PoolId, Sql} ->
 			SqlLen = byte_size(Sql),
 			try
@@ -239,22 +242,37 @@ mysql_process(Num) ->
                     end,
 					Pid ! {Pid,<<"">>}
 			end,
-			%if
-			%	(Num/10000)*10000 == Num ->
-			%		ets:insert(msgservertable, {dbcount, Num/10000})
-			%end,
-            mysql_process(Num+1);
+            mysql_process(Num1+1, Num2);
 		{Pid, test} ->
-            %common:loginfo("DB process : received test DB request from PID ~p~n", [Pid]),
 			Pid ! ok,
-			mysql_process(Num);
+			mysql_process(Num1, Num2);
         {Pid, count} ->
-			Pid ! Num,
-            mysql_process(Num);
+			Pid ! {Num1, Num2},
+            mysql_process(Num1, Num2);
         stop ->
             ok;
         _ ->
-            mysql_process(Num)
+            mysql_process(Num1, Num2)
+    end.
+
+mysql_process_err(Num1, Num2) ->
+    receive
+		{Pid, ok} ->
+			Pid ! ok,
+			mysql_process(Num1, Num2);
+        {Pid, _PoolId, _Sql} ->
+			Pid ! {Pid,<<"">>},
+            mysql_process_err(Num1, Num2+1);
+		{Pid, test} ->
+			Pid ! ok,
+			mysql_process_err(Num1, Num2);
+        {Pid, count} ->
+			Pid ! {Num1, Num2},
+            mysql_process_err(Num1, Num2);
+        stop ->
+            ok;
+        _ ->
+            mysql_process_err(Num1, Num2)
     end.
 
 %% @doc Starts the MySQL client gen_server process.

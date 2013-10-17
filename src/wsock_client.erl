@@ -26,7 +26,7 @@
 -export([init/1, connecting/2, open/2, closing/2]).
 -export([handle_event/3, handle_sync_event/4, handle_info/3, terminate/3, code_change/4]).
 
--export([wsock_client_process/1]).
+-export([wsock_client_process/2]).
 
 -record(callbacks, {
     on_open = fun()-> ws_on_open() end,% undefined end,
@@ -50,26 +50,45 @@
 % Interface process
 %
 %%%%%%%%%%%%%%%%%%%%%
-wsock_client_process(Num) ->
+wsock_client_process(Num1, Num2) ->
     receive
+		{Pid, error} ->
+			Pid ! ok,
+			wsock_client_process_err(Num1, Num2);
 		{Pid, test} ->
 			Pid ! ok,
-			wsock_client_process(Num);
+			wsock_client_process(Num1, Num2);
         {Pid, count} ->
-			Pid ! Num,
-            wsock_client_process(Num);
+			Pid ! {Num1, Num2},
+            wsock_client_process(Num1, Num2);
         {Pid, WSMsg} ->
             wsock_client:send(WSMsg),
             Pid ! {Pid, wsok},
-			%if
-			%	(Num/10000)*10000 == Num ->
-			%		ets:insert(msgservertable, {dbcount, Num/10000})
-			%end,
-            wsock_client_process(Num+1);
+            wsock_client_process(Num1+1, Num2);
         stop ->
             ok;
         _ ->
-            wsock_client_process(Num)
+            wsock_client_process(Num1, Num2)
+    end.
+
+wsock_client_process_err(Num1, Num2) ->
+    receive
+		{Pid, ok} ->
+			Pid ! ok,
+			wsock_client_process(Num1, Num2);
+		{Pid, test} ->
+			Pid ! ok,
+			wsock_client_process_err(Num1, Num2);
+        {Pid, count} ->
+			Pid ! {Num1, Num2},
+            wsock_client_process_err(Num1, Num2);
+        {Pid, _WSMsg} ->
+            Pid ! {Pid, wsok},
+            wsock_client_process_err(Num1, Num2+1);
+        stop ->
+            ok;
+        _ ->
+            wsock_client_process_err(Num1, Num2)
     end.
 
 %%%%%%%%%%%%%%%%%%%%%
@@ -83,7 +102,13 @@ ws_on_open() ->
 	{Hh,Mm,Ss} = erlang:time(),
 	DateTime = integer_to_list(YY) ++ "-" ++ integer_to_list(MM) ++ "-" ++ integer_to_list(DD) ++ " " ++ 
 				   integer_to_list(Hh) ++ ":" ++ integer_to_list(Mm) ++ ":" ++ integer_to_list(Ss),
-	ets:insert(msgservertable, {wslog, lists:append([WSLog, [{0, DateTime}]])}).
+	ets:insert(msgservertable, {wslog, lists:append([WSLog, [{0, DateTime}]])}),
+	[{wspid, WSPid}] = ets:lookup(msgservertable, wspid),
+	WSPid ! {self(), ok},
+	receive
+		ok ->
+			ok
+	end.
 
 ws_on_error(_Reason) ->
     [{wslog, WSLog}] = ets:lookup(msgservertable, wslog),
@@ -107,7 +132,13 @@ ws_on_close(_Reason) ->
 	{Hh,Mm,Ss} = erlang:time(),
 	DateTime = integer_to_list(YY) ++ "-" ++ integer_to_list(MM) ++ "-" ++ integer_to_list(DD) ++ " " ++ 
 				   integer_to_list(Hh) ++ ":" ++ integer_to_list(Mm) ++ ":" ++ integer_to_list(Ss),
-	ets:insert(msgservertable, {wslog, lists:append([WSLog, [{1, DateTime}]])}).
+	ets:insert(msgservertable, {wslog, lists:append([WSLog, [{1, DateTime}]])}),
+	[{wspid, WSPid}] = ets:lookup(msgservertable, wspid),
+	WSPid ! {self(), error},
+	receive
+		ok ->
+			ok
+	end.
 
 %%%%%%%%%%%%%%%%%%%%%
 %
