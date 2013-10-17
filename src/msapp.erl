@@ -50,6 +50,7 @@ start(StartType, StartArgs) ->
     ets:insert(msgservertable, {path, Path}),
     ets:insert(msgservertable, {dbpid, undefined}),
     ets:insert(msgservertable, {wspid, undefined}),
+    ets:insert(msgservertable, {sysinit4ws, true}),
     ets:insert(msgservertable, {apppid, AppPid}),
     %ets:insert(msgservertable, {wscount, 0}),
     %ets:insert(msgservertable, {dbcount, 0}),
