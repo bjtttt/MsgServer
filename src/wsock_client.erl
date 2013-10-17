@@ -54,6 +54,7 @@ wsock_client_process(Num1, Num2) ->
     receive
 		{Pid, error} ->
 			Pid ! ok,
+			common:loginfo("WS process : start abnormal WS process~n"),
 			wsock_client_process_err(Num1, Num2);
 		{Pid, test} ->
 			Pid ! ok,
@@ -75,6 +76,7 @@ wsock_client_process_err(Num1, Num2) ->
     receive
 		{Pid, ok} ->
 			Pid ! ok,
+			common:loginfo("WS process : start normal WS process~n"),
 			wsock_client_process(Num1, Num2);
 		{Pid, test} ->
 			Pid ! ok,
@@ -106,12 +108,13 @@ ws_on_open() ->
 	[{wspid, WSPid}] = ets:lookup(msgservertable, wspid),
 	if
 		WSPid =/= undefined ->
-			WSPid ! {self(), ok}
+			common:loginfo("WS process : switch WS process to normal state~n"),
+			WSPid ! {self(), ok},
+			receive
+				ok ->
+					ok
+			end
 	end.
-	%receive
-	%	ok ->
-	%		ok
-	%end.
 
 ws_on_error(_Reason) ->
     [{wslog, WSLog}] = ets:lookup(msgservertable, wslog),
@@ -139,7 +142,12 @@ ws_on_close(_Reason) ->
 	[{wspid, WSPid}] = ets:lookup(msgservertable, wspid),
 	if
 		WSPid =/= undefined ->
-			WSPid ! {self(), error}
+			common:loginfo("WS process : switch WS process to abnormal state~n"),
+			WSPid ! {self(), error},
+			receive
+				ok ->
+					ok
+			end
 	end.
 
 %%%%%%%%%%%%%%%%%%%%%
