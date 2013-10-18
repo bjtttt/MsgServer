@@ -2426,12 +2426,12 @@ create_pos_app_sql_part(AppInfo) when is_list(AppInfo),
 			case ID of
 				16#11 ->
 					A = <<", ex_speed_type, ex_speed_id">>,
-					B = list_to_binary([<<", ">>, common:integer_to_binary(Res1), common:integer_to_binary(Res2)]),
+					B = list_to_binary([<<", ">>, common:integer_to_binary(Res1), <<", ">>, common:integer_to_binary(Res2)]),
 					[TA, TB] = create_pos_app_sql_part(T),
 					[list_to_binary([A, TA]), list_to_binary([B, TB])];
 				16#2B ->
 					A = <<", analog_quantity_ad0, analog_quantity_ad1">>,
-					B = list_to_binary([<<", ">>, common:integer_to_binary(Res1), common:integer_to_binary(Res2)]),
+					B = list_to_binary([<<", ">>, common:integer_to_binary(Res1), <<", ">>, common:integer_to_binary(Res2)]),
 					[TA, TB] = create_pos_app_sql_part(T),
 					[list_to_binary([A, TA]), list_to_binary([B, TB])];
 				_ ->
@@ -2441,12 +2441,12 @@ create_pos_app_sql_part(AppInfo) when is_list(AppInfo),
 			case ID of
 				16#12 ->
 					A = <<", alarm_add_type, alarm_add_id, alarm_add_direct">>,
-					B = list_to_binary([<<", ">>, common:integer_to_binary(Res1), common:integer_to_binary(Res2), common:integer_to_binary(Res3)]),
+					B = list_to_binary([<<", ">>, common:integer_to_binary(Res1), <<", ">>, common:integer_to_binary(Res2), <<", ">>, common:integer_to_binary(Res3)]),
 					[TA, TB] = create_pos_app_sql_part(T),
 					[list_to_binary([A, TA]), list_to_binary([B, TB])];
 				16#13 ->
 					A = <<", road_alarm_id, road_alarm_time, road_alarm_result">>,
-					B = list_to_binary([<<", ">>, common:integer_to_binary(Res1), common:integer_to_binary(Res2), common:integer_to_binary(Res3)]),
+					B = list_to_binary([<<", ">>, common:integer_to_binary(Res1), <<", ">>, common:integer_to_binary(Res2), <<", ">>, common:integer_to_binary(Res3)]),
 					[TA, TB] = create_pos_app_sql_part(T),
 					[list_to_binary([A, TA]), list_to_binary([B, TB])];
 				_ ->
