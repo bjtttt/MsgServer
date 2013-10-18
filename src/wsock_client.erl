@@ -165,7 +165,7 @@ ws_on_close(_Reason) ->
 							common:loginfo("WS process : ws_on_close(_Reason) has switched WS process (~p) to abnormal state~n", [WSPid])
 					end;
 				true ->
-					common:loginfo("WS process : ws_on_open() cannot switch uncreated WS process (~p) to abnormal state~n", [WSPid])
+					common:loginfo("WS process : ws_on_close(_Reason) cannot switch uncreated WS process (~p) to abnormal state~n", [WSPid])
 			end
 	end.
 
