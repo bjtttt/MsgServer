@@ -78,6 +78,7 @@ handle_info({tcp, Socket, Data}, OriState) ->
 	%DataDebug = <<126,7,2,0,7,1,52,1,8,18,33,0,13,2,19,8,48,22,41,22,0,126>>,
 	%DataDebug = <<126,7,2,0,50,1,52,1,8,18,33,1,18,1,19,9,3,18,54,9,0,8,53,54,185,220,192,237,212,177,49,50,51,52,53,54,55,56,56,56,57,48,49,50,51,52,57,57,0,0,8,183,162,214,164,187,250,185,185,0,24,7,5,9,126>>,
 	%DataDebug = <<126,7,2,0,50,1,52,1,8,18,33,0,11,1,19,9,3,21,8,87,0,8,53,54,185,220,192,237,212,177,49,50,51,52,53,54,55,56,56,56,57,48,49,50,51,52,57,57,0,0,8,183,162,214,164,187,250,185,185,0,24,7,5,118,126>>,
+	%DataDebug = <<126,2,0,0,64,1,50,97,51,36,129,0,120,0,0,0,0,0,12,0,19,2,97,0,56,6,241,103,104,0,48,0,100,0,1,19,16,24,21,73,2,1,4,0,0,0,160,2,2,0,0,3,2,0,0,37,4,0,0,0,0,42,2,0,0,43,4,0,0,0,0,48,1,0,49,1,17,192,126>>,
     Msgs = common:split_msg_to_single(Data, 16#7e),
     %Msgs = common:split_msg_to_single(DataDebug, 16#7e),
     case Msgs of
@@ -1846,7 +1847,7 @@ data2vdr_process(Socket) ->
 			common:loginfo("~p stops waiting for MSG to VDR by ~p~n", [self(), Pid]),
 			Pid ! {Pid, stopped};
         {Pid, Msg} ->
-            %common:loginfo("~p receives MSG to VDR from ~p : ~p~n", [self(), Pid, Msg]),
+            common:loginfo("~p receives MSG to VDR from ~p : ~p~n", [self(), Pid, Msg]),
             gen_tcp:send(Socket, Msg),
             %Pid ! {Pid, vdrok},
             data2vdr_process(Socket);
