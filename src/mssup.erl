@@ -234,7 +234,7 @@ start_link() ->
 
 init([]) ->
 	% Wait for WSPid starting because WSClient needs communication with it
-	timer:sleep(?SUP_WAIT_INTVL_MS),
+	%timer:sleep(?SUP_WAIT_INTVL_MS),
 	
     [{portvdr, PortVDR}] = ets:lookup(msgservertable, portvdr),
     [{portmon, PortMon}] = ets:lookup(msgservertable, portmon),

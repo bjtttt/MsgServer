@@ -79,7 +79,7 @@ handle_info({tcp, Socket, Data}, OriState) ->
     case Msgs of
         [] ->
             ErrCount = State#vdritem.errorcount + 1,
-            common:logerr("VDR (~p) data empty : continous error count is ~p (max is 3)~n", [State#vdritem.addr, ErrCount]),
+            common:logerror("VDR (~p) data empty : continous error count is ~p (max is 3)~n", [State#vdritem.addr, ErrCount]),
             if
                 ErrCount >= ?MAX_VDR_ERR_COUNT ->
 					if
@@ -95,7 +95,7 @@ handle_info({tcp, Socket, Data}, OriState) ->
             case process_vdr_msges(Socket, Msgs, State) of
                 {error, vdrerror, NewState} ->
                     ErrCount = NewState#vdritem.errorcount + 1,
-                    common:logerr("VDR (~p) data error : continous count is ~p (max is 3)~n", [NewState#vdritem.addr, ErrCount]),
+                    common:logerror("VDR (~p) data error : continous count is ~p (max is 3)~n", [NewState#vdritem.addr, ErrCount]),
                     if
                         ErrCount >= ?MAX_VDR_ERR_COUNT ->
 							if
