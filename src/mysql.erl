@@ -213,14 +213,14 @@ mysql_process(Num1, Num2) ->
 			SqlLen = byte_size(Sql),
 			try
 				Result = mysql:fetch(PoolId, Sql),
-            	Pid ! {Pid, Result}%,
-				%if
-				%	SqlLen > 1024 ->
-				%		PartSql = binary:part(Sql, 0, 1024),
-				%		common:loginfo("Successfully send SQL (~p)......... to DB : ~p~n", [PartSql, PoolId]);
-				%	true ->
-				%		common:loginfo("Successfully send SQL (~p) to DB : ~p~n", [Sql, PoolId])
-				%end
+            	Pid ! {Pid, Result},
+				if
+					SqlLen > 1024 ->
+						PartSql = binary:part(Sql, 0, 1024),
+						common:loginfo("Successfully send SQL (~p)......... to DB : ~p~n", [PartSql, PoolId]);
+					true ->
+						common:loginfo("Successfully send SQL (~p) to DB : ~p~n", [Sql, PoolId])
+				end
 			catch
 				Oper:Msg ->
 					if
