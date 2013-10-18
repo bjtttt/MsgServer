@@ -25,6 +25,10 @@ init([Sock, Addr]) ->
     [{wspid, WSPid}] = ets:lookup(msgservertable, wspid),
     [{ccpid, CCPid}] = ets:lookup(msgservertable, ccpid),
     [{linkpid, LinkPid}] = ets:lookup(msgservertable, linkpid),
+	if
+		LinkPid =/= undefined ->
+			LinkPid ! {self(), conn}
+	end,
     State = #vdritem{socket=Sock, pid=Pid, vdrpid=VDRPid, respwspid=RespWSPid, addr=Addr, msgflownum=1, errorcount=0, dbpid=DBPid, wspid=WSPid, vdrmsgtimeoutpid=VdrMsgMonitorPid, ccpid=CCPid, linkpid=LinkPid},
 	%mysql:fetch(regauth, <<"set names 'utf8'">>),
 	%mysql:fetch(conn, <<"set names 'utf8'">>),
