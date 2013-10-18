@@ -572,7 +572,7 @@ do_process_vdr_data(Socket, Data, State) ->
 												                                        
 												                                                                    {ok, FinalState};
 												                                                                _ ->
-												                                                                    {error, wserror, NewState}
+												                                                                    {error, autherror, NewState}
 												                                                            end;
 																										{ok, Reses} ->
 																											% Initialize the alarm list immediately after auth
@@ -600,12 +600,12 @@ do_process_vdr_data(Socket, Data, State) ->
 																													
 												                                                                    {ok, FinalState};
 												                                                                _ ->
-												                                                                    {error, wserror, NewState}
+												                                                                    {error, autherror, NewState}
 												                                                            end
 																									end;
 										                                                        _ ->
 										                                                            % vdrtable error
-										                                                            {error, systemerror, NewState}
+										                                                            {error, autherror, NewState}
 										                                                    end
 										                                            end
 																			end
@@ -614,7 +614,7 @@ do_process_vdr_data(Socket, Data, State) ->
 						                                            {VDRID, VDRSerialNo, VDRAuthenCode, VehicleID, DriverID} = get_record_column_info(Rec1),
 																	if
 						                                                VehicleID == undefined orelse VehicleCode1==undefined ->
-						                                                    {error, dberror, NewState};
+						                                                    {error, autherror, NewState};
 						                                                true ->
 																			disconn_socket_by_vehicle_id(VehicleID),
 						                                                    SockVdrList = ets:lookup(vdrtable, Socket),
@@ -653,7 +653,7 @@ do_process_vdr_data(Socket, Data, State) ->
 								                                        
 								                                                                    {ok, FinalState};
 								                                                                _ ->
-								                                                                    {error, wserror, NewState}
+								                                                                    {error, autherror, NewState}
 								                                                            end;
 																						{ok, Reses} ->
 																							% Initialize the alarm list immediately after auth
@@ -681,12 +681,12 @@ do_process_vdr_data(Socket, Data, State) ->
 																									
 								                                                                    {ok, FinalState};
 								                                                                _ ->
-								                                                                    {error, wserror, NewState}
+								                                                                    {error, autherror, NewState}
 								                                                            end
 																					end;
 						                                                        _ ->
 						                                                            % vdrtable error
-						                                                            {error, systemerror, NewState}
+						                                                            {error, autherror, NewState}
 						                                                    end
 						                                            end
 															end
@@ -695,7 +695,7 @@ do_process_vdr_data(Socket, Data, State) ->
 													{VDRID, VDRSerialNo, VDRAuthenCode, VehicleID, DriverID} = get_record_column_info(Rec),
 		                                            if
 		                                                VehicleID == undefined orelse VehicleCode==undefined ->
-		                                                    {error, dberror, NewState};
+		                                                    {error, autherror, NewState};
 		                                                true ->
 															disconn_socket_by_vehicle_id(VehicleID),
 		                                                    SockVdrList = ets:lookup(vdrtable, Socket),
@@ -734,7 +734,7 @@ do_process_vdr_data(Socket, Data, State) ->
 				                                        
 				                                                                    {ok, FinalState};
 				                                                                _ ->
-				                                                                    {error, wserror, NewState}
+				                                                                    {error, autherror, NewState}
 				                                                            end;
 																		{ok, Reses} ->
 																			% Initialize the alarm list immediately after auth
@@ -762,22 +762,22 @@ do_process_vdr_data(Socket, Data, State) ->
 																					
 				                                                                    {ok, FinalState};
 				                                                                _ ->
-				                                                                    {error, wserror, NewState}
+				                                                                    {error, autherror, NewState}
 				                                                            end
 																	end;
 		                                                        _ ->
 		                                                            % vdrtable error
-		                                                            {error, systemerror, NewState}
+		                                                            {error, autherror, NewState}
 		                                                    end
 		                                            end
 											end;
                                         _ ->
                                             % DB includes no record with the given authen_code
-                                            {error, dberror, NewState}
+                                            {error, autherror, NewState}
                                     end;
                                 _ ->
                                     % Authentication fails
-                                    {error, invaliderror, NewState}
+                                    {error, autherror, NewState}
                             end;
                         true ->
                             common:loginfo("Invalid common message from unknown/unregistered/unauthenticated VDR (~p) (id:~p, serialno:~p, authen_code:~p, vehicleid:~p, vehiclecode:~p) MSG ID : ~p~n", [NewState#vdritem.addr, NewState#vdritem.id, NewState#vdritem.serialno, NewState#vdritem.auth, NewState#vdritem.vehicleid, NewState#vdritem.vehiclecode, ID]),
