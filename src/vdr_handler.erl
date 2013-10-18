@@ -2483,7 +2483,7 @@ get_not_0_lat_lon(Lat, Lon, State) ->
 %%%
 %%% Return :
 %%%     {ok, RecordPairs}
-%%%     {ok, empty} 
+%%%     {ok, empty}
 %%%     error
 %%%
 extract_db_resp(Msg) ->
