@@ -2482,7 +2482,7 @@ get_not_0_lat_lon(Lat, Lon, State) ->
 %%% Results = [[Record0], [Record1], [Record2], ...]
 %%%
 %%% Return :
-%%%     {ok, RecordPairs} 
+%%%     {ok, RecordPairs}
 %%%     {ok, empty} 
 %%%     error
 %%%
