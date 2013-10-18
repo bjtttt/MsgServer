@@ -114,10 +114,9 @@ ws_on_open() ->
 	DateTime = integer_to_list(YY) ++ "-" ++ integer_to_list(MM) ++ "-" ++ integer_to_list(DD) ++ " " ++ 
 				   integer_to_list(Hh) ++ ":" ++ integer_to_list(Mm) ++ ":" ++ integer_to_list(Ss),
 	ets:insert(msgservertable, {wslog, lists:append([WSLog, [{0, DateTime}]])}),
-	[{sysinit4ws, SysInit4WS}] = ets:lookup(msgservertable, sysinit4ws),
-	if
-		SysInit4WS == false ->
-			[{wspid, WSPid}] = ets:lookup(msgservertable, wspid),
+	Res = ets:lookup(msgservertable, wspid),
+	case Res of
+		[{wspid, WSPid}] ->
 			if
 				WSPid =/= undefined ->
 					common:loginfo("WS process : ws_on_open() switchs WS process (~p) to normal state~n", [WSPid]),
@@ -125,10 +124,10 @@ ws_on_open() ->
 					receive
 						{WSPid, normal} ->
 							common:loginfo("WS process : ws_on_open() has switched WS process (~p) to normal state~n", [WSPid])
-					end
-			end;
-		true ->
-			ets:insert(msgservertable, {sysinit4ws, false})
+					end;
+				true ->
+					common:loginfo("WS process : ws_on_open() cannot switch uncreated WS process (~p) to normal state~n", [WSPid])
+			end
 	end.
 
 ws_on_error(_Reason) ->
@@ -154,14 +153,19 @@ ws_on_close(_Reason) ->
 	DateTime = integer_to_list(YY) ++ "-" ++ integer_to_list(MM) ++ "-" ++ integer_to_list(DD) ++ " " ++ 
 				   integer_to_list(Hh) ++ ":" ++ integer_to_list(Mm) ++ ":" ++ integer_to_list(Ss),
 	ets:insert(msgservertable, {wslog, lists:append([WSLog, [{1, DateTime}]])}),
-	[{wspid, WSPid}] = ets:lookup(msgservertable, wspid),
-	if
-		WSPid =/= undefined ->
-			common:loginfo("WS process : ws_on_close(_Reason) switchs WS process (~p) to abnormal state~n", [WSPid]),
-			WSPid ! {self(), abnormal},
-			receive
-				{WSPid, abnormal} ->
-					common:loginfo("WS process : ws_on_close(_Reason) has switched WS process (~p) to abnormal state~n", [WSPid])
+	Res = ets:lookup(msgservertable, wspid),
+	case Res of
+		[{wspid, WSPid}] ->
+			if
+				WSPid =/= undefined ->
+					common:loginfo("WS process : ws_on_close(_Reason) switchs WS process (~p) to abnormal state~n", [WSPid]),
+					WSPid ! {self(), abnormal},
+					receive
+						{WSPid, abnormal} ->
+							common:loginfo("WS process : ws_on_close(_Reason) has switched WS process (~p) to abnormal state~n", [WSPid])
+					end;
+				true ->
+					common:loginfo("WS process : ws_on_open() cannot switch uncreated WS process (~p) to abnormal state~n", [WSPid])
 			end
 	end.
 
@@ -349,8 +353,8 @@ init({Host, Port, Resource}) ->
   %ok = gen_tcp:send(Socket, Request),
   ok = gen_tcp:send(Socket, Request1),
   
-  WSPid = self(),
-  ets:insert(msgservertable, {wspid, WSPid}),
+  %WSPid = self(),
+  %ets:insert(msgservertable, {wspid, WSPid}),
   
   {ok, connecting, #data{ socket = Socket, handshake = Handshake}}.
 
