@@ -90,7 +90,7 @@ process_data(Data) ->
 %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 do_process_data(Data) ->
-    %common:loginfo("WS Server MSG : ~p~n", [Data]),
+    common:loginfo("WS Server MSG : ~p~n", [Data]),
     case rfc4627:decode(Data) of
         {ok, Erl, _Rest} ->
             {obj, Content} = Erl,
