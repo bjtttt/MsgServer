@@ -230,7 +230,7 @@ code_change(_OldVsn, State, _Extra) ->
 %%% Return :
 %%%     {ok, State}
 %%%     {warning, State}
-%%%     {error, dberror/cherror/wserror/vdrerror/invaliderror/systemerror/exception/unknown, State}  
+%%%     {error, vdrerror/invaliderror/systemerror/exception/unknown, State}  
 %%%
 process_vdr_msges(Socket, Msges, State) ->
     [H|T] = Msges,
@@ -255,7 +255,7 @@ process_vdr_msges(Socket, Msges, State) ->
 %%% Return :
 %%%     {ok, State}
 %%%     {warning, State}
-%%%     {error, dberror/wserror/systemerror/vdrerror/invaliderror/exception, State}  
+%%%     {error, systemerror/vdrerror/invaliderror/exception, State}  
 %%%
 safe_process_vdr_msg(Socket, Msg, State) ->
     try process_vdr_data(Socket, Msg, State)
@@ -270,7 +270,7 @@ safe_process_vdr_msg(Socket, Msg, State) ->
 %%% Return :
 %%%     {ok, State}
 %%%     {warning, State}
-%%%     {error, dberror/wserror/systemerror/vdrerror/invaliderror/exception, State}  
+%%%     {error, systemerror/vdrerror/invaliderror/exception, State}  
 %%%
 %%% MsgIdx  : VDR message index
 %%% FlowIdx : Gateway message flow index
