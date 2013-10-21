@@ -105,7 +105,7 @@ start(StartType, StartArgs) ->
 						Mode == 1 ->
 		                    WSPid = spawn(fun() -> wsock_client:wsock_client_process(0, 0) end),
 		                    DBPid = spawn(fun() -> mysql:mysql_process(0, 0) end),
-		                    LinkPid = spawn(fun() -> connection_info_process(0, 0, 0, 0, 0, 0) end),
+		                    LinkPid = spawn(fun() -> connection_info_process(0, 0, 0, 0, 0, 0, 0, 0, 0, 0) end),
 		                    DBTablePid = spawn(fun() -> db_table_deamon() end),
 		                    CCPid = spawn(fun() -> code_convertor_process() end),
 		                    ets:insert(msgservertable, {dbpid, DBPid}),
@@ -128,7 +128,7 @@ start(StartType, StartArgs) ->
 		                    end;
 						true ->
 		                    DBPid = spawn(fun() -> mysql:mysql_process(0, 0) end),
-		                    LinkPid = spawn(fun() -> connection_info_process(0, 0, 0, 0, 0, 0) end),
+		                    LinkPid = spawn(fun() -> connection_info_process(0, 0, 0, 0, 0, 0, 0, 0, 0, 0) end),
 		                    DBTablePid = spawn(fun() -> db_table_deamon() end),
 		                    CCPid = spawn(fun() -> code_convertor_process() end),
 		                    ets:insert(msgservertable, {dbpid, DBPid}),
@@ -269,29 +269,37 @@ code_convertor_process() ->
 	%		code_convertor_process()
     end.
             
-connection_info_process(Conn, CharDisc, RegDisc, AuthDisc, ErrDisc, ClientDisc) ->
+connection_info_process(Conn, CharDisc, RegDisc, AuthDisc, ErrDisc, ClientDisc, LenErr, ParErr, SplitErr, RestErr) ->
 	receive
 		stop ->
 			ok;
 		{_Pid, test} ->
-			connection_info_process(Conn+1, CharDisc, RegDisc, AuthDisc, ErrDisc, ClientDisc);
+			connection_info_process(Conn+1, CharDisc, RegDisc, AuthDisc, ErrDisc, ClientDisc, LenErr, ParErr, SplitErr, RestErr);
 		{_Pid, conn} ->
-			connection_info_process(Conn+1, CharDisc, RegDisc, AuthDisc, ErrDisc, ClientDisc);
+			connection_info_process(Conn+1, CharDisc, RegDisc, AuthDisc, ErrDisc, ClientDisc, LenErr, ParErr, SplitErr, RestErr);
 		{_Pid, chardisc} ->
-			connection_info_process(Conn, CharDisc+1, RegDisc, AuthDisc, ErrDisc, ClientDisc);
+			connection_info_process(Conn, CharDisc+1, RegDisc, AuthDisc, ErrDisc, ClientDisc, LenErr, ParErr, SplitErr, RestErr);
 		{_Pid, regdisc} ->
-			connection_info_process(Conn, CharDisc, RegDisc+1, AuthDisc, ErrDisc, ClientDisc);
+			connection_info_process(Conn, CharDisc, RegDisc+1, AuthDisc, ErrDisc, ClientDisc, LenErr, ParErr, SplitErr, RestErr);
 		{_Pid, authdisc} ->
-			connection_info_process(Conn, CharDisc, RegDisc, AuthDisc+1, ErrDisc, ClientDisc);
+			connection_info_process(Conn, CharDisc, RegDisc, AuthDisc+1, ErrDisc, ClientDisc, LenErr, ParErr, SplitErr, RestErr);
 		{_Pid, errdisc} ->
-			connection_info_process(Conn, CharDisc, RegDisc, AuthDisc, ErrDisc+1, ClientDisc);
+			connection_info_process(Conn, CharDisc, RegDisc, AuthDisc, ErrDisc+1, ClientDisc, LenErr, ParErr, SplitErr, RestErr);
 		{_Pid, clientdisc} ->
-			connection_info_process(Conn, CharDisc, RegDisc, AuthDisc, ErrDisc, ClientDisc+1);
+			connection_info_process(Conn, CharDisc, RegDisc, AuthDisc, ErrDisc, ClientDisc+1, LenErr, ParErr, SplitErr, RestErr);
+		{_Pid, lenerr} ->
+			connection_info_process(Conn, CharDisc+1, RegDisc, AuthDisc, ErrDisc, ClientDisc, LenErr+1, ParErr, SplitErr, RestErr);
+		{_Pid, parerr} ->
+			connection_info_process(Conn, CharDisc+1, RegDisc, AuthDisc, ErrDisc, ClientDisc, LenErr, ParErr+1, SplitErr, RestErr);
+		{_Pid, spliterr} ->
+			connection_info_process(Conn, CharDisc+1, RegDisc, AuthDisc, ErrDisc, ClientDisc, LenErr, ParErr, SplitErr+1, RestErr);
+		{_Pid, resterr} ->
+			connection_info_process(Conn, CharDisc+1, RegDisc, AuthDisc, ErrDisc, ClientDisc, LenErr, ParErr, SplitErr, RestErr+1);
 		{Pid, count} ->
-			Pid ! {Conn, CharDisc, RegDisc, AuthDisc, ErrDisc, ClientDisc},
-			connection_info_process(Conn, CharDisc, RegDisc, AuthDisc, ErrDisc, ClientDisc);
+			Pid ! {Conn, CharDisc, RegDisc, AuthDisc, ErrDisc, ClientDisc, LenErr, ParErr, SplitErr, RestErr},
+			connection_info_process(Conn, CharDisc, RegDisc, AuthDisc, ErrDisc, ClientDisc, LenErr, ParErr, SplitErr, RestErr);
 		_ ->
-			connection_info_process(Conn, CharDisc, RegDisc, AuthDisc, ErrDisc, ClientDisc)
+			connection_info_process(Conn, CharDisc, RegDisc, AuthDisc, ErrDisc, ClientDisc, LenErr, ParErr, SplitErr, RestErr)
 	end.
 
 %%%

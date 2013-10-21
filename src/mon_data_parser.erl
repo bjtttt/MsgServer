@@ -533,18 +533,27 @@ get_link_info_reponse(_Req) ->
 				LinkPid =/= undefined ->
 					LinkPid ! {self(), count},
 					receive
-						{Num1, Num2, Num3, Num4, Num5, Num6} ->
-							Content = <<26:?LEN_DWORD, 0:?LEN_BYTE, 21:?LEN_BYTE, Num1:?LEN_DWORD, Num2:?LEN_DWORD, Num3:?LEN_DWORD, Num4:?LEN_DWORD, Num5:?LEN_DWORD, Num6:?LEN_DWORD>>,
+						{Num1, Num2, Num3, Num4, Num5, Num6, Num7, Num8, Num9} ->
+							Content = list_to_binary([<<42:?LEN_DWORD, 0:?LEN_BYTE, 21:?LEN_BYTE>>,
+										<<Num1:?LEN_DWORD, Num2:?LEN_DWORD, Num3:?LEN_DWORD>>,
+										<<Num4:?LEN_DWORD, Num5:?LEN_DWORD, Num6:?LEN_DWORD>>,
+										<<Num7:?LEN_DWORD, Num8:?LEN_DWORD, Num9:?LEN_DWORD>>]),
 							Xor = vdr_data_parser:bxorbytelist(Content),
 							list_to_binary([Content, Xor])
 					end;
 				true ->
-					Content = <<26:?LEN_DWORD, 0:?LEN_BYTE, 21:?LEN_BYTE, 0:?LEN_DWORD, 0:?LEN_DWORD, 0:?LEN_DWORD, 0:?LEN_DWORD, 0:?LEN_DWORD, 0:?LEN_DWORD>>,
+					Content = list_to_binary([<<42:?LEN_DWORD, 0:?LEN_BYTE, 21:?LEN_BYTE>>,
+								<<0:?LEN_DWORD, 0:?LEN_DWORD, 0:?LEN_DWORD>>,
+								<<0:?LEN_DWORD, 0:?LEN_DWORD, 0:?LEN_DWORD>>,
+								<<0:?LEN_DWORD, 0:?LEN_DWORD, 0:?LEN_DWORD>>]),
 					Xor = vdr_data_parser:bxorbytelist(Content),
 					list_to_binary([Content, Xor])
 			end;
 		_ ->
-			Content = <<26:?LEN_DWORD, 0:?LEN_BYTE, 21:?LEN_BYTE, 0:?LEN_DWORD, 0:?LEN_DWORD, 0:?LEN_DWORD, 0:?LEN_DWORD, 0:?LEN_DWORD, 0:?LEN_DWORD>>,
+			Content = list_to_binary([<<42:?LEN_DWORD, 0:?LEN_BYTE, 21:?LEN_BYTE>>,
+								<<0:?LEN_DWORD, 0:?LEN_DWORD, 0:?LEN_DWORD>>,
+								<<0:?LEN_DWORD, 0:?LEN_DWORD, 0:?LEN_DWORD>>,
+								<<0:?LEN_DWORD, 0:?LEN_DWORD, 0:?LEN_DWORD>>]),
 			Xor = vdr_data_parser:bxorbytelist(Content),
 			list_to_binary([Content, Xor])
 	end.

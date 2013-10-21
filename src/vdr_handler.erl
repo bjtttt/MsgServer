@@ -88,10 +88,7 @@ handle_info({tcp, Socket, Data}, OriState) ->
             common:logerror("VDR (~p) data empty : continous error count is ~p (max is 3)~n", [State#vdritem.addr, ErrCount]),
             if
                 ErrCount >= ?MAX_VDR_ERR_COUNT ->
-					if
-						State#vdritem.linkpid =/= undefined ->
-							State#vdritem.linkpid ! {self(), errdisc}
-					end,
+					common:send_stat_err(State, errdisc),
                     {stop, vdrerror, State#vdritem{errorcount=ErrCount}};
                 true ->
                     inet:setopts(Socket, [{active, once}]),
@@ -104,10 +101,7 @@ handle_info({tcp, Socket, Data}, OriState) ->
                     common:logerror("VDR (~p) data error : continous count is ~p (max is 3)~n", [NewState#vdritem.addr, ErrCount]),
                     if
                         ErrCount >= ?MAX_VDR_ERR_COUNT ->
-							if
-								State#vdritem.linkpid =/= undefined ->
-									State#vdritem.linkpid ! {self(), errdisc}
-							end,
+							common:send_stat_err(State, errdisc),
                             {stop, vdrerror, NewState#vdritem{errorcount=ErrCount}};
                         true ->
                             inet:setopts(Socket, [{active, once}]),
@@ -116,25 +110,13 @@ handle_info({tcp, Socket, Data}, OriState) ->
                 {error, ErrType, NewState} ->
 					if
 						ErrType == cherror ->
-							if
-								State#vdritem.linkpid =/= undefined ->
-									State#vdritem.linkpid ! {self(), chardisc}
-							end;
+							common:send_stat_err(State, chardisc);
 						ErrType == regerror ->
-							if
-								State#vdritem.linkpid =/= undefined ->
-									State#vdritem.linkpid ! {self(), regdisc}
-							end;
+							common:send_stat_err(State, regdisc);
 						ErrType == autherror ->
-							if
-								State#vdritem.linkpid =/= undefined ->
-									State#vdritem.linkpid ! {self(), authdisc}
-							end;
+							common:send_stat_err(State, authdisc);
 						true ->
-							if
-								State#vdritem.linkpid =/= undefined ->
-									State#vdritem.linkpid ! {self(), errdisc}
-							end
+							common:send_stat_err(State, errdisc)
 					end,
                     {stop, ErrType, NewState};
                 {warning, NewState} ->
@@ -153,10 +135,7 @@ handle_info({tcp_closed, _Socket}, State) ->
 					State#vdritem.auth,
 					State#vdritem.vehicleid, 
 					State#vdritem.vehiclecode]),
-	if
-		State#vdritem.linkpid =/= undefined ->
-			State#vdritem.linkpid ! {self(), clientdisc}
-	end,
+	common:send_stat_err(State, clientdisc),
 	{stop, tcp_closed, State}; 
 handle_info(_Info, State) ->    
 	{noreply, State}. 

@@ -30,7 +30,8 @@
          float_to_binary/1,
          convert_gbk_to_utf8/1,
          convert_utf8_to_gbk/1,
-		 get_str_bin_to_bin_list/1]).
+		 get_str_bin_to_bin_list/1,
+		 send_stat_err/2]).
 
 -export([set_sockopt/3]).
 
@@ -780,7 +781,11 @@ get_str_bin_to_bin_list(S) when is_binary(S),
 get_str_bin_to_bin_list(_S) ->
 	[].
 
-
+send_stat_err(State, Type) ->
+	if
+		State#vdritem.linkpid =/= undefined ->
+			State#vdritem.linkpid ! {self(), Type}
+	end.
 
 
 
