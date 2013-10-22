@@ -107,7 +107,7 @@ handle_info({tcp, Socket, Data}, OriState) ->
                     end;
                 {error, ErrType, NewState} ->
 					if
-						ErrType == cherror ->
+						ErrType == charerror ->
 							common:send_stat_err(State, chardisc);
 						ErrType == regerror ->
 							common:send_stat_err(State, regdisc);
