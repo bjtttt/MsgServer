@@ -25,11 +25,8 @@ init([Sock, Addr]) ->
     [{wspid, WSPid}] = ets:lookup(msgservertable, wspid),
     [{ccpid, CCPid}] = ets:lookup(msgservertable, ccpid),
     [{linkpid, LinkPid}] = ets:lookup(msgservertable, linkpid),
-	if
-		LinkPid =/= undefined ->
-			LinkPid ! {self(), conn}
-	end,
     State = #vdritem{socket=Sock, pid=Pid, vdrpid=VDRPid, respwspid=RespWSPid, addr=Addr, msgflownum=1, errorcount=0, dbpid=DBPid, wspid=WSPid, vdrmsgtimeoutpid=VdrMsgMonitorPid, ccpid=CCPid, linkpid=LinkPid},
+	common:send_stat_err(State, conn),
 	%mysql:fetch(regauth, <<"set names 'utf8'">>),
 	%mysql:fetch(conn, <<"set names 'utf8'">>),
 	%mysql:fetch(cmd, <<"set names 'utf8'">>),
@@ -84,6 +81,7 @@ handle_info({tcp, Socket, Data}, OriState) ->
     %Msgs = common:split_msg_to_single(DataDebug, 16#7e),
     case Msgs of
         [] ->
+			common:send_stat_err(State, spliterr),
             ErrCount = State#vdritem.errorcount + 1,
             common:logerror("VDR (~p) data empty : continous error count is ~p (max is 3)~n", [State#vdritem.addr, ErrCount]),
             if

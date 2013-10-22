@@ -82,6 +82,7 @@ do_process_data(State, Data) ->
                                             {warning, HeadInfo, ?P_GENRESP_NOTSUPPORT, State}
                                     end;
                                 BodyLen =/= ActBodyLen ->
+									common:send_stat_err(State, lenerr),
                                     common:logerror("Length error for msg (~p) from (~p) : (Field)~p:(Actual)~p~n", [MsgIdx, State#vdritem.addr, BodyLen, ActBodyLen]),
                                     {warning, HeadInfo, ?P_GENRESP_ERRMSG, State}
                             end;
@@ -92,14 +93,17 @@ do_process_data(State, Data) ->
                             <<Total:16,Index:16>> = <<PackInfo:32>>,
                             if
                                 Total =< 1 ->
+									common:send_stat_err(State, packerr),
                                     common:logerror("Total error for msg (~p) from (~p) : ~p~n", [MsgIdx, State#vdritem.addr, Total]),
                                     {warning, HeadInfo, ?P_GENRESP_ERRMSG, State};
                                 Total > 1 ->
                                     if
                                         Index < 1 ->
+											common:send_stat_err(State, packerr),
                                             common:logerror("Index error for msg (~p) from (~p) : (Index)~p~n", [MsgIdx, State#vdritem.addr, Index]),
                                             {warning, HeadInfo, ?P_GENRESP_ERRMSG, State};
                                         Index > Total ->
+											common:send_stat_err(State, packerr),
                                             common:logerror("Index error for msg (~p) from (~p) : (Total)~p:(Index)~p~n", [MsgIdx, State#vdritem.addr, Total, Index]),
                                             {warning, HeadInfo, ?P_GENRESP_ERRMSG, State};
                                         Index =< Total ->
@@ -126,6 +130,7 @@ do_process_data(State, Data) ->
                                                             {ignore, HeadInfo, NewState}
                                                     end;
                                                 BodyLen =/= ActBodyLen ->
+													common:send_stat_err(State, lenerr),
                                                     common:logerror("Length error for msg (~p) from (~p) : (Field)~p:(Actual)~p~n", [MsgIdx, State#vdritem.addr, BodyLen, ActBodyLen]),
                                                     {warning, HeadInfo, ?P_GENRESP_ERRMSG, State}
                                             end
@@ -133,10 +138,12 @@ do_process_data(State, Data) ->
                             end
                     end;
                 CalcParity =/= Parity ->
+					common:send_stat_err(State, parerr),
                     common:logerror("Parity error (calculated)~p:(data)~p from ~p~n", [CalcParity, Parity, State#vdritem.addr]),
                     {error, parityerror, State}
             end;
         error ->
+			common:send_stat_err(State, resterr),
             {error, formaterror, State}
     end.
 
