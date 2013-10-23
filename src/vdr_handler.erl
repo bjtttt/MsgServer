@@ -52,15 +52,15 @@ handle_cast(_Msg, State) ->
 %%%
 %%%
 handle_info({tcp, Socket, Data}, OriState) ->
-    common:loginfo("~p : Data from VDR (~p) (id:~p, serialno:~p, authen_code:~p, vehicleid:~p, vehiclecode:~p)~n~p~n",
-				   [self(),
-					OriState#vdritem.addr, 
-					OriState#vdritem.id, 
-					OriState#vdritem.serialno, 
-					OriState#vdritem.auth, 
-					OriState#vdritem.vehicleid, 
-					OriState#vdritem.vehiclecode,
-					Data]),
+    %common:loginfo("~p : Data from VDR (~p) (id:~p, serialno:~p, authen_code:~p, vehicleid:~p, vehiclecode:~p)~n~p~n",
+	%			   [self(),
+	%				OriState#vdritem.addr, 
+	%				OriState#vdritem.id, 
+	%				OriState#vdritem.serialno, 
+	%				OriState#vdritem.auth, 
+	%				OriState#vdritem.vehicleid, 
+	%				OriState#vdritem.vehiclecode,
+	%				Data]),
     % Update active time for VDR
     DateTime = {erlang:date(), erlang:time()},
     State = OriState#vdritem{acttime=DateTime},
@@ -1247,7 +1247,7 @@ get_alarm_list(AlarmList) when is_list(AlarmList),
 	MmS = integer_to_list(Mm),
 	SsS = integer_to_list(Ss),
 	DTS = common:combine_strings([YYS, "-", MMS, "-", DDS, " ", HhS, ":", MmS, ":", SsS], false),
-	common:loginfo("vehicle_alarm : type_id (~p), alarm_time (~p)~n", [TypeId, DTS]),
+	%common:loginfo("vehicle_alarm : type_id (~p), alarm_time (~p)~n", [TypeId, DTS]),
 	Cur = [{TypeId, DTS}],
 	case T of
 		[] ->
@@ -1647,7 +1647,7 @@ data2vdr_process(Socket) ->
 			common:loginfo("~p stops waiting for MSG to VDR by ~p~n", [self(), Pid]),
 			Pid ! {Pid, stopped};
         {Pid, Msg} ->
-            common:loginfo("~p receives MSG to VDR from ~p : ~p~n", [self(), Pid, Msg]),
+            %common:loginfo("~p receives MSG to VDR from ~p : ~p~n", [self(), Pid, Msg]),
             gen_tcp:send(Socket, Msg),
             %Pid ! {Pid, vdrok},
             data2vdr_process(Socket);

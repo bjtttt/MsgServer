@@ -68,7 +68,7 @@ handle_cast(_Msg, State) ->
 	{noreply, State}. 
 
 handle_info({inet_async, LSock, Ref, {ok, CSock}}, #serverstate{lsock=LSock, acceptor=Ref}=State) ->
-    common:printsocketinfo(CSock, "Accepted one VDR"),
+    %common:printsocketinfo(CSock, "Accepted one VDR"),
     try        
 		case common:set_sockopt(LSock, CSock, "vdr_server:handle_info(...)") of	        
 			ok -> 
