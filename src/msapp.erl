@@ -120,7 +120,7 @@ start(StartType, StartArgs) ->
 		                    
 							Pid = self(),
 							
-				            DBPid ! {Pid, conn, "set names 'utf8'"},
+				            DBPid ! {Pid, conn, <<"set names 'utf8'">>},
 				            receive
 				                {Pid, Result} ->
 				                    Result
