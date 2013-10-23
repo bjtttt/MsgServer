@@ -288,15 +288,17 @@ connection_info_process(Conn, CharDisc, RegDisc, AuthDisc, ErrDisc, ClientDisc, 
 		{_Pid, clientdisc} ->
 			connection_info_process(Conn, CharDisc, RegDisc, AuthDisc, ErrDisc, ClientDisc+1, LenErr, ParErr, SplitErr, RestErr, PackErr);
 		{_Pid, lenerr} ->
-			connection_info_process(Conn, CharDisc+1, RegDisc, AuthDisc, ErrDisc, ClientDisc, LenErr+1, ParErr, SplitErr, RestErr, PackErr);
+			connection_info_process(Conn, CharDisc, RegDisc, AuthDisc, ErrDisc, ClientDisc, LenErr+1, ParErr, SplitErr, RestErr, PackErr);
 		{_Pid, parerr} ->
-			connection_info_process(Conn, CharDisc+1, RegDisc, AuthDisc, ErrDisc, ClientDisc, LenErr, ParErr+1, SplitErr, RestErr, PackErr);
+			connection_info_process(Conn, CharDisc, RegDisc, AuthDisc, ErrDisc, ClientDisc, LenErr, ParErr+1, SplitErr, RestErr, PackErr);
 		{_Pid, spliterr} ->
-			connection_info_process(Conn, CharDisc+1, RegDisc, AuthDisc, ErrDisc, ClientDisc, LenErr, ParErr, SplitErr+1, RestErr, PackErr);
+			connection_info_process(Conn, CharDisc, RegDisc, AuthDisc, ErrDisc, ClientDisc, LenErr, ParErr, SplitErr+1, RestErr, PackErr);
 		{_Pid, resterr} ->
-			connection_info_process(Conn, CharDisc+1, RegDisc, AuthDisc, ErrDisc, ClientDisc, LenErr, ParErr, SplitErr, RestErr+1, PackErr);
+			connection_info_process(Conn, CharDisc, RegDisc, AuthDisc, ErrDisc, ClientDisc, LenErr, ParErr, SplitErr, RestErr+1, PackErr);
 		{_Pid, packerr} ->
-			connection_info_process(Conn, CharDisc+1, RegDisc, AuthDisc, ErrDisc, ClientDisc, LenErr, ParErr, SplitErr, RestErr, PackErr+1);
+			connection_info_process(Conn, CharDisc, RegDisc, AuthDisc, ErrDisc, ClientDisc, LenErr, ParErr, SplitErr, RestErr, PackErr+1);
+		{_Pid, clear} ->
+			connection_info_process(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
 		{Pid, count} ->
 			Pid ! {Conn, CharDisc, RegDisc, AuthDisc, ErrDisc, ClientDisc, LenErr, ParErr, SplitErr, RestErr, PackErr},
 			connection_info_process(Conn, CharDisc, RegDisc, AuthDisc, ErrDisc, ClientDisc, LenErr, ParErr, SplitErr, RestErr, PackErr);

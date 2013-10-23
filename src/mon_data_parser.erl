@@ -80,6 +80,8 @@ parse_data(RawData, State) ->
 									get_db_count_reponse(Req);
 								21 ->
 									get_link_info_reponse(Req);
+								22 ->
+									clear_link_info_reponse(Req);
                                 _ ->
                                     create_unknown_msg_id_response(ID)
                             end
@@ -556,4 +558,14 @@ get_link_info_reponse(_Req) ->
 								<<0:?LEN_DWORD, 0:?LEN_DWORD, 0:?LEN_DWORD, 0:?LEN_DWORD, 0:?LEN_DWORD>>]),
 			Xor = vdr_data_parser:bxorbytelist(Content),
 			list_to_binary([Content, Xor])
+	end.
+
+clear_link_info_reponse(_Req) ->
+	Res = ets:lookup(msgservertable, linkpid),
+	case Res of
+		[{linkpid, LinkPid}] ->
+			if
+				LinkPid =/= undefined ->
+					LinkPid ! {self(), clear}
+			end
 	end.
