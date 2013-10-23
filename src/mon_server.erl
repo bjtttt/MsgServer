@@ -62,7 +62,7 @@ handle_cast(_Msg, State) ->
     {noreply, State}. 
 
 handle_info({inet_async, LSock, Ref, {ok, CSock}}, #serverstate{lsock=LSock, acceptor=Ref}=State) ->
-    common:printsocketinfo(CSock, "Accepted a monitor from"),
+    %common:printsocketinfo(CSock, "Accepted a monitor from"),
     try        
         case common:set_sockopt(LSock, CSock, "Monitor Server") of            
             ok -> 
