@@ -7,7 +7,9 @@
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2, code_change/3]).
 
 -export([process_vdr_data/3,
-         send_data_to_vdr/5]).
+         send_data_to_vdr/5,
+		 extract_db_resp/1,
+		 get_record_field/3]).
 
 -include("header.hrl").
 -include("mysql.hrl").
