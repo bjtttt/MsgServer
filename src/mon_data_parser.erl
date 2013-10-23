@@ -82,6 +82,10 @@ parse_data(RawData, State) ->
 									get_link_info_reponse(Req);
 								22 ->
 									clear_link_info_reponse(Req);
+								23 ->
+									read_db_chinese_reponse(Req);
+								24 ->
+									read_db_chinese_init_reponse(Req);
                                 _ ->
                                     create_unknown_msg_id_response(ID)
                             end
@@ -572,3 +576,68 @@ clear_link_info_reponse(_Req) ->
     Content = <<2:?LEN_DWORD, 0:?LEN_BYTE, 22:?LEN_BYTE>>,
     Xor = vdr_data_parser:bxorbytelist(Content),
 	list_to_binary([Content, Xor]).
+
+read_db_chinese_reponse(_Req) ->
+	read_db_chinese_reponse(false).
+
+read_db_chinese_init_reponse(_Req) ->
+	do_read_db_chinese_reponse(true).
+
+do_read_db_chinese_reponse(DoInit) ->
+	[{dbpid, DBPid}] = ets:lookup(msgservertable, dbpid),
+	case DBPid of
+        undefined ->
+		    Content = <<2:?LEN_DWORD, 0:?LEN_BYTE, 23:?LEN_BYTE>>,
+		    Xor = vdr_data_parser:bxorbytelist(Content),
+			list_to_binary([Content, Xor]);
+        _ ->
+			Res = <<"">>,
+			Msg = <<"select vehicle.code from device left join vehicle on vehicle.device_id=device.id where device.authen_code='YXIdIFocQPwZ'">>,
+			Pid = self,
+			if
+				DoInit == true ->
+					mysql:fetch(conn, <<"set names 'utf8">>)
+			end,
+			Res1 = list_to_binary([Res, get_db_response(DBPid, Pid, Msg)]),
+			Res2 = list_to_binary([Res1, <<", ">>, get_db_response(DBPid, Pid, Msg)]),
+			Res3 = list_to_binary([Res2, <<", ">>, get_db_response(DBPid, Pid, Msg)]),
+			Res4 = list_to_binary([Res3, <<", ">>, get_db_response(DBPid, Pid, Msg)]),
+			Res5 = list_to_binary([Res4, <<", ">>, get_db_response(DBPid, Pid, Msg)]),
+			Res6 = list_to_binary([Res5, <<", ">>, get_db_response(DBPid, Pid, Msg)]),
+			Res7 = list_to_binary([Res6, <<", ">>, get_db_response(DBPid, Pid, Msg)]),
+			Res8 = list_to_binary([Res7, <<", ">>, get_db_response(DBPid, Pid, Msg)]),
+			Res9 = list_to_binary([Res8, <<", ">>, get_db_response(DBPid, Pid, Msg)]),
+			Res10 = list_to_binary([Res9, <<", ">>, get_db_response(DBPid, Pid, Msg)]),
+			Res11 = list_to_binary([Res10, <<", ">>, get_db_response(DBPid, Pid, Msg)]),
+			Res12 = list_to_binary([Res11, <<", ">>, get_db_response(DBPid, Pid, Msg)]),
+			Res13 = list_to_binary([Res12, <<", ">>, get_db_response(DBPid, Pid, Msg)]),
+			Res14 = list_to_binary([Res13, <<", ">>, get_db_response(DBPid, Pid, Msg)]),
+			Res15 = list_to_binary([Res14, <<", ">>, get_db_response(DBPid, Pid, Msg)]),
+			Res16 = list_to_binary([Res15, <<", ">>, get_db_response(DBPid, Pid, Msg)]),
+			Res17 = list_to_binary([Res16, <<", ">>, get_db_response(DBPid, Pid, Msg)]),
+			Res18 = list_to_binary([Res17, <<", ">>, get_db_response(DBPid, Pid, Msg)]),
+			Res19 = list_to_binary([Res18, <<", ">>, get_db_response(DBPid, Pid, Msg)]),
+			Res20 = list_to_binary([Res19, <<", ">>, get_db_response(DBPid, Pid, Msg)]),
+			Res21 = list_to_binary([Res20, <<", ">>, get_db_response(DBPid, Pid, Msg)]),
+			Res22 = list_to_binary([Res21, <<", ">>, get_db_response(DBPid, Pid, Msg)]),
+			Res23 = list_to_binary([Res22, <<", ">>, get_db_response(DBPid, Pid, Msg)]),
+			Res24 = list_to_binary([Res23, <<", ">>, get_db_response(DBPid, Pid, Msg)]),
+			Res25 = list_to_binary([Res24, <<", ">>, get_db_response(DBPid, Pid, Msg)]),
+			Res26 = list_to_binary([Res25, <<", ">>, get_db_response(DBPid, Pid, Msg)]),
+			Res27 = list_to_binary([Res26, <<", ">>, get_db_response(DBPid, Pid, Msg)]),
+			Res28 = list_to_binary([Res27, <<", ">>, get_db_response(DBPid, Pid, Msg)]),
+			Res29 = list_to_binary([Res28, <<", ">>, get_db_response(DBPid, Pid, Msg)]),
+			Res30 = list_to_binary([Res29, <<", ">>, get_db_response(DBPid, Pid, Msg)]),
+			Len = 2 + byte_size(Res30),
+		    Content = list_to_binary([<<Len:?LEN_DWORD, 0:?LEN_BYTE, 23:?LEN_BYTE>>, Res30]),
+		    Xor = vdr_data_parser:bxorbytelist(Content),
+			list_to_binary([Content, Xor])
+    end.
+
+get_db_response(DBPid, Pid, Msg) ->
+    DBPid ! {Pid, conn, Msg},
+    receive
+        {Pid, Result} ->
+            Result
+    end.
+
