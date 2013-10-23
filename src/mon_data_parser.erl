@@ -587,10 +587,17 @@ do_read_db_chinese_reponse(DoInit) ->
 	[{dbpid, DBPid}] = ets:lookup(msgservertable, dbpid),
 	case DBPid of
         undefined ->
-		    Content = <<2:?LEN_DWORD, 0:?LEN_BYTE, 23:?LEN_BYTE>>,
-		    Xor = vdr_data_parser:bxorbytelist(Content),
-			list_to_binary([Content, Xor]);
-        _ ->
+			if
+				DoInit == true ->
+				    Content = <<2:?LEN_DWORD, 0:?LEN_BYTE, 24:?LEN_BYTE>>,
+				    Xor = vdr_data_parser:bxorbytelist(Content),
+					list_to_binary([Content, Xor]);
+				true ->
+				    Content = <<2:?LEN_DWORD, 0:?LEN_BYTE, 23:?LEN_BYTE>>,
+				    Xor = vdr_data_parser:bxorbytelist(Content),
+					list_to_binary([Content, Xor])
+			end;
+         _ ->
 			Res = <<"">>,
 			Msg = <<"select vehicle.code from device left join vehicle on vehicle.device_id=device.id where device.authen_code='YXIdIFocQPwZ'">>,
 			Pid = self,
@@ -629,9 +636,16 @@ do_read_db_chinese_reponse(DoInit) ->
 			Res29 = list_to_binary([Res28, <<", ">>, get_db_response(DBPid, Pid, Msg)]),
 			Res30 = list_to_binary([Res29, <<", ">>, get_db_response(DBPid, Pid, Msg)]),
 			Len = 2 + byte_size(Res30),
-		    Content = list_to_binary([<<Len:?LEN_DWORD, 0:?LEN_BYTE, 23:?LEN_BYTE>>, Res30]),
-		    Xor = vdr_data_parser:bxorbytelist(Content),
-			list_to_binary([Content, Xor])
+			if
+				DoInit == true ->
+				    Content = list_to_binary([<<Len:?LEN_DWORD, 0:?LEN_BYTE, 24:?LEN_BYTE>>, Res30]),
+				    Xor = vdr_data_parser:bxorbytelist(Content),
+					list_to_binary([Content, Xor]);
+				true ->
+				    Content = list_to_binary([<<Len:?LEN_DWORD, 0:?LEN_BYTE, 23:?LEN_BYTE>>, Res30]),
+				    Xor = vdr_data_parser:bxorbytelist(Content),
+					list_to_binary([Content, Xor])
+			end
     end.
 
 get_db_response(DBPid, Pid, Msg) ->
