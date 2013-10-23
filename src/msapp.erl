@@ -118,7 +118,15 @@ start(StartType, StartArgs) ->
 		                    common:loginfo("DB table deamon process PID is ~p~n", [DBTablePid]),
 		                    common:loginfo("Code convertor process PID is ~p~n", [CCPid]),
 		                    
-		                    CCPid ! {self(), create},
+							Pid = self(),
+							
+				            DBPid ! {Pid, conn, "set names 'utf8'"},
+				            receive
+				                {Pid, Result} ->
+				                    Result
+				            end,							
+							
+		                    CCPid ! {Pid, create},
 		                    receive
 		                        created ->
 		                            common:loginfo("Code convertor table is created~n"),

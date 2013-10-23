@@ -633,7 +633,7 @@ read_db_chinese_init_reponse(_Req) ->
 			list_to_binary([Content, Xor]);
          _ ->
 			Pid = self(),
-			get_db_response(DBPid, Pid, <<"set names 'utf8">>),
+			get_db_response(DBPid, Pid, <<"set names 'utf8'">>),
 			Res = <<"">>,
 			Msg = <<"select * from device left join vehicle on vehicle.device_id=device.id where device.authen_code='YXIdIFocQPwZ'">>,
 			Res1 = list_to_binary([Res, get_db_response_record(DBPid, Pid, Msg, <<"vehicle">>, <<"code">>)]),
