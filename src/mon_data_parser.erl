@@ -568,4 +568,7 @@ clear_link_info_reponse(_Req) ->
 				LinkPid =/= undefined ->
 					LinkPid ! {self(), clear}
 			end
-	end.
+	end,
+    Content = <<2:?LEN_DWORD, 0:?LEN_BYTE, 22:?LEN_BYTE>>,
+    Xor = vdr_data_parser:bxorbytelist(Content),
+	list_to_binary([Content, Xor]).
