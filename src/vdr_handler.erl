@@ -115,6 +115,16 @@ handle_info({tcp, Socket, Data}, OriState) ->
 							common:send_stat_err(State, regdisc);
 						ErrType == autherror ->
 							common:send_stat_err(State, authdisc);
+						ErrType == unautherror ->
+							common:send_stat_err(State, unauthdisc);
+						ErrType == exiterror ->
+							common:send_stat_err(State, exitdisc);
+						ErrType == vdrerror ->
+							common:send_stat_err(State, vdrerror);
+						ErrType == unvdrerror ->
+							common:send_stat_err(State, unvdrerror);
+						ErrType == exception ->
+							common:send_stat_err(State, msgex);
 						true ->
 							common:send_stat_err(State, errdisc)
 					end,
@@ -587,7 +597,7 @@ do_process_vdr_data(Socket, Data, State) ->
                         true ->
                             common:loginfo("Invalid common message from unknown/unregistered/unauthenticated VDR (~p) (id:~p, serialno:~p, authen_code:~p, vehicleid:~p, vehiclecode:~p) MSG ID : ~p~n", [NewState#vdritem.addr, NewState#vdritem.id, NewState#vdritem.serialno, NewState#vdritem.auth, NewState#vdritem.vehicleid, NewState#vdritem.vehiclecode, ID]),
                             % Unauthorized/Unregistered VDR can only accept 16#100/16#102
-                            {error, invaliderror, State}
+                            {error, unautherror, State}
                     end;
                 true ->
 					%common:loginfo("VDR (~p) (id:~p, serialno:~p, authen_code:~p, vehicleid:~p, vehiclecode:~p) MSG ID (~p), MSG Index (~p), MSG Tel (~p)~n",
@@ -677,9 +687,9 @@ do_process_vdr_data(Socket, Data, State) ->
                                     NewFlowIdx = send_data_to_vdr(16#8001, Tel, FlowIdx, MsgBody, VDRPid),
         
                                     % return error to terminate connection with VDR
-                                    {error, invaliderror, NewState#vdritem{msgflownum=NewFlowIdx}};
+                                    {error, exiterror, NewState#vdritem{msgflownum=NewFlowIdx}};
                                 _ ->
-                                    {error, invaliderror, NewState}
+                                    {error, vdrerror, NewState}
                             end;
                         16#104 ->   % VDR parameter query
                             {_RespIdx, _ActLen, _List} = Msg,
@@ -795,7 +805,7 @@ do_process_vdr_data(Socket, Data, State) ->
 									%{ok, NewState};
 		                            {ok, NewState#vdritem{msgflownum=NewFlowIdx}};
  								_ ->
-									{error, invaliderror, NewState}
+									{error, vdrerror, NewState}
 							end;								
                         16#704 ->
                             {_Len, _Type, _Positions} = Msg,
@@ -845,7 +855,7 @@ do_process_vdr_data(Socket, Data, State) ->
 		                            %{ok, NewState};
 		                            {ok, NewState#vdritem{msgflownum=NewFlowIdx}};
 								_ ->
-									{error, invaliderror, NewState}
+									{error, vdrerror, NewState}
 							end;								
                        16#805 ->
                             {_RespIdx, Res, _ActLen, List} = Msg,
@@ -912,7 +922,7 @@ do_process_vdr_data(Socket, Data, State) ->
 											NewState#vdritem.vehicleid, 
 											NewState#vdritem.vehiclecode, 
 											ID]),
-                            {error, invaliderror, NewState}
+                            {error, unautherror, NewState}
                     end
             end;
         {ignore, HeaderInfo, NewState} ->
@@ -970,7 +980,7 @@ do_process_vdr_data(Socket, Data, State) ->
 			
             {warning, NewState#vdritem{msgflownum=NewFlowIdx}};
         {error, _ErrorType, NewState} ->    % exception/parityerror/formaterror
-            {error, vdrerror, NewState}
+            {error, unvdrerror, NewState}
     end.
 
 get_record_column_info(Record) ->
