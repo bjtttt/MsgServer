@@ -89,6 +89,7 @@ handle_info({tcp, Socket, Data}, OriState) ->
             if
                 ErrCount >= ?MAX_VDR_ERR_COUNT ->
 					common:send_stat_err(State, errdisc),
+					common:send_stat_err(State, gwstop),
                     {stop, vdrerror, State#vdritem{errorcount=ErrCount}};
                 true ->
                     inet:setopts(Socket, [{active, once}]),
@@ -102,6 +103,7 @@ handle_info({tcp, Socket, Data}, OriState) ->
                     if
                         ErrCount >= ?MAX_VDR_ERR_COUNT ->
 							common:send_stat_err(State, errdisc),
+							common:send_stat_err(State, gwstop),
                             {stop, vdrerror, NewState#vdritem{errorcount=ErrCount}};
                         true ->
                             inet:setopts(Socket, [{active, once}]),
@@ -128,6 +130,7 @@ handle_info({tcp, Socket, Data}, OriState) ->
 						true ->
 							common:send_stat_err(State, errdisc)
 					end,
+					common:send_stat_err(State, gwstop),
                     {stop, ErrType, NewState};
                 {warning, NewState} ->
                     inet:setopts(Socket, [{active, once}]),
