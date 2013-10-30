@@ -1771,25 +1771,36 @@ send_msg_to_ws(Msg, State) ->
 vdr_msg_monitor_process(Pid, Socket) ->
 	receive
 		{Pid, stop} ->
-			[State] = ets:lookup(vdrtable, Socket),
-			common:loginfo("VDR (~p) socket (~p) (id:~p, serialno:~p, authen_code:~p, vehicleid:~p, vehiclecode:~p) : message monitor process received stop command and stops",
-						   [State#vdritem.addr,
-							State#vdritem.socket,
-							State#vdritem.id, 
-							State#vdritem.serialno, 
-							State#vdritem.auth, 
-							State#vdritem.vehicleid, 
-							State#vdritem.vehiclecode]),
-			Pid ! {Pid, stopped};
+			Result = ets:lookup(vdrtable, Socket),
+			case Result of
+				[State] ->
+					common:loginfo("VDR (~p) socket (~p) (id:~p, serialno:~p, authen_code:~p, vehicleid:~p, vehiclecode:~p) : message monitor process received stop command and stops",
+								   [State#vdritem.addr,
+									State#vdritem.socket,
+									State#vdritem.id, 
+									State#vdritem.serialno, 
+									State#vdritem.auth, 
+									State#vdritem.vehicleid, 
+									State#vdritem.vehiclecode]),
+					Pid ! {Pid, stopped};
+				_ ->
+					Pid ! {Pid, stopped}
+			end;
 		{Pid, Socket} ->
 			Pid ! {Pid, ok},
 			vdr_msg_monitor_process(Pid, Socket);
 		_ ->
-			[State] = ets:lookup(vdrtable, Socket),
-			terminate("VDR message monitor process received unknown command and stops", State)
+			Result = ets:lookup(vdrtable, Socket),
+			case Result of
+				[State] ->
+					terminate("VDR message monitor process received unknown command and stops", State)
+			end
 	after ?VDR_MSG_TIMEOUT ->
-			[State] = ets:lookup(vdrtable, Socket),
-			terminate("VDR message monitor process timeout and stops", State)
+			Result = ets:lookup(vdrtable, Socket),
+			case Result of
+				[State] ->
+					terminate("VDR message monitor process timeout and stops", State)
+			end
 	end.			
 
 %%%         
