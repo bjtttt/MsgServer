@@ -539,7 +539,7 @@ get_link_info_reponse(_Req) ->
 				LinkPid =/= undefined ->
 					LinkPid ! {self(), count},
 					receive
-						{Num1, Num2, Num3, Num4, Num5, Num6, Num7, Num8, Num9, Num10, Num11, Num12, Num13, Num14, Num15, Num16, Num17, Num18} ->
+						{Num1, Num2, Num3, Num4, Num5, Num6, Num7, Num8, Num9, Num10, Num11, Num12, Num13, Num14, Num15, Num16, Num17, Num18, Num19} ->
 							Content = list_to_binary([<<74:?LEN_DWORD, 0:?LEN_BYTE, 21:?LEN_BYTE>>,
 										<<Num1:?LEN_DWORD, Num2:?LEN_DWORD, Num3:?LEN_DWORD>>,
 										<<Num4:?LEN_DWORD, Num5:?LEN_DWORD, Num6:?LEN_DWORD>>,
