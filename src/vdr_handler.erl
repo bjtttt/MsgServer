@@ -1726,7 +1726,7 @@ send_sql_to_db_nowait(PoolId, Msg, State) ->
         undefined ->
 			ok;
         DBPid ->
-            DBPid ! {State#vdritem.pid, PoolId, Msg}
+            DBPid ! {State#vdritem.pid, PoolId, Msg, noresp}
     end.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -1782,7 +1782,7 @@ send_msg_to_ws_nowait(Msg, State) ->
         undefined ->
             ok;
         WSPid ->
-            WSPid ! {State#vdritem.pid, Msg}
+            WSPid ! {State#vdritem.pid, Msg, noresp}
     end.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

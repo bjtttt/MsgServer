@@ -243,6 +243,39 @@ mysql_process(Num1, Num2) ->
 					Pid ! {Pid,<<"">>}
 			end,
             mysql_process(Num1+1, Num2);
+        {Pid, PoolId, Sql, noresp} ->
+			SqlLen = byte_size(Sql),
+			try
+				Result = mysql:fetch(PoolId, Sql)
+ 				%if
+				%	SqlLen > 1024 ->
+				%		PartSql = binary:part(Sql, 0, 1024),
+				%		common:loginfo("Successfully send SQL (~p)......... to DB : ~p~n", [PartSql, PoolId]);
+				%	true ->
+				%		common:loginfo("Successfully send SQL (~p) to DB : ~p~n", [Sql, PoolId])
+				%end
+			catch
+				Oper:Msg ->
+					if
+						SqlLen > 1024 ->
+							PartSql1 = binary:part(Sql, 0, 1024),
+							common:logerror("Fail to send SQL (~p)......... to DB : ~p~n(Operation)~p:(Message)~p", [PartSql1, PoolId, Oper, Msg]);
+						true ->
+							common:logerror("Fail to send SQL (~p) to DB : ~p~n(Operation)~p:(Message)~p", [Sql, PoolId, Oper, Msg])
+					end,
+                    try
+                        [{db, DB}] = ets:lookup(msgservertable, db),
+                        [{dbname, DBName}] = ets:lookup(msgservertable, dbname),
+                        [{dbuid, DBUid}] = ets:lookup(msgservertable, dbuid),
+                        [{dbpwd, DBPwd}] = ets:lookup(msgservertable, dbpwd),
+                        mysql:utf8connect(conn, DB, undefined, DBUid, DBPwd, DBName, true)
+                    catch
+                        Oper1:Msg1 ->
+                            common:logerror("Fail to start new DB client: ~p~n(Operation)~p:(Message)~p", [Oper1, Msg1])
+                    end,
+					Pid ! {Pid,<<"">>}
+			end,
+            mysql_process(Num1+1, Num2);
 		{Pid, test} ->
 			Pid ! ok,
 			mysql_process(Num1, Num2);

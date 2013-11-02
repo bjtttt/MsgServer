@@ -71,6 +71,10 @@ wsock_client_process(Num1, Num2) ->
             wsock_client:send(WSMsg),
             Pid ! {Pid, wsok},
             wsock_client_process(Num1+1, Num2);
+        {Pid, WSMsg, noresp} ->
+			%common:loginfo("WS process ~p : ~p~n", [self(), WSMsg]),
+            wsock_client:send(WSMsg),
+            wsock_client_process(Num1+1, Num2);
         stop ->
             ok;
         _ ->
@@ -93,8 +97,10 @@ wsock_client_process_err(Num1, Num2) ->
         {Pid, count} ->
 			Pid ! {Num1, Num2},
             wsock_client_process_err(Num1, Num2);
-        {Pid, _WSMsg} ->
+        {Pid, WSMsg} ->
             Pid ! {Pid, wsok},
+            wsock_client_process_err(Num1, Num2+1);
+        {Pid, WSMsg, noresp} ->
             wsock_client_process_err(Num1, Num2+1);
         stop ->
             ok;
