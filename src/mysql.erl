@@ -272,8 +272,7 @@ mysql_process(Num1, Num2) ->
                     catch
                         Oper1:Msg1 ->
                             common:logerror("Fail to start new DB client: ~p~n(Operation)~p:(Message)~p", [Oper1, Msg1])
-                    end,
-					Pid ! {Pid,<<"">>}
+                    end
 			end,
             mysql_process(Num1+1, Num2);
 		{Pid, test} ->
@@ -293,8 +292,10 @@ mysql_process_err(Num1, Num2) ->
 		{Pid, ok} ->
 			Pid ! ok,
 			mysql_process(Num1, Num2);
-        {Pid, _PoolId, _Sql} ->
+        {Pid, PoolId, Sql} ->
 			Pid ! {Pid,<<"">>},
+            mysql_process_err(Num1, Num2+1);
+        {Pid, PoolId, Sql, noresp} ->
             mysql_process_err(Num1, Num2+1);
 		{Pid, test} ->
 			Pid ! ok,
