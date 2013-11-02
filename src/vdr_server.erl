@@ -100,7 +100,7 @@ handle_info({inet_async, LSock, Ref, {ok, CSock}}, #serverstate{lsock=LSock, acc
                                 end
                         end;
                     {ok, Pid, _Info} ->
-                        case gen_tcp:controlling_process(CSock, Pid) of
+                        case gen_tcp:controlling_process(ç, Pid) of
                             ok ->
                                 %ets:insert(vdrtable, #vdritem{socket=CSock, pid=Pid});
                                 ok;
@@ -118,6 +118,7 @@ handle_info({inet_async, LSock, Ref, {ok, CSock}}, #serverstate{lsock=LSock, acc
                     {error, {already_started, Pid}} ->
                         common:logerror("vdr_server:handle_info(...) : mssup:start_child_vdr fails : already_started PID : ~p~n", [Pid]);
                     {error, Msg} ->
+						terminate_invalid_vdrs(CSock),
                         common:logerror("vdr_server:handle_info(...) : mssup:start_child_vdr fails : ~p~n", [Msg])
                 end;
             {error, Err} ->
@@ -147,16 +148,7 @@ handle_info({tcp, Socket, Data}, State) ->
     common:logerror("(ERROR) vdr_server:handle_info(...) : data : ~p~n", [Data]),
 	if
 		State#serverstate.lsock =/= Socket ->
-			try gen_tcp:close(Socket)
-		    catch
-		        _:Ex ->
-			        case common:safepeername(Socket) of
-			            {ok, {Addr, Port}} ->
-		            		common:logerror("(ERROR) vdr_server:handle_info(...) : exception when gen_tcp:close ~p:~p : ~p~n", [Addr, Port, Ex]);
-						_ ->
-		            		common:logerror("(ERROR) vdr_server:handle_info(...) : exception when gen_tcp:close(...) : ~p~n", [Ex])
-					end
-		    end;
+			terminate_invalid_vdrs(Socket);
 		true ->
 			common:logerror("(ERROR) vdr_server:handle_info(...) : cannot perform gen_tcp:close(...) ~n")
 	end,
@@ -176,5 +168,77 @@ terminate(Reason, State) ->
 code_change(_OldVsn, State, _Extra) ->    
 	{ok, State}. 
     
+terminate_invalid_vdrs(Socket) ->
+    SockVdrList = ets:lookup(vdrtable, Socket),
+	do_terminate_invalid_vdrs(SockVdrList).
 
+do_terminate_invalid_vdrs(States) when is_list(States),
+									   length(States) > 0 ->
+	[H|T] = States,
+	do_terminate_invalid_vdr(H),
+	do_terminate_invalid_vdrs(T);
+do_terminate_invalid_vdrs(_States) ->
+	ok.
+
+do_terminate_invalid_vdr(State) ->
+    %Auth = State#vdritem.auth,
+    %_SerialNo = State#vdritem.serialno,
+    %VehicleID = State#vdritem.vehicleid,
+    Socket = State#vdritem.socket,
+    VDRPid = State#vdritem.vdrpid,
+	VDRMsgTimeoutPid = State#vdritem.vdrmsgtimeoutpid,
+	Pid = self(),
+    case VDRPid of
+        undefined ->
+            ok;
+        _ ->
+            VDRPid ! {Pid, stop},
+			receive
+				{Pid, stopped} ->
+					ok
+			after ?TIME_TERMINATE_VDR ->
+					ok
+			end
+    end,
+	case VDRMsgTimeoutPid of
+		undefined ->
+			ok;
+		_ ->
+			VDRMsgTimeoutPid ! {Pid, stop},
+			receive
+				{Pid, stopped} ->
+					ok
+			after ?TIME_TERMINATE_VDR ->
+					ok
+			end
+	end,
+    case Socket of
+        undefined ->
+            ok;
+        _ ->
+            ets:delete(vdrtable, Socket)
+    end,
+    %case VehicleID of
+    %    undefined ->
+    %        ok;
+    %    _ ->
+    %        {ok, WSUpdate} = wsock_data_parser:create_term_offline([VehicleID]),
+    %        %common:loginfo("~p~n~p~n", [WSUpdate, list_to_binary(WSUpdate)]),
+    %        vdr_handler:send_msg_to_ws(WSUpdate, State)
+    %end,
+    %case Auth of
+    %    undefined ->
+    %        ok;
+    %    _ ->
+    %        Sql = list_to_binary([<<"update device set is_online=0 where authen_code='">>, 
+    %                              list_to_binary(Auth), 
+    %                              <<"'">>]),
+    %        vdr_handler:send_sql_to_db(conn, Sql, State)
+    %end,
+    common:loginfo("VDR Server Error : VDR (~p) : gen_tcp:close~n", [State#vdritem.addr]),
+	try gen_tcp:close(State#vdritem.socket)
+    catch
+        _:Ex ->
+            common:logerror("VDR Server Error : VDR (~p) : exception when gen_tcp:close : ~p~n", [State#vdritem.addr, Ex])
+    end.
 								

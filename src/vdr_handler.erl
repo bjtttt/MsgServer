@@ -9,7 +9,9 @@
 -export([process_vdr_data/3,
          send_data_to_vdr/5,
 		 extract_db_resp/1,
-		 get_record_field/3]).
+		 get_record_field/3,
+		 send_sql_to_db/3,
+		 send_msg_to_ws/2]).
 
 -include("header.hrl").
 -include("mysql.hrl").
