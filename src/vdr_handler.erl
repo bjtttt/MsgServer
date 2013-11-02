@@ -206,17 +206,17 @@ terminate(Reason, State) ->
         _ ->
             ets:delete(vdrtable, Socket)
     end,
-	common:loginfo("VDR (~p) : say goodbye to WS~n", [State#vdritem.addr]),
+	%common:loginfo("VDR (~p) : say goodbye to WS~n", [State#vdritem.addr]),
     case VehicleID of
         undefined ->
             ok;
         _ ->
             {ok, WSUpdate} = wsock_data_parser:create_term_offline([VehicleID]),
             %common:loginfo("~p~n~p~n", [WSUpdate, list_to_binary(WSUpdate)]),
-            send_msg_to_ws_nowait(WSUpdate, State),
-			common:loginfo("VDR (~p) : successfully sent goodbye to WS~n", [State#vdritem.addr])
+            send_msg_to_ws_nowait(WSUpdate, State)
+			%common:loginfo("VDR (~p) : successfully sent goodbye to WS~n", [State#vdritem.addr])
     end,
-	common:loginfo("VDR (~p) : say goodbye to DB~n", [State#vdritem.addr]),
+	%common:loginfo("VDR (~p) : say goodbye to DB~n", [State#vdritem.addr]),
     case Auth of
         undefined ->
             ok;
@@ -224,10 +224,10 @@ terminate(Reason, State) ->
             Sql = list_to_binary([<<"update device set is_online=0 where authen_code='">>, 
                                   list_to_binary(Auth), 
                                   <<"'">>]),
-            send_sql_to_db_nowait(conn, Sql, State),
-			common:loginfo("VDR (~p) : successfully sent goodbye to DB~n", [State#vdritem.addr])
+            send_sql_to_db_nowait(conn, Sql, State)
+			%common:loginfo("VDR (~p) : successfully sent goodbye to DB~n", [State#vdritem.addr])
     end,
-    common:loginfo("VDR (~p) : gen_tcp:close~n", [State#vdritem.addr]),
+    %common:loginfo("VDR (~p) : gen_tcp:close~n", [State#vdritem.addr]),
 	try gen_tcp:close(State#vdritem.socket)
     catch
         _:Ex ->
