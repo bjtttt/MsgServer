@@ -11,7 +11,8 @@
 		 extract_db_resp/1,
 		 get_record_field/3,
 		 send_sql_to_db/3,
-		 send_msg_to_ws/2]).
+		 send_msg_to_ws/2,
+		 send_msg_to_ws/3]).
 
 -include("header.hrl").
 -include("mysql.hrl").
@@ -212,7 +213,7 @@ terminate(Reason, State) ->
         _ ->
             {ok, WSUpdate} = wsock_data_parser:create_term_offline([VehicleID]),
             %common:loginfo("~p~n~p~n", [WSUpdate, list_to_binary(WSUpdate)]),
-            send_msg_to_ws(WSUpdate, State)
+            send_msg_to_ws(WSUpdate, State, false)
     end,
     case Auth of
         undefined ->
@@ -221,7 +222,7 @@ terminate(Reason, State) ->
             Sql = list_to_binary([<<"update device set is_online=0 where authen_code='">>, 
                                   list_to_binary(Auth), 
                                   <<"'">>]),
-            send_sql_to_db(conn, Sql, State)
+            send_sql_to_db(conn, Sql, State, false)
     end,
     common:loginfo("VDR (~p) : gen_tcp:close~n", [State#vdritem.addr]),
 	try gen_tcp:close(State#vdritem.socket)
@@ -1717,6 +1718,37 @@ send_sql_to_db(PoolId, Msg, State) ->
             end
     end.
 
+send_sql_to_db(PoolId, Msg, State, Wait) ->
+	%MsgLen = byte_size(Msg),
+    case State#vdritem.dbpid of
+        undefined ->
+			ok;
+			%if
+			%	MsgLen > 1024 ->
+			%		PartMsg = binary:part(Msg, 0, 1024),
+			%		common:logerror("Cannot send SQL (~p)... to DB process (undefined) : ~p~n", [PartMsg, PoolId]);
+			%	true ->
+			%		common:logerror("Cannot send SQL (~p) to DB process (undefined) : ~p~n", [Msg, PoolId])
+			%end;
+        DBPid ->
+			%if
+			%	MsgLen > 1024 ->
+			%		PartMsg = binary:part(Msg, 0, 1024),
+			%		common:loginfo("Send SQL (~p)... to DB process (~p) : ~p~n", [PartMsg, DBPid, PoolId]);
+			%	true ->
+			%		common:loginfo("Send SQL (~p) to DB process (~p) : ~p~n", [Msg, DBPid, PoolId])
+			%end,
+            DBPid ! {State#vdritem.pid, PoolId, Msg},
+			if
+				Wait == true ->
+		            Pid = State#vdritem.pid,
+		            receive
+		                {Pid, Result} ->
+		                    Result
+		            end
+			end
+    end.
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %
 %
@@ -1764,7 +1796,23 @@ send_msg_to_ws(Msg, State) ->
                     ok
             end
     end.
-    
+
+send_msg_to_ws(Msg, State, Wait) ->
+    case State#vdritem.wspid of
+        undefined ->
+            ok;
+        WSPid ->
+            WSPid ! {State#vdritem.pid, Msg},
+			if
+				Wait == true ->
+		            Pid = State#vdritem.pid,
+		            receive
+		                {Pid, wsok} ->
+		                    ok
+		            end
+			end
+    end.
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %
 %
