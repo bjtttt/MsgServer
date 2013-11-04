@@ -149,7 +149,10 @@ handle_info({tcp_closed, _Socket}, State) ->
 					State#vdritem.vehicleid, 
 					State#vdritem.vehiclecode]),
 	common:send_stat_err(State, clientdisc),
-	{stop, tcp_closed, State}; 
+	{stop, tcp_closed, State};
+%handle_info(timeout, State) ->
+%	common:send_stat_err(State, errdisc)
+%	{stop, timeout, State};
 handle_info(_Info, State) ->    
 	{noreply, State}. 
 
