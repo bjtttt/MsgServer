@@ -23,17 +23,15 @@ init([Sock, Addr]) ->
     process_flag(trap_exit, true),
     Pid = self(),
     VDRPid = spawn(fun() -> data2vdr_process(Sock) end),
-    RespWSPid = spawn(fun() -> resp2ws_process([]) end),
+    %RespWSPid = spawn(fun() -> resp2ws_process([]) end),
     VdrMsgMonitorPid = spawn(fun() -> vdr_msg_monitor_process(Pid, Sock) end),
     [{dbpid, DBPid}] = ets:lookup(msgservertable, dbpid),
     [{wspid, WSPid}] = ets:lookup(msgservertable, wspid),
     [{ccpid, CCPid}] = ets:lookup(msgservertable, ccpid),
     [{linkpid, LinkPid}] = ets:lookup(msgservertable, linkpid),
-    State = #vdritem{socket=Sock, pid=Pid, vdrpid=VDRPid, respwspid=RespWSPid, addr=Addr, msgflownum=1, errorcount=0, dbpid=DBPid, wspid=WSPid, vdrmsgtimeoutpid=VdrMsgMonitorPid, ccpid=CCPid, linkpid=LinkPid},
+    %State = #vdritem{socket=Sock, pid=Pid, vdrpid=VDRPid, respwspid=RespWSPid, addr=Addr, msgflownum=1, errorcount=0, dbpid=DBPid, wspid=WSPid, vdrmsgtimeoutpid=VdrMsgMonitorPid, ccpid=CCPid, linkpid=LinkPid},
+    State = #vdritem{socket=Sock, pid=Pid, vdrpid=VDRPid, addr=Addr, msgflownum=1, errorcount=0, dbpid=DBPid, wspid=WSPid, vdrmsgtimeoutpid=VdrMsgMonitorPid, ccpid=CCPid, linkpid=LinkPid},
 	common:send_stat_err(State, conn),
-	%mysql:fetch(regauth, <<"set names 'utf8'">>),
-	%mysql:fetch(conn, <<"set names 'utf8'">>),
-	%mysql:fetch(cmd, <<"set names 'utf8'">>),
     ets:insert(vdrtable, State), 
     inet:setopts(Sock, [{active, once}]),
 	{ok, State}.
@@ -1666,6 +1664,8 @@ data2vdr_process(Socket) ->
 		{Pid, stop} ->
 			common:loginfo("~p stops waiting for MSG to VDR by ~p~n", [self(), Pid]),
 			Pid ! {Pid, stopped};
+		{Pid, stop, noresp} ->
+			common:loginfo("~p stops waiting for MSG to VDR by ~p~n", [self(), Pid]);
         {Pid, Msg} ->
             %common:loginfo("~p receives MSG to VDR from ~p : ~p~n", [self(), Pid, Msg]),
             gen_tcp:send(Socket, Msg),
@@ -1683,11 +1683,11 @@ data2vdr_process(Socket) ->
 %
 %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-resp2ws_process(List) ->
-    receive
-        _ ->
-            resp2ws_process(List)
-    end.
+%resp2ws_process(List) ->
+%    receive
+%        _ ->
+%            resp2ws_process(List)
+%    end.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %
@@ -1810,6 +1810,21 @@ vdr_msg_monitor_process(Pid, Socket) ->
 					Pid ! {Pid, stopped};
 				_ ->
 					Pid ! {Pid, stopped}
+			end;
+		{Pid, stop, noresp} ->
+			Result = ets:lookup(vdrtable, Socket),
+			case Result of
+				[State] ->
+					common:loginfo("VDR (~p) socket (~p) (id:~p, serialno:~p, authen_code:~p, vehicleid:~p, vehiclecode:~p) : message monitor process received stop command and stops",
+								   [State#vdritem.addr,
+									State#vdritem.socket,
+									State#vdritem.id, 
+									State#vdritem.serialno, 
+									State#vdritem.auth, 
+									State#vdritem.vehicleid, 
+									State#vdritem.vehiclecode]);
+				_ ->
+					ok
 			end;
 		{Pid, Socket} ->
 			Pid ! {Pid, ok},

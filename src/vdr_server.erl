@@ -147,7 +147,7 @@ handle_info({inet_async, LSock, Ref, {ok, CSock}}, #serverstate{lsock=LSock, acc
 %%%
 handle_info({tcp, Socket, Data}, State) ->  
     %common:printsocketinfo(Socket, "vdr_server:handle_info(...) : data from"),
-    common:logerror("(ERROR) vdr_server:handle_info(...) : data : ~p~n", [Data]),
+    %common:logerror("(ERROR) vdr_server:handle_info(...) : data : ~p~n", [Data]),
 	if
 		State#serverstate.lsock =/= Socket ->
 			terminate_invalid_vdrs(Socket);
@@ -160,7 +160,7 @@ handle_info({tcp, Socket, Data}, State) ->
 handle_info({inet_async, LSock, Ref, Error}, #serverstate{lsock=LSock, acceptor=Ref}=OriState) ->    
     [{linkpid, LinkPid}] = ets:lookup(msgservertable, linkpid),
 	State = OriState#serverstate{linkpid=LinkPid},
-    common:logerror("(ERROR) vdr_server:handle_info(...) : inet_async error : ~p~n", [Error]),
+    %common:logerror("(ERROR) vdr_server:handle_info(...) : inet_async error : ~p~n", [Error]),
 	{stop, Error, State}; 
 handle_info(_Info, State) ->    
 	{noreply, State}. 
@@ -186,9 +186,6 @@ do_terminate_invalid_vdrs(_States) ->
 	ok.
 
 do_terminate_invalid_vdr(State) ->
-    %Auth = State#vdritem.auth,
-    %_SerialNo = State#vdritem.serialno,
-    %VehicleID = State#vdritem.vehicleid,
     Socket = State#vdritem.socket,
     VDRPid = State#vdritem.vdrpid,
 	VDRMsgTimeoutPid = State#vdritem.vdrmsgtimeoutpid,
@@ -197,25 +194,13 @@ do_terminate_invalid_vdr(State) ->
         undefined ->
             ok;
         _ ->
-            VDRPid ! {Pid, stop},
-			receive
-				{Pid, stopped} ->
-					ok
-			after ?TIME_TERMINATE_VDR ->
-					ok
-			end
+            VDRPid ! {Pid, stop, noresp}
     end,
 	case VDRMsgTimeoutPid of
 		undefined ->
 			ok;
 		_ ->
-			VDRMsgTimeoutPid ! {Pid, stop},
-			receive
-				{Pid, stopped} ->
-					ok
-			after ?TIME_TERMINATE_VDR ->
-					ok
-			end
+			VDRMsgTimeoutPid ! {Pid, stop, noresp}
 	end,
     case Socket of
         undefined ->
@@ -223,24 +208,6 @@ do_terminate_invalid_vdr(State) ->
         _ ->
             ets:delete(vdrtable, Socket)
     end,
-    %case VehicleID of
-    %    undefined ->
-    %        ok;
-    %    _ ->
-    %        {ok, WSUpdate} = wsock_data_parser:create_term_offline([VehicleID]),
-    %        %common:loginfo("~p~n~p~n", [WSUpdate, list_to_binary(WSUpdate)]),
-    %        vdr_handler:send_msg_to_ws(WSUpdate, State)
-    %end,
-    %case Auth of
-    %    undefined ->
-    %        ok;
-    %    _ ->
-    %        Sql = list_to_binary([<<"update device set is_online=0 where authen_code='">>, 
-    %                              list_to_binary(Auth), 
-    %                              <<"'">>]),
-    %        vdr_handler:send_sql_to_db(conn, Sql, State)
-    %end,
-    common:loginfo("VDR Server Error : VDR (~p) : gen_tcp:close~n", [State#vdritem.addr]),
 	try gen_tcp:close(State#vdritem.socket)
     catch
         _:Ex ->
