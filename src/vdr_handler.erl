@@ -1641,8 +1641,7 @@ data2vdr_process(Socket) ->
 			Pid ! {Pid, stopped};
 		{Pid, stop, noresp} ->
 			common:loginfo("~p stops waiting for MSG to VDR by ~p~n", [self(), Pid]);
-        {Pid, Msg} ->
-			Pid,
+        {_Pid, Msg} ->
             gen_tcp:send(Socket, Msg),
             data2vdr_process(Socket);
         _ ->
