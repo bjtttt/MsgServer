@@ -188,6 +188,7 @@ do_terminate_invalid_vdrs(_States) ->
 do_terminate_invalid_vdr(State) ->
     Socket = State#vdritem.socket,
     VDRPid = State#vdritem.vdrpid,
+    VDRTablePid = State#vdritem.vdrtablepid,
 	Pid = self(),
     case VDRPid of
         undefined ->
@@ -199,7 +200,18 @@ do_terminate_invalid_vdr(State) ->
         undefined ->
             ok;
         _ ->
-            ets:delete(vdrtable, Socket)
+            case VDRTablePid of
+                undefined ->
+                    VDRTablePid1 = ets:lookup(msgservertable, vdrtablepid),
+                    case VDRTablePid1 of
+                        undefined ->
+                            ok;
+                        _ ->
+                            common:send_vdr_table_operation(VDRTablePid1, delete, Socket, noresp)
+                        end;
+                _ ->
+                    common:send_vdr_table_operation(VDRTablePid, delete, Socket, noresp)
+            end
     end,
 	try gen_tcp:close(State#vdritem.socket)
     catch

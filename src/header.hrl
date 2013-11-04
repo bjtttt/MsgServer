@@ -118,7 +118,8 @@
                     ccpid=undefined,
                     msgpackages={-1, []},
 					tel=0,
-					linkpid=undefined
+					linkpid=undefined,
+          vdrtablepid=undefined
                  }).
 
 %%%

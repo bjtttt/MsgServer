@@ -31,7 +31,8 @@
          convert_gbk_to_utf8/1,
          convert_utf8_to_gbk/1,
 		 get_str_bin_to_bin_list/1,
-		 send_stat_err/2]).
+		 send_stat_err/2,
+     send_vdr_table_operation/2]).
 
 -export([set_sockopt/3]).
 
@@ -781,6 +782,54 @@ get_str_bin_to_bin_list(S) when is_binary(S),
 get_str_bin_to_bin_list(_S) ->
 	[].
 
+send_vdr_table_operation(VDRTablePid, Oper) ->
+    case VDRTablePid of
+        undefined ->
+            VDRTablePid1 = ets:lookup(msgservertable, vdrtablepid),
+            case VDRTablePid1 of
+                undefined ->
+                    ok;
+                _ ->
+                    case Oper of
+                        {Pid, insert, Key, Value} ->
+                            VDRTablePid1 ! Oper,
+                            receive
+                                {Pid, ok} ->
+                                    ok
+                            end;
+                        {Pid, insert, Key, Value, noresp} ->
+                            VDRTablePid1 ! Oper;
+                        {Pid, delete, Key} ->
+                            VDRTablePid1 ! Oper,
+                            receive
+                                {Pid, ok} ->
+                                    ok
+                            end;
+                        {Pid, delete, Key, noresp} ->
+                            VDRTablePid1 ! Oper
+                  end;
+            end;
+        _ ->
+            case Oper of
+                {Pid, insert, Key, Value} ->
+                    VDRTablePid ! Oper,
+                    receive
+                        {Pid, ok} ->
+                            ok
+                    end;
+                {Pid, insert, Key, Value, noresp} ->
+                    VDRTablePid ! Oper;
+                {Pid, delete, Key} ->
+                    VDRTablePid! Oper,
+                    receive
+                        {Pid, ok} ->
+                            ok
+                    end;
+                {Pid, delete, Key, noresp} ->
+                      VDRTablePid ! Oper
+            end
+    end.
+          
 send_stat_err(State, Type) ->
 	if
 		State#vdritem.linkpid =/= undefined ->

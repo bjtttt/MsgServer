@@ -27,7 +27,8 @@ init([Sock, Addr]) ->
     [{wspid, WSPid}] = ets:lookup(msgservertable, wspid),
     [{ccpid, CCPid}] = ets:lookup(msgservertable, ccpid),
     [{linkpid, LinkPid}] = ets:lookup(msgservertable, linkpid),
-    State = #vdritem{socket=Sock, pid=Pid, vdrpid=VDRPid, addr=Addr, msgflownum=1, errorcount=0, dbpid=DBPid, wspid=WSPid, ccpid=CCPid, linkpid=LinkPid},
+    [{vdrtablepid, VdrTablePid}] = ets:lookup(msgservertable, vdrtablepid),
+    State = #vdritem{socket=Sock, pid=Pid, vdrpid=VDRPid, addr=Addr, msgflownum=1, errorcount=0, dbpid=DBPid, wspid=WSPid, ccpid=CCPid, linkpid=LinkPid, vdrtablepid=VdrTablePid},
 	common:send_stat_err(State, conn),
     ets:insert(vdrtable, State), 
     inet:setopts(Sock, [{active, once}]),
@@ -1473,7 +1474,8 @@ disconn_socket_by_vehicle_id(VehicleID) ->
 	                     '_', '_', '_', '_', '_',
 	                     '_', '_', '_', '_', '_',
 	                     '_', '_', '_', '_', '_',
-						 '_', '_', '_', '_', '_', '_', '_'}),
+                       '_', '_', '_', '_', '_',
+                       '_', '_', '_'}),
 	disconn_socket_by_id(SockList).
 
 disconn_socket_by_id(SockList, SelfSock) when is_list(SockList),
