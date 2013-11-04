@@ -108,15 +108,18 @@ start(StartType, StartArgs) ->
 		                    LinkPid = spawn(fun() -> connection_info_process(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0) end),
 		                    DBTablePid = spawn(fun() -> db_table_deamon() end),
 		                    CCPid = spawn(fun() -> code_convertor_process() end),
+		                    VdrTablePid = spawn(fun() -> vdrtable_insert_delete_process() end),
 		                    ets:insert(msgservertable, {dbpid, DBPid}),
 		                    ets:insert(msgservertable, {wspid, WSPid}),
 		                    ets:insert(msgservertable, {linkpid, LinkPid}),
 		                    ets:insert(msgservertable, {dbtablepid, DBTablePid}),
 		                    ets:insert(msgservertable, {ccpid, CCPid}),
+		                    ets:insert(msgservertable, {vdrtablepid, VdrTablePid}),
 		                    common:loginfo("WS client process PID is ~p~n", [WSPid]),
 		                    common:loginfo("DB client process PID is ~p~n", [DBPid]),
 		                    common:loginfo("DB table deamon process PID is ~p~n", [DBTablePid]),
 		                    common:loginfo("Code convertor process PID is ~p~n", [CCPid]),
+		                    common:loginfo("VDR table proceesor process PID is ~p~n", [VdrTablePid]),
 		                    
 							Pid = self(),
 							
@@ -139,13 +142,16 @@ start(StartType, StartArgs) ->
 		                    LinkPid = spawn(fun() -> connection_info_process(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0) end),
 		                    DBTablePid = spawn(fun() -> db_table_deamon() end),
 		                    CCPid = spawn(fun() -> code_convertor_process() end),
+		                    VdrTablePid = spawn(fun() -> vdrtable_insert_delete_process() end),
 		                    ets:insert(msgservertable, {dbpid, DBPid}),
 		                    ets:insert(msgservertable, {linkpid, LinkPid}),
 		                    ets:insert(msgservertable, {dbtablepid, DBTablePid}),
 		                    ets:insert(msgservertable, {ccpid, CCPid}),
+		                    ets:insert(msgservertable, {vdrtablepid, VdrTablePid}),
 		                    common:loginfo("DB client process PID is ~p~n", [DBPid]),
 		                    common:loginfo("DB table deamon process PID is ~p~n", [DBTablePid]),
 		                    common:loginfo("Code convertor process PID is ~p~n", [CCPid]),
+		                    common:loginfo("VDR table insert/delete process PID is ~p~n", [VdrTablePid]),
 		                    
 		                    CCPid ! {self(), create},
 		                    receive
@@ -167,6 +173,32 @@ start(StartType, StartArgs) ->
             {error, Error}
     end.
 
+vdrtable_insert_delete_process() ->
+	receive
+		stop ->
+			common:loginfo("VDR table insert/delete process stops.");
+		{Pid, insert, Key, Value} ->
+			ets:insert(vdrtable, {Key, Value}),
+			Pid ! insertok,
+			vdrtable_insert_delete_process();
+		{Pid, insert, Key, Value, noresp} ->
+			ets:insert(vdrtable, {Key, Value}),
+			vdrtable_insert_delete_process();
+		{Pid, delete, Key} ->
+			ets:delete(vdrtable, Key),
+			Pid ! deleteok,
+			vdrtable_insert_delete_process();
+		{Pid, delete, Key, noresp} ->
+			ets:delete(vdrtable, Key),
+			vdrtable_insert_delete_process();
+		%{Pid, size} ->
+		%	Size = ets:info(vdrtable, size),
+		%	Pid ! Size,
+		%	vdrtable_insert_delete_process();
+		_ ->
+			vdrtable_insert_delete_process()
+	end.
+
 %%%
 %%%
 %%%
@@ -177,6 +209,13 @@ stop(_State) ->
             ok;
         _ ->
             DBPid ! stop
+    end,
+    [{vdrtablepid, VdrTablePid}] = ets:lookup(msgservertable, vdrtablepid),
+    case VdrTablePid of
+        undefined ->
+            ok;
+        _ ->
+            VdrTablePid ! stop
     end,
     [{wspid, WSPid}] = ets:lookup(msgservertable, wspid),
     case WSPid of
