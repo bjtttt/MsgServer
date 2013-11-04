@@ -188,7 +188,6 @@ do_terminate_invalid_vdrs(_States) ->
 do_terminate_invalid_vdr(State) ->
     Socket = State#vdritem.socket,
     VDRPid = State#vdritem.vdrpid,
-	VDRMsgTimeoutPid = State#vdritem.vdrmsgtimeoutpid,
 	Pid = self(),
     case VDRPid of
         undefined ->
@@ -196,12 +195,6 @@ do_terminate_invalid_vdr(State) ->
         _ ->
             VDRPid ! {Pid, stop, noresp}
     end,
-	case VDRMsgTimeoutPid of
-		undefined ->
-			ok;
-		_ ->
-			VDRMsgTimeoutPid ! {Pid, stop, noresp}
-	end,
     case Socket of
         undefined ->
             ok;

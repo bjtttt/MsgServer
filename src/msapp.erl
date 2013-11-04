@@ -344,7 +344,7 @@ connection_info_process(Conn, CharDisc, RegDisc, AuthDisc, ErrDisc, ClientDisc,
 									LenErr, ParErr, SplitErr, RestErr, PackErr+1, TimeoutErr,
 									UnauthDisc, ExitDisc, VdrErr, UnvdrErr, MsgEx, GWStop,
 									SysErr, ServerMsg);
-		{_Pid, timeouterr} ->
+		{_Pid, vdrtimeout} ->
 			connection_info_process(Conn, CharDisc, RegDisc, AuthDisc, ErrDisc, ClientDisc, 
 									LenErr, ParErr, SplitErr, RestErr, PackErr, TimeoutErr+1,
 									UnauthDisc, ExitDisc, VdrErr, UnvdrErr, MsgEx, GWStop,
@@ -384,7 +384,7 @@ connection_info_process(Conn, CharDisc, RegDisc, AuthDisc, ErrDisc, ClientDisc,
 									LenErr, ParErr, SplitErr, RestErr, PackErr, TimeoutErr,
 									UnauthDisc, ExitDisc, VdrErr, UnvdrErr, MsgEx, GWStop,
 									SysErr+1, ServerMsg);
-		{_Pid, servmsg} ->
+		{_Pid, servermsg} ->
 			connection_info_process(Conn, CharDisc, RegDisc, AuthDisc, ErrDisc, ClientDisc, 
 									LenErr, ParErr, SplitErr, RestErr, PackErr, TimeoutErr,
 									UnauthDisc, ExitDisc, VdrErr, UnvdrErr, MsgEx, GWStop,

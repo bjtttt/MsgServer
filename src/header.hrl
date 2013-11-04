@@ -103,7 +103,6 @@
                     lastlon=0.0,
                     pid=undefined,
                     vdrpid=undefined,
-                    respwspid=undefined,		% Useless
                     addr=undefined, 
                     acttime=undefined, 
                     timeout=undefined,
@@ -116,21 +115,11 @@
                     req=[],
                     msgws2vdrflownum=?WS2VDRFREQ,
                     msgws2vdr=[],            % [{MsgID, WSFlowIdx}, ...] only one item for one MsgID
-					vdrmsgtimeoutpid=undefined,
                     ccpid=undefined,
                     msgpackages={-1, []},
 					tel=0,
 					linkpid=undefined
                  }).
-
-%-record(vdridsockitem, {    id=undefined,           % Vehicle ID
-%                            socket=undefined,
-%                            addr=undefined,
-%                            vdrpid=undefined,
-%                            respwspid=undefined,
-%                            msgflownum=?WS2VDRFREQ,
-%                            msgws2vdr=[]            % [{MsgID, WSFlowIdx}, ...] only one item for one MsgID
-%                       }).
 
 %%%
 %%% pid     : VDR handler process id
