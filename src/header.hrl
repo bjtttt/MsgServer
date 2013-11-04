@@ -103,7 +103,7 @@
                     lastlon=0.0,
                     pid=undefined,
                     vdrpid=undefined,
-                    respwspid=undefined,
+                    respwspid=undefined,		% Useless
                     addr=undefined, 
                     acttime=undefined, 
                     timeout=undefined,
