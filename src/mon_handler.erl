@@ -61,14 +61,6 @@ terminate(Reason, State) ->
 code_change(_OldVsn, State, _Extra) ->    
     {ok, State}.
 
-%%%
-%%% This function should refer to the document on the mechanism
-%%%
-process_mon_data(Socket, Data) ->
-    Bin = ti_mon_data_parser:parse_data(Data),
-    gen_tcp:send(Socket, Bin).
-
-
 
 
 

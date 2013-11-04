@@ -64,7 +64,7 @@ code_change(_OldVsn, State, _Extra) ->
 %%%
 %%% This function should refer to the document on the mechanism
 %%%
-process_mp_data(Socket, Data) ->
+process_mp_data(_Socket, _Data) ->
     ok.%wsock_data_parser:process_wsock_message(Msg)
     %Bin = ti_mon_data_parser:parse_data(Data),
     %gen_tcp:send(Socket, Bin).

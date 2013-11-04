@@ -243,7 +243,7 @@ mysql_process(Num1, Num2) ->
 					Pid ! {Pid,<<"">>}
 			end,
             mysql_process(Num1+1, Num2);
-        {Pid, PoolId, Sql, noresp} ->
+        {_Pid, PoolId, Sql, noresp} ->
 			SqlLen = byte_size(Sql),
 			try
 				Result = mysql:fetch(PoolId, Sql)
@@ -292,10 +292,10 @@ mysql_process_err(Num1, Num2) ->
 		{Pid, ok} ->
 			Pid ! ok,
 			mysql_process(Num1, Num2);
-        {Pid, PoolId, Sql} ->
+        {Pid, _PoolId, _Sql} ->
 			Pid ! {Pid,<<"">>},
             mysql_process_err(Num1, Num2+1);
-        {Pid, PoolId, Sql, noresp} ->
+        {_Pid, _PoolId, _Sql, noresp} ->
             mysql_process_err(Num1, Num2+1);
 		{Pid, test} ->
 			Pid ! ok,

@@ -1347,18 +1347,18 @@ get_answer_list(_List) ->
 %       [[ID1, Ans1], [ID2, Ans2], ...]|[]
 %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-get_man_alarm_ack_list(List) when is_list(List),
-                                  length(List) > 0 ->
-    [H|T] = List,
-    {obj, [{"ASN", ASN},{"TYPE", TYPE}]} = H,
-    case T of
-        [] ->
-            [[ASN, TYPE]];
-        _ ->
-            [[ASN, TYPE]| get_answer_list(T)]
-	end;					
-get_man_alarm_ack_list(_List) ->
-    [].
+%get_man_alarm_ack_list(List) when is_list(List),
+%                                  length(List) > 0 ->
+%    [H|T] = List,
+%    {obj, [{"ASN", ASN},{"TYPE", TYPE}]} = H,
+%    case T of
+%        [] ->
+%            [[ASN, TYPE]];
+%        _ ->
+%            [[ASN, TYPE]| get_answer_list(T)]
+%	end;					
+%get_man_alarm_ack_list(_List) ->
+%    [].
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %
@@ -1437,32 +1437,32 @@ get_phone_name_list(_List) ->
 %
 %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-get_mul_addr_to_vdr_list(List) when is_list(List),
-                               		length(List) > 0 ->
-    [H|T] = List,
-    {obj, DATA} = H,
-    Len = length(DATA),
-    if
-        Len == 3 ->
-            {"LAT", LAT} = get_specific_entry(DATA, "LAT"),
-            {"LNG", LNG} = get_specific_entry(DATA, "LNG"),
-            {"POT", POT} = get_specific_entry(DATA, "POT"),
-            case T of
-                [] ->
-                    [[LAT, LNG, POT]];
-                _ ->
-                    [[LAT, LNG, POT]|get_mul_addr_to_vdr_list(T)]
-            end;
-        true ->
-            case T of
-                [] ->
-                    [];
-                _ ->
-                    get_mul_addr_to_vdr_list(T)
-            end
-    end;
-get_mul_addr_to_vdr_list(_List) ->
-	[].
+%get_mul_addr_to_vdr_list(List) when is_list(List),
+%                               		length(List) > 0 ->
+%    [H|T] = List,
+%    {obj, DATA} = H,
+%    Len = length(DATA),
+%	if
+%        Len == 3 ->
+%            {"LAT", LAT} = get_specific_entry(DATA, "LAT"),
+%            {"LNG", LNG} = get_specific_entry(DATA, "LNG"),
+%            {"POT", POT} = get_specific_entry(DATA, "POT"),
+%            case T of
+%                [] ->
+%                    [[LAT, LNG, POT]];
+%                _ ->
+%                    [[LAT, LNG, POT]|get_mul_addr_to_vdr_list(T)]
+%            end;
+%        true ->
+%            case T of
+%                [] ->
+%                    [];
+%                _ ->
+%                    get_mul_addr_to_vdr_list(T)
+%            end
+%    end;
+%get_mul_addr_to_vdr_list(_List) ->
+%	[].
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %
