@@ -165,15 +165,17 @@ terminate(Reason, State) ->
         undefined ->
             ok;
         _ ->
-		    common:loginfo("Remove VDR (~p) socket (~p) (id:~p, serialno:~p, authen_code:~p, vehicleid:~p, vehiclecode:~p)",
+            ets:delete(vdrtable, Socket),
+			V1 = ets:info(vdrtable, size),
+		    common:loginfo("Remove VDR (~p) socket (~p) (id:~p, serialno:~p, authen_code:~p, vehicleid:~p, vehiclecode:~p) : ~p",
 						   [State#vdritem.addr,
 							State#vdritem.socket,
 							State#vdritem.id, 
 							State#vdritem.serialno, 
 							State#vdritem.auth, 
 							State#vdritem.vehicleid, 
-							State#vdritem.vehiclecode]),
-            ets:delete(vdrtable, Socket)
+							State#vdritem.vehiclecode,
+							V1])
     end,
     case VehicleID of
         undefined ->
