@@ -181,14 +181,14 @@ vdrtable_insert_delete_process() ->
 			ets:insert(vdrtable, Object),
 			Pid ! {Pid, ok},
 			vdrtable_insert_delete_process();
-		{Pid, insert, Object, noresp} ->
+		{_Pid, insert, Object, noresp} ->
 			ets:insert(vdrtable, Object),
 			vdrtable_insert_delete_process();
 		{Pid, delete, Key} ->
 			ets:delete(vdrtable, Key),
 			Pid ! {Pid, ok},
 			vdrtable_insert_delete_process();
-		{Pid, delete, Key, noresp} ->
+		{_Pid, delete, Key, noresp} ->
 			ets:delete(vdrtable, Key),
 			vdrtable_insert_delete_process();
 		_ ->

@@ -791,41 +791,41 @@ send_vdr_table_operation(VDRTablePid, Oper) ->
                     ok;
                 _ ->
                     case Oper of
-                        {Pid, insert, Key, Value} ->
+                        {Pid, insert, _Object} ->
                             VDRTablePid1 ! Oper,
                             receive
                                 {Pid, ok} ->
                                     ok
                             end;
-                        {Pid, insert, Key, Value, noresp} ->
+                        {_Pid, insert, _Object, noresp} ->
                             VDRTablePid1 ! Oper;
-                        {Pid, delete, Key} ->
+                        {Pid, delete, _Key} ->
                             VDRTablePid1 ! Oper,
                             receive
                                 {Pid, ok} ->
                                     ok
                             end;
-                        {Pid, delete, Key, noresp} ->
+                        {_Pid, delete, _Key, noresp} ->
                             VDRTablePid1 ! Oper
-                  end;
+                  end
             end;
         _ ->
             case Oper of
-                {Pid, insert, Key, Value} ->
+                {Pid, insert, _Object} ->
                     VDRTablePid ! Oper,
                     receive
                         {Pid, ok} ->
                             ok
                     end;
-                {Pid, insert, Key, Value, noresp} ->
+                {_Pid, insert, _Object, noresp} ->
                     VDRTablePid ! Oper;
-                {Pid, delete, Key} ->
+                {Pid, delete, _Key} ->
                     VDRTablePid! Oper,
                     receive
                         {Pid, ok} ->
                             ok
                     end;
-                {Pid, delete, Key, noresp} ->
+                {_Pid, delete, _Key, noresp} ->
                       VDRTablePid ! Oper
             end
     end.
@@ -836,11 +836,11 @@ send_stat_err(State, Type) ->
 			State#vdritem.linkpid ! {self(), Type}
 	end.
 
-send_stat_err_server(State, Type) ->
-	if
-		State#serverstate.linkpid =/= undefined ->
-			State#serverstate.linkpid ! {self(), Type}
-	end.
+%send_stat_err_server(State, Type) ->
+%	if
+%		State#serverstate.linkpid =/= undefined ->
+%			State#serverstate.linkpid ! {self(), Type}
+%	end.
 
 
 

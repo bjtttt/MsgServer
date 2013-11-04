@@ -995,9 +995,9 @@ update_vdr_ws2vdr_msg_id_flowidx(ID, FlowIdx, VID, Value) when is_integer(ID),
             [[Sock]] = Res,
             [VDRItem] = ets:lookup(vdrtable, Sock),
             MsgList = update_ws2vdrmsglist(VDRItem#vdritem.msgws2vdr, ID, FlowIdx, Value),
-            %common:loginfo("WSClient : VehicleID (~p) vdritem.msgws2vdr : ~p~n", [VID, MsgList]),
-            %ets:insert(vdrtable, VDRItem#vdritem{msgws2vdr=MsgList});
-            common:send_vdr_table_operation(VDRItem#vdritem.vdrtablepid, {self(), insert, VDRItem#vdritem{msgws2vdr=MsgList}});
+            VDRTablePid = VDRItem#vdritem.vdrtablepid,
+            NewVDRItem = VDRItem#vdritem{msgws2vdr=MsgList},                          
+            common:send_vdr_table_operation(VDRTablePid, {self(), insert, NewVDRItem, noresp});
         ResCount ->
             common:logerror("(FATAL) WSClient : vdrtable has ~p item(s) for VechileID ~p~n", [ResCount, VID])
     end.
@@ -1200,10 +1200,10 @@ send_msg_to_vdr(ID, VID, Msg) when is_binary(Msg) ->
         1 ->
             [[Sock]] = Res,
             [VDRItem] = ets:lookup(vdrtable, Sock),
-            %common:loginfo("WS Server : Gateway WS delegation ~p sends msg to VDR (~p) : ~p~n", [self(), VDRItem#vdritem.addr, Msg]),
             NewFlowIdx = vdr_handler:send_data_to_vdr(ID, VDRItem#vdritem.tel, VDRItem#vdritem.msgws2vdrflownum, Msg, VDRItem#vdritem.vdrpid),
-            %ets:insert(vdrtable, VDRItem#vdritem{msgws2vdrflownum=NewFlowIdx});%,
-            common:send_vdr_table_operation(VDRItem#vdritem.vdrtablepid, {self(), insert, VDRItem#vdritem{msgws2vdrflownum=NewFlowIdx}});
+            VDRTablePid = VDRItem#vdritem.vdrtablepid,
+            NewVDRItem = VDRItem#vdritem{msgws2vdrflownum=NewFlowIdx},
+            common:send_vdr_table_operation(VDRTablePid, {self(), insert, NewVDRItem, noresp});
         _ ->
             common:logerr("WS Server : Cannot find VID in vdrtable~n"),
             ok

@@ -104,7 +104,6 @@ handle_info({inet_async, LSock, Ref, {ok, CSock}}, #serverstate{lsock=LSock, acc
                     {ok, Pid, _Info} ->
                         case gen_tcp:controlling_process(ç, Pid) of
                             ok ->
-                                %ets:insert(vdrtable, #vdritem{socket=CSock, pid=Pid});
                                 ok;
                             {error, Reason1} ->
                                 common:logerror("vdr_server:handle_info(...) : gen_server:controlling_process(Socket, ~p) fails: ~p~n", [Pid, Reason1]),
@@ -145,7 +144,7 @@ handle_info({inet_async, LSock, Ref, {ok, CSock}}, #serverstate{lsock=LSock, acc
 %%%
 %%% Data should not be received here because it is a listening socket process
 %%%
-handle_info({tcp, Socket, Data}, State) ->  
+handle_info({tcp, Socket, _Data}, State) ->  
     %common:printsocketinfo(Socket, "vdr_server:handle_info(...) : data from"),
     %common:logerror("(ERROR) vdr_server:handle_info(...) : data : ~p~n", [Data]),
 	if
@@ -200,18 +199,7 @@ do_terminate_invalid_vdr(State) ->
         undefined ->
             ok;
         _ ->
-            case VDRTablePid of
-                undefined ->
-                    VDRTablePid1 = ets:lookup(msgservertable, vdrtablepid),
-                    case VDRTablePid1 of
-                        undefined ->
-                            ok;
-                        _ ->
-                            common:send_vdr_table_operation(VDRTablePid1, delete, Socket, noresp)
-                        end;
-                _ ->
-                    common:send_vdr_table_operation(VDRTablePid, delete, Socket, noresp)
-            end
+            common:send_vdr_table_operation(VDRTablePid, {self(), delete, Socket, noresp})
     end,
 	try gen_tcp:close(State#vdritem.socket)
     catch

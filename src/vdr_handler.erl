@@ -30,7 +30,7 @@ init([Sock, Addr]) ->
     [{vdrtablepid, VdrTablePid}] = ets:lookup(msgservertable, vdrtablepid),
     State = #vdritem{socket=Sock, pid=Pid, vdrpid=VDRPid, addr=Addr, msgflownum=1, errorcount=0, dbpid=DBPid, wspid=WSPid, ccpid=CCPid, linkpid=LinkPid, vdrtablepid=VdrTablePid},
 	common:send_stat_err(State, conn),
-    ets:insert(vdrtable, State), 
+    common:send_vdr_table_operation(VdrTablePid, {self(), insert, State, noresp}),
     inet:setopts(Sock, [{active, once}]),
 	{ok, State}.
 
@@ -155,6 +155,7 @@ terminate(Reason, State) ->
     VehicleID = State#vdritem.vehicleid,
     Socket = State#vdritem.socket,
     VDRPid = State#vdritem.vdrpid,
+    VDRTablePid = State#vdritem.vdrtablepid,
 	Pid = self(),
     case VDRPid of
         undefined ->
@@ -166,7 +167,7 @@ terminate(Reason, State) ->
         undefined ->
             ok;
         _ ->
-            ets:delete(vdrtable, Socket),
+            common:send_vdr_table_operation(VDRTablePid, {self(), delete, Socket, noresp}),
 			V1 = ets:info(vdrtable, size),
 		    common:loginfo("Remove VDR (~p) socket (~p) (id:~p, serialno:~p, authen_code:~p, vehicleid:~p, vehiclecode:~p) : ~p",
 						   [State#vdritem.addr,
@@ -511,7 +512,8 @@ process_vdr_data(Socket, Data, State) ->
 																									              driverid=DriverID,
 				                                                                                                  msgflownum=NewFlowIdx, msg2vdr=[], msg=[], req=[],
 																									              alarm=0, alarmlist=[], state=0, statelist=[], tel=Tel},
-																					ets:insert(vdrtable, FinalState),
+                                                                                    VDRTablePid = NewState#vdritem.vdrtablepid,
+                                                                                    common:send_vdr_table_operation(VDRTablePid, {self(), insert, FinalState, noresp}),
 				                                        
 				                                                                    {ok, FinalState};
 				                                                                _ ->
@@ -539,7 +541,8 @@ process_vdr_data(Socket, Data, State) ->
 																									              driverid=DriverID,
 				                                                                                                  msgflownum=NewFlowIdx, msg2vdr=[], msg=[], req=[],
 																									              alarm=0, alarmlist=AlarmList, state=0, statelist=[], tel=Tel},
-																					ets:insert(vdrtable, FinalState),
+                                                                                    VDRTablePid = NewState#vdritem.vdrtablepid,
+                                                                                    common:send_vdr_table_operation(VDRTablePid, {self(), insert, FinalState, noresp}),
 																					
 				                                                                    {ok, FinalState};
 				                                                                _ ->
@@ -624,7 +627,9 @@ process_vdr_data(Socket, Data, State) ->
                                     end,
                                     
                                     NewMsgList = [{WSID, WSFlowIdx, WSValue} || {WSID, WSFlowIdx, WSValue} <- MsgList, WSID =/= RespID],
-                                    ets:insert(vdrtable, VDRItem#vdritem{msgws2vdr=NewMsgList}),
+                                    VDRTablePid = VDRItem#vdritem.vdrtablepid,
+                                    NewVDRItem = VDRItem#vdritem{msgws2vdr=NewMsgList},
+                                    common:send_vdr_table_operation(VDRTablePid, {self(), insert, NewVDRItem, noresp}),
                                     
                                     {ok, NewState#vdritem{msgws2vdr=NewMsgList}};
                                 true ->
@@ -710,7 +715,9 @@ process_vdr_data(Socket, Data, State) ->
                             end,
                                     
                             NewMsgList = [{WSID, WSFlowIdx, WSValue} || {WSID, WSFlowIdx, WSValue} <- MsgList, WSID =/= 16#8302],
-                            ets:insert(vdrtable, VDRItem#vdritem{msgws2vdr=NewMsgList}),
+                            VDRTablePid = VDRItem#vdritem.vdrtablepid,
+                            NewVDRItem = VDRItem#vdritem{msgws2vdr=NewMsgList},
+                            common:send_vdr_table_operation(VDRTablePid, {self(), insert, NewVDRItem, noresp}),
                             
                             {ok, NewState#vdritem{msgws2vdr=NewMsgList}};
                         16#303 ->
@@ -746,7 +753,9 @@ process_vdr_data(Socket, Data, State) ->
                             end,
                                     
                             NewMsgList = [{WSID, WSFlowIdx, WSValue} || {WSID, WSFlowIdx, WSValue} <- MsgList, WSID =/= 16#8500],
-                            ets:insert(vdrtable, VDRItem#vdritem{msgws2vdr=NewMsgList}),
+                            VDRTablePid = VDRItem#vdritem.vdrtablepid,
+                            NewVDRItem = VDRItem#vdritem{msgws2vdr=NewMsgList},
+                            common:send_vdr_table_operation(VDRTablePid, {self(), insert, NewVDRItem, noresp}),
                             
                             {ok, NewState#vdritem{msgws2vdr=NewMsgList}};
                         16#700 ->
@@ -816,7 +825,9 @@ process_vdr_data(Socket, Data, State) ->
 		                            NewFlowIdx = send_data_to_vdr(16#8800, Tel, FlowIdx, MsgBody, VDRPid),
 									
 						            [VDRItem] = ets:lookup(vdrtable, Socket),
-									ets:insert(vdrtable, VDRItem#vdritem{msg=NewState#vdritem.msg}),
+                                    VDRTablePid = VDRItem#vdritem.vdrtablepid,
+                                    NewVDRItem = VDRItem#vdritem{msg=NewState#vdritem.msg},
+                                    common:send_vdr_table_operation(VDRTablePid, {self(), insert, NewVDRItem, noresp}),
 									
 		                            %{ok, NewState};
 		                            {ok, NewState#vdritem{msgflownum=NewFlowIdx}};
@@ -846,7 +857,9 @@ process_vdr_data(Socket, Data, State) ->
                             end,
                                     
                             NewMsgList = [{WSID, WSFlowIdx, WSValue} || {WSID, WSFlowIdx, WSValue} <- MsgList, WSID =/= 16#8801],
-                            ets:insert(vdrtable, VDRItem#vdritem{msgws2vdr=NewMsgList}),
+                            VDRTablePid = VDRItem#vdritem.vdrtablepid,
+                            NewVDRItem = VDRItem#vdritem{msgws2vdr=NewMsgList},
+                            common:send_vdr_table_operation(VDRTablePid, {self(), insert, NewVDRItem, noresp}),
                             
                             {ok, NewState#vdritem{msgws2vdr=NewMsgList}};
                         16#802 ->
@@ -913,7 +926,9 @@ process_vdr_data(Socket, Data, State) ->
                     case MissingMsgIdx of
                         none ->
                             [VDRItem] = ets:lookup(vdrtable, Socket),
-                            ets:insert(vdrtable, VDRItem#vdritem{msg=NewState#vdritem.msg}),
+                            VDRTablePid = VDRItem#vdritem.vdrtablepid,
+                            NewVDRItem = VDRItem#vdritem{msg=NewState#vdritem.msg},
+                            common:send_vdr_table_operation(VDRTablePid, {self(), insert, NewVDRItem, noresp}),
                             
                             {ok, NewState#vdritem{msgflownum=NewFlowIdx}};
                         {FirstmsgIdxID, MsgIdxsID} ->
@@ -927,13 +942,17 @@ process_vdr_data(Socket, Data, State) ->
                             NewFlowIdx1 = send_data_to_vdr(16#8003, NewState#vdritem.tel, FlowIdx, MsgBody1, VDRPid),
 
                             [VDRItem] = ets:lookup(vdrtable, Socket),
-                            ets:insert(vdrtable, VDRItem#vdritem{msg=NewState#vdritem.msg}),
+                            VDRTablePid = VDRItem#vdritem.vdrtablepid,
+                            NewVDRItem = VDRItem#vdritem{msg=NewState#vdritem.msg},
+                            common:send_vdr_table_operation(VDRTablePid, {self(), insert, NewVDRItem, noresp}),
                             
                             {ok, NewState#vdritem{msgflownum=NewFlowIdx1}}
                     end;
                 true ->
                     [VDRItem] = ets:lookup(vdrtable, Socket),
-                    ets:insert(vdrtable, VDRItem#vdritem{msg=NewState#vdritem.msg}),
+                    VDRTablePid = VDRItem#vdritem.vdrtablepid,
+                    NewVDRItem = VDRItem#vdritem{msg=NewState#vdritem.msg},
+                    common:send_vdr_table_operation(VDRTablePid, {self(), insert, NewVDRItem, noresp}),
                     
                     {ok, NewState#vdritem{msgflownum=NewFlowIdx}}
             end;			
@@ -1461,7 +1480,7 @@ disconn_socket_by_id(SockList) when is_list(SockList),
                 _ ->
                     ok
             end,
-            ets:delete(vdrtable, Sock),
+            common:send_vdr_table_operation(undefined, {self(), delete, Sock, noresp}),
             disconn_socket_by_id(T)
     end;
 disconn_socket_by_id(_SockList) ->
@@ -1474,31 +1493,29 @@ disconn_socket_by_vehicle_id(VehicleID) ->
 	                     '_', '_', '_', '_', '_',
 	                     '_', '_', '_', '_', '_',
 	                     '_', '_', '_', '_', '_',
-                       '_', '_', '_', '_', '_',
-                       '_', '_', '_'}),
+                        '_', '_', '_', '_', '_',
+                        '_', '_', '_'}),
 	disconn_socket_by_id(SockList).
 
-disconn_socket_by_id(SockList, SelfSock) when is_list(SockList),
-                                              length(SockList) > 0 ->
-    [H|T] = SockList,
-    [Sock] = H,
-	if
-		SelfSock =/= Sock ->
-			%common:loginfo("Disconnect socket ~p because of being not ~p~n", [Sock, SelfSock]),
-            try
-				gen_tcp:close(Sock)
-			catch
-				_:_ ->
-					ok
-			end,
-            ets:delete(vdrtable, Sock);
-		true ->
-			%common:loginfo("NOT disconnect socket ~p because of being ~p~n", [Sock, SelfSock]),
-			ok
-	end,
-    disconn_socket_by_id(T, SelfSock);
-disconn_socket_by_id(_SockList, _SelfSock) ->
-    ok.
+%disconn_socket_by_id(SockList, SelfSock) when is_list(SockList),
+%                                              length(SockList) > 0 ->
+%    [H|T] = SockList,
+%    [Sock] = H,%
+%	if
+%		SelfSock =/= Sock ->
+%            try
+%				gen_tcp:close(Sock)
+%			catch
+%				_:_ ->
+%					ok
+%			end,
+%            common:send_vdr_table_operation(undefined, {self(), delete, Sock, noresp});
+%		true ->
+%			ok
+%	end,
+%    disconn_socket_by_id(T, SelfSock);
+%disconn_socket_by_id(_SockList, _SelfSock) ->
+%    ok.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %
@@ -1625,6 +1642,7 @@ data2vdr_process(Socket) ->
 		{Pid, stop, noresp} ->
 			common:loginfo("~p stops waiting for MSG to VDR by ~p~n", [self(), Pid]);
         {Pid, Msg} ->
+			Pid,
             gen_tcp:send(Socket, Msg),
             data2vdr_process(Socket);
         _ ->
@@ -1739,13 +1757,13 @@ send_msg_to_ws_nowait(Msg, State) ->
             WSPid ! {State#vdritem.pid, Msg, noresp}
     end.
 
-terminate_vdrs(States, Msg) when is_list(States),
-							     length(States) > 0 ->
-	[H|T] = States,
-	terminate(Msg, H),
-	terminate_vdrs(T, Msg);
-terminate_vdrs(_States, _Msg) ->
-	ok.
+%terminate_vdrs(States, Msg) when is_list(States),
+%							     length(States) > 0 ->
+%	[H|T] = States,
+%	terminate(Msg, H),
+%	terminate_vdrs(T, Msg);
+%terminate_vdrs(_States, _Msg) ->
+%	ok.
 
 %%%         
 %%% Return :
