@@ -146,7 +146,7 @@ handle_info({inet_async, LSock, Ref, {ok, CSock}}, #serverstate{lsock=LSock, acc
 %%% Data should not be received here because it is a listening socket process
 %%%
 handle_info({tcp, Socket, Data}, State) ->  
-    common:printsocketinfo(Socket, "vdr_server:handle_info(...) : data from"),
+    %common:printsocketinfo(Socket, "vdr_server:handle_info(...) : data from"),
     common:logerror("(ERROR) vdr_server:handle_info(...) : data : ~p~n", [Data]),
 	if
 		State#serverstate.lsock =/= Socket ->
