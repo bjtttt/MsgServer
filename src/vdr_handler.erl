@@ -302,6 +302,7 @@ process_vdr_data(Socket, Data, State) ->
 		{SelfPid, ok} ->
 			do_process_vdr_data(Socket, Data, State)
 	after ?VDR_MSG_RESP_TIMEOUT ->
+		common:send_stat_err(State, syserr),
 		{error, systemerror, State}
 	end.
 
