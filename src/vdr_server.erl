@@ -67,7 +67,9 @@ handle_call(Request, _From, State) ->
 handle_cast(_Msg, State) ->    
 	{noreply, State}. 
 
-handle_info({inet_async, LSock, Ref, {ok, CSock}}, #serverstate{lsock=LSock, acceptor=Ref}=State) ->
+handle_info({inet_async, LSock, Ref, {ok, CSock}}, #serverstate{lsock=LSock, acceptor=Ref}=OriState) ->
+    [{linkpid, LinkPid}] = ets:lookup(msgservertable, linkpid),
+	State = OriState#serverstate{linkpid=LinkPid},
     %common:printsocketinfo(CSock, "Accepted one VDR"),
     try        
 		case common:set_sockopt(LSock, CSock, "vdr_server:handle_info(...)") of	        
@@ -152,9 +154,12 @@ handle_info({tcp, Socket, Data}, State) ->
 		true ->
 			common:logerror("(ERROR) vdr_server:handle_info(...) : cannot perform gen_tcp:close(...) ~n")
 	end,
+	common:send_stat_err_server(State, servermsg),
 	inet:setopts(Socket, [{active, once}]),
     {noreply, State}; 
-handle_info({inet_async, LSock, Ref, Error}, #serverstate{lsock=LSock, acceptor=Ref}=State) ->    
+handle_info({inet_async, LSock, Ref, Error}, #serverstate{lsock=LSock, acceptor=Ref}=OriState) ->    
+    [{linkpid, LinkPid}] = ets:lookup(msgservertable, linkpid),
+	State = OriState#serverstate{linkpid=LinkPid},
     common:logerror("(ERROR) vdr_server:handle_info(...) : inet_async error : ~p~n", [Error]),
 	{stop, Error, State}; 
 handle_info(_Info, State) ->    

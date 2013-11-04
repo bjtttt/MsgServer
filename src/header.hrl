@@ -182,7 +182,10 @@
 %%% lsock       : Listening socket
 %%% acceptor    : Asynchronous acceptor's internal reference
 %%%
--record(serverstate, {lsock, acceptor}).
+-record(serverstate, {	lsock = undefined, 
+						acceptor = undefined, 
+						linkpid = undefined
+  					}).
 
 %% JSON - RFC 4627 - for Erlang
 %%---------------------------------------------------------------------------

@@ -787,6 +787,12 @@ send_stat_err(State, Type) ->
 			State#vdritem.linkpid ! {self(), Type}
 	end.
 
+send_stat_err_server(State, Type) ->
+	if
+		State#serverstate.linkpid =/= undefined ->
+			State#serverstate.linkpid ! {self(), Type}
+	end.
+
 
 
 
