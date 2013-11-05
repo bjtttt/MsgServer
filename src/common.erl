@@ -32,8 +32,7 @@
          convert_utf8_to_gbk/1,
 		 get_str_bin_to_bin_list/1,
 		 send_stat_err/2,
-		 send_vdr_table_operation/2,
-		 send_vdr_table_operation_debug/2]).
+		 send_vdr_table_operation/2]).
 
 -export([set_sockopt/3]).
 
