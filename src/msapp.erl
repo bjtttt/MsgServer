@@ -193,7 +193,8 @@ vdrtable_insert_delete_process() ->
 			vdrtable_insert_delete_process();
 		{Pid, count} ->
 			Count = ets:info(vdrtable, size),
-			Pid ! {Pid, Count};
+			Pid ! {Pid, Count},
+			vdrtable_insert_delete_process();
 		_ ->
 			vdrtable_insert_delete_process()
 	end.
