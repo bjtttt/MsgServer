@@ -184,7 +184,7 @@ create_test_ws_proc_response(WSPid) ->
 
 create_vehicle_count_response() ->
     Pid = self(),
-	V1 = common:send_vdr_table_operation_debug(undefined, {Pid, count}),
+	V1 = common:send_vdr_table_operation(undefined, {Pid, count}),
 	if
 		V1 == undefined ->
 			Value1 = 0,
