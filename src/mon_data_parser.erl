@@ -183,18 +183,23 @@ create_test_ws_proc_response(WSPid) ->
 	end.
 
 create_vehicle_count_response() ->
-	V1 = ets:info(vdrtable, size),
-	if
-		V1 == undefined ->
-			Value1 = 0,
-			Content = <<6:?LEN_DWORD, 0:?LEN_BYTE, 3:?LEN_BYTE, Value1:?LEN_DWORD>>,
-			Xor = vdr_data_parser:bxorbytelist(Content),
-			list_to_binary([Content, Xor]);
-		true ->
-			Content = <<6:?LEN_DWORD, 0:?LEN_BYTE, 3:?LEN_BYTE, V1:?LEN_DWORD>>,
-			Xor = vdr_data_parser:bxorbytelist(Content),
-			list_to_binary([Content, Xor])
-	end.
+    Pid = self(),
+	common:send_vdr_table_operation(undefined, {Pid, count}),
+    receive
+        {Pid, V1} ->
+            V1 = ets:info(vdrtable, size),
+        	if
+        		V1 == undefined ->
+        			Value1 = 0,
+        			Content = <<6:?LEN_DWORD, 0:?LEN_BYTE, 3:?LEN_BYTE, Value1:?LEN_DWORD>>,
+        			Xor = vdr_data_parser:bxorbytelist(Content),
+        			list_to_binary([Content, Xor]);
+        		true ->
+        			Content = <<6:?LEN_DWORD, 0:?LEN_BYTE, 3:?LEN_BYTE, V1:?LEN_DWORD>>,
+        			Xor = vdr_data_parser:bxorbytelist(Content),
+        			list_to_binary([Content, Xor])
+        	end
+    end.    
 
 compose_one_item_list_array_to_list(IDs) when is_list(IDs),
 											  length(IDs) > 0 ->
@@ -367,32 +372,38 @@ create_undef_count_response() ->
                                 '_', '_', '_', '_', '_', 
                                 '_', '_', '_', '_', '_', 
                                 '_', '_', '_', '_', '_',
-								'_', '_', '_', '_', '_', '_', '_', '_'}),
+								'_', '_', '_', '_', '_',
+                                '_', '_', '_'}),
 	Count = length(VIDs),
     Content = <<6:?LEN_DWORD, 0:?LEN_BYTE, 11:?LEN_BYTE, Count:?LEN_DWORD>>,
     Xor = vdr_data_parser:bxorbytelist(Content),
     list_to_binary([Content, Xor]).
 
 create_def_count_reponse() ->
-	V1 = ets:info(vdrtable, size),
-	VIDs = ets:match(vdrtable, {'_', 
-                                '_', undefined, '_', '_', '_', 
-                                '_', '_', '_', '_', '_', 
-                                '_', '_', '_', '_', '_', 
-                                '_', '_', '_', '_', '_', 
-                                '_', '_', '_', '_', '_',
-								'_', '_', '_', '_', '_', '_', '_', '_'}),
-	Count = length(VIDs),
-	case V1 of
-		undefined ->
-		    Content = <<6:?LEN_DWORD, 0:?LEN_BYTE, 12:?LEN_BYTE, (-Count):?LEN_DWORD>>,
-		    Xor = vdr_data_parser:bxorbytelist(Content),
-		    list_to_binary([Content, Xor]);
-		_ ->
-		    Content = <<6:?LEN_DWORD, 0:?LEN_BYTE, 12:?LEN_BYTE, (V1-Count):?LEN_DWORD>>,
-		    Xor = vdr_data_parser:bxorbytelist(Content),
-		    list_to_binary([Content, Xor])
-	end.
+    Pid = self(),
+	common:send_vdr_table_operation(undefined, {Pid, count}),
+    receive
+        {Pid, V1} ->
+        	VIDs = ets:match(vdrtable, {'_', 
+                                        '_', undefined, '_', '_', '_', 
+                                        '_', '_', '_', '_', '_', 
+                                        '_', '_', '_', '_', '_', 
+                                        '_', '_', '_', '_', '_', 
+                                        '_', '_', '_', '_', '_',
+        								'_', '_', '_', '_', '_',
+                                        '_', '_', '_'}),
+        	Count = length(VIDs),
+        	case V1 of
+        		undefined ->
+        		    Content = <<6:?LEN_DWORD, 0:?LEN_BYTE, 12:?LEN_BYTE, (-Count):?LEN_DWORD>>,
+        		    Xor = vdr_data_parser:bxorbytelist(Content),
+        		    list_to_binary([Content, Xor]);
+        		_ ->
+        		    Content = <<6:?LEN_DWORD, 0:?LEN_BYTE, 12:?LEN_BYTE, (V1-Count):?LEN_DWORD>>,
+        		    Xor = vdr_data_parser:bxorbytelist(Content),
+        		    list_to_binary([Content, Xor])
+        	end
+    end.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %
