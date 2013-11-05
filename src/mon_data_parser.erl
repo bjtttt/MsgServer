@@ -111,29 +111,29 @@ parse_data(RawData, State) ->
 %			_ - error without ID : unknown
 %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-create_msg(ID) when is_integer(ID),
-                    ID =< 255,
-                    ID >= 0 ->
-    Content = <<2:?LEN_DWORD, 0:?LEN_BYTE, ID:?LEN_BYTE>>,
-    Xor = vdr_data_parser:bxorbytelist(Content),
-    list_to_binary([Content, Xor]);
-create_msg(_ID) ->
-    Content = <<1:?LEN_DWORD, 5:?LEN_BYTE>>,
-    Xor = vdr_data_parser:bxorbytelist(Content),
-    list_to_binary([Content, Xor]).
+%create_msg(ID) when is_integer(ID),
+%                    ID =< 255,
+%                    ID >= 0 ->
+%    Content = <<2:?LEN_DWORD, 0:?LEN_BYTE, ID:?LEN_BYTE>>,
+%    Xor = vdr_data_parser:bxorbytelist(Content),
+%    list_to_binary([Content, Xor]);
+%create_msg(_ID) ->
+%    Content = <<1:?LEN_DWORD, 5:?LEN_BYTE>>,
+%    Xor = vdr_data_parser:bxorbytelist(Content),
+%    list_to_binary([Content, Xor]).
 
-create_msg(ID, Body) when is_integer(ID),
-                          ID =< 255,
-                          ID >= 0,
-                          is_binary(Body) ->
-    Len = byte_size(Body) + 1,
-    Content = <<Len:?LEN_DWORD, ID:?LEN_BYTE, Body/binary>>,
-    Xor = vdr_data_parser:bxorbytelist(Content),
-    list_to_binary([Content, Xor]);
-create_msg(_ID, _Body) ->
-    Content = <<1:?LEN_DWORD, 5:?LEN_BYTE>>,
-    Xor = vdr_data_parser:bxorbytelist(Content),
-    list_to_binary([Content, Xor]).
+%create_msg(ID, Body) when is_integer(ID),
+%                          ID =< 255,
+%                          ID >= 0,
+%                          is_binary(Body) ->
+%    Len = byte_size(Body) + 1,
+%    Content = <<Len:?LEN_DWORD, ID:?LEN_BYTE, Body/binary>>,
+%    Xor = vdr_data_parser:bxorbytelist(Content),
+%    list_to_binary([Content, Xor]);
+%create_msg(_ID, _Body) ->
+%    Content = <<1:?LEN_DWORD, 5:?LEN_BYTE>>,
+%    Xor = vdr_data_parser:bxorbytelist(Content),
+%    list_to_binary([Content, Xor]).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %
@@ -702,71 +702,6 @@ read_db_chinese_init_reponse(_Req) ->
 		    Content = list_to_binary([<<Len:?LEN_DWORD, 0:?LEN_BYTE, 24:?LEN_BYTE>>, Res30]),
 		    Xor = vdr_data_parser:bxorbytelist(Content),
 			list_to_binary([Content, Xor])
-    end.
-
-do_read_db_chinese_reponse(Init) ->
-	[{dbpid, DBPid}] = ets:lookup(msgservertable, dbpid),
-	case DBPid of
-        undefined ->
-			if
-				Init == true ->
-				    Content = <<2:?LEN_DWORD, 0:?LEN_BYTE, 24:?LEN_BYTE>>,
-				    Xor = vdr_data_parser:bxorbytelist(Content),
-					list_to_binary([Content, Xor]);
-				Init == false ->
-				    Content = <<2:?LEN_DWORD, 0:?LEN_BYTE, 23:?LEN_BYTE>>,
-				    Xor = vdr_data_parser:bxorbytelist(Content),
-					list_to_binary([Content, Xor])
-			end;
-         _ ->
-			Pid = self(),
-			if
-				Init == true ->
-					get_db_response(DBPid, Pid, <<"set names 'utf8">>)
-			end,
-			Res = <<"">>,
-			Msg = <<"select * from device left join vehicle on vehicle.device_id=device.id where device.authen_code='YXIdIFocQPwZ'">>,
-			Res1 = list_to_binary([Res, get_db_response_record(DBPid, Pid, Msg, <<"vehicle">>, <<"code">>)]),
-			Res2 = list_to_binary([Res1, <<", ">>, get_db_response_record(DBPid, Pid, Msg, <<"vehicle">>, <<"code">>)]),
-			Res3 = list_to_binary([Res2, <<", ">>, get_db_response_record(DBPid, Pid, Msg, <<"vehicle">>, <<"code">>)]),
-			Res4 = list_to_binary([Res3, <<", ">>, get_db_response_record(DBPid, Pid, Msg, <<"vehicle">>, <<"code">>)]),
-			Res5 = list_to_binary([Res4, <<", ">>, get_db_response_record(DBPid, Pid, Msg, <<"vehicle">>, <<"code">>)]),
-			Res6 = list_to_binary([Res5, <<", ">>, get_db_response_record(DBPid, Pid, Msg, <<"vehicle">>, <<"code">>)]),
-			Res7 = list_to_binary([Res6, <<", ">>, get_db_response_record(DBPid, Pid, Msg, <<"vehicle">>, <<"code">>)]),
-			Res8 = list_to_binary([Res7, <<", ">>, get_db_response_record(DBPid, Pid, Msg, <<"vehicle">>, <<"code">>)]),
-			Res9 = list_to_binary([Res8, <<", ">>, get_db_response_record(DBPid, Pid, Msg, <<"vehicle">>, <<"code">>)]),
-			Res10 = list_to_binary([Res9, <<", ">>, get_db_response_record(DBPid, Pid, Msg, <<"vehicle">>, <<"code">>)]),
-			Res11 = list_to_binary([Res10, <<", ">>, get_db_response_record(DBPid, Pid, Msg, <<"vehicle">>, <<"code">>)]),
-			Res12 = list_to_binary([Res11, <<", ">>, get_db_response_record(DBPid, Pid, Msg, <<"vehicle">>, <<"code">>)]),
-			Res13 = list_to_binary([Res12, <<", ">>, get_db_response_record(DBPid, Pid, Msg, <<"vehicle">>, <<"code">>)]),
-			Res14 = list_to_binary([Res13, <<", ">>, get_db_response_record(DBPid, Pid, Msg, <<"vehicle">>, <<"code">>)]),
-			Res15 = list_to_binary([Res14, <<", ">>, get_db_response_record(DBPid, Pid, Msg, <<"vehicle">>, <<"code">>)]),
-			Res16 = list_to_binary([Res15, <<", ">>, get_db_response_record(DBPid, Pid, Msg, <<"vehicle">>, <<"code">>)]),
-			Res17 = list_to_binary([Res16, <<", ">>, get_db_response_record(DBPid, Pid, Msg, <<"vehicle">>, <<"code">>)]),
-			Res18 = list_to_binary([Res17, <<", ">>, get_db_response_record(DBPid, Pid, Msg, <<"vehicle">>, <<"code">>)]),
-			Res19 = list_to_binary([Res18, <<", ">>, get_db_response_record(DBPid, Pid, Msg, <<"vehicle">>, <<"code">>)]),
-			Res20 = list_to_binary([Res19, <<", ">>, get_db_response_record(DBPid, Pid, Msg, <<"vehicle">>, <<"code">>)]),
-			Res21 = list_to_binary([Res20, <<", ">>, get_db_response_record(DBPid, Pid, Msg, <<"vehicle">>, <<"code">>)]),
-			Res22 = list_to_binary([Res21, <<", ">>, get_db_response_record(DBPid, Pid, Msg, <<"vehicle">>, <<"code">>)]),
-			Res23 = list_to_binary([Res22, <<", ">>, get_db_response_record(DBPid, Pid, Msg, <<"vehicle">>, <<"code">>)]),
-			Res24 = list_to_binary([Res23, <<", ">>, get_db_response_record(DBPid, Pid, Msg, <<"vehicle">>, <<"code">>)]),
-			Res25 = list_to_binary([Res24, <<", ">>, get_db_response_record(DBPid, Pid, Msg, <<"vehicle">>, <<"code">>)]),
-			Res26 = list_to_binary([Res25, <<", ">>, get_db_response_record(DBPid, Pid, Msg, <<"vehicle">>, <<"code">>)]),
-			Res27 = list_to_binary([Res26, <<", ">>, get_db_response_record(DBPid, Pid, Msg, <<"vehicle">>, <<"code">>)]),
-			Res28 = list_to_binary([Res27, <<", ">>, get_db_response_record(DBPid, Pid, Msg, <<"vehicle">>, <<"code">>)]),
-			Res29 = list_to_binary([Res28, <<", ">>, get_db_response_record(DBPid, Pid, Msg, <<"vehicle">>, <<"code">>)]),
-			Res30 = list_to_binary([Res29, <<", ">>, get_db_response_record(DBPid, Pid, Msg, <<"vehicle">>, <<"code">>)]),
-			Len = 2 + byte_size(Res30),
-			if
-				Init == true ->
-				    Content = list_to_binary([<<Len:?LEN_DWORD, 0:?LEN_BYTE, 24:?LEN_BYTE>>, Res30]),
-				    Xor = vdr_data_parser:bxorbytelist(Content),
-					list_to_binary([Content, Xor]);
-				Init == false ->
-				    Content = list_to_binary([<<Len:?LEN_DWORD, 0:?LEN_BYTE, 23:?LEN_BYTE>>, Res30]),
-				    Xor = vdr_data_parser:bxorbytelist(Content),
-					list_to_binary([Content, Xor])
-			end
     end.
 
 get_db_response_record(DBPid, Pid, Msg, Table, Col) ->
