@@ -18,7 +18,7 @@
 %port:3306
 %dbname: gps_database
 
-%cd ../src
+%cd /home/optimus/innovbackend/gateway/src
 %make
 %cd ../ebin
 %erl

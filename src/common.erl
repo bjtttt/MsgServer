@@ -806,7 +806,13 @@ send_vdr_table_operation(VDRTablePid, Oper) ->
                                     ok
                             end;
                         {_Pid, delete, _Key, noresp} ->
-                            VDRTablePid1 ! Oper
+                            VDRTablePid1 ! Oper;
+						{Pid, count} ->
+							VDRTablePid1 ! Oper,
+                            receive
+                                {Pid, Count} ->
+                                    Count
+                            end
                   end
             end;
         _ ->
@@ -826,7 +832,13 @@ send_vdr_table_operation(VDRTablePid, Oper) ->
                             ok
                     end;
                 {_Pid, delete, _Key, noresp} ->
-                      VDRTablePid ! Oper
+                      VDRTablePid ! Oper;
+				{Pid, count} ->
+					VDRTablePid ! Oper,
+                    receive
+                        {Pid, Count} ->
+                            Count
+                    end
             end
     end.
           
