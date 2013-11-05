@@ -228,7 +228,7 @@ mysql_process(Num1, Num2) ->
 							PartSql1 = binary:part(Sql, 0, 1024),
 							common:logerror("Fail to send SQL (~p)......... to DB : ~p~n(Operation)~p:(Message)~p", [PartSql1, PoolId, Oper, Msg]);
 						true ->
-							common:logerror("Fail to send SQL (~p) to DB : ~p~n(Operation)~p:(Message)~p", [Sql, PoolId, Oper, Msg])
+							common:logerror("Fail to send SQL (~p) to DB : ~n(Operation)~p:(Message)~p", [Sql, PoolId, Oper, Msg])
 					end,
                     try
                         [{db, DB}] = ets:lookup(msgservertable, db),
@@ -238,15 +238,15 @@ mysql_process(Num1, Num2) ->
                         mysql:utf8connect(conn, DB, undefined, DBUid, DBPwd, DBName, true)
                     catch
                         Oper1:Msg1 ->
-                            common:logerror("Fail to start new DB client: ~p~n(Operation)~p:(Message)~p", [Oper1, Msg1])
+                            common:logerror("Fail to start new DB client: ~n(Operation)~p:(Message)~p", [Oper1, Msg1])
                     end,
 					Pid ! {Pid,<<"">>}
 			end,
             mysql_process(Num1+1, Num2);
-        {Pid, PoolId, Sql, noresp} ->
+        {_Pid, PoolId, Sql, noresp} ->
 			SqlLen = byte_size(Sql),
 			try
-				Result = mysql:fetch(PoolId, Sql)
+				_Result = mysql:fetch(PoolId, Sql)
  				%if
 				%	SqlLen > 1024 ->
 				%		PartSql = binary:part(Sql, 0, 1024),
@@ -261,7 +261,7 @@ mysql_process(Num1, Num2) ->
 							PartSql1 = binary:part(Sql, 0, 1024),
 							common:logerror("Fail to send SQL (~p)......... to DB : ~p~n(Operation)~p:(Message)~p", [PartSql1, PoolId, Oper, Msg]);
 						true ->
-							common:logerror("Fail to send SQL (~p) to DB : ~p~n(Operation)~p:(Message)~p", [Sql, PoolId, Oper, Msg])
+							common:logerror("Fail to send SQL (~p) to DB : ~n(Operation)~p:(Message)~p", [Sql, PoolId, Oper, Msg])
 					end,
                     try
                         [{db, DB}] = ets:lookup(msgservertable, db),
@@ -271,7 +271,7 @@ mysql_process(Num1, Num2) ->
                         mysql:utf8connect(conn, DB, undefined, DBUid, DBPwd, DBName, true)
                     catch
                         Oper1:Msg1 ->
-                            common:logerror("Fail to start new DB client: ~p~n(Operation)~p:(Message)~p", [Oper1, Msg1])
+                            common:logerror("Fail to start new DB client: ~n(Operation)~p:(Message)~p", [Oper1, Msg1])
                     end
 			end,
             mysql_process(Num1+1, Num2);
@@ -292,10 +292,10 @@ mysql_process_err(Num1, Num2) ->
 		{Pid, ok} ->
 			Pid ! ok,
 			mysql_process(Num1, Num2);
-        {Pid, PoolId, Sql} ->
+        {Pid, _PoolId, _Sql} ->
 			Pid ! {Pid,<<"">>},
             mysql_process_err(Num1, Num2+1);
-        {Pid, PoolId, Sql, noresp} ->
+        {_Pid, _PoolId, _Sql, noresp} ->
             mysql_process_err(Num1, Num2+1);
 		{Pid, test} ->
 			Pid ! ok,

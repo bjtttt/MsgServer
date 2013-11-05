@@ -27,10 +27,10 @@ init([Sock, Addr]) ->
     [{wspid, WSPid}] = ets:lookup(msgservertable, wspid),
     [{ccpid, CCPid}] = ets:lookup(msgservertable, ccpid),
     [{linkpid, LinkPid}] = ets:lookup(msgservertable, linkpid),
-    [{vdrtablepid, VdrTablePid}] = ets:lookup(msgservertable, vdrtablepid),
-    State = #vdritem{socket=Sock, pid=Pid, vdrpid=VDRPid, addr=Addr, msgflownum=1, errorcount=0, dbpid=DBPid, wspid=WSPid, ccpid=CCPid, linkpid=LinkPid, vdrtablepid=VdrTablePid},
+    [{vdrtablepid, VDRTablePid}] = ets:lookup(msgservertable, vdrtablepid),
+    State = #vdritem{socket=Sock, pid=Pid, vdrpid=VDRPid, addr=Addr, msgflownum=1, errorcount=0, dbpid=DBPid, wspid=WSPid, ccpid=CCPid, linkpid=LinkPid, vdrtablepid=VDRTablePid},
 	common:send_stat_err(State, conn),
-    common:send_vdr_table_operation(VdrTablePid, {self(), insert, State, noresp}),
+    common:send_vdr_table_operation(VDRTablePid, {self(), insert, State, noresp}),
     inet:setopts(Sock, [{active, once}]),
 	{ok, State}.
 
@@ -167,17 +167,7 @@ terminate(Reason, State) ->
         undefined ->
             ok;
         _ ->
-            common:send_vdr_table_operation(VDRTablePid, {self(), delete, Socket, noresp}),
-			V1 = ets:info(vdrtable, size),
-		    common:loginfo("Remove VDR (~p) socket (~p) (id:~p, serialno:~p, authen_code:~p, vehicleid:~p, vehiclecode:~p) : ~p",
-						   [State#vdritem.addr,
-							State#vdritem.socket,
-							State#vdritem.id, 
-							State#vdritem.serialno, 
-							State#vdritem.auth, 
-							State#vdritem.vehicleid, 
-							State#vdritem.vehiclecode,
-							V1])
+            common:send_vdr_table_operation(VDRTablePid, {self(), delete, Socket, noresp})
     end,
     case VehicleID of
         undefined ->
@@ -829,7 +819,6 @@ process_vdr_data(Socket, Data, State) ->
                                     NewVDRItem = VDRItem#vdritem{msg=NewState#vdritem.msg},
                                     common:send_vdr_table_operation(VDRTablePid, {self(), insert, NewVDRItem, noresp}),
 									
-		                            %{ok, NewState};
 		                            {ok, NewState#vdritem{msgflownum=NewFlowIdx}};
 								_ ->
 									{error, vdrerror, NewState}
@@ -1080,33 +1069,13 @@ process_pos_info(ID, MsgIdx, VDRPid, HeadInfo, Msg, NewState) ->
 							
 							send_masg_to_ws_alarm(FlowIdx, NewSetAlarmList, 1, Lat, Lon, TimeBinS, NewState),
 							send_masg_to_ws_alarm(FlowIdx, NewClearAlarmList, 0, Lat, Lon, TimeBinS, NewState)
-							
-                            %{ok, WSUpdate} = wsock_data_parser:create_term_alarm([NewState#vdritem.vehicleid],
-                            %                                                     FlowIdx,
-                            %                                                     common:combine_strings(["\"", NewState#vdritem.vehiclecode, "\""], false),
-                            %                                                     AlarmSym,
-                            %                                                     StateFlag,
-                            %                                                     Lat, 
-                            %                                                     Lon,
-                            %                                                     binary_to_list(TimeBinS)),
-                            %common:loginfo("Old alarms : ~p~nNew alarms : ~p~nVDR (~p) vehicle(~p) driver(~p) WS Alarm for 0x200: ~p~n", 
-							%			   [NewState#vdritem.alarmlist, 
-							%				AlarmList,
-							%				NewState#vdritem.addr, 
-							%				NewState#vdritem.vehicleid, 
-							%				NewState#vdritem.driverid, 
-							%				WSUpdate]),
-                            %send_msg_to_ws(WSUpdate, NewState) %wsock_client:send(WSUpdate)
 					end,
 
                     MsgBody = vdr_data_processor:create_gen_resp(ID, MsgIdx, ?T_GEN_RESP_OK),
-                    %common:loginfo("~p sends VDR (~p) response for 16#200 (ok) : ~p~n", [NewState#vdritem.pid, NewState#vdritem.addr, MsgBody]),
                     NewFlowIdx = send_data_to_vdr(16#8001, NewState#vdritem.tel, FlowIdx, MsgBody, VDRPid),
                     
                     {ok, NewState#vdritem{msgflownum=NewFlowIdx, alarm=AlarmSym, alarmlist=AlarmList, state=StateFlag, lastlat=Lat, lastlon=Lon}}
-            end;%,
-            
-            %report_appinfo(AppInfo, NewState);
+            end;
         _ ->
             {error, invaliderror, NewState}
     end.
@@ -1496,26 +1465,6 @@ disconn_socket_by_vehicle_id(VehicleID) ->
                         '_', '_', '_', '_', '_',
                         '_', '_', '_'}),
 	disconn_socket_by_id(SockList).
-
-%disconn_socket_by_id(SockList, SelfSock) when is_list(SockList),
-%                                              length(SockList) > 0 ->
-%    [H|T] = SockList,
-%    [Sock] = H,%
-%	if
-%		SelfSock =/= Sock ->
-%            try
-%				gen_tcp:close(Sock)
-%			catch
-%				_:_ ->
-%					ok
-%			end,
-%            common:send_vdr_table_operation(undefined, {self(), delete, Sock, noresp});
-%		true ->
-%			ok
-%	end,
-%    disconn_socket_by_id(T, SelfSock);
-%disconn_socket_by_id(_SockList, _SelfSock) ->
-%    ok.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %
