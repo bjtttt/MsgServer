@@ -32,7 +32,8 @@
          convert_utf8_to_gbk/1,
 		 get_str_bin_to_bin_list/1,
 		 send_stat_err/2,
-     send_vdr_table_operation/2]).
+		 send_vdr_table_operation/2,
+		 send_vdr_table_operation_debug/2]).
 
 -export([set_sockopt/3]).
 
@@ -785,36 +786,41 @@ get_str_bin_to_bin_list(_S) ->
 send_vdr_table_operation(VDRTablePid, Oper) ->
     case VDRTablePid of
         undefined ->
-            VDRTablePid1 = ets:lookup(msgservertable, vdrtablepid),
-            case VDRTablePid1 of
-                undefined ->
-                    ok;
-                _ ->
-                    case Oper of
-                        {Pid, insert, _Object} ->
-                            VDRTablePid1 ! Oper,
-                            receive
-                                {Pid, ok} ->
-                                    ok
-                            end;
-                        {_Pid, insert, _Object, noresp} ->
-                            VDRTablePid1 ! Oper;
-                        {Pid, delete, _Key} ->
-                            VDRTablePid1 ! Oper,
-                            receive
-                                {Pid, ok} ->
-                                    ok
-                            end;
-                        {_Pid, delete, _Key, noresp} ->
-                            VDRTablePid1 ! Oper;
-						{Pid, count} ->
-							VDRTablePid1 ! Oper,
-                            receive
-                                {Pid, Count} ->
-                                    Count
-                            end
-                  end
-            end;
+            [Result] = ets:lookup(msgservertable, vdrtablepid),
+			case Result of
+				{vdrtablepid, VDRTablePid1} ->
+		            case VDRTablePid1 of
+		                undefined ->
+		                    ok;
+		                _ ->
+		                    case Oper of
+		                        {Pid, insert, _Object} ->
+		                            VDRTablePid1 ! Oper,
+		                            receive
+		                                {Pid, ok} ->
+		                                    ok
+		                            end;
+		                        {_Pid, insert, _Object, noresp} ->
+		                            VDRTablePid1 ! Oper;
+		                        {Pid, delete, _Key} ->
+		                            VDRTablePid1 ! Oper,
+		                            receive
+		                                {Pid, ok} ->
+		                                    ok
+		                            end;
+		                        {_Pid, delete, _Key, noresp} ->
+		                            VDRTablePid1 ! Oper;
+								{Pid, count} ->
+									VDRTablePid1 ! Oper,
+		                            receive
+		                                {Pid, Count} ->
+		                                    Count
+		                            end
+		                  end
+		            end;
+				_ ->
+					ok
+			end;
         _ ->
             case Oper of
                 {Pid, insert, _Object} ->
