@@ -145,8 +145,6 @@ handle_info({inet_async, LSock, Ref, {ok, CSock}}, #serverstate{lsock=LSock, acc
 %%% Data should not be received here because it is a listening socket process
 %%%
 handle_info({tcp, Socket, _Data}, State) ->  
-    %common:printsocketinfo(Socket, "vdr_server:handle_info(...) : data from"),
-    %common:logerror("(ERROR) vdr_server:handle_info(...) : data : ~p~n", [Data]),
 	if
 		State#serverstate.lsock =/= Socket ->
 			terminate_invalid_vdrs(Socket);
@@ -159,7 +157,6 @@ handle_info({tcp, Socket, _Data}, State) ->
 handle_info({inet_async, LSock, Ref, Error}, #serverstate{lsock=LSock, acceptor=Ref}=OriState) ->    
     [{linkpid, LinkPid}] = ets:lookup(msgservertable, linkpid),
 	State = OriState#serverstate{linkpid=LinkPid},
-    %common:logerror("(ERROR) vdr_server:handle_info(...) : inet_async error : ~p~n", [Error]),
 	{stop, Error, State}; 
 handle_info(_Info, State) ->    
 	{noreply, State}. 
