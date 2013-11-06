@@ -851,13 +851,29 @@ send_vdr_table_operation(VDRTablePid, Oper) ->
 send_stat_err(State, Type) ->
 	if
 		State#vdritem.linkpid =/= undefined ->
-			State#vdritem.linkpid ! {self(), Type}
+			State#vdritem.linkpid ! {self(), Type};
+		true ->
+            [Result] = ets:lookup(msgservertable, vdrtablepid),
+			case Result of
+				{linkpid, LinkPid} ->
+					LinkPid ! {self(), Type};
+				_ ->
+					ok
+			end
 	end.
 
 send_stat_err_server(State, Type) ->
 	if
 		State#serverstate.linkpid =/= undefined ->
-			State#serverstate.linkpid ! {self(), Type}
+			State#serverstate.linkpid ! {self(), Type};
+		true ->
+            [Result] = ets:lookup(msgservertable, vdrtablepid),
+			case Result of
+				{linkpid, LinkPid} ->
+					LinkPid ! {self(), Type};
+				_ ->
+					ok
+			end
 	end.
 
 
