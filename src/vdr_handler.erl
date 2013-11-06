@@ -117,6 +117,8 @@ handle_info({tcp, Socket, Data}, OriState) ->
 							common:send_stat_err(State, authdisc);
 						ErrType == unautherror ->
 							common:send_stat_err(State, unauthdisc);
+						ErrType == invalidmsgerror ->
+							common:send_stat_err(State, invalidmsgerror);
 						ErrType == exiterror ->
 							common:send_stat_err(State, exitdisc);
 						ErrType == vdrerror ->
@@ -891,7 +893,7 @@ process_vdr_data(Socket, Data, State) ->
 											NewState#vdritem.vehicleid, 
 											NewState#vdritem.vehiclecode, 
 											ID]),
-                            {error, unautherror, NewState}
+                            {error, invalidmsgerror, NewState}
                     end
             end;
         {ignore, HeaderInfo, NewState} ->
