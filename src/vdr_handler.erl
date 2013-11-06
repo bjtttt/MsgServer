@@ -239,6 +239,7 @@ safe_process_vdr_msg(Socket, Msg, State) ->
     try process_vdr_data(Socket, Msg, State)
     catch
         _ ->
+			common:logerror("Exception MSG : ~p", [Msg]),
             {error, exception, State}
     end.
 
