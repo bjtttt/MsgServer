@@ -32,6 +32,7 @@
          convert_utf8_to_gbk/1,
 		 get_str_bin_to_bin_list/1,
 		 send_stat_err/2,
+		 send_stat_err_server/2,
 		 send_vdr_table_operation/2]).
 
 -export([set_sockopt/3]).
@@ -853,11 +854,11 @@ send_stat_err(State, Type) ->
 			State#vdritem.linkpid ! {self(), Type}
 	end.
 
-%send_stat_err_server(State, Type) ->
-%	if
-%		State#serverstate.linkpid =/= undefined ->
-%			State#serverstate.linkpid ! {self(), Type}
-%	end.
+send_stat_err_server(State, Type) ->
+	if
+		State#serverstate.linkpid =/= undefined ->
+			State#serverstate.linkpid ! {self(), Type}
+	end.
 
 
 
