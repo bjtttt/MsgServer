@@ -1619,6 +1619,11 @@ data2vdr_process(Socket) ->
 %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 send_sql_to_db(PoolId, Msg, State) ->
+	BinOper = erlang:binary_part(Msg, 0, 12),
+	if
+		BinOper == <<"insert into ">> ->
+			ok
+	end,
 	%MsgLen = byte_size(Msg),
     case State#vdritem.dbpid of
         undefined ->
