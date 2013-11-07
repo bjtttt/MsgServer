@@ -1448,12 +1448,13 @@ disconn_socket_by_id(SockList) when is_list(SockList),
         _ ->
             [H|T] = SockList,
             [Sock] = H,
-            try gen_tcp:close(Sock)
-            catch
-                _ ->
-                    ok
-            end,
-            common:send_vdr_table_operation(undefined, {self(), delete, Sock, noresp}),
+			vdr_server:terminate_invalid_vdrs(Sock),
+            %try gen_tcp:close(Sock)
+            %catch
+            %    _ ->
+            %        ok
+            %end,
+            %common:send_vdr_table_operation(undefined, {self(), delete, Sock, noresp}),
             disconn_socket_by_id(T)
     end;
 disconn_socket_by_id(_SockList) ->
