@@ -721,11 +721,17 @@ get_system_info_reponse(_Req) ->
 	PortCount = erlang:system_info(port_count),
 	ProcLimit = erlang:system_info(process_limit),
 	ProcCount = erlang:system_info(process_count),
-	[{total, Total}, {processes, Processes}, {processes_used, ProcessesUsed}, 
-	 {system, System}, {atom, Atom}, {atom_used, AtomUsed}, {binary, Binary}, 
-	 {code, Code}, {ets, Ets}, {maximum, Maximum}] = erlang:system_info([total, processes, processes_used, 
-															system, atom, atom_used, binary, 
-															code, ets, maximum]),
+	Memories = erlang:memory(),
+	Total = find_Tuple_in_turple_list(Memories, total),
+	Processes = find_Tuple_in_turple_list(Memories, processes),
+	ProcessesUsed = find_Tuple_in_turple_list(Memories, processes_used),
+	System = find_Tuple_in_turple_list(Memories, system),
+	Atom = find_Tuple_in_turple_list(Memories, atom),
+	AtomUsed = find_Tuple_in_turple_list(Memories, atom_used),
+	Binary = find_Tuple_in_turple_list(Memories, binary),
+	Code = find_Tuple_in_turple_list(Memories, code),
+	Ets = find_Tuple_in_turple_list(Memories, ets),
+	Maximum = find_Tuple_in_turple_list(Memories, maximum),
     Content = <<58:?LEN_DWORD, 0:?LEN_BYTE, 25:?LEN_BYTE,
 				PortLimit:?LEN_DWORD, PortCount:?LEN_DWORD, ProcLimit:?LEN_DWORD,
 				ProcCount:?LEN_DWORD, Total:?LEN_DWORD, Processes:?LEN_DWORD,
@@ -735,5 +741,25 @@ get_system_info_reponse(_Req) ->
     Xor = vdr_data_parser:bxorbytelist(Content),
 	list_to_binary([Content, Xor]).
 
+find_Tuple_in_turple_list(TupleList, Key) when is_list(TupleList),
+											   length(TupleList) > 0,
+											   is_atom(Key) ->
+	[H|T] = TupleList,
+	IsTuple = erlang:is_tuple(H),
+	TupleLen = erlang:tuple_size(H),
+	if
+		IsTuple == true andalso TupleLen == 2 ->
+			{K, V} = H,
+			if
+				K == Key ->
+					V;
+				true ->
+					find_Tuple_in_turple_list(T, Key)
+			end;
+		true ->
+			find_Tuple_in_turple_list(T, Key)
+	end;
+find_Tuple_in_turple_list(_TupleList, _Key) ->
+	0.
 
 
