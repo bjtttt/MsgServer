@@ -11,6 +11,8 @@
 -export([init/1, handle_call/3, handle_cast/2, 
          handle_info/2, terminate/2, code_change/3]). 
 
+-export([terminate_invalid_vdrs/1]).
+
 -include("header.hrl").
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -137,16 +139,15 @@ handle_info({inet_async, LSock, Ref, {ok, CSock}}, #serverstate{lsock=LSock, acc
                 exit({async_accept, inet:format_error(Error)})        
 		end
 	catch 
-		exit:Why ->        
-            common:logerror("vdr_server:handle_info(...) : inet_async exception : ~p~n", [Why]),			
+		exit:Why ->    
+			[ST] = erlang:get_stacktrace(),
+            common:logerror("vdr_server:handle_info(...) : inet_async exception : ~p~nStack trace :~n~p", [Why, ST]),			
             {stop, Why, State}    
 	end;
 %%%
 %%% Data should not be received here because it is a listening socket process
 %%%
 handle_info({tcp, Socket, _Data}, State) ->  
-    %common:printsocketinfo(Socket, "vdr_server:handle_info(...) : data from"),
-    %common:logerror("(ERROR) vdr_server:handle_info(...) : data : ~p~n", [Data]),
 	if
 		State#serverstate.lsock =/= Socket ->
 			terminate_invalid_vdrs(Socket);
@@ -159,7 +160,6 @@ handle_info({tcp, Socket, _Data}, State) ->
 handle_info({inet_async, LSock, Ref, Error}, #serverstate{lsock=LSock, acceptor=Ref}=OriState) ->    
     [{linkpid, LinkPid}] = ets:lookup(msgservertable, linkpid),
 	State = OriState#serverstate{linkpid=LinkPid},
-    %common:logerror("(ERROR) vdr_server:handle_info(...) : inet_async error : ~p~n", [Error]),
 	{stop, Error, State}; 
 handle_info(_Info, State) ->    
 	{noreply, State}. 

@@ -161,7 +161,8 @@ parse_msg_body(ID, Body) ->
     try do_parse_msg_body(ID, Body)
     catch
         _:Exception ->
-            common:logerror("vdr_data_processor:do_parse_msg_body(ID=~p, Body) exception : ~p~n", [ID, Exception]),
+			[ST] = erlang:get_stacktrace(),
+            common:logerror("vdr_data_processor:do_parse_msg_body(ID=~p, Body) exception : ~p~nStack trace :~n~p", [ID, Exception, ST]),
             {error, msgerr}
     end.
 

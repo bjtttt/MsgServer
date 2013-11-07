@@ -86,6 +86,8 @@ parse_data(RawData, State) ->
 									read_db_chinese_reponse(Req);
 								24 ->
 									read_db_chinese_init_reponse(Req);
+								25 ->
+									get_system_info_reponse(Req);
                                 _ ->
                                     create_unknown_msg_id_response(ID)
                             end
@@ -183,7 +185,8 @@ create_test_ws_proc_response(WSPid) ->
 	end.
 
 create_vehicle_count_response() ->
-	V1 = ets:info(vdrtable, size),
+    Pid = self(),
+	V1 = common:send_vdr_table_operation(undefined, {Pid, count}),
 	if
 		V1 == undefined ->
 			Value1 = 0,
@@ -194,7 +197,7 @@ create_vehicle_count_response() ->
 			Content = <<6:?LEN_DWORD, 0:?LEN_BYTE, 3:?LEN_BYTE, V1:?LEN_DWORD>>,
 			Xor = vdr_data_parser:bxorbytelist(Content),
 			list_to_binary([Content, Xor])
-	end.
+    end.    
 
 compose_one_item_list_array_to_list(IDs) when is_list(IDs),
 											  length(IDs) > 0 ->
@@ -367,21 +370,24 @@ create_undef_count_response() ->
                                 '_', '_', '_', '_', '_', 
                                 '_', '_', '_', '_', '_', 
                                 '_', '_', '_', '_', '_',
-								'_', '_', '_', '_', '_', '_', '_', '_'}),
+								'_', '_', '_', '_', '_',
+                                '_', '_', '_'}),
 	Count = length(VIDs),
     Content = <<6:?LEN_DWORD, 0:?LEN_BYTE, 11:?LEN_BYTE, Count:?LEN_DWORD>>,
     Xor = vdr_data_parser:bxorbytelist(Content),
     list_to_binary([Content, Xor]).
 
 create_def_count_reponse() ->
-	V1 = ets:info(vdrtable, size),
+    Pid = self(),
+	V1 = common:send_vdr_table_operation(undefined, {Pid, count}),
 	VIDs = ets:match(vdrtable, {'_', 
                                 '_', undefined, '_', '_', '_', 
                                 '_', '_', '_', '_', '_', 
                                 '_', '_', '_', '_', '_', 
                                 '_', '_', '_', '_', '_', 
                                 '_', '_', '_', '_', '_',
-								'_', '_', '_', '_', '_', '_', '_', '_'}),
+								'_', '_', '_', '_', '_',
+                                '_', '_', '_'}),
 	Count = length(VIDs),
 	case V1 of
 		undefined ->
@@ -392,7 +398,7 @@ create_def_count_reponse() ->
 		    Content = <<6:?LEN_DWORD, 0:?LEN_BYTE, 12:?LEN_BYTE, (V1-Count):?LEN_DWORD>>,
 		    Xor = vdr_data_parser:bxorbytelist(Content),
 		    list_to_binary([Content, Xor])
-	end.
+    end.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %
@@ -709,4 +715,51 @@ get_db_response(DBPid, Pid, Msg) ->
         {Pid, Result} ->
             Result
     end.
+
+get_system_info_reponse(_Req) ->
+	PortLimit = erlang:system_info(port_limit),
+	PortCount = erlang:system_info(port_count),
+	ProcLimit = erlang:system_info(process_limit),
+	ProcCount = erlang:system_info(process_count),
+	Memories = erlang:memory(),
+	Total = find_Tuple_in_turple_list(Memories, total),
+	Processes = find_Tuple_in_turple_list(Memories, processes),
+	ProcessesUsed = find_Tuple_in_turple_list(Memories, processes_used),
+	System = find_Tuple_in_turple_list(Memories, system),
+	Atom = find_Tuple_in_turple_list(Memories, atom),
+	AtomUsed = find_Tuple_in_turple_list(Memories, atom_used),
+	Binary = find_Tuple_in_turple_list(Memories, binary),
+	Code = find_Tuple_in_turple_list(Memories, code),
+	Ets = find_Tuple_in_turple_list(Memories, ets),
+	Maximum = find_Tuple_in_turple_list(Memories, maximum),
+    Content = <<58:?LEN_DWORD, 0:?LEN_BYTE, 25:?LEN_BYTE,
+				PortLimit:?LEN_DWORD, PortCount:?LEN_DWORD, ProcLimit:?LEN_DWORD,
+				ProcCount:?LEN_DWORD, Total:?LEN_DWORD, Processes:?LEN_DWORD,
+				ProcessesUsed:?LEN_DWORD, System:?LEN_DWORD, Atom:?LEN_DWORD,
+				AtomUsed:?LEN_DWORD, Binary:?LEN_DWORD, Code:?LEN_DWORD,
+				Ets:?LEN_DWORD, Maximum:?LEN_DWORD>>,
+    Xor = vdr_data_parser:bxorbytelist(Content),
+	list_to_binary([Content, Xor]).
+
+find_Tuple_in_turple_list(TupleList, Key) when is_list(TupleList),
+											   length(TupleList) > 0,
+											   is_atom(Key) ->
+	[H|T] = TupleList,
+	IsTuple = erlang:is_tuple(H),
+	TupleLen = erlang:tuple_size(H),
+	if
+		IsTuple == true andalso TupleLen == 2 ->
+			{K, V} = H,
+			if
+				K == Key ->
+					V;
+				true ->
+					find_Tuple_in_turple_list(T, Key)
+			end;
+		true ->
+			find_Tuple_in_turple_list(T, Key)
+	end;
+find_Tuple_in_turple_list(_TupleList, _Key) ->
+	0.
+
 

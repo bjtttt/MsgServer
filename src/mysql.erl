@@ -138,10 +138,11 @@
 	 code_change/3
 	]).
 
--export([mysql_process/2]).
+-export([mysql_process/6]).
 
 %% Records
 -include("mysql.hrl").
+-include("header.hrl").
 
 -record(conn, {
 	  pool_id,      %% atom(), the pool's id
@@ -204,94 +205,98 @@ log(Module, Line, _Level, FormatFun) ->
 % Interface process
 %
 %%%%%%%%%%%%%%%%%%%%%
-mysql_process(Num1, Num2) ->
+mysql_process(Num1, Num2, SqlInsert, InsertCount, SqlReplace, ReplaceCount) ->
     receive
 		{Pid, error} ->
 			Pid ! ok,
 			mysql_process_err(Num1, Num2);
-        {Pid, PoolId, Sql} ->
-			SqlLen = byte_size(Sql),
-			try
-				Result = mysql:fetch(PoolId, Sql),
-            	Pid ! {Pid, Result}%,
-				%if
-				%	SqlLen > 1024 ->
-				%		PartSql = binary:part(Sql, 0, 1024),
-				%		common:loginfo("Successfully send SQL (~p)......... to DB : ~p~n", [PartSql, PoolId]);
-				%	true ->
-				%		common:loginfo("Successfully send SQL (~p) to DB : ~p~n", [Sql, PoolId])
-				%end
-			catch
-				Oper:Msg ->
+		{Pid, _PoolId, insert, Table, Content} ->
+			[TableName, Values] = SqlInsert,
+			if
+				TableName =/= Table ->
+					FinalSql = list_to_binary([<<"insert into ">>, TableName, 
+											   <<"(vehicle_id, gps_time, server_time, longitude, latitude, height, speed, direction, status_flag, alarm_flag) values">>,
+											   combine_all_values(Values)]),
+					common:loginfo("Combined SQL ~p :~n~p", [length(Values), FinalSql]),
+					do_sql(FinalSql),
+					Pid ! {Pid, insertok},
+					mysql_process(Num1+1, Num2, [Table, [Content]], 1, SqlReplace, ReplaceCount);
+				true ->
 					if
-						SqlLen > 1024 ->
-							PartSql1 = binary:part(Sql, 0, 1024),
-							common:logerror("Fail to send SQL (~p)......... to DB : ~p~n(Operation)~p:(Message)~p", [PartSql1, PoolId, Oper, Msg]);
+						InsertCount >= ?MAX_DB_STORED_COUNT ->
+							FinalSql = list_to_binary([<<"insert into ">>, TableName, 
+													   <<"(vehicle_id, gps_time, server_time, longitude, latitude, height, speed, direction, status_flag, alarm_flag) values">>,
+													   combine_all_values(Values)]),
+							common:loginfo("Combined SQL ~p :~n~p", [length(Values), FinalSql]),
+							do_sql(FinalSql),
+							Pid ! {Pid, insertok},
+							mysql_process(Num1+1, Num2, [Table, [Content]], 1, SqlReplace, ReplaceCount);
 						true ->
-							common:logerror("Fail to send SQL (~p) to DB : ~p~n(Operation)~p:(Message)~p", [Sql, PoolId, Oper, Msg])
-					end,
-                    try
-                        [{db, DB}] = ets:lookup(msgservertable, db),
-                        [{dbname, DBName}] = ets:lookup(msgservertable, dbname),
-                        [{dbuid, DBUid}] = ets:lookup(msgservertable, dbuid),
-                        [{dbpwd, DBPwd}] = ets:lookup(msgservertable, dbpwd),
-                        mysql:utf8connect(conn, DB, undefined, DBUid, DBPwd, DBName, true)
-                    catch
-                        Oper1:Msg1 ->
-                            common:logerror("Fail to start new DB client: ~p~n(Operation)~p:(Message)~p", [Oper1, Msg1])
-                    end,
-					Pid ! {Pid,<<"">>}
-			end,
-            mysql_process(Num1+1, Num2);
-        {_Pid, PoolId, Sql, noresp} ->
-			SqlLen = byte_size(Sql),
-			try
-				Result = mysql:fetch(PoolId, Sql)
- 				%if
-				%	SqlLen > 1024 ->
-				%		PartSql = binary:part(Sql, 0, 1024),
-				%		common:loginfo("Successfully send SQL (~p)......... to DB : ~p~n", [PartSql, PoolId]);
-				%	true ->
-				%		common:loginfo("Successfully send SQL (~p) to DB : ~p~n", [Sql, PoolId])
-				%end
-			catch
-				Oper:Msg ->
+							Pid ! {Pid, insertok},
+							mysql_process(Num1+1, Num2, [Table, lists:append(Values, [Content])], InsertCount+1, SqlReplace, ReplaceCount)
+					end
+			end;
+		{_Pid, _PoolId, insert, Table, Content, noresp} ->
+			[TableName, Values] = SqlInsert,
+			if
+				TableName =/= Table ->
+					FinalSql = list_to_binary([<<"insert into ">>, TableName, 
+											   <<"(vehicle_id, gps_time, server_time, longitude, latitude, height, speed, direction, status_flag, alarm_flag) values">>,
+											   combine_all_values(Values)]),
+					do_sql(FinalSql),
+					mysql_process(Num1+1, Num2, [Table, [Content]], 1, SqlReplace, ReplaceCount);
+				true ->
 					if
-						SqlLen > 1024 ->
-							PartSql1 = binary:part(Sql, 0, 1024),
-							common:logerror("Fail to send SQL (~p)......... to DB : ~p~n(Operation)~p:(Message)~p", [PartSql1, PoolId, Oper, Msg]);
+						InsertCount >= ?MAX_DB_STORED_COUNT ->
+							FinalSql = list_to_binary([<<"insert into ">>, TableName, 
+													   <<"(vehicle_id, gps_time, server_time, longitude, latitude, height, speed, direction, status_flag, alarm_flag) values">>,
+													   combine_all_values(Values)]),
+							do_sql(FinalSql),
+							mysql_process(Num1+1, Num2, [Table, [Content]], 1, SqlReplace, ReplaceCount);
 						true ->
-							common:logerror("Fail to send SQL (~p) to DB : ~p~n(Operation)~p:(Message)~p", [Sql, PoolId, Oper, Msg])
-					end,
-                    try
-                        [{db, DB}] = ets:lookup(msgservertable, db),
-                        [{dbname, DBName}] = ets:lookup(msgservertable, dbname),
-                        [{dbuid, DBUid}] = ets:lookup(msgservertable, dbuid),
-                        [{dbpwd, DBPwd}] = ets:lookup(msgservertable, dbpwd),
-                        mysql:utf8connect(conn, DB, undefined, DBUid, DBPwd, DBName, true)
-                    catch
-                        Oper1:Msg1 ->
-                            common:logerror("Fail to start new DB client: ~p~n(Operation)~p:(Message)~p", [Oper1, Msg1])
-                    end
+							mysql_process(Num1+1, Num2, [Table, lists:append(Values, [Content])], 1, SqlReplace, ReplaceCount)
+					end
+			end;
+		{Pid, PoolId, replace, Table, Content} ->
+			if
+				ReplaceCount >= ?MAX_DB_STORED_COUNT ->
+					ok;
+				true ->
+					ok
 			end,
-            mysql_process(Num1+1, Num2);
+			mysql_process(Num1+1, Num2, SqlInsert, InsertCount, SqlReplace, ReplaceCount);
+		{Pid, PoolId, replace, Table, Content, noresp} ->
+			if
+				ReplaceCount >= ?MAX_DB_STORED_COUNT ->
+					ok;
+				true ->
+					ok
+			end,
+			mysql_process(Num1+1, Num2, SqlInsert, InsertCount, SqlReplace, ReplaceCount);
+        {Pid, _PoolId, Sql} ->
+			Result = do_sql(Sql),
+			Pid ! {Pid, Result},
+            mysql_process(Num1+1, Num2, SqlInsert, InsertCount, SqlReplace, ReplaceCount);
+        {_Pid, _PoolId, Sql, noresp} ->
+			do_sql(Sql),
+			mysql_process(Num1+1, Num2, SqlInsert, InsertCount, SqlReplace, ReplaceCount);
 		{Pid, test} ->
 			Pid ! ok,
-			mysql_process(Num1, Num2);
+			mysql_process(Num1, Num2, SqlInsert, InsertCount, SqlReplace, ReplaceCount);
         {Pid, count} ->
 			Pid ! {Num1, Num2},
-            mysql_process(Num1, Num2);
+            mysql_process(Num1, Num2, SqlInsert, InsertCount, SqlReplace, ReplaceCount);
         stop ->
             ok;
         _ ->
-            mysql_process(Num1, Num2)
+            mysql_process(Num1, Num2, SqlInsert, InsertCount, SqlReplace, ReplaceCount)
     end.
 
 mysql_process_err(Num1, Num2) ->
     receive
 		{Pid, ok} ->
 			Pid ! ok,
-			mysql_process(Num1, Num2);
+			mysql_process(Num1, Num2, [<<"">>, []], 0, [<<"">>, []], 0);
         {Pid, _PoolId, _Sql} ->
 			Pid ! {Pid,<<"">>},
             mysql_process_err(Num1, Num2+1);
@@ -308,6 +313,54 @@ mysql_process_err(Num1, Num2) ->
         _ ->
             mysql_process_err(Num1, Num2)
     end.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%
+%
+%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+do_sql(Sql) ->
+	try
+		Result = mysql:fetch(conn, Sql)
+	catch
+		Oper:Msg ->
+			SqlLen = byte_size(Sql),
+			if
+				SqlLen > 1024 ->
+					PartSql1 = binary:part(Sql, 0, 1024),
+					common:logerror("Fail to send SQL (~p)......... to DB : ~p~n(Operation)~p:(Message)~p", [PartSql1, conn, Oper, Msg]);
+				true ->
+					common:logerror("Fail to send SQL (~p) to DB : ~p~n(Operation)~p:(Message)~p", [Sql, conn, Oper, Msg])
+			end,
+            try
+                [{db, DB}] = ets:lookup(msgservertable, db),
+                [{dbname, DBName}] = ets:lookup(msgservertable, dbname),
+                [{dbuid, DBUid}] = ets:lookup(msgservertable, dbuid),
+                [{dbpwd, DBPwd}] = ets:lookup(msgservertable, dbpwd),
+                mysql:utf8connect(conn, DB, undefined, DBUid, DBPwd, DBName, true)
+            catch
+                Oper1:Msg1 ->
+                    common:logerror("Fail to start new DB client: ~n(Operation)~p:(Message)~p", [Oper1, Msg1])
+            end,
+			<<"">>
+	end.
+	
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%
+%
+%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+combine_all_values(Values) when is_list(Values),
+						        length(Values) > 1 ->
+	[H|T] = Values,
+	TResult = combine_all_values(T),
+	list_to_binary([<<"(">>, H, <<"),">>, TResult]);
+combine_all_values(Values) when is_list(Values),
+						        length(Values) == 1 ->
+	[H] = Values,
+	list_to_binary([<<"(">>, H, <<")">>]);
+combine_all_values(_Values) ->
+	<<"">>.
 
 %% @doc Starts the MySQL client gen_server process.
 %%
