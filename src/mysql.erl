@@ -217,7 +217,7 @@ mysql_process(Num1, Num2, SqlInsert, InsertCount, SqlReplace, ReplaceCount) ->
 					FinalSql = list_to_binary([<<"insert into ">>, TableName, 
 											   <<"(vehicle_id, gps_time, server_time, longitude, latitude, height, speed, direction, status_flag, alarm_flag) values">>,
 											   combine_all_values(Values)]),
-					common:loginfo("Combined SQL ~p :~n~p", [length(Values), FinalSql]),
+					%common:loginfo("Combined SQL ~p :~n~p", [length(Values), FinalSql]),
 					do_sql(FinalSql),
 					Pid ! {Pid, insertok},
 					mysql_process(Num1+1, Num2, [Table, [Content]], 1, SqlReplace, ReplaceCount);
@@ -227,7 +227,7 @@ mysql_process(Num1, Num2, SqlInsert, InsertCount, SqlReplace, ReplaceCount) ->
 							FinalSql = list_to_binary([<<"insert into ">>, TableName, 
 													   <<"(vehicle_id, gps_time, server_time, longitude, latitude, height, speed, direction, status_flag, alarm_flag) values">>,
 													   combine_all_values(Values)]),
-							common:loginfo("Combined SQL ~p :~n~p", [length(Values), FinalSql]),
+							%common:loginfo("Combined SQL ~p :~n~p", [length(Values), FinalSql]),
 							do_sql(FinalSql),
 							Pid ! {Pid, insertok},
 							mysql_process(Num1+1, Num2, [Table, [Content]], 1, SqlReplace, ReplaceCount);
