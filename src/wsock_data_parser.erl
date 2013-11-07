@@ -76,7 +76,8 @@ process_data(Data) ->
     try do_process_data(Data)
     catch
         _:Why ->
-            common:logerr("Parsing management data exception : ~p~n", [Why]),
+            [ST] = erlang:get_stacktrace(),
+            common:logerr("Parsing management data exception : ~p~n~Stack trace :~n~p", [Why, ST]),
             {error, exception, Why}
     end.
 

@@ -148,7 +148,8 @@ ws_on_message(Type, Msg) ->
     try wsock_data_parser:process_wsock_message(Type, Msg)
     catch
         Err:Info ->
-            common:logerr("WS process : ~p:~p when processing wsock msg : ~p~n", [Err, Info, Msg]),
+            [ST] = erlang:get_stacktrace(),
+            common:logerr("WS process : ~p:~p when processing wsock msg : ~p~nStack trace :~n~p", [Err, Info, Msg, ST]),
             {error, exception}
     end.
 

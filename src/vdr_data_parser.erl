@@ -34,7 +34,8 @@ process_data(State, Data) ->
     try do_process_data(State, Data)
     catch
         _:Why ->
-            common:logerr("Parsing VDR data exception : ~p~n~p", [Why, Data]),
+			[ST] = erlang:get_stacktrace(),
+            common:logerr("Parsing VDR data exception : ~p~n~p~nStack trace :~n~p", [Why, Data, ST]),
             {error, exception, State}
     end.
 

@@ -86,6 +86,8 @@ parse_data(RawData, State) ->
 									read_db_chinese_reponse(Req);
 								24 ->
 									read_db_chinese_init_reponse(Req);
+								25 ->
+									get_system_info_reponse(Req);
                                 _ ->
                                     create_unknown_msg_id_response(ID)
                             end
@@ -713,4 +715,25 @@ get_db_response(DBPid, Pid, Msg) ->
         {Pid, Result} ->
             Result
     end.
+
+get_system_info_reponse(_Req) ->
+	PortLimit = erlang:system_info(port_limit),
+	PortCount = erlang:system_info(port_count),
+	ProcLimit = erlang:system_info(process_limit),
+	ProcCount = erlang:system_info(process_count),
+	[{total, Total}, {processes, Processes}, {processes_used, ProcessesUsed}, 
+	 {system, System}, {atom, Atom}, {atom_used, AtomUsed}, {binary, Binary}, 
+	 {code, Code}, {ets, Ets}, {low, Low}, {maximum, Maximum}] = erlang:system_info([total, processes, processes_used, 
+															system, atom, atom_used, binary, 
+															code, ets, low, maximum]),
+    Content = <<62:?LEN_DWORD, 0:?LEN_BYTE, 25:?LEN_BYTE,
+				PortLimit:?LEN_DWORD, PortCount:?LEN_DWORD, ProcLimit:?LEN_DWORD,
+				ProcCount:?LEN_DWORD, Total:?LEN_DWORD, Processes:?LEN_DWORD,
+				ProcessesUsed:?LEN_DWORD, System:?LEN_DWORD, Atom:?LEN_DWORD,
+				AtomUsed:?LEN_DWORD, Binary:?LEN_DWORD, Code:?LEN_DWORD,
+				Ets:?LEN_DWORD, Low:?LEN_DWORD, Maximum:?LEN_DWORD>>,
+    Xor = vdr_data_parser:bxorbytelist(Content),
+	list_to_binary([Content, Xor]).
+
+
 

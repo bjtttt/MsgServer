@@ -137,8 +137,9 @@ handle_info({inet_async, LSock, Ref, {ok, CSock}}, #serverstate{lsock=LSock, acc
                 exit({async_accept, inet:format_error(Error)})        
 		end
 	catch 
-		exit:Why ->        
-            common:logerror("vdr_server:handle_info(...) : inet_async exception : ~p~n", [Why]),			
+		exit:Why ->    
+			[ST] = erlang:get_stacktrace(),
+            common:logerror("vdr_server:handle_info(...) : inet_async exception : ~p~nStack trace :~n~p", [Why, ST]),			
             {stop, Why, State}    
 	end;
 %%%
