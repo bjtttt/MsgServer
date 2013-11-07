@@ -138,7 +138,7 @@
 	 code_change/3
 	]).
 
--export([mysql_process/2]).
+-export([mysql_process/4]).
 
 %% Records
 -include("mysql.hrl").
@@ -204,7 +204,7 @@ log(Module, Line, _Level, FormatFun) ->
 % Interface process
 %
 %%%%%%%%%%%%%%%%%%%%%
-mysql_process(Num1, Num2) ->
+mysql_process(Num1, Num2, MSql, Count) ->
     receive
 		{Pid, error} ->
 			Pid ! ok,
@@ -235,7 +235,7 @@ mysql_process(Num1, Num2) ->
                     end,
 					Pid ! {Pid,<<"">>}
 			end,
-            mysql_process(Num1+1, Num2);
+            mysql_process(Num1+1, Num2, MSql, Count);
         {_Pid, PoolId, Sql, noresp} ->
 			SqlLen = byte_size(Sql),
 			try
@@ -260,24 +260,24 @@ mysql_process(Num1, Num2) ->
                             common:logerror("Fail to start new DB client: ~n(Operation)~p:(Message)~p", [Oper1, Msg1])
                     end
 			end,
-            mysql_process(Num1+1, Num2);
+            mysql_process(Num1+1, Num2, MSql, Count);
 		{Pid, test} ->
 			Pid ! ok,
-			mysql_process(Num1, Num2);
+			mysql_process(Num1, Num2, MSql, Count);
         {Pid, count} ->
 			Pid ! {Num1, Num2},
-            mysql_process(Num1, Num2);
+            mysql_process(Num1, Num2, MSql, Count);
         stop ->
             ok;
         _ ->
-            mysql_process(Num1, Num2)
+            mysql_process(Num1, Num2, MSql, Count)
     end.
 
 mysql_process_err(Num1, Num2) ->
     receive
 		{Pid, ok} ->
 			Pid ! ok,
-			mysql_process(Num1, Num2);
+			mysql_process(Num1, Num2, <<"">>, 0);
         {Pid, _PoolId, _Sql} ->
 			Pid ! {Pid,<<"">>},
             mysql_process_err(Num1, Num2+1);
