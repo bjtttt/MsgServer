@@ -210,12 +210,12 @@ mysql_process(Num1, Num2, MSql, Count) ->
 			Pid ! ok,
 			mysql_process_err(Num1, Num2);
         {Pid, PoolId, Sql} ->
-			SqlLen = byte_size(Sql),
 			try
 				Result = mysql:fetch(PoolId, Sql),
             	Pid ! {Pid, Result}
 			catch
 				Oper:Msg ->
+					SqlLen = byte_size(Sql),
 					if
 						SqlLen > 1024 ->
 							PartSql1 = binary:part(Sql, 0, 1024),
@@ -237,11 +237,11 @@ mysql_process(Num1, Num2, MSql, Count) ->
 			end,
             mysql_process(Num1+1, Num2, MSql, Count);
         {_Pid, PoolId, Sql, noresp} ->
-			SqlLen = byte_size(Sql),
 			try
 				_Result = mysql:fetch(PoolId, Sql)
 			catch
 				Oper:Msg ->
+					SqlLen = byte_size(Sql),
 					if
 						SqlLen > 1024 ->
 							PartSql1 = binary:part(Sql, 0, 1024),
