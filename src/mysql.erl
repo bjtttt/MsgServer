@@ -142,6 +142,7 @@
 
 %% Records
 -include("mysql.hrl").
+-include("header.hrl").
 
 -record(conn, {
 	  pool_id,      %% atom(), the pool's id
@@ -209,6 +210,14 @@ mysql_process(Num1, Num2, MSql, Count) ->
 		{Pid, error} ->
 			Pid ! ok,
 			mysql_process_err(Num1, Num2);
+		{Pid, PoolId, insert, Table, Content} ->
+			if
+				Count >= ?MAX_DB_STORED_COUNT ->
+					ok;
+				true ->
+					ok
+			end,
+			mysql_process(Num1+1, Num2, MSql, Count+1);
         {Pid, PoolId, Sql} ->
 			try
 				Result = mysql:fetch(PoolId, Sql),
