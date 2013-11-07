@@ -2151,6 +2151,21 @@ create_pos_info_sql(Msg, State) ->
             {ok, [SQL0, SQL1]}
     end.
 
+
+create_pos_app_sql(AppInfo) ->
+	Init = [{16#1, <<", distance">>, <<", NULL">>}, 
+			{16#2, <<", oil">>, <<", NULL">>}, 
+			{16#3, <<", record_speed">>, <<", NULL">>},
+			{16#4, <<", event_man_acq">>, <<", NULL">>}, 
+			{16#11, <<", ex_speed_type">>, <<", NULL">>},
+			{16#12, <<", NULL">>}, 
+			{16#13, ", NULL"}, 
+			{16#25, <<", ex_state">>, "NULL"}, 
+			{16#2A, ", NULL"}, 
+			{16#2B, "NULL"}, 
+			{16#30, "NULL"}, 
+			{16#31, "NULL"}].
+
 create_pos_app_sql_part(AppInfo) when is_list(AppInfo),
 									  length(AppInfo) > 0 ->
 	[H|T] = AppInfo,
