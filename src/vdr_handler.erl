@@ -191,17 +191,17 @@ terminate(Reason, State) ->
     catch
         _:Ex ->
             common:logerror("VDR (~p) : exception when gen_tcp:close : ~p~n", [State#vdritem.addr, Ex])
-    end,
-    common:loginfo("~p VDR (~p) socket (~p) (id:~p, serialno:~p, authen_code:~p, vehicleid:~p, vehiclecode:~p) is terminated : ~p",
-				   [self(),
-					State#vdritem.addr,
-					State#vdritem.socket,
-					State#vdritem.id, 
-					State#vdritem.serialno, 
-					State#vdritem.auth, 
-					State#vdritem.vehicleid, 
-					State#vdritem.vehiclecode,
-					Reason]).
+    end.
+    %common:loginfo("~p VDR (~p) socket (~p) (id:~p, serialno:~p, authen_code:~p, vehicleid:~p, vehiclecode:~p) is terminated : ~p",
+	%			   [self(),
+	%				State#vdritem.addr,
+	%				State#vdritem.socket,
+	%				State#vdritem.id, 
+	%				State#vdritem.serialno, 
+	%				State#vdritem.auth, 
+	%				State#vdritem.vehicleid, 
+	%				State#vdritem.vehiclecode,
+	%				Reason]).
 
 code_change(_OldVsn, State, _Extra) ->    
 	{ok, State}.
@@ -1591,10 +1591,11 @@ do_send_msg2vdr(_VDRPid, _Pid, _Msg) ->
 data2vdr_process(Socket) ->
     receive
 		{Pid, stop} ->
-			common:loginfo("~p stops waiting for MSG to VDR by ~p~n", [self(), Pid]),
+			%common:loginfo("~p stops waiting for MSG to VDR by ~p~n", [self(), Pid]),
 			Pid ! {Pid, stopped};
 		{Pid, stop, noresp} ->
-			common:loginfo("~p stops waiting for MSG to VDR by ~p~n", [self(), Pid]);
+			%common:loginfo("~p stops waiting for MSG to VDR by ~p~n", [self(), Pid]);
+			ok;
         {_Pid, Msg} ->
             gen_tcp:send(Socket, Msg),
             data2vdr_process(Socket);
