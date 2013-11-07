@@ -1059,14 +1059,14 @@ process_pos_info(ID, MsgIdx, VDRPid, HeadInfo, Msg, NewState) ->
 					%				common:convert_integer_to_binary_string_list(PreviousAlarm),
 					%				AlarmSym,
 					%				common:convert_integer_to_binary_string_list(AlarmSym)]),
-
 					{TimeBin, TimeS} = create_time_list_and_binary(Time),
                     TimeBinS = list_to_binary([<<"\"">>, TimeBin, <<"\"">>]),
 					
 					AlarmList = update_vehicle_alarm(NewState#vdritem.vehicleid, NewState#vdritem.driverid, TimeS, AlarmSym, 0, NewState),
 					if
-						%AlarmList == NewState#vdritem.alarmlist ->
-						%	common:loginfo("No new alarms updated~n");
+						AlarmList == NewState#vdritem.alarmlist ->
+							ok;
+							%common:loginfo("No new alarms updated~n");
 						AlarmList =/= NewState#vdritem.alarmlist ->
 							NewSetAlarmList = find_alarm_in_lista_not_in_listb(AlarmList, NewState#vdritem.alarmlist),
 							NewClearAlarmList = find_alarm_in_lista_not_in_listb(NewState#vdritem.alarmlist, AlarmList),
