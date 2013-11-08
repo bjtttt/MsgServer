@@ -206,73 +206,137 @@ log(Module, Line, _Level, FormatFun) ->
 %
 %%%%%%%%%%%%%%%%%%%%%
 mysql_process(Num1, Num2, SqlInsert, InsertCount, SqlReplace, ReplaceCount) ->
+	%common:loginfo("SqlInsert : ~p~nInsertCount : ~p~nSqlReplace : ~p~nReplaceCount : ~p", [SqlInsert, InsertCount, SqlReplace, ReplaceCount]),
     receive
 		{Pid, error} ->
 			Pid ! ok,
 			mysql_process_err(Num1, Num2);
-		{Pid, _PoolId, insert, Table, Content} ->
-			[TableName, Values] = SqlInsert,
+		{Pid, insert, Table, Key, Content} ->
+			%common:loginfo("Insert with reponse"),
+			[TableName, _KeyName, Values] = SqlInsert,
 			if
 				TableName =/= Table ->
-					FinalSql = list_to_binary([<<"insert into ">>, TableName, 
-											   <<"(vehicle_id, gps_time, server_time, longitude, latitude, height, speed, direction, status_flag, alarm_flag) values">>,
-											   combine_all_values(Values)]),
-					%common:loginfo("Combined SQL ~p :~n~p", [length(Values), FinalSql]),
-					do_sql(FinalSql),
-					Pid ! {Pid, insertok},
-					mysql_process(Num1+1, Num2, [Table, [Content]], 1, SqlReplace, ReplaceCount);
+					%common:loginfo("New table =/= table in DS"),
+					if
+						TableName =/= <<"">> ->
+							%common:loginfo("Table in DS is EMPTY"),
+							FinalSql = list_to_binary([<<"insert into ">>, TableName, 
+													   <<"(">>, Key, <<") values">>,
+													   combine_all_values(Values)]),
+							%common:loginfo("Diff Insert : ~p", [FinalSql]),
+							do_sql(FinalSql),
+							Pid ! {Pid, insertok},
+							mysql_process(Num1+1, Num2, [Table, Key, [Content]], 1, SqlReplace, ReplaceCount);
+						true ->
+							Pid ! {Pid, insertok},
+							mysql_process(Num1+1, Num2, [Table, Key, [Content]], 1, SqlReplace, ReplaceCount)
+					end;
+				true ->
+					%common:loginfo("New table == table in DS"),
+					if
+						InsertCount >= ?MAX_DB_STORED_COUNT ->
+							%common:loginfo("Insert count ~p >= ~p", [InsertCount, ?MAX_DB_STORED_COUNT]),
+							FinalSql = list_to_binary([<<"insert into ">>, TableName, 
+													   <<"(">>, Key, <<") values">>,
+													   combine_all_values(Values)]),
+							%common:loginfo("Comb Insert : ~p", [FinalSql]),
+							do_sql(FinalSql),
+							Pid ! {Pid, insertok},
+							mysql_process(Num1+1, Num2, [Table, Key, [Content]], 1, SqlReplace, ReplaceCount);
+						true ->
+							%common:loginfo("Insert count ~p < ~p", [InsertCount, ?MAX_DB_STORED_COUNT]),
+							Pid ! {Pid, insertok},
+							mysql_process(Num1+1, Num2, [Table, Key, lists:append(Values, [Content])], InsertCount+1, SqlReplace, ReplaceCount)
+					end
+			end;
+		{_Pid, insert, Table, Key, Content, noresp} ->
+			[TableName, _KeyName, Values] = SqlInsert,
+			if
+				TableName =/= Table ->
+					if
+						TableName =/= <<"">> ->
+							FinalSql = list_to_binary([<<"insert into ">>, TableName, 
+													   <<"(">>, Key, <<") values">>,
+													   combine_all_values(Values)]),
+							%common:loginfo("Diff Insert : ~p", [FinalSql]),
+							do_sql(FinalSql),
+							mysql_process(Num1+1, Num2, [Table, [Content]], 1, SqlReplace, ReplaceCount);
+						true ->
+							mysql_process(Num1+1, Num2, [Table, [Content]], 1, SqlReplace, ReplaceCount)
+					end;
 				true ->
 					if
 						InsertCount >= ?MAX_DB_STORED_COUNT ->
 							FinalSql = list_to_binary([<<"insert into ">>, TableName, 
-													   <<"(vehicle_id, gps_time, server_time, longitude, latitude, height, speed, direction, status_flag, alarm_flag) values">>,
+													   <<"(">>, Key, <<") values">>,
 													   combine_all_values(Values)]),
-							%common:loginfo("Combined SQL ~p :~n~p", [length(Values), FinalSql]),
+							%common:loginfo("Comb Insert : ~p", [FinalSql]),
 							do_sql(FinalSql),
-							Pid ! {Pid, insertok},
 							mysql_process(Num1+1, Num2, [Table, [Content]], 1, SqlReplace, ReplaceCount);
 						true ->
-							Pid ! {Pid, insertok},
 							mysql_process(Num1+1, Num2, [Table, lists:append(Values, [Content])], InsertCount+1, SqlReplace, ReplaceCount)
 					end
 			end;
-		{_Pid, _PoolId, insert, Table, Content, noresp} ->
-			[TableName, Values] = SqlInsert,
+		{Pid, replace, Table, Key, Content} ->
+			[TableName, _KeyName, Values] = SqlReplace,
 			if
 				TableName =/= Table ->
-					FinalSql = list_to_binary([<<"insert into ">>, TableName, 
-											   <<"(vehicle_id, gps_time, server_time, longitude, latitude, height, speed, direction, status_flag, alarm_flag) values">>,
-											   combine_all_values(Values)]),
-					do_sql(FinalSql),
-					mysql_process(Num1+1, Num2, [Table, [Content]], 1, SqlReplace, ReplaceCount);
+					if
+						TableName =/= <<"">> ->
+							FinalSql = list_to_binary([<<"replace into ">>, TableName, 
+													   <<"(">>, Key, <<") values">>,
+													   combine_all_values(Values)]),
+							%common:loginfo("Diff Replace : ~p", [FinalSql]),
+							do_sql(FinalSql),
+							Pid ! {Pid, replaceok},
+							mysql_process(Num1+1, Num2, SqlInsert, InsertCount, [Table, Key, [Content]], 1);
+						true ->
+							Pid ! {Pid, replaceok},
+							mysql_process(Num1+1, Num2, SqlInsert, InsertCount, [Table, Key, [Content]], 1)
+					end;
 				true ->
 					if
-						InsertCount >= ?MAX_DB_STORED_COUNT ->
-							FinalSql = list_to_binary([<<"insert into ">>, TableName, 
-													   <<"(vehicle_id, gps_time, server_time, longitude, latitude, height, speed, direction, status_flag, alarm_flag) values">>,
+						ReplaceCount >= ?MAX_DB_STORED_COUNT ->
+							FinalSql = list_to_binary([<<"replace into ">>, TableName, 
+													   <<"(">>, Key, <<") values">>,
 													   combine_all_values(Values)]),
+							%common:loginfo("Comb Replace : ~p", [FinalSql]),
 							do_sql(FinalSql),
-							mysql_process(Num1+1, Num2, [Table, [Content]], 1, SqlReplace, ReplaceCount);
+							Pid ! {Pid, replaceok},
+							mysql_process(Num1+1, Num2, SqlInsert, InsertCount, [Table, Key, [Content]], 1);
 						true ->
-							mysql_process(Num1+1, Num2, [Table, lists:append(Values, [Content])], 1, SqlReplace, ReplaceCount)
+							Pid ! {Pid, replaceok},
+							mysql_process(Num1+1, Num2, SqlInsert, InsertCount, [Table, Key, lists:append(Values, [Content])], ReplaceCount+1)
 					end
 			end;
-		{Pid, PoolId, replace, Table, Content} ->
+		{_Pid, replace, Table, Key, Content, noresp} ->
+			[TableName, _KeyName, Values] = SqlReplace,
 			if
-				ReplaceCount >= ?MAX_DB_STORED_COUNT ->
-					ok;
+				TableName =/= Table ->
+					if
+						TableName =/= <<"">> ->
+							FinalSql = list_to_binary([<<"replace into ">>, TableName, 
+													   <<"(">>, Key, <<") values">>,
+													   combine_all_values(Values)]),
+							%common:loginfo("Diff Replace : ~p", [FinalSql]),
+							do_sql(FinalSql),
+							mysql_process(Num1+1, Num2, SqlInsert, InsertCount, [Table, Key, [Content]], 1);
+						true ->
+							mysql_process(Num1+1, Num2, SqlInsert, InsertCount, [Table, Key, [Content]], 1)
+					end;
 				true ->
-					ok
-			end,
-			mysql_process(Num1+1, Num2, SqlInsert, InsertCount, SqlReplace, ReplaceCount);
-		{Pid, PoolId, replace, Table, Content, noresp} ->
-			if
-				ReplaceCount >= ?MAX_DB_STORED_COUNT ->
-					ok;
-				true ->
-					ok
-			end,
-			mysql_process(Num1+1, Num2, SqlInsert, InsertCount, SqlReplace, ReplaceCount);
+					if
+						ReplaceCount >= ?MAX_DB_STORED_COUNT ->
+							FinalSql = list_to_binary([<<"replace into ">>, TableName, 
+													   <<"(">>, Key, <<") values">>,
+													   combine_all_values(Values)]),
+							%common:loginfo("Comb Replace : ~p", [FinalSql]),
+							do_sql(FinalSql),
+							mysql_process(Num1+1, Num2, SqlInsert, InsertCount, [Table, Key, [Content]], 1);
+						true ->
+							mysql_process(Num1+1, Num2, SqlInsert, InsertCount, [Table, Key, lists:append(Values, [Content])], ReplaceCount+1)
+					end
+			end;
         {Pid, _PoolId, Sql} ->
 			Result = do_sql(Sql),
 			Pid ! {Pid, Result},
@@ -289,7 +353,32 @@ mysql_process(Num1, Num2, SqlInsert, InsertCount, SqlReplace, ReplaceCount) ->
         stop ->
             ok;
         _ ->
+			%common:loginfo("Unknown SQL resuest."),
             mysql_process(Num1, Num2, SqlInsert, InsertCount, SqlReplace, ReplaceCount)
+	after ?MAX_DB_PROC_WAIT_INTERVAL ->
+			[TableName, KeyName, Values] = SqlInsert,
+			if
+				TableName =/= <<"">> ->
+					FinalSql = list_to_binary([<<"insert into ">>, TableName, 
+											   <<"(">>, KeyName, <<") values">>,
+											   combine_all_values(Values)]),
+					%common:loginfo("Time Insert : ~p", [FinalSql]),
+					do_sql(FinalSql);
+				true ->
+					ok
+			end,
+			[TableName1, KeyName1, Values1] = SqlReplace,
+			if
+				TableName1 =/= <<"">> ->
+					FinalSql1 = list_to_binary([<<"replace into ">>, TableName1, 
+											   <<"(">>, KeyName1, <<") values">>,
+											   combine_all_values(Values1)]),
+					%common:loginfo("Time Replace : ~p", [FinalSql1]),
+					do_sql(FinalSql1);
+				true ->
+					ok
+			end,
+			mysql_process(Num1, Num2, [<<"">>, <<"">>, []], 0, [<<"">>, <<"">>, []], 0)
     end.
 
 mysql_process_err(Num1, Num2) ->
@@ -321,7 +410,7 @@ mysql_process_err(Num1, Num2) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 do_sql(Sql) ->
 	try
-		Result = mysql:fetch(conn, Sql)
+		mysql:fetch(conn, Sql)
 	catch
 		Oper:Msg ->
 			SqlLen = byte_size(Sql),
