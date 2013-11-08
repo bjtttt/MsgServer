@@ -10,7 +10,7 @@
 -define(DEF_PORT_VDR, 6000).
 -define(DEF_PORT_MON, 6001).
 
--define(MAX_DB_STORED_COUNT, 10).
+-define(MAX_DB_STORED_COUNT, 1000).
 -define(MAX_DB_PROC_WAIT_INTERVAL, 30000).
 
 %%% DB_SUP_MAX and DB_SUP_WITHIN are use in DB Supervisor for DB client restart mechanism
