@@ -22,13 +22,14 @@ start_link(Socket, Addr) ->
 init([Sock, Addr]) ->
     process_flag(trap_exit, true),
     Pid = self(),
-    VDRPid = spawn(fun() -> data2vdr_process(Sock) end),
+    %VDRPid = spawn(fun() -> data2vdr_process(Sock) end),
     [{dbpid, DBPid}] = ets:lookup(msgservertable, dbpid),
     [{wspid, WSPid}] = ets:lookup(msgservertable, wspid),
     [{ccpid, CCPid}] = ets:lookup(msgservertable, ccpid),
     [{linkpid, LinkPid}] = ets:lookup(msgservertable, linkpid),
     [{vdrtablepid, VDRTablePid}] = ets:lookup(msgservertable, vdrtablepid),
-    State = #vdritem{socket=Sock, pid=Pid, vdrpid=VDRPid, addr=Addr, msgflownum=1, errorcount=0, dbpid=DBPid, wspid=WSPid, ccpid=CCPid, linkpid=LinkPid, vdrtablepid=VDRTablePid},
+    %State = #vdritem{socket=Sock, pid=Pid, vdrpid=VDRPid, addr=Addr, msgflownum=1, errorcount=0, dbpid=DBPid, wspid=WSPid, ccpid=CCPid, linkpid=LinkPid, vdrtablepid=VDRTablePid},
+    State = #vdritem{socket=Sock, pid=Pid, addr=Addr, msgflownum=1, errorcount=0, dbpid=DBPid, wspid=WSPid, ccpid=CCPid, linkpid=LinkPid, vdrtablepid=VDRTablePid},
 	common:send_stat_err(State, conn),
     common:send_vdr_table_operation(VDRTablePid, {self(), insert, State, noresp}),
     inet:setopts(Sock, [{active, once}]),
@@ -152,7 +153,7 @@ handle_info(_Info, State) ->
 %%%
 %%% When VDR handler process is terminated, do the clean jobs here
 %%%
-terminate(Reason, State) ->
+terminate(_Reason, State) ->
     Auth = State#vdritem.auth,
     VehicleID = State#vdritem.vehicleid,
     Socket = State#vdritem.socket,
@@ -299,7 +300,7 @@ process_vdr_data(Socket, Data, State) ->
                                             % "id" is PK, so it cannot be null or undefined
                                             {<<"vehicle">>, <<"id">>, VehicleID} = get_record_field(<<"vehicle">>, Rec, <<"id">>),
                                             % "code" is the query condition and NOT NULL & UNIQUE, so it cannot be null or undefined
-                                            {<<"vehicle">>, <<"code">>, VehicleCode} = get_record_field(<<"vehicle">>, Rec, <<"code">>),
+                                            {<<"vehicle">>, <<"code">>, _VehicleCode} = get_record_field(<<"vehicle">>, Rec, <<"code">>),
                                             {<<"vehicle">>, <<"device_id">>, VehicleDeviceID} = get_record_field(<<"vehicle">>, Rec, <<"device_id">>),
                                             {<<"vehicle">>, <<"dev_install_time">>, VehicleDeviceInstallTime} = get_record_field(<<"vehicle">>, Rec, <<"dev_install_time">>),
                                             if
@@ -498,7 +499,10 @@ process_vdr_data(Socket, Data, State) ->
 				                                                                    %common:loginfo("~p sends VDR (~p) response for 16#102 (ok) : ~p~n", [State#vdritem.pid, State#vdritem.addr, MsgBody]),
 				                                                                    NewFlowIdx = send_data_to_vdr(16#8001, Tel, FlowIdx, MsgBody, VDRPid),
 																					
+																					VDRPid = spawn(fun() -> data2vdr_process(NewState#vdritem.socket) end),
+																					
 																					FinalState = NewState#vdritem{id=VDRID, 
+																												  vdrpid=VDRPid,
 				                                                                                                  serialno=binary_to_list(VDRSerialNo),
 				                                                                                                  auth=binary_to_list(VDRAuthenCode),
 				                                                                                                  vehicleid=VehicleID,
@@ -509,7 +513,7 @@ process_vdr_data(Socket, Data, State) ->
                                                                                     VDRTablePid = NewState#vdritem.vdrtablepid,
                                                                                     common:send_vdr_table_operation(VDRTablePid, {self(), insert, FinalState, noresp}),
 				                                        
-				                                                                    {ok, FinalState};
+																					{ok, FinalState};
 				                                                                _ ->
 				                                                                    {error, autherror, NewState}
 				                                                            end;
@@ -526,8 +530,11 @@ process_vdr_data(Socket, Data, State) ->
 				                                                                    MsgBody = vdr_data_processor:create_gen_resp(ID, MsgIdx, ?T_GEN_RESP_OK),
 				                                                                    %common:loginfo("~p sends VDR (~p) response for 16#102 (ok) : ~p~n", [NewState#vdritem.pid, NewState#vdritem.addr, MsgBody]),
 				                                                                    NewFlowIdx = send_data_to_vdr(16#8001, Tel, FlowIdx, MsgBody, VDRPid),
+																					
+																					VDRPid = spawn(fun() -> data2vdr_process(NewState#vdritem.socket) end),
 				                                        
-																					FinalState = NewState#vdritem{id=VDRID, 
+																					FinalState = NewState#vdritem{id=VDRID,
+																												  vdrpid=VDRPid,
 				                                                                                                  serialno=binary_to_list(VDRSerialNo),
 				                                                                                                  auth=binary_to_list(VDRAuthenCode),
 				                                                                                                  vehicleid=VehicleID,
@@ -1530,23 +1537,22 @@ send_sql_to_db(PoolId, Msg, State) ->
 			ok;
         DBPid ->
 			BinOper = erlang:binary_part(Msg, 0, 12),
-			%common:loginfo("BinOper : ~p", [BinOper]),
+			LinkPid = State#vdritem.linkpid,
+			Pid = State#vdritem.pid,
 			if
 				BinOper == <<"insert into ">> ->
 					[TableName, Fields, Values] = remove_empty_item_in_binary_list(binary:split(Msg, [<<"insert into ">>, <<"(">>, <<") values(">>, <<")">>], [global]), []),
-					%common:loginfo("TableName : ~p~nFields : ~p", [TableName, Fields]),
 					if
 						Fields == <<"vehicle_id, gps_time, server_time, longitude, latitude, height, speed, direction, status_flag, alarm_flag, distance, oil, record_speed, event_man_acq, ex_speed_type, ex_speed_id, alarm_add_type, alarm_add_id, alarm_add_direct, road_alarm_id, road_alarm_time, road_alarm_result, ex_state, io_state, analog_quantity_ad0, analog_quantity_ad1, wl_signal_amp, gnss_count">> ->
-							%common:loginfo("Insert will be stored."),
-							DBPid ! {State#vdritem.pid, insert, TableName, Fields, Values},
-				            Pid = State#vdritem.pid,
+							DBPid ! {Pid, insert, TableName, Fields, Values},
+							LinkPid ! {Pid, dbmsgstored, 1},
 				            receive
 				                {Pid, Result} ->
 				                    Result
 				            end;
 						true ->
 				            DBPid ! {State#vdritem.pid, PoolId, Msg},
-				            Pid = State#vdritem.pid,
+							LinkPid ! {Pid, dbmsgstored, 1},
 				            receive
 				                {Pid, Result} ->
 				                    Result
@@ -1554,31 +1560,28 @@ send_sql_to_db(PoolId, Msg, State) ->
 					end;
 				true ->
 					BinOper1 = erlang:binary_part(Msg, 0, 13),
-					%common:loginfo("BinOper : ~p", [BinOper1]),
 					if
 						BinOper1 == <<"replace into ">> ->
 							[TableName1, Fields1, Values1] = remove_empty_item_in_binary_list(binary:split(Msg, [<<"replace into ">>, <<"(">>, <<") values(">>, <<")">>], [global]), []),
-							%common:loginfo("TableName1 : ~p~nFields1 : ~p", [TableName1, Fields1]),
 							if
 								Fields1 == <<"vehicle_id, gps_time, server_time, longitude, latitude, height, speed, direction, status_flag, alarm_flag, distance, oil, record_speed, event_man_acq, ex_speed_type, ex_speed_id, alarm_add_type, alarm_add_id, alarm_add_direct, road_alarm_id, road_alarm_time, road_alarm_result, ex_state, io_state, analog_quantity_ad0, analog_quantity_ad1, wl_signal_amp, gnss_count">> ->
-									%common:loginfo("Replace will be stored."),
-									DBPid ! {State#vdritem.pid, replace, TableName1, Fields1, Values1},
-						            Pid = State#vdritem.pid,
+									DBPid ! {Pid, replace, TableName1, Fields1, Values1},
+									LinkPid ! {Pid, dbmsgstored, 1},
 						            receive
 						                {Pid, Result} ->
 						                    Result
 						            end;
 								true ->
-						            DBPid ! {State#vdritem.pid, PoolId, Msg},
-						            Pid = State#vdritem.pid,
+						            DBPid ! {Pid, PoolId, Msg},
+									LinkPid ! {Pid, dbmsgstored, 1},
 						            receive
 						                {Pid, Result} ->
 						                    Result
 						            end
 							end;
 						true ->
-				            DBPid ! {State#vdritem.pid, PoolId, Msg},
-				            Pid = State#vdritem.pid,
+				            DBPid ! {Pid, PoolId, Msg},
+							LinkPid ! {Pid, dbmsgstored, 1},
 				            receive
 				                {Pid, Result} ->
 				                    Result
@@ -1588,6 +1591,8 @@ send_sql_to_db(PoolId, Msg, State) ->
     end.
 
 send_sql_to_db_nowait(PoolId, Msg, State) ->
+	LinkPid = State#vdritem.linkpid,
+	Pid = State#vdritem.pid,
     case State#vdritem.dbpid of
         undefined ->
 			ok;
@@ -1598,9 +1603,9 @@ send_sql_to_db_nowait(PoolId, Msg, State) ->
 					[TableName, Fields, Values] = remove_empty_item_in_binary_list(binary:split(Msg, [<<"insert into ">>, <<"(">>, <<") values(">>, <<")">>], [global]), []),
 					if
 						Fields == <<"vehicle_id, gps_time, server_time, longitude, latitude, height, speed, direction, status_flag, alarm_flag">> ->
-							DBPid ! {State#vdritem.pid, insert, TableName, Fields, Values, noresp};
+							DBPid ! {Pid, insert, TableName, Fields, Values, noresp};
 						true ->
-				            DBPid ! {State#vdritem.pid, PoolId, Msg, noresp}
+				            DBPid ! {Pid, PoolId, Msg, noresp}
 					end;
 				true ->
 					BinOper1 = erlang:binary_part(Msg, 0, 13),
@@ -1609,16 +1614,16 @@ send_sql_to_db_nowait(PoolId, Msg, State) ->
 							[TableName1, Fields1, Values1] = remove_empty_item_in_binary_list(binary:split(Msg, [<<"replace into ">>, <<"(">>, <<") values(">>, <<")">>], [global]), []),
 							if
 								Fields1 == <<"vehicle_id, gps_time, server_time, longitude, latitude, height, speed, direction, status_flag, alarm_flag, distance, oil, record_speed, event_man_acq, ex_speed_type, ex_speed_id, alarm_add_type, alarm_add_id, alarm_add_direct, road_alarm_id, road_alarm_time, road_alarm_result, ex_state, io_state, analog_quantity_ad0, analog_quantity_ad1, wl_signal_amp, gnss_count">> ->
-									DBPid ! {State#vdritem.pid, replace, TableName1, Fields1, Values1, noresp};
+									DBPid ! {Pid, replace, TableName1, Fields1, Values1, noresp};
 								true ->
-						            DBPid ! {State#vdritem.pid, PoolId, Msg, noresp}
+						            DBPid ! {Pid, PoolId, Msg, noresp}
 							end;
 						true ->
-				            DBPid ! {State#vdritem.pid, PoolId, Msg, noresp}
+				            DBPid ! {Pid, PoolId, Msg, noresp}
 					end
-			end,
-            DBPid ! {State#vdritem.pid, PoolId, Msg, noresp}
-    end.
+			end
+    end,
+	LinkPid ! {Pid, dbmsgstored, 1}.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %
