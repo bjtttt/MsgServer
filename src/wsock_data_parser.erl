@@ -1200,13 +1200,19 @@ send_msg_to_vdr(ID, VID, Msg) when is_binary(Msg) ->
     case length(Res) of
         1 ->
             [[Sock]] = Res,
-            [VDRItem] = ets:lookup(vdrtable, Sock),
-            NewFlowIdx = vdr_handler:send_data_to_vdr(ID, VDRItem#vdritem.tel, VDRItem#vdritem.msgws2vdrflownum, Msg, VDRItem),
-            VDRTablePid = VDRItem#vdritem.vdrtablepid,
-            NewVDRItem = VDRItem#vdritem{msgws2vdrflownum=NewFlowIdx},
-            common:send_vdr_table_operation(VDRTablePid, {self(), insert, NewVDRItem, noresp});
-        _ ->
-            common:logerr("WS Server : Cannot find VID in vdrtable~n"),
+            Res = ets:lookup(vdrtable, Sock),
+            case length(Res) of
+				1 ->
+					[VDRItem] = Res,
+					NewFlowIdx = vdr_handler:send_data_to_vdr(ID, VDRItem#vdritem.tel, VDRItem#vdritem.msgws2vdrflownum, Msg, VDRItem),
+		            VDRTablePid = VDRItem#vdritem.vdrtablepid,
+		            NewVDRItem = VDRItem#vdritem{msgws2vdrflownum=NewFlowIdx},
+		            common:send_vdr_table_operation(VDRTablePid, {self(), insert, NewVDRItem, noresp});
+				Count1 ->
+					common:logerr("WS Server : Find ~p VID (~p) in vdrtable", [Count1, VID])
+			end;
+        Count ->
+            common:logerr("WS Server : Find ~p VID (~p) in vdrtable~n", [Count, VID]),
             ok
     end;
 send_msg_to_vdr(_ID, _VID, _Msg) ->
