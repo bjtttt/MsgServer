@@ -1201,7 +1201,7 @@ send_msg_to_vdr(ID, VID, Msg) when is_binary(Msg) ->
         1 ->
             [[Sock]] = Res,
             [VDRItem] = ets:lookup(vdrtable, Sock),
-            NewFlowIdx = vdr_handler:send_data_to_vdr(ID, VDRItem#vdritem.tel, VDRItem#vdritem.msgws2vdrflownum, Msg, VDRItem#vdritem.vdrpid),
+            NewFlowIdx = vdr_handler:send_data_to_vdr(ID, VDRItem#vdritem.tel, VDRItem#vdritem.msgws2vdrflownum, Msg, VDRItem),
             VDRTablePid = VDRItem#vdritem.vdrtablepid,
             NewVDRItem = VDRItem#vdritem{msgws2vdrflownum=NewFlowIdx},
             common:send_vdr_table_operation(VDRTablePid, {self(), insert, NewVDRItem, noresp});

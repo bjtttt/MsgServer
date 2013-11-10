@@ -186,15 +186,7 @@ do_terminate_invalid_vdrs(_States) ->
 
 do_terminate_invalid_vdr(State) ->
     Socket = State#vdritem.socket,
-    VDRPid = State#vdritem.vdrpid,
     VDRTablePid = State#vdritem.vdrtablepid,
-	Pid = self(),
-    case VDRPid of
-        undefined ->
-            ok;
-        _ ->
-            VDRPid ! {Pid, stop, noresp}
-    end,
     case Socket of
         undefined ->
             ok;
