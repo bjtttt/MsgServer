@@ -183,9 +183,10 @@ terminate(_Reason, State) ->
         undefined ->
             ok;
         _ ->
-            Sql = list_to_binary([<<"update device set is_online=0 where authen_code='">>, 
-                                  list_to_binary(Auth), 
-                                  <<"'">>]),
+			Sql = list_to_binary([<<"replace into device(authen_code,is_online) values('">>, Auth, <<"',0)">>]),
+			%Sql = list_to_binary([<<"update device set is_online=0 where authen_code='">>, 
+            %                      list_to_binary(Auth), 
+            %                      <<"'">>]),
             send_sql_to_db_nowait(conn, Sql, State)
     end,
 	try gen_tcp:close(State#vdritem.socket)
@@ -481,7 +482,8 @@ process_vdr_data(Socket, Data, State) ->
 		                                                            % "authen_code" is the query condition, so Auth should be equal to VDRAuthEnCode
 		                                                            %{Auth} = Msg,
 		                                                            
-		                                                            SqlUpdate = list_to_binary([<<"update device set is_online=1 where authen_code='">>, VDRAuthenCode, <<"'">>]),
+		                                                            %SqlUpdate = list_to_binary([<<"update device set is_online=1 where authen_code='">>, VDRAuthenCode, <<"'">>]),
+		                                                            SqlUpdate = list_to_binary([<<"replace into device(authen_code,is_online) values('">>, VDRAuthenCode, <<"',1)">>]),
 		                                                            send_sql_to_db(conn, SqlUpdate, NewState),
 																	
 																	SqlAlarmList = list_to_binary([<<"select * from vehicle_alarm where vehicle_id=">>, common:integer_to_binary(VehicleID), <<" and isnull(clear_time)">>]),
@@ -637,7 +639,7 @@ process_vdr_data(Socket, Data, State) ->
                             FlowIdx = NewState#vdritem.msgflownum,
                             MsgBody = vdr_data_processor:create_gen_resp(ID, MsgIdx, ?T_GEN_RESP_OK),
                             %common:loginfo("Gateway (~p) sends VDR (~p) response for 16#2 (Pulse) : ~p~n", [State#vdritem.pid, State#vdritem.addr, MsgBody]),
-                            NewFlowIdx = send_data_to_vdr(16#8001, Tel, FlowIdx, MsgBody, NewState),
+                            NewFlowIdx = send_data_to_vdr(16#8001, Tel, FlowIdx, MsgBody, VDRPid),
 
                             {ok, NewState#vdritem{msgflownum=NewFlowIdx}};
                         16#3 ->     % VDR unregistration
@@ -651,7 +653,7 @@ process_vdr_data(Socket, Data, State) ->
                                     FlowIdx = NewState#vdritem.msgflownum,
                                     MsgBody = vdr_data_processor:create_gen_resp(ID, MsgIdx, ?T_GEN_RESP_OK),
                                     %common:loginfo("~p sends VDR (~p) response for 16#3 (Position) : ~p~n", [State#vdritem.pid, NewState#vdritem.addr, MsgBody]),
-                                    NewFlowIdx = send_data_to_vdr(16#8001, Tel, FlowIdx, MsgBody, NewState),
+                                    NewFlowIdx = send_data_to_vdr(16#8001, Tel, FlowIdx, MsgBody, VDRPid),
         
                                     % return error to terminate connection with VDR
                                     {error, exiterror, NewState#vdritem{msgflownum=NewFlowIdx}};
@@ -771,7 +773,7 @@ process_vdr_data(Socket, Data, State) ->
 		                            FlowIdx = NewState#vdritem.msgflownum,
 		                            MsgBody = vdr_data_processor:create_gen_resp(ID, MsgIdx, ?T_GEN_RESP_OK),
 		                            %common:loginfo("~p sends VDR driver info update response (ok) : ~p~n", [NewState#vdritem.pid, MsgBody]),
-		                            NewFlowIdx = send_data_to_vdr(16#8001, Tel, FlowIdx, MsgBody, NewState),
+		                            NewFlowIdx = send_data_to_vdr(16#8001, Tel, FlowIdx, MsgBody, VDRPid),
 		
 									%{ok, NewState};
 		                            {ok, NewState#vdritem{msgflownum=NewFlowIdx}};
@@ -791,7 +793,7 @@ process_vdr_data(Socket, Data, State) ->
 							
                             FlowIdx = NewState#vdritem.msgflownum,
                             MsgBody = vdr_data_processor:create_gen_resp(ID, MsgIdx, ?T_GEN_RESP_OK),
-                            NewFlowIdx = send_data_to_vdr(16#8001, Tel, FlowIdx, MsgBody, NewState),
+                            NewFlowIdx = send_data_to_vdr(16#8001, Tel, FlowIdx, MsgBody, VDRPid),
 
                             {ok, NewState#vdritem{msgflownum=NewFlowIdx}};
                         16#801 ->
@@ -802,7 +804,7 @@ process_vdr_data(Socket, Data, State) ->
 
 		                            FlowIdx = NewState#vdritem.msgflownum,
 									MsgBody = vdr_data_processor:create_multimedia_data_reply(MediaId),
-		                            NewFlowIdx = send_data_to_vdr(16#8800, Tel, FlowIdx, MsgBody, NewState),
+		                            NewFlowIdx = send_data_to_vdr(16#8800, Tel, FlowIdx, MsgBody, VDRPid),
 									
 						            [VDRItem] = ets:lookup(vdrtable, Socket),
                                     VDRTablePid = VDRItem#vdritem.vdrtablepid,
@@ -860,13 +862,13 @@ process_vdr_data(Socket, Data, State) ->
                         16#100 ->
                             FlowIdx = NewState#vdritem.msgflownum,
                             MsgBody = vdr_data_processor:create_reg_resp(MsgIdx, 0, list_to_binary(NewState#vdritem.auth)),
-                            NewFlowIdx = send_data_to_vdr(16#8100, Tel, FlowIdx, MsgBody, NewState),
+                            NewFlowIdx = send_data_to_vdr(16#8100, Tel, FlowIdx, MsgBody, VDRPid),
 
                             {ok, NewState#vdritem{msgflownum=NewFlowIdx}};
                         16#102 ->
                             FlowIdx = NewState#vdritem.msgflownum,
                             MsgBody = vdr_data_processor:create_gen_resp(ID, MsgIdx, ?T_GEN_RESP_OK),
-                            NewFlowIdx = send_data_to_vdr(16#8001, Tel, FlowIdx, MsgBody, NewState),
+                            NewFlowIdx = send_data_to_vdr(16#8001, Tel, FlowIdx, MsgBody, VDRPid),
                             
                             {ok, NewState#vdritem{msgflownum=NewFlowIdx}};
                         _ ->
@@ -885,7 +887,7 @@ process_vdr_data(Socket, Data, State) ->
             {ID, MsgIdx, _Tel, _CryptoType} = HeaderInfo,
             FlowIdx = NewState#vdritem.msgflownum,
             MsgBody = vdr_data_processor:create_gen_resp(ID, MsgIdx, ?T_GEN_RESP_OK),
-    		NewFlowIdx = send_data_to_vdr(16#8001, NewState#vdritem.tel, FlowIdx, MsgBody, NewState),
+    		NewFlowIdx = send_data_to_vdr(16#8001, NewState#vdritem.tel, FlowIdx, MsgBody, NewState#vdritem.vdrpid),
             {RequiredId, MsgPackages} = NewState#vdritem.msgpackages,
             if
                 RequiredId > -1 ->
@@ -914,7 +916,7 @@ process_vdr_data(Socket, Data, State) ->
 											FirstmsgIdxID, 
 											MsgIdxsID, 
 											MsgBody1]),
-                            NewFlowIdx1 = send_data_to_vdr(16#8003, NewState#vdritem.tel, FlowIdx, MsgBody1, NewState),
+                            NewFlowIdx1 = send_data_to_vdr(16#8003, NewState#vdritem.tel, FlowIdx, MsgBody1, NewState#vdritem.vdrpid),
 
                             [VDRItem] = ets:lookup(vdrtable, Socket),
                             VDRTablePid = VDRItem#vdritem.vdrtablepid,
@@ -940,7 +942,7 @@ process_vdr_data(Socket, Data, State) ->
             		NewFlowIdx = send_data_to_vdr(16#8001, NewState#vdritem.tel, FlowIdx, MsgBody, NewState),
 					{warning, NewState#vdritem{msgflownum=NewFlowIdx}};
 				true ->
-					NewFlowIdx = send_data_to_vdr(16#8001, NewState#vdritem.tel, FlowIdx, MsgBody, NewState),
+					NewFlowIdx = send_data_to_vdr(16#8001, NewState#vdritem.tel, FlowIdx, MsgBody, NewState#vdritem.vdrpid),
 					{warning, NewState#vdritem{msgflownum=NewFlowIdx}}
 			end;
         {error, _ErrorType, NewState} ->    % exception/parityerror/formaterror
@@ -988,7 +990,7 @@ create_time_list_and_binary(Time) when is_integer(Time) ->
 create_time_list_and_binary(_Time) ->
 	{<<"2000-01-01 00:00:00">>, "2000-01-01 00:00:00"}.
 
-process_pos_info(ID, MsgIdx, _VDRPid, HeadInfo, Msg, NewState) ->
+process_pos_info(ID, MsgIdx, VDRPid, HeadInfo, Msg, NewState) ->
     case create_sql_from_vdr(HeadInfo, Msg, NewState) of
 		{ok, Sqls} ->
             send_sqls_to_db(conn, Sqls, NewState),
@@ -1002,7 +1004,7 @@ process_pos_info(ID, MsgIdx, _VDRPid, HeadInfo, Msg, NewState) ->
             if
                 AlarmSym == PreviousAlarm ->
 		            MsgBody = vdr_data_processor:create_gen_resp(ID, MsgIdx, ?T_GEN_RESP_OK),
-		            NewFlowIdx = send_data_to_vdr(16#8001, NewState#vdritem.tel, FlowIdx, MsgBody, NewState),
+		            NewFlowIdx = send_data_to_vdr(16#8001, NewState#vdritem.tel, FlowIdx, MsgBody, VDRPid),
 					
 					{ok, NewState#vdritem{msgflownum=NewFlowIdx, alarm=AlarmSym, state=StateFlag, lastlat=Lat, lastlon=Lon}};
                 true ->
@@ -1022,7 +1024,7 @@ process_pos_info(ID, MsgIdx, _VDRPid, HeadInfo, Msg, NewState) ->
 					end,
 
                     MsgBody = vdr_data_processor:create_gen_resp(ID, MsgIdx, ?T_GEN_RESP_OK),
-                    NewFlowIdx = send_data_to_vdr(16#8001, NewState#vdritem.tel, FlowIdx, MsgBody, NewState),
+                    NewFlowIdx = send_data_to_vdr(16#8001, NewState#vdritem.tel, FlowIdx, MsgBody, VDRPid),
                     
                     {ok, NewState#vdritem{msgflownum=NewFlowIdx, alarm=AlarmSym, alarmlist=AlarmList, state=StateFlag, lastlat=Lat, lastlon=Lon}}
             end;
@@ -1385,9 +1387,7 @@ disconn_socket_by_vehicle_id(VehicleID) ->
 %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 send_data_to_vdr(ID, Tel, FlowIdx, MsgBody, State) ->
-	%common:loginfo("VDR data structure : ~p", [State]),
 	VDRPid = State#vdritem.vdrpid,
-	Socket = State#vdritem.socket,
 	Pid = State#vdritem.pid,
 	case is_binary(MsgBody) of
 		true ->
@@ -1403,24 +1403,24 @@ send_data_to_vdr(ID, Tel, FlowIdx, MsgBody, State) ->
 							<<IndexInt:16>> = Index,
 							Tail = binary:part(MsgBody, 24, MsgLen-24),
 							Msg = vdr_data_processor:create_final_msg(ID, Tel, FlowIdx, Tail, TotalInt, IndexInt),
-							do_send_data_to_vdr(VDRPid, Pid, Socket, Msg, ID, FlowIdx);
+							do_send_data_to_vdr(VDRPid, Pid, Msg, ID, FlowIdx);
 						true ->
 				            Msg = vdr_data_processor:create_final_msg(ID, Tel, FlowIdx, MsgBody),
-							do_send_data_to_vdr(VDRPid, Pid, Socket, Msg, ID, FlowIdx)
+							do_send_data_to_vdr(VDRPid, Pid, Msg, ID, FlowIdx)
 					end;
 				true ->
 		            Msg = vdr_data_processor:create_final_msg(ID, Tel, FlowIdx, MsgBody),
-					do_send_data_to_vdr(VDRPid, Pid, Socket, Msg, ID, FlowIdx)
+					do_send_data_to_vdr(VDRPid, Pid, Msg, ID, FlowIdx)
 			end;
 		_ ->
             Msg = vdr_data_processor:create_final_msg(ID, Tel, FlowIdx, MsgBody),
-			do_send_data_to_vdr(VDRPid, Pid, Socket, Msg, ID, FlowIdx)
+			do_send_data_to_vdr(VDRPid, Pid, Msg, ID, FlowIdx)
     end.
 
-do_send_data_to_vdr(VDRPid, Pid, Socket, Msg, ID, FlowIdx) ->
+do_send_data_to_vdr(VDRPid, Pid, Msg, ID, FlowIdx) ->
 	case is_list(Msg) of
 		true ->
-			do_send_msg2vdr(VDRPid, Pid, Socket, Msg);
+			do_send_msg2vdr(VDRPid, Pid, Msg);
 		_ ->
 			case is_binary(Msg) of
 				true ->
@@ -1428,10 +1428,10 @@ do_send_data_to_vdr(VDRPid, Pid, Socket, Msg, ID, FlowIdx) ->
 						Msg == <<>> andalso ID =/= 16#8702 ->
 							common:logerror("~p send_data_to_vdr NULL final message : ID (~p), FlowIdx (~p), Msg (~p)~n", [Pid, ID, FlowIdx, Msg]);
 						Msg == <<>> andalso ID == 16#8702 ->
-							do_send_msg2vdr(VDRPid, Pid, Socket, Msg),
+							do_send_msg2vdr(VDRPid, Pid, Msg),
 							get_new_flow_index(FlowIdx);
 						Msg =/= <<>> ->
-							do_send_msg2vdr(VDRPid, Pid, Socket, Msg),
+							do_send_msg2vdr(VDRPid, Pid, Msg),
 							get_new_flow_index(FlowIdx)
 					end;
 				_ ->
@@ -1455,21 +1455,21 @@ get_new_flow_index(FlowIdx) ->
 			end
 	end.
 
-do_send_msg2vdr(VDRPid, Pid, Socket, Msg) when is_binary(Msg),
+do_send_msg2vdr(VDRPid, Pid, Msg) when is_binary(Msg),
 									   byte_size(Msg) > 0 ->
-	VDRPid ! {Pid, Socket, Msg, noresp};
-do_send_msg2vdr(_VDRPid, _Pid, _Socket, Msg) when is_binary(Msg),
+	VDRPid ! {Pid, Msg};
+do_send_msg2vdr(_VDRPid, _Pid, Msg) when is_binary(Msg),
 									   byte_size(Msg) < 1 ->
 	ok;
-do_send_msg2vdr(VDRPid, Pid, Socket, Msg) when is_list(Msg),
+do_send_msg2vdr(VDRPid, Pid, Msg) when is_list(Msg),
 									   length(Msg) > 0 ->
 	[H|T] = Msg,
-	VDRPid ! {Pid, Socket, H, noresp},
-	do_send_msg2vdr(VDRPid, Pid, Socket, T);
-do_send_msg2vdr(_VDRPid, _Pid, _Socket, Msg) when is_list(Msg),
+	VDRPid ! {Pid, H},
+	do_send_msg2vdr(VDRPid, Pid, T);
+do_send_msg2vdr(_VDRPid, _Pid, Msg) when is_list(Msg),
 									     length(Msg) < 1 ->
 	ok;
-do_send_msg2vdr(_VDRPid, _Pid, _Socket, _Msg) ->
+do_send_msg2vdr(_VDRPid, _Pid, _Msg) ->
 	ok.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -1522,9 +1522,9 @@ send_sql_to_db(PoolId, Msg, State) ->
 				            end
 					end;
 				true ->
-					BinOper1 = erlang:binary_part(Msg, 0, 13),
+					BinOper1 = erlang:binary_part(Msg, 0, 34),
 					if
-						BinOper1 == <<"replace into ">> ->
+						BinOper1 == <<"replace into vehicle_position_last">> ->
 							[TableName1, Fields1, Values1] = remove_empty_item_in_binary_list(binary:split(Msg, [<<"replace into ">>, <<"(">>, <<") values(">>, <<")">>], [global]), []),
 							if
 								Fields1 == <<"vehicle_id, gps_time, server_time, longitude, latitude, height, speed, direction, status_flag, alarm_flag, distance, oil, record_speed, event_man_acq, ex_speed_type, ex_speed_id, alarm_add_type, alarm_add_id, alarm_add_direct, road_alarm_id, road_alarm_time, road_alarm_result, ex_state, io_state, analog_quantity_ad0, analog_quantity_ad1, wl_signal_amp, gnss_count">> ->
@@ -1543,12 +1543,34 @@ send_sql_to_db(PoolId, Msg, State) ->
 						            end
 							end;
 						true ->
-				            DBPid ! {Pid, PoolId, Msg},
-							LinkPid ! {Pid, dbmsgstored, 1},
-				            receive
-				                {Pid, Result} ->
-				                    Result
-				            end
+							BinOper2 = erlang:binary_part(Msg, 0, 42),
+							if
+								BinOper2 == <<"replace into device(authen_code,is_online)">> ->
+									[TableName2, Fields2, Values2] = remove_empty_item_in_binary_list(binary:split(Msg, [<<"replace into ">>, <<"(">>, <<") values(">>, <<")">>], [global]), []),
+									if
+										Fields2 == <<"authen_code,is_online">> ->
+											DBPid ! {Pid, replaceonoff, TableName2, Fields2, Values2},
+											LinkPid ! {Pid, dbmsgstored, 1},
+								            receive
+								                {Pid, Result} ->
+								                    Result
+								            end;
+										true ->
+								            DBPid ! {Pid, PoolId, Msg},
+											LinkPid ! {Pid, dbmsgstored, 1},
+								            receive
+								                {Pid, Result} ->
+								                    Result
+								            end
+									end;
+								true ->
+						            DBPid ! {Pid, PoolId, Msg},
+									LinkPid ! {Pid, dbmsgstored, 1},
+						            receive
+						                {Pid, Result} ->
+						                    Result
+						            end
+							end
 					end
 			end
     end.
