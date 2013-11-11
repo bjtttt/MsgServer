@@ -210,11 +210,16 @@ vdr_resp_process() ->
 		stop ->
 			common:loginfo("VDR response process stops.");
 		{Pid, Socket, Msg} ->
+			%common:loginfo("VDR response ~p from ~p : ~p", [self(), Pid, Msg]),
 			gen_tcp:send(Socket, Msg),
 			Pid ! {Pid, ok},
 			vdr_resp_process();
 		{_Pid, Socket, Msg, noresp} ->
+			%common:loginfo("VDR response ~p from ~p noresp : ~p", [self(), Pid, Msg]),
 			gen_tcp:send(Socket, Msg),
+			vdr_resp_process();
+		_ ->
+			%common:loginfo("VDR response process receive unknown message : ~p", [UnknwonMsg]),
 			vdr_resp_process()
 	end.
 
