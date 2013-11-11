@@ -988,7 +988,7 @@ create_time_list_and_binary(Time) when is_integer(Time) ->
 create_time_list_and_binary(_Time) ->
 	{<<"2000-01-01 00:00:00">>, "2000-01-01 00:00:00"}.
 
-process_pos_info(ID, MsgIdx, VDRPid, HeadInfo, Msg, NewState) ->
+process_pos_info(ID, MsgIdx, _VDRPid, HeadInfo, Msg, NewState) ->
     case create_sql_from_vdr(HeadInfo, Msg, NewState) of
 		{ok, Sqls} ->
             send_sqls_to_db(conn, Sqls, NewState),
