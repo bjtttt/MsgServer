@@ -482,10 +482,11 @@ process_vdr_data(Socket, Data, State) ->
 		                                                            % "authen_code" is the query condition, so Auth should be equal to VDRAuthEnCode
 		                                                            %{Auth} = Msg,
 		                                                            
+																	%common:loginfo("1"),
 		                                                            %SqlUpdate = list_to_binary([<<"update device set is_online=1 where authen_code='">>, VDRAuthenCode, <<"'">>]),
 		                                                            SqlUpdate = list_to_binary([<<"replace into device(authen_code,is_online) values('">>, VDRAuthenCode, <<"',1)">>]),
 		                                                            send_sql_to_db(conn, SqlUpdate, NewState),
-																	
+																	%common:loginfo("2"),
 																	SqlAlarmList = list_to_binary([<<"select * from vehicle_alarm where vehicle_id=">>, common:integer_to_binary(VehicleID), <<" and isnull(clear_time)">>]),
 																	SqlAlarmListResp = send_sql_to_db(conn, SqlAlarmList, NewState),
 																	case extract_db_resp(SqlAlarmListResp) of
@@ -1492,6 +1493,13 @@ remove_empty_item_in_binary_list(BinList, Result) when is_list(BinList),
 remove_empty_item_in_binary_list(_BinList, Result) ->
 	Result.
 
+get_binary_msg_first_n_char(Msg, N) when is_binary(Msg),
+										 is_integer(N),
+										 byte_size(Msg) > N ->
+	erlang:binary_part(Msg, 0, N);
+get_binary_msg_first_n_char(_Msg, _N) ->
+	<<"">>.
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %
 %
@@ -1502,7 +1510,7 @@ send_sql_to_db(PoolId, Msg, State) ->
         undefined ->
 			ok;
         DBPid ->
-			BinOper = erlang:binary_part(Msg, 0, 12),
+			BinOper = get_binary_msg_first_n_char(Msg, 12),
 			LinkPid = State#vdritem.linkpid,
 			Pid = State#vdritem.pid,
 			if
@@ -1525,7 +1533,7 @@ send_sql_to_db(PoolId, Msg, State) ->
 				            end
 					end;
 				true ->
-					BinOper1 = erlang:binary_part(Msg, 0, 34),
+					BinOper1 = get_binary_msg_first_n_char(Msg, 34),
 					if
 						BinOper1 == <<"replace into vehicle_position_last">> ->
 							[TableName1, Fields1, Values1] = remove_empty_item_in_binary_list(binary:split(Msg, [<<"replace into ">>, <<"(">>, <<") values(">>, <<")">>], [global]), []),
@@ -1546,7 +1554,7 @@ send_sql_to_db(PoolId, Msg, State) ->
 						            end
 							end;
 						true ->
-							BinOper2 = erlang:binary_part(Msg, 0, 42),
+							BinOper2 = get_binary_msg_first_n_char(Msg, 42),
 							if
 								BinOper2 == <<"replace into device(authen_code,is_online)">> ->
 									[TableName2, Fields2, Values2] = remove_empty_item_in_binary_list(binary:split(Msg, [<<"replace into ">>, <<"(">>, <<") values(">>, <<")">>], [global]), []),
