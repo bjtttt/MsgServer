@@ -210,11 +210,21 @@ vdr_resp_process() ->
 		stop ->
 			common:loginfo("VDR response process stops.");
 		{Pid, Socket, Msg} ->
-			gen_tcp:send(Socket, Msg),
+			try gen_tcp:send(Socket, Msg)
+		    catch
+		        _:Ex ->
+		            common:logerror("Exception when gen_tcps:send ~p : ~p~n", [Msg, Ex])
+		    end,
 			Pid ! {Pid, ok},
 			vdr_resp_process();
 		{_Pid, Socket, Msg, noresp} ->
-			gen_tcp:send(Socket, Msg),
+			try gen_tcp:send(Socket, Msg)
+		    catch
+		        _:Ex ->
+		            common:logerror("Exception when gen_tcps:send ~p : ~p~n", [Msg, Ex])
+		    end,
+			vdr_resp_process();
+		_ ->
 			vdr_resp_process()
 	end.
 
