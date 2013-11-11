@@ -482,11 +482,10 @@ process_vdr_data(Socket, Data, State) ->
 		                                                            % "authen_code" is the query condition, so Auth should be equal to VDRAuthEnCode
 		                                                            %{Auth} = Msg,
 		                                                            
-																	%common:loginfo("1"),
 		                                                            %SqlUpdate = list_to_binary([<<"update device set is_online=1 where authen_code='">>, VDRAuthenCode, <<"'">>]),
 		                                                            SqlUpdate = list_to_binary([<<"replace into device(authen_code,is_online) values('">>, VDRAuthenCode, <<"',1)">>]),
 		                                                            send_sql_to_db(conn, SqlUpdate, NewState),
-																	%common:loginfo("2"),
+
 																	SqlAlarmList = list_to_binary([<<"select * from vehicle_alarm where vehicle_id=">>, common:integer_to_binary(VehicleID), <<" and isnull(clear_time)">>]),
 																	SqlAlarmListResp = send_sql_to_db(conn, SqlAlarmList, NewState),
 																	case extract_db_resp(SqlAlarmListResp) of
