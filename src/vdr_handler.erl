@@ -1592,7 +1592,7 @@ send_sql_to_db_nowait(PoolId, Msg, State) ->
         undefined ->
 			ok;
         DBPid ->
-			BinOper = erlang:binary_part(Msg, 0, 12),
+			BinOper = get_binary_msg_first_n_char(Msg, 12),
 			if
 				BinOper == <<"insert into ">> ->
 					[TableName, Fields, Values] = remove_empty_item_in_binary_list(binary:split(Msg, [<<"insert into ">>, <<"(">>, <<") values(">>, <<")">>], [global]), []),
@@ -1603,9 +1603,9 @@ send_sql_to_db_nowait(PoolId, Msg, State) ->
 				            DBPid ! {Pid, PoolId, Msg, noresp}
 					end;
 				true ->
-					BinOper1 = erlang:binary_part(Msg, 0, 13),
+					BinOper1 = get_binary_msg_first_n_char(Msg, 34),
 					if
-						BinOper1 == <<"replace into ">> ->
+						BinOper1 == <<"replace into vehicle_position_last">> ->
 							[TableName1, Fields1, Values1] = remove_empty_item_in_binary_list(binary:split(Msg, [<<"replace into ">>, <<"(">>, <<") values(">>, <<")">>], [global]), []),
 							if
 								Fields1 == <<"vehicle_id, gps_time, server_time, longitude, latitude, height, speed, direction, status_flag, alarm_flag, distance, oil, record_speed, event_man_acq, ex_speed_type, ex_speed_id, alarm_add_type, alarm_add_id, alarm_add_direct, road_alarm_id, road_alarm_time, road_alarm_result, ex_state, io_state, analog_quantity_ad0, analog_quantity_ad1, wl_signal_amp, gnss_count">> ->
@@ -1614,7 +1614,20 @@ send_sql_to_db_nowait(PoolId, Msg, State) ->
 						            DBPid ! {Pid, PoolId, Msg, noresp}
 							end;
 						true ->
-				            DBPid ! {Pid, PoolId, Msg, noresp}
+							BinOper2 = get_binary_msg_first_n_char(Msg, 42),
+							if
+								BinOper2 == <<"replace into device(authen_code,is_online)">> ->
+									[TableName2, Fields2, Values2] = remove_empty_item_in_binary_list(binary:split(Msg, [<<"replace into ">>, <<"(">>, <<") values(">>, <<")">>], [global]), []),
+									if
+										Fields2 == <<"authen_code,is_online">> ->
+											DBPid ! {Pid, replaceonoff, TableName2, Fields2, Values2};
+										true ->
+								            DBPid ! {Pid, PoolId, Msg}
+									end;
+								true ->
+						            DBPid ! {Pid, PoolId, Msg}
+							end
+
 					end
 			end
     end,
