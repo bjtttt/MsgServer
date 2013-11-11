@@ -459,6 +459,7 @@ process_vdr_data(Socket, Data, State) ->
                                 {ok, Sql} ->
                                     %SqlResp = send_sql_to_db(regauth, Sql, State),
                                     SqlResp = send_sql_to_db(conn, Sql, NewState),
+									%common:loginfo("SQL : ~p~nSQL Result : ~p", [Sql, SqlResp]),
                                     case extract_db_resp(SqlResp) of
                                         {ok, empty} ->
                                             {error, autherror, NewState};
@@ -1458,7 +1459,7 @@ get_new_flow_index(FlowIdx) ->
 
 do_send_msg2vdr(VDRPid, Pid, Socket, Msg) when is_binary(Msg),
 									   byte_size(Msg) > 0 ->
-	common:loginfo("VDR ~p sends MSG to VDRPid ~p : ~p", [Pid, VDRPid, Msg]),
+	%common:loginfo("VDR ~p sends MSG to VDRPid ~p : ~p", [Pid, VDRPid, Msg]),
 	VDRPid ! {Pid, Socket, Msg, noresp};
 do_send_msg2vdr(_VDRPid, _Pid, _Socket, Msg) when is_binary(Msg),
 									   byte_size(Msg) < 1 ->
@@ -1466,7 +1467,7 @@ do_send_msg2vdr(_VDRPid, _Pid, _Socket, Msg) when is_binary(Msg),
 do_send_msg2vdr(VDRPid, Pid, Socket, Msg) when is_list(Msg),
 									   length(Msg) > 0 ->
 	[H|T] = Msg,
-	common:loginfo("VDR ~p sends MSG to VDRPid ~p : ~p", [Pid, VDRPid, H]),
+	%common:loginfo("VDR ~p sends MSG to VDRPid ~p : ~p", [Pid, VDRPid, H]),
 	VDRPid ! {Pid, Socket, H, noresp},
 	do_send_msg2vdr(VDRPid, Pid, Socket, T);
 do_send_msg2vdr(_VDRPid, _Pid, _Socket, Msg) when is_list(Msg),
