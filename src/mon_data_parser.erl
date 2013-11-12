@@ -612,14 +612,14 @@ get_link_info_reponse(_Req) ->
 	end.
 
 clear_link_info_reponse(_Req) ->
-	Res = ets:lookup(msgservertable, linkpid),
-	case Res of
-		[{linkpid, LinkPid}] ->
-			if
-				LinkPid =/= undefined ->
-					LinkPid ! {self(), clear}
-			end
-	end,
+	%Res = ets:lookup(msgservertable, linkpid),
+	%case Res of
+	%	[{linkpid, LinkPid}] ->
+	%		if
+	%			LinkPid =/= undefined ->
+	%				LinkPid ! {self(), clear}
+	%		end
+	%end,
     Content = <<2:?LEN_DWORD, 0:?LEN_BYTE, 22:?LEN_BYTE>>,
     Xor = vdr_data_parser:bxorbytelist(Content),
 	list_to_binary([Content, Xor]).
