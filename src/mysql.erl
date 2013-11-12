@@ -339,7 +339,7 @@ mysql_process(Num1, Num2, SqlInsert, InsertCount, SqlReplace, ReplaceCount, SqlR
 					end
 			end;
 		{Pid, replaceonoff, Table, Key, Content} ->
-			[TableName, _KeyName, Values] = SqlReplace,
+			[TableName, _KeyName, Values] = SqlReplace1,
 			if
 				TableName =/= Table ->
 					if
@@ -358,7 +358,7 @@ mysql_process(Num1, Num2, SqlInsert, InsertCount, SqlReplace, ReplaceCount, SqlR
 					end;
 				true ->
 					if
-						ReplaceCount >= ?MAX_DB_STORED_COUNT ->
+						ReplaceCount1 >= ?MAX_DB_STORED_URGENT_COUNT ->
 							FinalSql = list_to_binary([<<"replace into ">>, TableName, 
 													   <<"(">>, Key, <<") values">>,
 													   combine_all_values(Values)]),
@@ -373,7 +373,7 @@ mysql_process(Num1, Num2, SqlInsert, InsertCount, SqlReplace, ReplaceCount, SqlR
 					end
 			end;
 		{_Pid, replaceonoff, Table, Key, Content, noresp} ->	% online and offline
-			[TableName, _KeyName, Values] = SqlReplace,
+			[TableName, _KeyName, Values] = SqlReplace1,
 			if
 				TableName =/= Table ->
 					if
@@ -390,7 +390,7 @@ mysql_process(Num1, Num2, SqlInsert, InsertCount, SqlReplace, ReplaceCount, SqlR
 					end;
 				true ->
 					if
-						ReplaceCount >= ?MAX_DB_STORED_COUNT ->
+						ReplaceCount1 >= ?MAX_DB_STORED_URGENT_COUNT ->
 							FinalSql = list_to_binary([<<"replace into ">>, TableName, 
 													   <<"(">>, Key, <<") values">>,
 													   combine_all_values(Values)]),
@@ -430,6 +430,7 @@ mysql_process(Num1, Num2, SqlInsert, InsertCount, SqlReplace, ReplaceCount, SqlR
 											   combine_all_values(Values)]),
 					do_sql(FinalSql),
 					DecCount = length(Values),
+					common:loginfo("Sent MSG count pos timeout : ~p", [DecCount]),
 					LinkPid ! {self(), dbmsgsent, DecCount};
 				true ->
 					ok
@@ -442,6 +443,7 @@ mysql_process(Num1, Num2, SqlInsert, InsertCount, SqlReplace, ReplaceCount, SqlR
 											   combine_all_values(Values1)]),
 					do_sql(FinalSql1),
 					DecCount1 = length(Values1),
+					common:loginfo("Sent MSG count lastpos timeout : ~p", [DecCount1]),
 					LinkPid ! {self(), dbmsgsent, DecCount1};
 				true ->
 					ok
@@ -454,6 +456,7 @@ mysql_process(Num1, Num2, SqlInsert, InsertCount, SqlReplace, ReplaceCount, SqlR
 											   combine_all_values(Values2)]),
 					do_sql(FinalSql2),
 					DecCount2 = length(Values2),
+					common:loginfo("Sent MSG count onoff timeout: ~p", [DecCount2]),
 					LinkPid ! {self(), dbmsgsent, DecCount2};
 				true ->
 					ok
