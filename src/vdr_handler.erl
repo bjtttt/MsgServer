@@ -154,7 +154,7 @@ handle_info(_Info, State) ->
 %%% When VDR handler process is terminated, do the clean jobs here
 %%%
 terminate(_Reason, State) ->
-    Auth = State#vdritem.auth,
+    %Auth = State#vdritem.auth,
     VehicleID = State#vdritem.vehicleid,
     Socket = State#vdritem.socket,
     %VDRPid = State#vdritem.vdrpid,
@@ -179,16 +179,16 @@ terminate(_Reason, State) ->
             {ok, WSUpdate} = wsock_data_parser:create_term_offline([VehicleID]),
             send_msg_to_ws_nowait(WSUpdate, State)
     end,
-    case Auth of
-        undefined ->
-            ok;
-        _ ->
-			Sql = list_to_binary([<<"replace into device(authen_code,is_online) values('">>, Auth, <<"',0)">>]),
-			%Sql = list_to_binary([<<"update device set is_online=0 where authen_code='">>, 
-            %                      list_to_binary(Auth), 
-            %                      <<"'">>]),
-            send_sql_to_db_nowait(conn, Sql, State)
-    end,
+    %case Auth of
+    %    undefined ->
+    %        ok;
+    %    _ ->
+			%Sql = list_to_binary([<<"replace into device(authen_code,is_online) values('">>, Auth, <<"',0)">>]),
+			%%Sql = list_to_binary([<<"update device set is_online=0 where authen_code='">>, 
+            %%                      list_to_binary(Auth), 
+            %%                      <<"'">>]),
+            %send_sql_to_db_nowait(conn, Sql, State)
+    %end,
 	try gen_tcp:close(State#vdritem.socket)
     catch
         _:Ex ->
@@ -484,8 +484,8 @@ process_vdr_data(Socket, Data, State) ->
 		                                                            %{Auth} = Msg,
 		                                                            
 		                                                            %SqlUpdate = list_to_binary([<<"update device set is_online=1 where authen_code='">>, VDRAuthenCode, <<"'">>]),
-		                                                            SqlUpdate = list_to_binary([<<"replace into device(authen_code,is_online) values('">>, VDRAuthenCode, <<"',1)">>]),
-		                                                            send_sql_to_db(conn, SqlUpdate, NewState),
+		                                                            %SqlUpdate = list_to_binary([<<"replace into device(authen_code,is_online) values('">>, VDRAuthenCode, <<"',1)">>]),
+		                                                            %send_sql_to_db(conn, SqlUpdate, NewState),
 
 																	SqlAlarmList = list_to_binary([<<"select * from vehicle_alarm where vehicle_id=">>, common:integer_to_binary(VehicleID), <<" and isnull(clear_time)">>]),
 																	SqlAlarmListResp = send_sql_to_db(conn, SqlAlarmList, NewState),
@@ -1554,34 +1554,34 @@ send_sql_to_db(PoolId, Msg, State) ->
 						            end
 							end;
 						true ->
-							BinOper2 = get_binary_msg_first_n_char(Msg, 42),
-							if
-								BinOper2 == <<"replace into device(authen_code,is_online)">> ->
-									[TableName2, Fields2, Values2] = remove_empty_item_in_binary_list(binary:split(Msg, [<<"replace into ">>, <<"(">>, <<") values(">>, <<")">>], [global]), []),
-									if
-										Fields2 == <<"authen_code,is_online">> ->
-											DBPid ! {Pid, replaceonoff, TableName2, Fields2, Values2},
-											LinkPid ! {Pid, dbmsgstored, 1},
-								            receive
-								                {Pid, Result} ->
-								                    Result
-								            end;
-										true ->
-								            DBPid ! {Pid, PoolId, Msg},
-											LinkPid ! {Pid, dbmsgstored, 1},
-								            receive
-								                {Pid, Result} ->
-								                    Result
-								            end
-									end;
-								true ->
+							%BinOper2 = get_binary_msg_first_n_char(Msg, 42),
+							%if
+							%	BinOper2 == <<"replace into device(authen_code,is_online)">> ->
+							%		[TableName2, Fields2, Values2] = remove_empty_item_in_binary_list(binary:split(Msg, [<<"replace into ">>, <<"(">>, <<") values(">>, <<")">>], [global]), []),
+							%		if
+							%			Fields2 == <<"authen_code,is_online">> ->
+							%				DBPid ! {Pid, replaceonoff, TableName2, Fields2, Values2},
+							%				LinkPid ! {Pid, dbmsgstored, 1},
+							%	            receive
+							%	                {Pid, Result} ->
+							%	                    Result
+							%	            end;
+							%			true ->
+							%	            DBPid ! {Pid, PoolId, Msg},
+							%				LinkPid ! {Pid, dbmsgstored, 1},
+							%	            receive
+							%	                {Pid, Result} ->
+							%	                    Result
+							%	            end
+							%		end;
+							%	true ->
 						            DBPid ! {Pid, PoolId, Msg},
 									LinkPid ! {Pid, dbmsgstored, 1},
 						            receive
 						                {Pid, Result} ->
 						                    Result
 						            end
-							end
+							%end
 					end
 			end
     end.
@@ -1615,20 +1615,19 @@ send_sql_to_db_nowait(PoolId, Msg, State) ->
 						            DBPid ! {Pid, PoolId, Msg, noresp}
 							end;
 						true ->
-							BinOper2 = get_binary_msg_first_n_char(Msg, 42),
-							if
-								BinOper2 == <<"replace into device(authen_code,is_online)">> ->
-									[TableName2, Fields2, Values2] = remove_empty_item_in_binary_list(binary:split(Msg, [<<"replace into ">>, <<"(">>, <<") values(">>, <<")">>], [global]), []),
-									if
-										Fields2 == <<"authen_code,is_online">> ->
-											DBPid ! {Pid, replaceonoff, TableName2, Fields2, Values2};
-										true ->
-								            DBPid ! {Pid, PoolId, Msg}
-									end;
-								true ->
+							%BinOper2 = get_binary_msg_first_n_char(Msg, 42),
+							%if
+							%	BinOper2 == <<"replace into device(authen_code,is_online)">> ->
+							%		[TableName2, Fields2, Values2] = remove_empty_item_in_binary_list(binary:split(Msg, [<<"replace into ">>, <<"(">>, <<") values(">>, <<")">>], [global]), []),
+							%		if
+							%			Fields2 == <<"authen_code,is_online">> ->
+							%				DBPid ! {Pid, replaceonoff, TableName2, Fields2, Values2};
+							%			true ->
+							%	            DBPid ! {Pid, PoolId, Msg}
+							%		end;
+							%	true ->
 						            DBPid ! {Pid, PoolId, Msg}
-							end
-
+							%end
 					end
 			end
     end,
