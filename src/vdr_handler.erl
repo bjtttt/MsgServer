@@ -805,7 +805,7 @@ process_vdr_data(Socket, Data, State) ->
 							{MediaId, _Type, _Code, _EICode, _PipeId, _PosInfo, _Pack} = Msg,
                             case create_sql_from_vdr(HeadInfo, Msg, NewState) of
                                 {ok, Sqls} ->
-                                    send_sqls_to_db(conn, Sqls, NewState),
+                                    send_sqls_to_db_nowait(conn, Sqls, NewState),
 
 		                            FlowIdx = NewState#vdritem.msgflownum,
 									MsgBody = vdr_data_processor:create_multimedia_data_reply(MediaId),
@@ -998,7 +998,7 @@ create_time_list_and_binary(_Time) ->
 process_pos_info(ID, MsgIdx, _VDRPid, HeadInfo, Msg, NewState) ->
     case create_sql_from_vdr(HeadInfo, Msg, NewState) of
 		{ok, Sqls} ->
-            send_sqls_to_db(conn, Sqls, NewState),
+            send_sqls_to_db_nowait(conn, Sqls, NewState),
             
             FlowIdx = NewState#vdritem.msgflownum,
             PreviousAlarm = NewState#vdritem.alarm,
@@ -1511,13 +1511,13 @@ get_binary_msg_first_n_char(_Msg, _N) ->
 %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 send_sql_to_db(PoolId, Msg, State) ->
+	LinkPid = State#vdritem.linkpid,
+	Pid = State#vdritem.pid,
     case State#vdritem.dbpid of
         undefined ->
-			ok;
+			LinkPid ! {Pid, dbmsgerror};
         DBPid ->
 			BinOper = get_binary_msg_first_n_char(Msg, 12),
-			LinkPid = State#vdritem.linkpid,
-			Pid = State#vdritem.pid,
 			if
 				BinOper == <<"insert into ">> ->
 					[TableName, Fields, Values] = remove_empty_item_in_binary_list(binary:split(Msg, [<<"insert into ">>, <<"(">>, <<") values(">>, <<")">>], [global]), []),
@@ -1574,7 +1574,7 @@ send_sql_to_db_nowait(PoolId, Msg, State) ->
 	Pid = State#vdritem.pid,
     case State#vdritem.dbpid of
         undefined ->
-			ok;
+			LinkPid ! {Pid, dbmsgerror};
         DBPid ->
 			BinOper = get_binary_msg_first_n_char(Msg, 12),
 			if
@@ -1600,9 +1600,9 @@ send_sql_to_db_nowait(PoolId, Msg, State) ->
 						true ->
 				            DBPid ! {Pid, PoolId, Msg}
 					end
-			end
-    end,
-	LinkPid ! {Pid, dbmsgstored, 1}.
+			end,
+			LinkPid ! {Pid, dbmsgstored, 1}
+    end.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %
