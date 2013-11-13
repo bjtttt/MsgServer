@@ -34,7 +34,7 @@ init([Sock, Addr]) ->
 	common:send_stat_err(State, conn),
     common:send_vdr_table_operation(VDRTablePid, {self(), insert, State, noresp}),
     inet:setopts(Sock, [{active, once}]),
-	{ok, State}.
+	{ok, State, ?VDR_MSG_TIMEOUT}.
 
 %handle_call({fetch, PoolId, Msg}, _From, State) ->
 %    Resp = mysql:fetch(PoolId, Msg),
