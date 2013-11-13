@@ -393,8 +393,18 @@ mysql_process_err(Num1, Num2, LinkPid) ->
 		{Pid, ok} ->
 			Pid ! ok,
 			mysql_process(Num1, Num2, [<<"">>, []], 0, [<<"">>, []], 0, LinkPid);
+		{Pid, insert, _Table, _Key, _Content} ->
+			Pid ! {Pid, <<"">>},
+            mysql_process_err(Num1, Num2+1, LinkPid);
+		{_Pid, insert, _Table, _Key, _Content, noresp} ->
+            mysql_process_err(Num1, Num2+1, LinkPid);
+		{Pid, replace, _Table, _Key, _Content} ->
+			Pid ! {Pid, <<"">>},
+            mysql_process_err(Num1, Num2+1, LinkPid);
+		{_Pid, replace, _Table, _Key, _Content, noresp} ->
+            mysql_process_err(Num1, Num2+1, LinkPid);
         {Pid, _PoolId, _Sql} ->
-			Pid ! {Pid,<<"">>},
+			Pid ! {Pid, <<"">>},
             mysql_process_err(Num1, Num2+1, LinkPid);
         {_Pid, _PoolId, _Sql, noresp} ->
             mysql_process_err(Num1, Num2+1, LinkPid);
@@ -407,6 +417,7 @@ mysql_process_err(Num1, Num2, LinkPid) ->
         stop ->
             ok;
         _ ->
+			LinkPid ! {self(), dbmsgunknown},
             mysql_process_err(Num1, Num2, LinkPid)
     end.
 
