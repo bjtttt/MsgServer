@@ -11,6 +11,7 @@
 		 extract_db_resp/1,
 		 get_record_field/3,
 		 send_sql_to_db/3,
+		 send_sql_to_db_nowait/3,
 		 send_msg_to_ws/2]).
 
 -include("header.hrl").
@@ -51,6 +52,9 @@ handle_cast(_Msg, State) ->
 %%%
 %%%
 handle_info({tcp, Socket, Data}, OriState) ->
+	Pid = OriState#vdritem.linkpid,
+	LinkPid = OriState#vdritem.pid,
+	LinkPid ! {Pid, vdrmsggot},
     %common:loginfo("~p : Data from VDR (~p) (id:~p, serialno:~p, authen_code:~p, vehicleid:~p, vehiclecode:~p)~n~p~n",
 	%			   [self(),
 	%				OriState#vdritem.addr, 
@@ -381,7 +385,7 @@ process_vdr_data(Socket, Data, State) ->
                                                                                               <<"' where id=">>,
                                                                                               common:integer_to_binary(DeviceID)]),
                                                             % Should we check the update result?
-                                                            send_sql_to_db(conn, VDRVehicleIDSql, NewState),
+                                                            send_sql_to_db_nowait(conn, VDRVehicleIDSql, NewState),
                                                             
                                                             update_reg_install_time(DeviceID, DeviceRegTime, VehicleID, VehicleDeviceInstallTime, NewState),        
 
@@ -408,7 +412,7 @@ process_vdr_data(Socket, Data, State) ->
                                                                                               common:integer_to_binary(DeviceID),
                                                                                               <<"' where id=">>,
                                                                                               common:integer_to_binary(VehicleID)]),
-                                                            send_sql_to_db(conn, VehicleVDRIDSql, NewState),
+                                                            send_sql_to_db_nowait(conn, VehicleVDRIDSql, NewState),
                                                             
                                                             update_reg_install_time(DeviceID, DeviceRegTime, VehicleID, VehicleDeviceInstallTime, NewState),        
 
@@ -425,13 +429,13 @@ process_vdr_data(Socket, Data, State) ->
                                                                                       common:integer_to_binary(VehicleID),
                                                                                       <<"' where id=">>,
                                                                                       common:integer_to_binary(DeviceID)]),
-                                                    send_sql_to_db(conn, VDRVehicleIDSql, NewState),
+                                                    send_sql_to_db_nowait(conn, VDRVehicleIDSql, NewState),
                                                     
                                                     VehicleVDRIDSql = list_to_binary([<<"update vehicle set device_id='">>,
                                                                                       common:integer_to_binary(DeviceID),
                                                                                       <<"' where id=">>,
                                                                                       common:integer_to_binary(VehicleID)]),
-                                                    send_sql_to_db(conn, VehicleVDRIDSql, NewState),
+                                                    send_sql_to_db_nowait(conn, VehicleVDRIDSql, NewState),
 
                                                     update_reg_install_time(DeviceID, DeviceRegTime, VehicleID, VehicleDeviceInstallTime, NewState),      
 
@@ -649,7 +653,7 @@ process_vdr_data(Socket, Data, State) ->
                             ID = NewState#vdritem.id,
                             case create_sql_from_vdr(HeadInfo, {ID, Auth}, NewState) of
                                 {ok, Sql} ->
-                                    send_sql_to_db(conn, Sql, NewState),
+                                    send_sql_to_db_nowait(conn, Sql, NewState),
         
                                     FlowIdx = NewState#vdritem.msgflownum,
                                     MsgBody = vdr_data_processor:create_gen_resp(ID, MsgIdx, ?T_GEN_RESP_OK),
@@ -769,7 +773,7 @@ process_vdr_data(Socket, Data, State) ->
                             %{_DrvState, _Time, _IcReadResult, _NameLen, _N, _C, _OrgLen, _O, _Validity} = Msg,
                             case create_sql_from_vdr(HeadInfo, Msg, NewState) of
 								{ok, Sql} ->
-									send_sql_to_db(conn, Sql, NewState),
+									send_sql_to_db_nowait(conn, Sql, NewState),
                                                         
 		                            FlowIdx = NewState#vdritem.msgflownum,
 		                            MsgBody = vdr_data_processor:create_gen_resp(ID, MsgIdx, ?T_GEN_RESP_OK),
@@ -1188,7 +1192,7 @@ update_reg_install_time(DeviceID, DeviceRegTime, VehicleID, VehicleDeviceInstall
                                                 common:integer_to_binary(VehicleID)]),
             % Should we check the update result?
             %end_sql_to_db(regauth, DevInstallTimeSql, State);
-            send_sql_to_db(conn, DevInstallTimeSql, State);
+            send_sql_to_db_nowait(conn, DevInstallTimeSql, State);
         true ->
             ok
     end,
@@ -1200,7 +1204,7 @@ update_reg_install_time(DeviceID, DeviceRegTime, VehicleID, VehicleDeviceInstall
                                             common:integer_to_binary(DeviceID)]),
             % Should we check the update result?
             %send_sql_to_db(regauth, VDRRegTimeSql, State);
-            send_sql_to_db(conn, VDRRegTimeSql, State);
+            send_sql_to_db_nowait(conn, VDRRegTimeSql, State);
         true ->
             ok
     end.
@@ -1236,7 +1240,7 @@ update_vehicle_alarm(VehicleID, DriverID, TimeS, Alarm, Index, State) when is_in
                                                 common:integer_to_binary(DriverID), <<",'">>,
                                                 list_to_binary(TimeS), <<"',NULL,">>,
                                                 common:integer_to_binary(Index), <<")">>]),
-                    send_sql_to_db(conn, UpdateSql, State),
+                    send_sql_to_db_nowait(conn, UpdateSql, State),
                     NewAlarmList = lists:merge(AlarmList,[{Index, TimeS}]),
                     update_vehicle_alarm(VehicleID, DriverID, TimeS, Alarm, Index+1, State#vdritem{alarmlist=NewAlarmList});
                 true ->
@@ -1254,7 +1258,7 @@ update_vehicle_alarm(VehicleID, DriverID, TimeS, Alarm, Index, State) when is_in
                                                 <<" and driver_id=">>, common:integer_to_binary(DriverID),
                                                 <<" and alarm_time='">>, list_to_binary(SetTime),
                                                 <<"' and type_id=">>, common:integer_to_binary(Index)]),
-                    send_sql_to_db(conn, UpdateSql, State),
+                    send_sql_to_db_nowait(conn, UpdateSql, State),
                     NewAlarmList = remove_alarm_item(Index, AlarmList),
                     update_vehicle_alarm(VehicleID, DriverID, TimeS, Alarm, Index+1, State#vdritem{alarmlist=NewAlarmList})
             end
@@ -1278,7 +1282,7 @@ update_vehicle_alarm(VehicleID, _DriverID, TimeS, Alarm, Index, State) when is_i
                                                 common:integer_to_binary(VehicleID), <<",0,'">>,
                                                 list_to_binary(TimeS), <<"',NULL,">>,
                                                 common:integer_to_binary(Index), <<")">>]),
-                    send_sql_to_db(conn, UpdateSql, State),
+                    send_sql_to_db_nowait(conn, UpdateSql, State),
                     NewAlarmList = lists:merge(AlarmList,[{Index, TimeS}]),
                     update_vehicle_alarm(VehicleID, _DriverID, TimeS, Alarm, Index+1, State#vdritem{alarmlist=NewAlarmList});
                 true ->
@@ -1295,7 +1299,7 @@ update_vehicle_alarm(VehicleID, _DriverID, TimeS, Alarm, Index, State) when is_i
                                                 <<"' where vehicle_id=">>, common:integer_to_binary(VehicleID),
                                                 <<" and driver_id=0 and alarm_time='">>, list_to_binary(SetTime),
                                                 <<"' and type_id=">>, common:integer_to_binary(Index)]),
-                    send_sql_to_db(conn, UpdateSql, State),
+                    send_sql_to_db_nowait(conn, UpdateSql, State),
                     NewAlarmList = remove_alarm_item(Index, AlarmList),
                     update_vehicle_alarm(VehicleID, _DriverID, TimeS, Alarm, Index+1, State#vdritem{alarmlist=NewAlarmList})
             end
@@ -1391,6 +1395,7 @@ send_data_to_vdr(ID, Tel, FlowIdx, MsgBody, State) ->
 	VDRPid = State#vdritem.vdrpid,
 	Socket = State#vdritem.socket,
 	Pid = State#vdritem.pid,
+	LinkPid = State#vdritem.linkpid,
 	case is_binary(MsgBody) of
 		true ->
 			MsgLen = byte_size(MsgBody),
@@ -1405,24 +1410,24 @@ send_data_to_vdr(ID, Tel, FlowIdx, MsgBody, State) ->
 							<<IndexInt:16>> = Index,
 							Tail = binary:part(MsgBody, 24, MsgLen-24),
 							Msg = vdr_data_processor:create_final_msg(ID, Tel, FlowIdx, Tail, TotalInt, IndexInt),
-							do_send_data_to_vdr(VDRPid, Pid, Socket, Msg, ID, FlowIdx);
+							do_send_data_to_vdr(VDRPid, Pid, Socket, Msg, ID, FlowIdx, LinkPid);
 						true ->
 				            Msg = vdr_data_processor:create_final_msg(ID, Tel, FlowIdx, MsgBody),
-							do_send_data_to_vdr(VDRPid, Pid, Socket, Msg, ID, FlowIdx)
+							do_send_data_to_vdr(VDRPid, Pid, Socket, Msg, ID, FlowIdx, LinkPid)
 					end;
 				true ->
 		            Msg = vdr_data_processor:create_final_msg(ID, Tel, FlowIdx, MsgBody),
-					do_send_data_to_vdr(VDRPid, Pid, Socket, Msg, ID, FlowIdx)
+					do_send_data_to_vdr(VDRPid, Pid, Socket, Msg, ID, FlowIdx, LinkPid)
 			end;
 		_ ->
             Msg = vdr_data_processor:create_final_msg(ID, Tel, FlowIdx, MsgBody),
-			do_send_data_to_vdr(VDRPid, Pid, Socket, Msg, ID, FlowIdx)
+			do_send_data_to_vdr(VDRPid, Pid, Socket, Msg, ID, FlowIdx, LinkPid)
     end.
 
-do_send_data_to_vdr(VDRPid, Pid, Socket, Msg, ID, FlowIdx) ->
+do_send_data_to_vdr(VDRPid, Pid, Socket, Msg, ID, FlowIdx, LinkPid) ->
 	case is_list(Msg) of
 		true ->
-			do_send_msg2vdr(VDRPid, Pid, Socket, Msg);
+			do_send_msg2vdr(VDRPid, Pid, Socket, Msg, LinkPid);
 		_ ->
 			case is_binary(Msg) of
 				true ->
@@ -1430,10 +1435,10 @@ do_send_data_to_vdr(VDRPid, Pid, Socket, Msg, ID, FlowIdx) ->
 						Msg == <<>> andalso ID =/= 16#8702 ->
 							common:logerror("~p send_data_to_vdr NULL final message : ID (~p), FlowIdx (~p), Msg (~p)~n", [Pid, ID, FlowIdx, Msg]);
 						Msg == <<>> andalso ID == 16#8702 ->
-							do_send_msg2vdr(VDRPid, Pid, Socket, Msg),
+							do_send_msg2vdr(VDRPid, Pid, Socket, Msg, LinkPid),
 							get_new_flow_index(FlowIdx);
 						Msg =/= <<>> ->
-							do_send_msg2vdr(VDRPid, Pid, Socket, Msg),
+							do_send_msg2vdr(VDRPid, Pid, Socket, Msg, LinkPid),
 							get_new_flow_index(FlowIdx)
 					end;
 				_ ->
@@ -1457,23 +1462,23 @@ get_new_flow_index(FlowIdx) ->
 			end
 	end.
 
-do_send_msg2vdr(VDRPid, Pid, Socket, Msg) when is_binary(Msg),
+do_send_msg2vdr(VDRPid, Pid, Socket, Msg, LinkPid) when is_binary(Msg),
 									   byte_size(Msg) > 0 ->
-	%common:loginfo("VDR ~p sends MSG to VDRPid ~p : ~p", [Pid, VDRPid, Msg]),
+	LinkPid ! {Pid, vdrmsgsent},
 	VDRPid ! {Pid, Socket, Msg, noresp};
-do_send_msg2vdr(_VDRPid, _Pid, _Socket, Msg) when is_binary(Msg),
+do_send_msg2vdr(_VDRPid, _Pid, _Socket, Msg, _LinkPid) when is_binary(Msg),
 									   byte_size(Msg) < 1 ->
 	ok;
-do_send_msg2vdr(VDRPid, Pid, Socket, Msg) when is_list(Msg),
+do_send_msg2vdr(VDRPid, Pid, Socket, Msg, LinkPid) when is_list(Msg),
 									   length(Msg) > 0 ->
 	[H|T] = Msg,
-	%common:loginfo("VDR ~p sends MSG to VDRPid ~p : ~p", [Pid, VDRPid, H]),
+	LinkPid ! {Pid, vdrmsgsent},
 	VDRPid ! {Pid, Socket, H, noresp},
-	do_send_msg2vdr(VDRPid, Pid, Socket, T);
-do_send_msg2vdr(_VDRPid, _Pid, _Socket, Msg) when is_list(Msg),
+	do_send_msg2vdr(VDRPid, Pid, Socket, T, LinkPid);
+do_send_msg2vdr(_VDRPid, _Pid, _Socket, Msg, _LinkPid) when is_list(Msg),
 									     length(Msg) < 1 ->
 	ok;
-do_send_msg2vdr(_VDRPid, _Pid, _Socket, _Msg) ->
+do_send_msg2vdr(_VDRPid, _Pid, _Socket, _Msg, _LinkPid) ->
 	ok.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -1554,34 +1559,12 @@ send_sql_to_db(PoolId, Msg, State) ->
 						            end
 							end;
 						true ->
-							%BinOper2 = get_binary_msg_first_n_char(Msg, 42),
-							%if
-							%	BinOper2 == <<"replace into device(authen_code,is_online)">> ->
-							%		[TableName2, Fields2, Values2] = remove_empty_item_in_binary_list(binary:split(Msg, [<<"replace into ">>, <<"(">>, <<") values(">>, <<")">>], [global]), []),
-							%		if
-							%			Fields2 == <<"authen_code,is_online">> ->
-							%				DBPid ! {Pid, replaceonoff, TableName2, Fields2, Values2},
-							%				LinkPid ! {Pid, dbmsgstored, 1},
-							%	            receive
-							%	                {Pid, Result} ->
-							%	                    Result
-							%	            end;
-							%			true ->
-							%	            DBPid ! {Pid, PoolId, Msg},
-							%				LinkPid ! {Pid, dbmsgstored, 1},
-							%	            receive
-							%	                {Pid, Result} ->
-							%	                    Result
-							%	            end
-							%		end;
-							%	true ->
-						            DBPid ! {Pid, PoolId, Msg},
-									LinkPid ! {Pid, dbmsgstored, 1},
-						            receive
-						                {Pid, Result} ->
-						                    Result
-						            end
-							%end
+				            DBPid ! {Pid, PoolId, Msg},
+							LinkPid ! {Pid, dbmsgstored, 1},
+				            receive
+				                {Pid, Result} ->
+				                    Result
+				            end
 					end
 			end
     end.
@@ -1615,19 +1598,7 @@ send_sql_to_db_nowait(PoolId, Msg, State) ->
 						            DBPid ! {Pid, PoolId, Msg, noresp}
 							end;
 						true ->
-							%BinOper2 = get_binary_msg_first_n_char(Msg, 42),
-							%if
-							%	BinOper2 == <<"replace into device(authen_code,is_online)">> ->
-							%		[TableName2, Fields2, Values2] = remove_empty_item_in_binary_list(binary:split(Msg, [<<"replace into ">>, <<"(">>, <<") values(">>, <<")">>], [global]), []),
-							%		if
-							%			Fields2 == <<"authen_code,is_online">> ->
-							%				DBPid ! {Pid, replaceonoff, TableName2, Fields2, Values2};
-							%			true ->
-							%	            DBPid ! {Pid, PoolId, Msg}
-							%		end;
-							%	true ->
-						            DBPid ! {Pid, PoolId, Msg}
-							%end
+				            DBPid ! {Pid, PoolId, Msg}
 					end
 			end
     end,

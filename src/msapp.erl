@@ -103,9 +103,13 @@ start(StartType, StartArgs) ->
 					
 					if
 						Mode == 1 ->
-		                    LinkPid = spawn(fun() -> connection_info_process(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0) end),
+		                    LinkPid = spawn(fun() -> connection_info_process(0, 0, 0, 0, 0, 
+																			 0, 0, 0, 0, 0, 
+																			 0, 0, 0, 0, 0, 
+																			 0, 0, 0, 0, 0, 
+																			 0, 0, 0, 0, 0) end),
 		                    WSPid = spawn(fun() -> wsock_client:wsock_client_process(0, 0) end),
-		                    DBPid = spawn(fun() -> mysql:mysql_process(0, 0, [<<"">>, <<"">>, []], 0, [<<"">>, <<"">>, []], 0, [<<"">>, <<"">>, []], 0, LinkPid) end),
+		                    DBPid = spawn(fun() -> mysql:mysql_process(0, 0, [<<"">>, <<"">>, []], 0, [<<"">>, <<"">>, []], 0, LinkPid) end),
 		                    DBTablePid = spawn(fun() -> db_table_deamon() end),
 		                    CCPid = spawn(fun() -> code_convertor_process() end),
 		                    VdrTablePid = spawn(fun() -> vdrtable_insert_delete_process() end),
@@ -141,8 +145,12 @@ start(StartType, StartArgs) ->
 		                            {error, "ERROR : code convertor table is timeout~n"}
 		                    end;
 						true ->
-		                    LinkPid = spawn(fun() -> connection_info_process(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0) end),
-		                    DBPid = spawn(fun() -> mysql:mysql_process(0, 0, [<<"">>, <<"">>, []], 0, [<<"">>, <<"">>, []], 0, [<<"">>, <<"">>, []], 0, LinkPid) end),
+		                    LinkPid = spawn(fun() -> connection_info_process(0, 0, 0, 0, 0, 
+																			 0, 0, 0, 0, 0, 
+																			 0, 0, 0, 0, 0, 
+																			 0, 0, 0, 0, 0, 
+																			 0, 0, 0, 0, 0) end),
+		                    DBPid = spawn(fun() -> mysql:mysql_process(0, 0, [<<"">>, <<"">>, []], 0, [<<"">>, <<"">>, []], 0, LinkPid) end),
 		                    DBTablePid = spawn(fun() -> db_table_deamon() end),
 		                    CCPid = spawn(fun() -> code_convertor_process() end),
 		                    VdrTablePid = spawn(fun() -> vdrtable_insert_delete_process() end),
@@ -358,7 +366,8 @@ code_convertor_process() ->
 connection_info_process(Conn, CharDisc, RegDisc, AuthDisc, ErrDisc, ClientDisc, 
 						LenErr, ParErr, SplitErr, RestErr, PackErr, TimeoutErr,
 						UnauthDisc, ExitDisc, VdrErr, UnvdrErr, MsgEx, GWStop,
-						ServerMsg, InvalidMsg, DBMsgStored, DBMsgSent) ->
+						ServerMsg, InvalidMsg, DBMsgStored, DBMsgSent, DBMsgUnknown,
+						VDRMsgGot, VDRMsgSent) ->
 	receive
 		stop ->
 			ok;
@@ -366,133 +375,181 @@ connection_info_process(Conn, CharDisc, RegDisc, AuthDisc, ErrDisc, ClientDisc,
 			connection_info_process(Conn+1, CharDisc, RegDisc, AuthDisc, ErrDisc, ClientDisc, 
 									LenErr, ParErr, SplitErr, RestErr, PackErr, TimeoutErr,
 									UnauthDisc, ExitDisc, VdrErr, UnvdrErr, MsgEx, GWStop,
-									ServerMsg, InvalidMsg, DBMsgStored, DBMsgSent);
+									ServerMsg, InvalidMsg, DBMsgStored, DBMsgSent, DBMsgUnknown,
+									VDRMsgGot, VDRMsgSent);
 		{_Pid, conn} ->
 			connection_info_process(Conn+1, CharDisc, RegDisc, AuthDisc, ErrDisc, ClientDisc, 
 									LenErr, ParErr, SplitErr, RestErr, PackErr, TimeoutErr,
 									UnauthDisc, ExitDisc, VdrErr, UnvdrErr, MsgEx, GWStop,
-									ServerMsg, InvalidMsg, DBMsgStored, DBMsgSent);
+									ServerMsg, InvalidMsg, DBMsgStored, DBMsgSent, DBMsgUnknown,
+									VDRMsgGot, VDRMsgSent);
 		{_Pid, chardisc} ->
 			connection_info_process(Conn, CharDisc+1, RegDisc, AuthDisc, ErrDisc, ClientDisc, 
 									LenErr, ParErr, SplitErr, RestErr, PackErr, TimeoutErr,
 									UnauthDisc, ExitDisc, VdrErr, UnvdrErr, MsgEx, GWStop,
-									ServerMsg, InvalidMsg, DBMsgStored, DBMsgSent);
+									ServerMsg, InvalidMsg, DBMsgStored, DBMsgSent, DBMsgUnknown,
+									VDRMsgGot, VDRMsgSent);
 		{_Pid, regdisc} ->
 			connection_info_process(Conn, CharDisc, RegDisc+1, AuthDisc, ErrDisc, ClientDisc, 
 									LenErr, ParErr, SplitErr, RestErr, PackErr, TimeoutErr,
 									UnauthDisc, ExitDisc, VdrErr, UnvdrErr, MsgEx, GWStop,
-									ServerMsg, InvalidMsg, DBMsgStored, DBMsgSent);
+									ServerMsg, InvalidMsg, DBMsgStored, DBMsgSent, DBMsgUnknown,
+									VDRMsgGot, VDRMsgSent);
 		{_Pid, authdisc} ->
 			connection_info_process(Conn, CharDisc, RegDisc, AuthDisc+1, ErrDisc, ClientDisc, 
 									LenErr, ParErr, SplitErr, RestErr, PackErr, TimeoutErr,
 									UnauthDisc, ExitDisc, VdrErr, UnvdrErr, MsgEx, GWStop,
-									ServerMsg, InvalidMsg, DBMsgStored, DBMsgSent);
+									ServerMsg, InvalidMsg, DBMsgStored, DBMsgSent, DBMsgUnknown,
+									VDRMsgGot, VDRMsgSent);
 		{_Pid, errdisc} ->
 			connection_info_process(Conn, CharDisc, RegDisc, AuthDisc, ErrDisc+1, ClientDisc, 
 									LenErr, ParErr, SplitErr, RestErr, PackErr, TimeoutErr,
 									UnauthDisc, ExitDisc, VdrErr, UnvdrErr, MsgEx, GWStop,
-									ServerMsg, InvalidMsg, DBMsgStored, DBMsgSent);
+									ServerMsg, InvalidMsg, DBMsgStored, DBMsgSent, DBMsgUnknown,
+									VDRMsgGot, VDRMsgSent);
 		{_Pid, clientdisc} ->
 			connection_info_process(Conn, CharDisc, RegDisc, AuthDisc, ErrDisc, ClientDisc+1, 
 									LenErr, ParErr, SplitErr, RestErr, PackErr, TimeoutErr,
 									UnauthDisc, ExitDisc, VdrErr, UnvdrErr, MsgEx, GWStop,
-									ServerMsg, InvalidMsg, DBMsgStored, DBMsgSent);
+									ServerMsg, InvalidMsg, DBMsgStored, DBMsgSent, DBMsgUnknown,
+									VDRMsgGot, VDRMsgSent);
 		{_Pid, lenerr} ->
 			connection_info_process(Conn, CharDisc, RegDisc, AuthDisc, ErrDisc, ClientDisc, 
 									LenErr+1, ParErr, SplitErr, RestErr, PackErr, TimeoutErr,
 									UnauthDisc, ExitDisc, VdrErr, UnvdrErr, MsgEx, GWStop,
-									ServerMsg, InvalidMsg, DBMsgStored, DBMsgSent);
+									ServerMsg, InvalidMsg, DBMsgStored, DBMsgSent, DBMsgUnknown,
+									VDRMsgGot, VDRMsgSent);
 		{_Pid, parerr} ->
 			connection_info_process(Conn, CharDisc, RegDisc, AuthDisc, ErrDisc, ClientDisc, 
 									LenErr, ParErr+1, SplitErr, RestErr, PackErr, TimeoutErr,
 									UnauthDisc, ExitDisc, VdrErr, UnvdrErr, MsgEx, GWStop,
-									ServerMsg, InvalidMsg, DBMsgStored, DBMsgSent);
+									ServerMsg, InvalidMsg, DBMsgStored, DBMsgSent, DBMsgUnknown,
+									VDRMsgGot, VDRMsgSent);
 		{_Pid, spliterr} ->
 			connection_info_process(Conn, CharDisc, RegDisc, AuthDisc, ErrDisc, ClientDisc, 
 									LenErr, ParErr, SplitErr+1, RestErr, PackErr, TimeoutErr,
 									UnauthDisc, ExitDisc, VdrErr, UnvdrErr, MsgEx, GWStop,
-									ServerMsg, InvalidMsg, DBMsgStored, DBMsgSent);
+									ServerMsg, InvalidMsg, DBMsgStored, DBMsgSent, DBMsgUnknown,
+									VDRMsgGot, VDRMsgSent);
 		{_Pid, resterr} ->
 			connection_info_process(Conn, CharDisc, RegDisc, AuthDisc, ErrDisc, ClientDisc, 
 									LenErr, ParErr, SplitErr, RestErr+1, PackErr, TimeoutErr,
 									UnauthDisc, ExitDisc, VdrErr, UnvdrErr, MsgEx, GWStop,
-									ServerMsg, InvalidMsg, DBMsgStored, DBMsgSent);
+									ServerMsg, InvalidMsg, DBMsgStored, DBMsgSent, DBMsgUnknown,
+									VDRMsgGot, VDRMsgSent);
 		{_Pid, packerr} ->
 			connection_info_process(Conn, CharDisc, RegDisc, AuthDisc, ErrDisc, ClientDisc, 
 									LenErr, ParErr, SplitErr, RestErr, PackErr+1, TimeoutErr,
 									UnauthDisc, ExitDisc, VdrErr, UnvdrErr, MsgEx, GWStop,
-									ServerMsg, InvalidMsg, DBMsgStored, DBMsgSent);
+									ServerMsg, InvalidMsg, DBMsgStored, DBMsgSent, DBMsgUnknown,
+									VDRMsgGot, VDRMsgSent);
 		{_Pid, vdrtimeout} ->
 			connection_info_process(Conn, CharDisc, RegDisc, AuthDisc, ErrDisc, ClientDisc, 
 									LenErr, ParErr, SplitErr, RestErr, PackErr, TimeoutErr+1,
 									UnauthDisc, ExitDisc, VdrErr, UnvdrErr, MsgEx, GWStop,
-									ServerMsg, InvalidMsg, DBMsgStored, DBMsgSent);
+									ServerMsg, InvalidMsg, DBMsgStored, DBMsgSent, DBMsgUnknown,
+									VDRMsgGot, VDRMsgSent);
 		{_Pid, unauthdisc} ->
 			connection_info_process(Conn, CharDisc, RegDisc, AuthDisc, ErrDisc, ClientDisc, 
 									LenErr, ParErr, SplitErr, RestErr, PackErr, TimeoutErr,
 									UnauthDisc+1, ExitDisc, VdrErr, UnvdrErr, MsgEx, GWStop,
-									ServerMsg, InvalidMsg, DBMsgStored, DBMsgSent);
+									ServerMsg, InvalidMsg, DBMsgStored, DBMsgSent, DBMsgUnknown,
+									VDRMsgGot, VDRMsgSent);
 		{_Pid, exitdisc} ->
 			connection_info_process(Conn, CharDisc, RegDisc, AuthDisc, ErrDisc, ClientDisc, 
 									LenErr, ParErr, SplitErr, RestErr, PackErr, TimeoutErr,
 									UnauthDisc, ExitDisc+1, VdrErr, UnvdrErr, MsgEx, GWStop,
-									ServerMsg, InvalidMsg, DBMsgStored, DBMsgSent);
+									ServerMsg, InvalidMsg, DBMsgStored, DBMsgSent, DBMsgUnknown,
+									VDRMsgGot, VDRMsgSent);
 		{_Pid, vdrerr} ->
 			connection_info_process(Conn, CharDisc, RegDisc, AuthDisc, ErrDisc, ClientDisc, 
 									LenErr, ParErr, SplitErr, RestErr, PackErr, TimeoutErr,
 									UnauthDisc, ExitDisc, VdrErr+1, UnvdrErr, MsgEx, GWStop,
-									ServerMsg, InvalidMsg, DBMsgStored, DBMsgSent);
+									ServerMsg, InvalidMsg, DBMsgStored, DBMsgSent, DBMsgUnknown,
+									VDRMsgGot, VDRMsgSent);
 		{_Pid, unvdrerr} ->
 			connection_info_process(Conn, CharDisc, RegDisc, AuthDisc, ErrDisc, ClientDisc, 
 									LenErr, ParErr, SplitErr, RestErr, PackErr, TimeoutErr,
 									UnauthDisc, ExitDisc, VdrErr, UnvdrErr+1, MsgEx, GWStop,
-									ServerMsg, InvalidMsg, DBMsgStored, DBMsgSent);
+									ServerMsg, InvalidMsg, DBMsgStored, DBMsgSent, DBMsgUnknown,
+									VDRMsgGot, VDRMsgSent);
 		{_Pid, msgex} ->
 			connection_info_process(Conn, CharDisc, RegDisc, AuthDisc, ErrDisc, ClientDisc, 
 									LenErr, ParErr, SplitErr, RestErr, PackErr, TimeoutErr,
 									UnauthDisc, ExitDisc, VdrErr, UnvdrErr, MsgEx+1, GWStop,
-									ServerMsg, InvalidMsg, DBMsgStored, DBMsgSent);
+									ServerMsg, InvalidMsg, DBMsgStored, DBMsgSent, DBMsgUnknown,
+									VDRMsgGot, VDRMsgSent);
 		{_Pid, gwstop} ->
 			connection_info_process(Conn, CharDisc, RegDisc, AuthDisc, ErrDisc, ClientDisc, 
 									LenErr, ParErr, SplitErr, RestErr, PackErr, TimeoutErr,
 									UnauthDisc, ExitDisc, VdrErr, UnvdrErr, MsgEx, GWStop+1,
-									ServerMsg, InvalidMsg, DBMsgStored, DBMsgSent);
+									ServerMsg, InvalidMsg, DBMsgStored, DBMsgSent, DBMsgUnknown,
+									VDRMsgGot, VDRMsgSent);
 		{_Pid, servermsg} ->
 			connection_info_process(Conn, CharDisc, RegDisc, AuthDisc, ErrDisc, ClientDisc, 
 									LenErr, ParErr, SplitErr, RestErr, PackErr, TimeoutErr,
 									UnauthDisc, ExitDisc, VdrErr, UnvdrErr, MsgEx, GWStop,
-									ServerMsg+1, InvalidMsg, DBMsgStored, DBMsgSent);
+									ServerMsg+1, InvalidMsg, DBMsgStored, DBMsgSent, DBMsgUnknown,
+									VDRMsgGot, VDRMsgSent);
 		{_Pid, invalidmsgerror} ->
 			connection_info_process(Conn, CharDisc, RegDisc, AuthDisc, ErrDisc, ClientDisc, 
 									LenErr, ParErr, SplitErr, RestErr, PackErr, TimeoutErr,
 									UnauthDisc, ExitDisc, VdrErr, UnvdrErr, MsgEx, GWStop,
-									ServerMsg, InvalidMsg+1, DBMsgStored, DBMsgSent);
+									ServerMsg, InvalidMsg+1, DBMsgStored, DBMsgSent, DBMsgUnknown,
+									VDRMsgGot, VDRMsgSent);
 		{_Pid, dbmsgstored, N} ->
 			connection_info_process(Conn, CharDisc, RegDisc, AuthDisc, ErrDisc, ClientDisc, 
 									LenErr, ParErr, SplitErr, RestErr, PackErr, TimeoutErr,
 									UnauthDisc, ExitDisc, VdrErr, UnvdrErr, MsgEx, GWStop,
-									ServerMsg, InvalidMsg, DBMsgStored+N, DBMsgSent);
+									ServerMsg, InvalidMsg, DBMsgStored+N, DBMsgSent, DBMsgUnknown,
+									VDRMsgGot, VDRMsgSent);
 		{_Pid, dbmsgsent, N} ->
 			connection_info_process(Conn, CharDisc, RegDisc, AuthDisc, ErrDisc, ClientDisc, 
 									LenErr, ParErr, SplitErr, RestErr, PackErr, TimeoutErr,
 									UnauthDisc, ExitDisc, VdrErr, UnvdrErr, MsgEx, GWStop,
-									ServerMsg, InvalidMsg, DBMsgStored, DBMsgSent+N);
+									ServerMsg, InvalidMsg, DBMsgStored, DBMsgSent+N, DBMsgUnknown,
+									VDRMsgGot, VDRMsgSent);
+		{_Pid, dbmsgunknown} ->
+			connection_info_process(Conn, CharDisc, RegDisc, AuthDisc, ErrDisc, ClientDisc, 
+									LenErr, ParErr, SplitErr, RestErr, PackErr, TimeoutErr,
+									UnauthDisc, ExitDisc, VdrErr, UnvdrErr, MsgEx, GWStop,
+									ServerMsg, InvalidMsg, DBMsgStored, DBMsgSent, DBMsgUnknown+1,
+									VDRMsgGot, VDRMsgSent);
+		{_Pid, vdrmsggot} ->
+			connection_info_process(Conn, CharDisc, RegDisc, AuthDisc, ErrDisc, ClientDisc, 
+									LenErr, ParErr, SplitErr, RestErr, PackErr, TimeoutErr,
+									UnauthDisc, ExitDisc, VdrErr, UnvdrErr, MsgEx, GWStop,
+									ServerMsg, InvalidMsg, DBMsgStored, DBMsgSent, DBMsgUnknown,
+									VDRMsgGot+1, VDRMsgSent);
+		{_Pid, vdrmsgsent} ->
+			connection_info_process(Conn, CharDisc, RegDisc, AuthDisc, ErrDisc, ClientDisc, 
+									LenErr, ParErr, SplitErr, RestErr, PackErr, TimeoutErr,
+									UnauthDisc, ExitDisc, VdrErr, UnvdrErr, MsgEx, GWStop,
+									ServerMsg, InvalidMsg, DBMsgStored, DBMsgSent, DBMsgUnknown,
+									VDRMsgGot, VDRMsgSent+1);
 		{_Pid, clear} ->
-			connection_info_process(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
+			connection_info_process(0, 0, 0, 0, 0, 
+									0, 0, 0, 0, 0, 
+									0, 0, 0, 0, 0, 
+									0, 0, 0, 0, 0, 
+									0, 0, 0, 0, 0);
 		{Pid, count} ->
 			Pid ! {Conn, CharDisc, RegDisc, AuthDisc, ErrDisc, ClientDisc, 
 				   LenErr, ParErr, SplitErr, RestErr, PackErr, TimeoutErr,
 				   UnauthDisc, ExitDisc, VdrErr, UnvdrErr, MsgEx, GWStop,
-				   ServerMsg, InvalidMsg, DBMsgStored, DBMsgSent},
+				   ServerMsg, InvalidMsg, DBMsgStored, DBMsgSent, DBMsgUnknown,
+				   VDRMsgGot, VDRMsgSent},
 			connection_info_process(Conn, CharDisc, RegDisc, AuthDisc, ErrDisc, ClientDisc, 
 									LenErr, ParErr, SplitErr, RestErr, PackErr, TimeoutErr,
 									UnauthDisc, ExitDisc, VdrErr, UnvdrErr, MsgEx, GWStop,
-									ServerMsg, InvalidMsg, DBMsgStored, DBMsgSent);
+									ServerMsg, InvalidMsg, DBMsgStored, DBMsgSent, DBMsgUnknown,
+									VDRMsgGot, VDRMsgSent);
 		_ ->
 			connection_info_process(Conn, CharDisc, RegDisc, AuthDisc, ErrDisc, ClientDisc, 
 									LenErr, ParErr, SplitErr, RestErr, PackErr, TimeoutErr,
 									UnauthDisc, ExitDisc, VdrErr, UnvdrErr, MsgEx, GWStop,
-									ServerMsg, InvalidMsg, DBMsgStored, DBMsgSent)
+									ServerMsg, InvalidMsg, DBMsgStored, DBMsgSent, DBMsgUnknown,
+									VDRMsgGot, VDRMsgSent)
 	end.
 
 %%%
