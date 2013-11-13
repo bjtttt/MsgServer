@@ -1609,13 +1609,13 @@ send_sql_to_db_nowait(PoolId, Msg, State) ->
 %
 %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-send_sqls_to_db(PoolId, Msgs, State) when is_list(Msgs),
-										  length(Msgs) > 0 ->
-	[H|T] = Msgs,
-	send_sql_to_db(PoolId, H, State),
-	send_sqls_to_db(PoolId, T, State);
-send_sqls_to_db(_PoolId, _Msgs, _State) ->
-	ok.
+%send_sqls_to_db(PoolId, Msgs, State) when is_list(Msgs),
+%										  length(Msgs) > 0 ->
+%	[H|T] = Msgs,
+%	send_sql_to_db(PoolId, H, State),
+%	send_sqls_to_db(PoolId, T, State);
+%send_sqls_to_db(_PoolId, _Msgs, _State) ->
+%	ok.
 
 send_sqls_to_db_nowait(PoolId, Msgs, State) when is_list(Msgs),
 								  		         length(Msgs) > 0 ->
