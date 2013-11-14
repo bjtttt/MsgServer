@@ -33,7 +33,7 @@
 %%%
 start(StartType, StartArgs) ->
     [PortVDR, PortMon, PortMP, WS, PortWS, DB, DBName, DBUid, DBPwd, MaxR, MaxT, Mode, Path] = StartArgs,
-    AppPid = self(),
+    Pid = self(),
     ets:new(msgservertable,[set,public,named_table,{keypos,1},{read_concurrency,true},{write_concurrency,true}]),
     ets:insert(msgservertable, {portvdr, PortVDR}),
     ets:insert(msgservertable, {portmon, PortMon}),
@@ -52,13 +52,14 @@ start(StartType, StartArgs) ->
     ets:insert(msgservertable, {wspid, undefined}),
     ets:insert(msgservertable, {linkpid, undefined}),
     %ets:insert(msgservertable, {sysinit4ws, true}),
-    ets:insert(msgservertable, {apppid, AppPid}),
+    ets:insert(msgservertable, {apppid, Pid}),
     %ets:insert(msgservertable, {wscount, 0}),
     %ets:insert(msgservertable, {dbcount, 0}),
     ets:insert(msgservertable, {dblog, []}),
     ets:insert(msgservertable, {wslog, []}),
     common:loginfo("StartType : ~p~n", [StartType]),
     common:loginfo("StartArgs : ~p~n", [StartArgs]),
+    ets:new(vdrdbtable,[ordered_set,public,named_table,{keypos,#vdritem.socket},{read_concurrency,true},{write_concurrency,true}]),
     ets:new(vdrtable,[ordered_set,public,named_table,{keypos,#vdritem.socket},{read_concurrency,true},{write_concurrency,true}]),
     ets:new(mantable,[set,public,named_table,{keypos,#manitem.socket},{read_concurrency,true},{write_concurrency,true}]),
     ets:new(usertable,[set,public,named_table,{keypos,#user.id},{read_concurrency,true},{write_concurrency,true}]),
@@ -86,7 +87,7 @@ start(StartType, StartArgs) ->
         {ok, SupPid} ->
             ets:insert(msgservertable, {suppid, SupPid}),
             common:loginfo("Message server starts~n"),
-            common:loginfo("Application PID is ~p~n", [AppPid]),
+            common:loginfo("Application PID is ~p~n", [Pid]),
             common:loginfo("Supervisor PID : ~p~n", [SupPid]),
             case receive_db_ws_init_msg(false, false, 0, Mode) of
                 ok ->
@@ -129,7 +130,7 @@ start(StartType, StartArgs) ->
 		                    common:loginfo("VDR table proceesor process PID is ~p~n", [VdrTablePid]),
 		                    common:loginfo("VDR response process PID is ~p~n", [VdrRespPid]),
 		                    
-							Pid = self(),
+							%Pid = self(),
 							
 				            DBPid ! {Pid, conn, <<"set names 'utf8'">>},
 				            receive
@@ -137,11 +138,25 @@ start(StartType, StartArgs) ->
 				                    Result
 				            end,							
 							
+							DevVehAlarmSql = <<"select * from device left join vehicle on vehicle.device_id=device.id left join vehicle_alarm on vehicle.id=vehicle_alarm.vehicle_id">>,
+							DBPid ! {Pid, conn, DevVehAlarmSql},
+				            receive
+				                {Pid, SqlRes} ->
+                                    case vdr_handler:extract_db_resp(SqlRes) of
+                                        error ->
+                                            ok;
+                                        {ok, empty} ->
+                                            ok;
+                                        {ok, ResArray} ->
+											common:loginfo("Preloaded vehicle/device/alarm count : ~p", length(ResArray))
+									end
+				            end,
+					
 		                    CCPid ! {Pid, create},
 		                    receive
 		                        created ->
 		                            common:loginfo("Code convertor table is created~n"),
-		                            {ok, AppPid}
+		                            {ok, Pid}
 		                        after ?TIMEOUT_CC_INIT_PROCESS ->
 		                            {error, "ERROR : code convertor table is timeout~n"}
 		                    end;
@@ -173,7 +188,7 @@ start(StartType, StartArgs) ->
 		                    receive
 		                        created ->
 		                            common:loginfo("Code convertor table is created~n"),
-		                            {ok, AppPid}
+		                            {ok, Pid}
 		                        after ?TIMEOUT_CC_INIT_PROCESS ->
 		                            {error, "ERROR : code convertor table is timeout~n"}
 		                    end
