@@ -52,8 +52,8 @@ handle_cast(_Msg, State) ->
 %%%
 %%%
 handle_info({tcp, Socket, Data}, OriState) ->
-	Pid = OriState#vdritem.linkpid,
-	LinkPid = OriState#vdritem.pid,
+	LinkPid = OriState#vdritem.linkpid,
+	Pid = OriState#vdritem.pid,
 	LinkPid ! {Pid, vdrmsggot},
     %common:loginfo("~p : Data from VDR (~p) (id:~p, serialno:~p, authen_code:~p, vehicleid:~p, vehiclecode:~p)~n~p~n",
 	%			   [self(),
