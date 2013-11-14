@@ -123,7 +123,8 @@
                     msgpackages={-1, []},
 					tel=0,
 					linkpid=undefined,
-					vdrtablepid=undefined
+					vdrtablepid=undefined,
+					vdrmonitorpid=undefined
                  }).
 
 %%%
