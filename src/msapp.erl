@@ -138,8 +138,8 @@ start(StartType, StartArgs) ->
 				                    Result
 				            end,							
 							
-							DevVehAlarmSql = <<"select * from device left join vehicle on vehicle.device_id=device.id left join vehicle_alarm on vehicle.id=vehicle_alarm.vehicle_id">>,
-							DBPid ! {Pid, conn, DevVehAlarmSql},
+							InitSql = <<"select * from device left join vehicle on vehicle.device_id=device.id left join vehicle_alarm on vehicle.id=vehicle_alarm.vehicle_id">>,
+							DBPid ! {Pid, conn, InitSql},
 				            receive
 				                {Pid, SqlRes} ->
                                     case vdr_handler:extract_db_resp(SqlRes) of
