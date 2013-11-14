@@ -148,7 +148,10 @@ start(StartType, StartArgs) ->
                                         {ok, empty} ->
                                             ok;
                                         {ok, ResArray} ->
-											common:loginfo("Preloaded vehicle/device/alarm count : ~p", length(ResArray))
+											common:loginfo("Preloaded vehicle/device/alarm count : ~p", length(ResArray)),
+											fill_vdrdbtable(ResArray),
+											VdrDBResSize = ets:info(vdrdbtable, size),
+											common:loginfo("Count of vehicle/device/alarm count in vdrdbtable : ~p", VdrDBResSize)
 									end
 				            end,
 					
@@ -203,6 +206,34 @@ start(StartType, StartArgs) ->
             common:logerror("Message server fails to start : ~p~n", [Error]),
             {error, Error}
     end.
+
+fill_vdrdbtable(DbResArray) ->
+	try
+		do_fill_vdrdbtable(DbResArray)
+	catch
+		_:Msg ->
+			common:logerror("Cannot sucessfully extract preloaded vehicle/device/alarm : ~p", [Msg])
+	end.			
+
+do_fill_vdrdbtable(DbResArray) when is_list(DbResArray),
+	   							    length(DbResArray) > 0 ->
+	[H|T] = DbResArray,
+	{<<"vehicle">>, <<"code">>, VehicleCode} = vdr_handler:get_record_field(<<"vehicle">>, H, <<"code">>),
+	if
+		binary_part(VehicleCode, 0, 1) == <<"?">> ->
+			do_fill_vdrdbtable(T);
+		true ->
+		    {<<"device">>, <<"id">>, VDRID} = vdr_handler:get_record_field(<<"device">>, H, <<"id">>),
+		    % "serial" is NOT NULL & UNIQUE, so it cannot be null or undefined
+		    {<<"device">>, <<"serial_no">>, VDRSerialNo} = vdr_handler:get_record_field(<<"device">>, H, <<"serial_no">>),
+		    % "authen_code" is NOT NULL & UNIQUE, so it cannot be null or undefined
+		    {<<"device">>, <<"authen_code">>, VDRAuthenCode} = vdr_handler:get_record_field(<<"device">>, H, <<"authen_code">>),
+		    % "id" is PK, so it cannot be null. However it can be undefined because vehicle table device_id may don't be euqual to device table id 
+		    {<<"vehicle">>, <<"id">>, VehicleID} = vdr_handler:get_record_field(<<"vehicle">>, H, <<"id">>),
+		    {<<"vehicle">>, <<"driver_id">>, DriverID} = vdr_handler:get_record_field(<<"vehicle">>, H, <<"driver_id">>)
+	end;
+do_fill_vdrdbtable(_DbResArray) ->
+	[].
 
 vdrtable_insert_delete_process() ->
 	receive
