@@ -1686,6 +1686,7 @@ create_sql_from_vdr(HeaderInfo, Msg, State) ->
             {ok, list_to_binary([<<"update device set reg_time=null where authen_code='">>, list_to_binary(Auth), <<"' or id='">>, list_to_binary(ID), <<"'">>])};
         16#102  ->
             {Auth} = Msg,
+            %{ok, list_to_binary([<<"select * from device left join vehicle on vehicle.device_id=device.id left join vehicle_alarm on vehicle.id=vehicle_alarm.vehicle_id where device.authen_code='">>, list_to_binary(Auth), <<"'">>])};
             {ok, list_to_binary([<<"select * from device left join vehicle on vehicle.device_id=device.id where device.authen_code='">>, list_to_binary(Auth), <<"'">>])};
         16#104  ->
             {_RespIdx, _ActLen, _List} = Msg,
