@@ -33,7 +33,7 @@ init([Sock, Addr]) ->
     State = #vdritem{socket=Sock, pid=Pid, vdrpid=VDRRespPid, addr=Addr, msgflownum=1, errorcount=0, dbpid=DBPid, wspid=WSPid, ccpid=CCPid, linkpid=LinkPid, vdrtablepid=VDRTablePid},
 	common:send_stat_err(State, conn),
     common:send_vdr_table_operation(VDRTablePid, {self(), insert, State, noresp}),
-    inet:setopts(Sock, [{active, once}]),
+    inet:setopts(Sock, [{active, once}, {send_timeout, ?VDR_MSG_TIMEOUT}, {send_timeout_close, true}]),
 	{ok, State, ?VDR_MSG_TIMEOUT}.
 
 %handle_call({fetch, PoolId, Msg}, _From, State) ->
@@ -95,7 +95,7 @@ handle_info({tcp, Socket, Data}, OriState) ->
 					common:send_stat_err(State, gwstop),
                     {stop, vdrerror, State#vdritem{errorcount=ErrCount}};
                 true ->
-                    inet:setopts(Socket, [{active, once}]),
+                    inet:setopts(Socket, [{active, once}, {send_timeout, ?VDR_MSG_TIMEOUT}, {send_timeout_close, true}]),
                     {noreply, State#vdritem{errorcount=ErrCount}, ?VDR_MSG_TIMEOUT}
             end;    
         _ ->
@@ -109,7 +109,7 @@ handle_info({tcp, Socket, Data}, OriState) ->
 							common:send_stat_err(State, gwstop),
                             {stop, vdrerror, NewState#vdritem{errorcount=ErrCount}};
                         true ->
-                            inet:setopts(Socket, [{active, once}]),
+                            inet:setopts(Socket, [{active, once}, {send_timeout, ?VDR_MSG_TIMEOUT}, {send_timeout_close, true}]),
                             {noreply, NewState#vdritem{errorcount=ErrCount}, ?VDR_MSG_TIMEOUT}
                     end;
                 {error, ErrType, NewState} ->
@@ -138,10 +138,10 @@ handle_info({tcp, Socket, Data}, OriState) ->
 					common:send_stat_err(State, gwstop),
                     {stop, ErrType, NewState};
                 {warning, NewState} ->
-                    inet:setopts(Socket, [{active, once}]),
+                    inet:setopts(Socket, [{active, once}, {send_timeout, ?VDR_MSG_TIMEOUT}, {send_timeout_close, true}]),
                     {noreply, NewState#vdritem{errorcount=0}, ?VDR_MSG_TIMEOUT};
                 {ok, NewState} ->
-                    inet:setopts(Socket, [{active, once}]),
+                    inet:setopts(Socket, [{active, once}, {send_timeout, ?VDR_MSG_TIMEOUT}, {send_timeout_close, true}]),
                     {noreply, NewState#vdritem{errorcount=0}, ?VDR_MSG_TIMEOUT}
             end
     end;
@@ -1462,24 +1462,38 @@ get_new_flow_index(FlowIdx) ->
 			end
 	end.
 
-do_send_msg2vdr(VDRPid, Pid, Socket, Msg, LinkPid) when is_binary(Msg),
+do_send_msg2vdr(_VDRPid, Pid, Socket, Msg, LinkPid) when is_binary(Msg),
 									   byte_size(Msg) > 0 ->
 	LinkPid ! {Pid, vdrmsgsent},
-	VDRPid ! {Pid, Socket, Msg, noresp};
+	try
+		gen_tcp:send(Socket, Msg)
+	catch
+		_:_ ->
+			ok
+	end;
+	%VDRPid ! {Pid, Socket, Msg, noresp};
 do_send_msg2vdr(_VDRPid, _Pid, _Socket, Msg, _LinkPid) when is_binary(Msg),
 									   byte_size(Msg) < 1 ->
 	ok;
-do_send_msg2vdr(VDRPid, Pid, Socket, Msg, LinkPid) when is_list(Msg),
+do_send_msg2vdr(_VDRPid, Pid, Socket, Msg, LinkPid) when is_list(Msg),
 									   length(Msg) > 0 ->
 	[H|T] = Msg,
 	LinkPid ! {Pid, vdrmsgsent},
-	VDRPid ! {Pid, Socket, H, noresp},
-	do_send_msg2vdr(VDRPid, Pid, Socket, T, LinkPid);
+	try
+		gen_tcp:send(Socket, H)
+	catch
+		_:_ ->
+			ok
+	end,
+	%VDRPid ! {Pid, Socket, H, noresp},
+	do_send_msg2vdr(_VDRPid, Pid, Socket, T, LinkPid);
 do_send_msg2vdr(_VDRPid, _Pid, _Socket, Msg, _LinkPid) when is_list(Msg),
 									     length(Msg) < 1 ->
 	ok;
 do_send_msg2vdr(_VDRPid, _Pid, _Socket, _Msg, _LinkPid) ->
 	ok.
+
+
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %
