@@ -114,20 +114,20 @@ start(StartType, StartArgs) ->
 		                    DBTablePid = spawn(fun() -> db_table_deamon() end),
 		                    CCPid = spawn(fun() -> code_convertor_process() end),
 		                    VdrTablePid = spawn(fun() -> vdrtable_insert_delete_process() end),
-							VdrRespPid = spawn(fun() -> vdr_resp_process() end),
+							%VdrRespPid = spawn(fun() -> vdr_resp_process() end),
 		                    ets:insert(msgservertable, {dbpid, DBPid}),
 		                    ets:insert(msgservertable, {wspid, WSPid}),
 		                    ets:insert(msgservertable, {linkpid, LinkPid}),
 		                    ets:insert(msgservertable, {dbtablepid, DBTablePid}),
 		                    ets:insert(msgservertable, {ccpid, CCPid}),
 		                    ets:insert(msgservertable, {vdrtablepid, VdrTablePid}),
-		                    ets:insert(msgservertable, {vdrresppid, VdrRespPid}),
+		                    %ets:insert(msgservertable, {vdrresppid, VdrRespPid}),
 		                    common:loginfo("WS client process PID is ~p~n", [WSPid]),
 		                    common:loginfo("DB client process PID is ~p~n", [DBPid]),
 		                    common:loginfo("DB table deamon process PID is ~p~n", [DBTablePid]),
 		                    common:loginfo("Code convertor process PID is ~p~n", [CCPid]),
 		                    common:loginfo("VDR table proceesor process PID is ~p~n", [VdrTablePid]),
-		                    common:loginfo("VDR response process PID is ~p~n", [VdrRespPid]),
+		                    %common:loginfo("VDR response process PID is ~p~n", [VdrRespPid]),
 		                    
 							Pid = self(),
 							
@@ -156,18 +156,18 @@ start(StartType, StartArgs) ->
 		                    DBTablePid = spawn(fun() -> db_table_deamon() end),
 		                    CCPid = spawn(fun() -> code_convertor_process() end),
 		                    VdrTablePid = spawn(fun() -> vdrtable_insert_delete_process() end),
-							VdrRespPid = spawn(fun() -> vdr_resp_process() end),
+							%VdrRespPid = spawn(fun() -> vdr_resp_process() end),
 		                    ets:insert(msgservertable, {dbpid, DBPid}),
 		                    ets:insert(msgservertable, {linkpid, LinkPid}),
 		                    ets:insert(msgservertable, {dbtablepid, DBTablePid}),
 		                    ets:insert(msgservertable, {ccpid, CCPid}),
 		                    ets:insert(msgservertable, {vdrtablepid, VdrTablePid}),
-		                    ets:insert(msgservertable, {vdrresppid, VdrRespPid}),
+		                    %ets:insert(msgservertable, {vdrresppid, VdrRespPid}),
 		                    common:loginfo("DB client process PID is ~p~n", [DBPid]),
 		                    common:loginfo("DB table deamon process PID is ~p~n", [DBTablePid]),
 		                    common:loginfo("Code convertor process PID is ~p~n", [CCPid]),
 		                    common:loginfo("VDR table insert/delete process PID is ~p~n", [VdrTablePid]),
-		                    common:loginfo("VDR response process PID is ~p~n", [VdrRespPid]),
+		                    %common:loginfo("VDR response process PID is ~p~n", [VdrRespPid]),
 		                    
 		                    CCPid ! {self(), create},
 		                    receive
@@ -215,31 +215,31 @@ vdrtable_insert_delete_process() ->
 			vdrtable_insert_delete_process()
 	end.
 
-vdr_resp_process() ->
-	receive
-		stop ->
-			common:loginfo("VDR response process stops.");
-		{Pid, Socket, Msg} ->
-			vdr_resp_process(),
-			%common:loginfo("Msg from VDR ~p to VDRPid ~p : ~p", [Pid, self(), Msg]),
-			try gen_tcp:send(Socket, Msg)
-		    catch
-		        _:Ex ->
-		            common:logerror("Exception when gen_tcps:send ~p : ~p~n", [Msg, Ex])
-		    end,
-			Pid ! {Pid, ok};
-		{_Pid, Socket, Msg, noresp} ->
-			vdr_resp_process(),
-			%common:loginfo("Msg from VDR ~p to VDRPid ~p : ~p", [Pid, self(), Msg]),
-			try gen_tcp:send(Socket, Msg)
-		    catch
-		        _:Ex ->
-		            common:logerror("Exception when gen_tcps:send ~p : ~p~n", [Msg, Ex])
-		    end;
-		Unknown ->
-			common:loginfo("Msg from VDR to VDRPid unknwon : ~p", [Unknown]),
-			vdr_resp_process()
-	end.
+%vdr_resp_process() ->
+%	receive
+%		stop ->
+%			common:loginfo("VDR response process stops.");
+%		{Pid, Socket, Msg} ->
+%			vdr_resp_process(),
+%			%common:loginfo("Msg from VDR ~p to VDRPid ~p : ~p", [Pid, self(), Msg]),
+%			try gen_tcp:send(Socket, Msg)
+%		    catch
+%		        _:Ex ->
+%		            common:logerror("Exception when gen_tcps:send ~p : ~p~n", [Msg, Ex])
+%		    end,
+%			Pid ! {Pid, ok};
+%		{_Pid, Socket, Msg, noresp} ->
+%			vdr_resp_process(),
+%			%common:loginfo("Msg from VDR ~p to VDRPid ~p : ~p", [Pid, self(), Msg]),
+%			try gen_tcp:send(Socket, Msg)
+%		    catch
+%		        _:Ex ->
+%		            common:logerror("Exception when gen_tcps:send ~p : ~p~n", [Msg, Ex])
+%		    end;
+%		Unknown ->
+%			common:loginfo("Msg from VDR to VDRPid unknwon : ~p", [Unknown]),
+%			vdr_resp_process()
+%	end.
 
 %%%
 %%%

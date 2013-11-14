@@ -29,8 +29,9 @@ init([Sock, Addr]) ->
     [{ccpid, CCPid}] = ets:lookup(msgservertable, ccpid),
     [{linkpid, LinkPid}] = ets:lookup(msgservertable, linkpid),
     [{vdrtablepid, VDRTablePid}] = ets:lookup(msgservertable, vdrtablepid),
-    [{vdrresppid, VDRRespPid}] = ets:lookup(msgservertable, vdrresppid),
-    State = #vdritem{socket=Sock, pid=Pid, vdrpid=VDRRespPid, addr=Addr, msgflownum=1, errorcount=0, dbpid=DBPid, wspid=WSPid, ccpid=CCPid, linkpid=LinkPid, vdrtablepid=VDRTablePid},
+    %[{vdrresppid, VDRRespPid}] = ets:lookup(msgservertable, vdrresppid),
+    State = #vdritem{socket=Sock, pid=Pid, addr=Addr, msgflownum=1, errorcount=0, dbpid=DBPid, wspid=WSPid, ccpid=CCPid, linkpid=LinkPid, vdrtablepid=VDRTablePid},
+    %State = #vdritem{socket=Sock, pid=Pid, vdrpid=VDRRespPid, addr=Addr, msgflownum=1, errorcount=0, dbpid=DBPid, wspid=WSPid, ccpid=CCPid, linkpid=LinkPid, vdrtablepid=VDRTablePid},
 	common:send_stat_err(State, conn),
     common:send_vdr_table_operation(VDRTablePid, {self(), insert, State, noresp}),
     inet:setopts(Sock, [{active, once}, {send_timeout, ?VDR_MSG_TIMEOUT}, {send_timeout_close, true}]),
@@ -264,7 +265,7 @@ safe_process_vdr_msg(Socket, Msg, State) ->
 %%% FlowIdx : Gateway message flow index
 %%%
 process_vdr_data(Socket, Data, State) -> 
-	VDRPid = State#vdritem.vdrpid,
+	%VDRPid = State#vdritem.vdrpid,
     case vdr_data_parser:process_data(State, Data) of
         {ok, HeadInfo, Msg, NewState} ->
             {ID, MsgIdx, Tel, _CryptoType} = HeadInfo,
@@ -1392,7 +1393,7 @@ disconn_socket_by_vehicle_id(VehicleID) ->
 %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 send_data_to_vdr(ID, Tel, FlowIdx, MsgBody, State) ->
-	VDRPid = State#vdritem.vdrpid,
+	%VDRPid = State#vdritem.vdrpid,
 	Socket = State#vdritem.socket,
 	Pid = State#vdritem.pid,
 	LinkPid = State#vdritem.linkpid,
@@ -1410,24 +1411,24 @@ send_data_to_vdr(ID, Tel, FlowIdx, MsgBody, State) ->
 							<<IndexInt:16>> = Index,
 							Tail = binary:part(MsgBody, 24, MsgLen-24),
 							Msg = vdr_data_processor:create_final_msg(ID, Tel, FlowIdx, Tail, TotalInt, IndexInt),
-							do_send_data_to_vdr(VDRPid, Pid, Socket, Msg, ID, FlowIdx, LinkPid);
+							do_send_data_to_vdr(Pid, Socket, Msg, ID, FlowIdx, LinkPid);
 						true ->
 				            Msg = vdr_data_processor:create_final_msg(ID, Tel, FlowIdx, MsgBody),
-							do_send_data_to_vdr(VDRPid, Pid, Socket, Msg, ID, FlowIdx, LinkPid)
+							do_send_data_to_vdr(Pid, Socket, Msg, ID, FlowIdx, LinkPid)
 					end;
 				true ->
 		            Msg = vdr_data_processor:create_final_msg(ID, Tel, FlowIdx, MsgBody),
-					do_send_data_to_vdr(VDRPid, Pid, Socket, Msg, ID, FlowIdx, LinkPid)
+					do_send_data_to_vdr(Pid, Socket, Msg, ID, FlowIdx, LinkPid)
 			end;
 		_ ->
             Msg = vdr_data_processor:create_final_msg(ID, Tel, FlowIdx, MsgBody),
-			do_send_data_to_vdr(VDRPid, Pid, Socket, Msg, ID, FlowIdx, LinkPid)
+			do_send_data_to_vdr(Pid, Socket, Msg, ID, FlowIdx, LinkPid)
     end.
 
-do_send_data_to_vdr(VDRPid, Pid, Socket, Msg, ID, FlowIdx, LinkPid) ->
+do_send_data_to_vdr(Pid, Socket, Msg, ID, FlowIdx, LinkPid) ->
 	case is_list(Msg) of
 		true ->
-			do_send_msg2vdr(VDRPid, Pid, Socket, Msg, LinkPid);
+			do_send_msg2vdr(Pid, Socket, Msg, LinkPid);
 		_ ->
 			case is_binary(Msg) of
 				true ->
@@ -1435,10 +1436,10 @@ do_send_data_to_vdr(VDRPid, Pid, Socket, Msg, ID, FlowIdx, LinkPid) ->
 						Msg == <<>> andalso ID =/= 16#8702 ->
 							common:logerror("~p send_data_to_vdr NULL final message : ID (~p), FlowIdx (~p), Msg (~p)~n", [Pid, ID, FlowIdx, Msg]);
 						Msg == <<>> andalso ID == 16#8702 ->
-							do_send_msg2vdr(VDRPid, Pid, Socket, Msg, LinkPid),
+							do_send_msg2vdr(Pid, Socket, Msg, LinkPid),
 							get_new_flow_index(FlowIdx);
 						Msg =/= <<>> ->
-							do_send_msg2vdr(VDRPid, Pid, Socket, Msg, LinkPid),
+							do_send_msg2vdr(Pid, Socket, Msg, LinkPid),
 							get_new_flow_index(FlowIdx)
 					end;
 				_ ->
@@ -1462,20 +1463,25 @@ get_new_flow_index(FlowIdx) ->
 			end
 	end.
 
-do_send_msg2vdr(_VDRPid, Pid, Socket, Msg, LinkPid) when is_binary(Msg),
+do_send_msg2vdr(Pid, Socket, Msg, LinkPid) when is_binary(Msg),
 									   byte_size(Msg) > 0 ->
 	LinkPid ! {Pid, vdrmsgsent},
 	try
 		gen_tcp:send(Socket, Msg)
 	catch
 		_:_ ->
-			ok
+			try
+				gen_tcp:close(Socket)
+			catch
+				_:_ ->
+					ok
+			end
 	end;
 	%VDRPid ! {Pid, Socket, Msg, noresp};
-do_send_msg2vdr(_VDRPid, _Pid, _Socket, Msg, _LinkPid) when is_binary(Msg),
+do_send_msg2vdr(_Pid, _Socket, Msg, _LinkPid) when is_binary(Msg),
 									   byte_size(Msg) < 1 ->
 	ok;
-do_send_msg2vdr(_VDRPid, Pid, Socket, Msg, LinkPid) when is_list(Msg),
+do_send_msg2vdr(Pid, Socket, Msg, LinkPid) when is_list(Msg),
 									   length(Msg) > 0 ->
 	[H|T] = Msg,
 	LinkPid ! {Pid, vdrmsgsent},
@@ -1483,14 +1489,19 @@ do_send_msg2vdr(_VDRPid, Pid, Socket, Msg, LinkPid) when is_list(Msg),
 		gen_tcp:send(Socket, H)
 	catch
 		_:_ ->
-			ok
+			try
+				gen_tcp:close(Socket)
+			catch
+				_:_ ->
+					ok
+			end
 	end,
 	%VDRPid ! {Pid, Socket, H, noresp},
-	do_send_msg2vdr(_VDRPid, Pid, Socket, T, LinkPid);
-do_send_msg2vdr(_VDRPid, _Pid, _Socket, Msg, _LinkPid) when is_list(Msg),
+	do_send_msg2vdr(Pid, Socket, T, LinkPid);
+do_send_msg2vdr(_Pid, _Socket, Msg, _LinkPid) when is_list(Msg),
 									     length(Msg) < 1 ->
 	ok;
-do_send_msg2vdr(_VDRPid, _Pid, _Socket, _Msg, _LinkPid) ->
+do_send_msg2vdr(_Pid, _Socket, _Msg, _LinkPid) ->
 	ok.
 
 
