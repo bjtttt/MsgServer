@@ -11,7 +11,7 @@
 -export([init/1, handle_call/3, handle_cast/2, 
          handle_info/2, terminate/2, code_change/3]). 
 
-%-export([terminate_invalid_vdrs/1]).
+-export([terminate_invalid_vdrs/1]).
 
 -include("header.hrl").
 
@@ -121,7 +121,7 @@ handle_info({inet_async, LSock, Ref, {ok, CSock}}, #serverstate{lsock=LSock, acc
                     {error, {already_started, Pid}} ->
                         common:logerror("vdr_server:handle_info(...) : mssup:start_child_vdr fails : already_started PID : ~p~n", [Pid]);
                     {error, Msg} ->
-						%terminate_invalid_vdrs(CSock),
+						terminate_invalid_vdrs(CSock),
                         common:logerror("vdr_server:handle_info(...) : mssup:start_child_vdr fails : ~p~n", [Msg])
                 end;
             {error, Err} ->
@@ -148,12 +148,12 @@ handle_info({inet_async, LSock, Ref, {ok, CSock}}, #serverstate{lsock=LSock, acc
 %%% Data should not be received here because it is a listening socket process
 %%%
 handle_info({tcp, Socket, _Data}, State) ->  
-	%if
-	%	State#serverstate.lsock =/= Socket ->
-	%		terminate_invalid_vdrs(Socket);
-	%	true ->
-	%		common:logerror("(ERROR) vdr_server:handle_info(...) : cannot perform gen_tcp:close(...) ~n")
-	%end,
+	if
+		State#serverstate.lsock =/= Socket ->
+			terminate_invalid_vdrs(Socket);
+		true ->
+			common:logerror("(ERROR) vdr_server:handle_info(...) : cannot perform gen_tcp:close(...) ~n")
+	end,
 	common:send_stat_err_server(State, servermsg),
 	inet:setopts(Socket, [{active, once}]),
     {noreply, State}; 
@@ -172,7 +172,6 @@ terminate(Reason, State) ->
 code_change(_OldVsn, State, _Extra) ->    
 	{ok, State}. 
     
-<<<<<<< HEAD
 terminate_invalid_vdrs(Socket) ->
     SockVdrList = ets:lookup(vdrtable, Socket),
 	do_terminate_invalid_vdrs(SockVdrList).
@@ -199,21 +198,4 @@ do_terminate_invalid_vdr(State) ->
         _:Ex ->
             common:logerror("VDR Server Error : VDR (~p) : exception when gen_tcp:close : ~p~n", [State#vdritem.addr, Ex])
     end.
-=======
-%terminate_invalid_vdrs(Socket) ->
-%    SockVdrList = ets:lookup(vdrtable, Socket),
-%	do_terminate_invalid_vdrs(SockVdrList).
-
-%do_terminate_invalid_vdrs(States) when is_list(States),
-%									   length(States) > 0 ->
-%	[H|T] = States,
-%	do_terminate_invalid_vdr(H),
-%	do_terminate_invalid_vdrs(T);
-%do_terminate_invalid_vdrs(_States) ->
-%	ok.
-
-%do_terminate_invalid_vdr(State) ->
-%	vdr_handler:terminate("Force to terminate VDR", State).
-
->>>>>>> e72ca3b7277448aa6b7ac9e80ff409e581833ecf
 								

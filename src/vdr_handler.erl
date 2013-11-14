@@ -30,14 +30,7 @@ init([Sock, Addr]) ->
     [{linkpid, LinkPid}] = ets:lookup(msgservertable, linkpid),
     [{vdrtablepid, VDRTablePid}] = ets:lookup(msgservertable, vdrtablepid),
     [{vdrresppid, VDRRespPid}] = ets:lookup(msgservertable, vdrresppid),
-<<<<<<< HEAD
     State = #vdritem{socket=Sock, pid=Pid, vdrpid=VDRRespPid, addr=Addr, msgflownum=1, errorcount=0, dbpid=DBPid, wspid=WSPid, ccpid=CCPid, linkpid=LinkPid, vdrtablepid=VDRTablePid},
-=======
-	%VDRMonitorPid = spawn(fun() -> vdr_monitor_process(Pid, Sock) end),
-    State = #vdritem{socket=Sock, pid=Pid, vdrpid=VDRRespPid, addr=Addr, msgflownum=1, errorcount=0, 
-					 dbpid=DBPid, wspid=WSPid, ccpid=CCPid, linkpid=LinkPid, vdrtablepid=VDRTablePid},
-					 %vdrmonitorpid=VDRMonitorPid},
->>>>>>> e72ca3b7277448aa6b7ac9e80ff409e581833ecf
 	common:send_stat_err(State, conn),
     common:send_vdr_table_operation(VDRTablePid, {self(), insert, State, noresp}),
     inet:setopts(Sock, [{active, once}]),
@@ -61,13 +54,7 @@ handle_cast(_Msg, State) ->
 handle_info({tcp, Socket, Data}, OriState) ->
 	LinkPid = OriState#vdritem.linkpid,
 	Pid = OriState#vdritem.pid,
-<<<<<<< HEAD
 	LinkPid ! {Pid, vdrmsggot},
-=======
-	%VDRMonitorPid = OriState#vdritem.vdrmonitorpid,
-	LinkPid ! {Pid, vdrmsggot},
-	%VDRMonitorPid ! {Pid, pulse},
->>>>>>> e72ca3b7277448aa6b7ac9e80ff409e581833ecf
     %common:loginfo("~p : Data from VDR (~p) (id:~p, serialno:~p, authen_code:~p, vehicleid:~p, vehiclecode:~p)~n~p~n",
 	%			   [self(),
 	%				OriState#vdritem.addr, 
@@ -171,20 +158,18 @@ handle_info(_Info, State) ->
 %%% When VDR handler process is terminated, do the clean jobs here
 %%%
 terminate(_Reason, State) ->
+    %Auth = State#vdritem.auth,
     VehicleID = State#vdritem.vehicleid,
     Socket = State#vdritem.socket,
+    %VDRPid = State#vdritem.vdrpid,
     VDRTablePid = State#vdritem.vdrtablepid,
 	Pid = State#vdritem.pid,
-<<<<<<< HEAD
     %case VDRPid of
     %    undefined ->
     %        ok;
     %    _ ->
     %        VDRPid ! {Pid, stop, noresp}
     %end,
-=======
-	%VDRMonitorPid = State#vdritem.vdrmonitorpid,
->>>>>>> e72ca3b7277448aa6b7ac9e80ff409e581833ecf
     case Socket of
         undefined ->
             ok;
@@ -198,7 +183,6 @@ terminate(_Reason, State) ->
             {ok, WSUpdate} = wsock_data_parser:create_term_offline([VehicleID]),
             send_msg_to_ws_nowait(WSUpdate, State)
     end,
-<<<<<<< HEAD
     %case Auth of
     %    undefined ->
     %        ok;
@@ -209,14 +193,6 @@ terminate(_Reason, State) ->
             %%                      <<"'">>]),
             %send_sql_to_db_nowait(conn, Sql, State)
     %end,
-=======
-	%case VDRMonitorPid of
-	%	undefined ->
-	%		ok;
-	%	_ ->
-	%		VDRMonitorPid ! stop
-	%end,
->>>>>>> e72ca3b7277448aa6b7ac9e80ff409e581833ecf
 	try gen_tcp:close(State#vdritem.socket)
     catch
         _:Ex ->
@@ -1399,8 +1375,8 @@ disconn_socket_by_vehicle_id(VehicleID) ->
 	                     '_', '_', '_', '_', '_',
 	                     '_', '_', '_', '_', '_',
 	                     '_', '_', '_', '_', '_',
-                         '_', '_', '_', '_', '_',
-                         '_', '_', '_', '_'}),
+                        '_', '_', '_', '_', '_',
+                        '_', '_', '_'}),
 	disconn_socket_by_id(SockList).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
