@@ -990,7 +990,7 @@ update_vdr_ws2vdr_msg_id_flowidx(ID, FlowIdx, VID, Value) when is_integer(ID),
                                '_', '_', '_', '_', '_',
                                '_', '_', '_', '_', '_',
                                '_', '_', '_', '_', '_',
-                               '_', '_', '_'}),
+                               '_', '_', '_', '_'}),
     case length(Res) of
         1 ->
             [[Sock]] = Res,
@@ -1196,7 +1196,7 @@ send_msg_to_vdr(ID, VID, Msg) when is_binary(Msg) ->
                                '_', '_', '_', '_', '_',
                                '_', '_', '_', '_', '_',
                                '_', '_', '_', '_', '_',
-                               '_', '_', '_'}),
+                               '_', '_', '_', '_'}),
     case length(Res) of
         1 ->
             [[Sock]] = Res,
