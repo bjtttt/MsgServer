@@ -794,12 +794,6 @@ send_vdr_table_operation(VDRTablePid, Oper) ->
 		                    ok;
 		                _ ->
 		                    case Oper of
-		                        {Pid, lookup, _Object} ->
-		                            VDRTablePid1 ! Oper,
-		                            receive
-		                                {Pid, Result} ->
-		                                    Result
-		                            end;
 		                        {Pid, insert, _Object} ->
 		                            VDRTablePid1 ! Oper,
 		                            receive

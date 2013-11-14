@@ -30,14 +30,11 @@ init([Sock, Addr]) ->
     [{linkpid, LinkPid}] = ets:lookup(msgservertable, linkpid),
     [{vdrtablepid, VDRTablePid}] = ets:lookup(msgservertable, vdrtablepid),
     [{vdrresppid, VDRRespPid}] = ets:lookup(msgservertable, vdrresppid),
-	VDRMonitorPid = spawn(fun() -> vdr_monitor_process(Pid, Sock) end),
-    State = #vdritem{socket=Sock, pid=Pid, vdrpid=VDRRespPid, addr=Addr, msgflownum=1, errorcount=0, 
-					 dbpid=DBPid, wspid=WSPid, ccpid=CCPid, linkpid=LinkPid, vdrtablepid=VDRTablePid,
-					 vdrmonitorpid=VDRMonitorPid},
+    State = #vdritem{socket=Sock, pid=Pid, vdrpid=VDRRespPid, addr=Addr, msgflownum=1, errorcount=0, dbpid=DBPid, wspid=WSPid, ccpid=CCPid, linkpid=LinkPid, vdrtablepid=VDRTablePid},
 	common:send_stat_err(State, conn),
     common:send_vdr_table_operation(VDRTablePid, {self(), insert, State, noresp}),
     inet:setopts(Sock, [{active, once}]),
-	{ok, State}.
+	{ok, State, ?VDR_MSG_TIMEOUT}.
 
 %handle_call({fetch, PoolId, Msg}, _From, State) ->
 %    Resp = mysql:fetch(PoolId, Msg),
@@ -57,9 +54,7 @@ handle_cast(_Msg, State) ->
 handle_info({tcp, Socket, Data}, OriState) ->
 	LinkPid = OriState#vdritem.linkpid,
 	Pid = OriState#vdritem.pid,
-	VDRMonitorPid = OriState#vdritem.vdrmonitorpid,
 	LinkPid ! {Pid, vdrmsggot},
-	VDRMonitorPid ! {Pid, pulse},
     %common:loginfo("~p : Data from VDR (~p) (id:~p, serialno:~p, authen_code:~p, vehicleid:~p, vehiclecode:~p)~n~p~n",
 	%			   [self(),
 	%				OriState#vdritem.addr, 
@@ -101,7 +96,7 @@ handle_info({tcp, Socket, Data}, OriState) ->
                     {stop, vdrerror, State#vdritem{errorcount=ErrCount}};
                 true ->
                     inet:setopts(Socket, [{active, once}]),
-                    {noreply, State#vdritem{errorcount=ErrCount}}
+                    {noreply, State#vdritem{errorcount=ErrCount}, ?VDR_MSG_TIMEOUT}
             end;    
         _ ->
             case process_vdr_msges(Socket, Msgs, State) of
@@ -115,7 +110,7 @@ handle_info({tcp, Socket, Data}, OriState) ->
                             {stop, vdrerror, NewState#vdritem{errorcount=ErrCount}};
                         true ->
                             inet:setopts(Socket, [{active, once}]),
-                            {noreply, NewState#vdritem{errorcount=ErrCount}}
+                            {noreply, NewState#vdritem{errorcount=ErrCount}, ?VDR_MSG_TIMEOUT}
                     end;
                 {error, ErrType, NewState} ->
 					if
@@ -144,10 +139,10 @@ handle_info({tcp, Socket, Data}, OriState) ->
                     {stop, ErrType, NewState};
                 {warning, NewState} ->
                     inet:setopts(Socket, [{active, once}]),
-                    {noreply, NewState#vdritem{errorcount=0}};
+                    {noreply, NewState#vdritem{errorcount=0}, ?VDR_MSG_TIMEOUT};
                 {ok, NewState} ->
                     inet:setopts(Socket, [{active, once}]),
-                    {noreply, NewState#vdritem{errorcount=0}}
+                    {noreply, NewState#vdritem{errorcount=0}, ?VDR_MSG_TIMEOUT}
             end
     end;
 handle_info({tcp_closed, _Socket}, State) ->    
@@ -169,7 +164,6 @@ terminate(_Reason, State) ->
     %VDRPid = State#vdritem.vdrpid,
     VDRTablePid = State#vdritem.vdrtablepid,
 	Pid = State#vdritem.pid,
-	VDRMonitorPid = State#vdritem.vdrmonitorpid,
     %case VDRPid of
     %    undefined ->
     %        ok;
@@ -189,12 +183,6 @@ terminate(_Reason, State) ->
             {ok, WSUpdate} = wsock_data_parser:create_term_offline([VehicleID]),
             send_msg_to_ws_nowait(WSUpdate, State)
     end,
-	case VDRMonitorPid of
-		undefined ->
-			ok;
-		_ ->
-			VDRMonitorPid ! stop
-	end,
     %case Auth of
     %    undefined ->
     %        ok;
@@ -223,17 +211,6 @@ terminate(_Reason, State) ->
 
 code_change(_OldVsn, State, _Extra) ->    
 	{ok, State}.
-
-vdr_monitor_process(Pid, Socket) ->
-	receive
-		{Pid, pulse} ->
-			vdr_monitor_process(Pid, Socket);
-		stop ->
-			ok
-	after
-		?VDR_MSG_TIMEOUT ->
-			vdr_server:terminate_invalid_vdrs(Socket)
-	end.
 
 %%%
 %%% Return :

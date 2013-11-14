@@ -185,6 +185,17 @@ do_terminate_invalid_vdrs(_States) ->
 	ok.
 
 do_terminate_invalid_vdr(State) ->
-	vdr_handler:terminate("Force to terminate VDR", State).
-
+    Socket = State#vdritem.socket,
+    VDRTablePid = State#vdritem.vdrtablepid,
+    case Socket of
+        undefined ->
+            ok;
+        _ ->
+            common:send_vdr_table_operation(VDRTablePid, {self(), delete, Socket, noresp})
+    end,
+	try gen_tcp:close(State#vdritem.socket)
+    catch
+        _:Ex ->
+            common:logerror("VDR Server Error : VDR (~p) : exception when gen_tcp:close : ~p~n", [State#vdritem.addr, Ex])
+    end.
 								
