@@ -12,7 +12,8 @@
 		 get_record_field/3,
 		 send_sql_to_db/3,
 		 send_sql_to_db_nowait/3,
-		 send_msg_to_ws/2]).
+		 send_msg_to_ws/2,
+		 get_record_column_info/1]).
 
 -include("header.hrl").
 -include("mysql.hrl").
@@ -458,114 +459,198 @@ process_vdr_data(Socket, Data, State) ->
                             end;
                         16#102 ->
                             % VDR Authentication
-                            case create_sql_from_vdr(HeadInfo, Msg, NewState) of
-                            %Sql = "select * from device,vehicle where device.serial_no='abcdef' and vehicle.device_id=device.id",
-                            %case {ok, Sql} of
-                                {ok, Sql} ->
-                                    %SqlResp = send_sql_to_db(regauth, Sql, State),
-                                    SqlResp = send_sql_to_db(conn, Sql, NewState),
-									%common:loginfo("SQL : ~p~nSQL Result : ~p", [Sql, SqlResp]),
-                                    case extract_db_resp(SqlResp) of
-                                        {ok, empty} ->
+							{Auth} = Msg,
+							case check_vdrdbtable_auth(Auth) of
+								{ok, VDRDBItem} ->
+									%common:loginfo("Local authen passes"),
+									{vdrdbitem, VDRAuthenCode, VDRID, VDRSerialNo, VehicleCode, VehicleID, DriverID} = VDRDBItem,
+                                    if
+                                        VehicleID == undefined orelse VehicleCode==undefined ->
                                             {error, autherror, NewState};
-                                        {ok, [Rec]} ->
-                                            % "id" is NOT NULL & UNIQUE, so it cannot be null. However it can be undefined because vehicle table device_id may don't be euqual to device table id 
-                                            {<<"vehicle">>, <<"code">>, VehicleCode} = get_record_field(<<"vehicle">>, Rec, <<"code">>),
-											if
-												VehicleCode =/= undefined andalso binary_part(VehicleCode, 0, 1) == <<"?">> ->
-													common:logerror("VDR (~p) Vehicle Code has invalid character \"?\" and will be disconnected : ~p~n", [State#vdritem.addr, VehicleCode]),
-													{error, charerror, NewState};
-												true ->
-													{VDRID, VDRSerialNo, VDRAuthenCode, VehicleID, DriverID} = get_record_column_info(Rec),
-		                                            if
-		                                                VehicleID == undefined orelse VehicleCode==undefined ->
-		                                                    {error, autherror, NewState};
-		                                                true ->
-															disconn_socket_by_vehicle_id(VehicleID),
-		                                                    SockVdrList = ets:lookup(vdrtable, Socket),
-		                                                    case length(SockVdrList) of
-		                                                        1 ->
-		                                                            % "authen_code" is the query condition, so Auth should be equal to VDRAuthEnCode
-		                                                            %{Auth} = Msg,
-		                                                            
-		                                                            %SqlUpdate = list_to_binary([<<"update device set is_online=1 where authen_code='">>, VDRAuthenCode, <<"'">>]),
-		                                                            %SqlUpdate = list_to_binary([<<"replace into device(authen_code,is_online) values('">>, VDRAuthenCode, <<"',1)">>]),
-		                                                            %send_sql_to_db(conn, SqlUpdate, NewState),
+                                        true ->
+											disconn_socket_by_vehicle_id(VehicleID),
+                                            SockVdrList = ets:lookup(vdrtable, Socket),
+                                            case length(SockVdrList) of
+                                                1 ->
+                                                    % "authen_code" is the query condition, so Auth should be equal to VDRAuthEnCode
+                                                    %{Auth} = Msg,
+                                                    
+                                                    %SqlUpdate = list_to_binary([<<"update device set is_online=1 where authen_code='">>, VDRAuthenCode, <<"'">>]),
+                                                    %SqlUpdate = list_to_binary([<<"replace into device(authen_code,is_online) values('">>, VDRAuthenCode, <<"',1)">>]),
+                                                    %send_sql_to_db(conn, SqlUpdate, NewState),
 
-																	SqlAlarmList = list_to_binary([<<"select * from vehicle_alarm where vehicle_id=">>, common:integer_to_binary(VehicleID), <<" and isnull(clear_time)">>]),
-																	SqlAlarmListResp = send_sql_to_db(conn, SqlAlarmList, NewState),
-																	case extract_db_resp(SqlAlarmListResp) of
-																		{ok, empty} ->
-																			%common:loginfo("Original AlarmList : []~n"),	
-				                                                            case wsock_data_parser:create_term_online([VehicleID]) of
-				                                                                {ok, WSUpdate} ->
-				                                                                    %common:loginfo("VDR (~p) WS : ~p~n~p~n", [State#vdritem.addr, WSUpdate, list_to_binary(WSUpdate)]),
-				                                                                    send_msg_to_ws(WSUpdate, NewState),
-				                                                            
-				                                                                    FlowIdx = NewState#vdritem.msgflownum,
-				                                                                    MsgBody = vdr_data_processor:create_gen_resp(ID, MsgIdx, ?T_GEN_RESP_OK),
-				                                                                    %common:loginfo("~p sends VDR (~p) response for 16#102 (ok) : ~p~n", [State#vdritem.pid, State#vdritem.addr, MsgBody]),
-				                                                                    NewFlowIdx = send_data_to_vdr(16#8001, Tel, FlowIdx, MsgBody, NewState),
-																				
-																					FinalState = NewState#vdritem{id=VDRID, 
-				                                                                                                  serialno=binary_to_list(VDRSerialNo),
-				                                                                                                  auth=binary_to_list(VDRAuthenCode),
-				                                                                                                  vehicleid=VehicleID,
-				                                                                                                  vehiclecode=binary_to_list(VehicleCode),
-																									              driverid=DriverID,
-				                                                                                                  msgflownum=NewFlowIdx, msg2vdr=[], msg=[], req=[],
-																									              alarm=0, alarmlist=[], state=0, statelist=[], tel=Tel},
-                                                                                    VDRTablePid = NewState#vdritem.vdrtablepid,
-                                                                                    common:send_vdr_table_operation(VDRTablePid, {self(), insert, FinalState, noresp}),
-				                                        
-																					{ok, FinalState};
-				                                                                _ ->
-				                                                                    {error, autherror, NewState}
-				                                                            end;
-																		{ok, Reses} ->
-																			% Initialize the alarm list immediately after auth
-																			AlarmList = get_alarm_list(Reses),
-																			%common:loginfo("Original AlarmList : ~p~n", [AlarmList]),		                                                            
-				                                                            case wsock_data_parser:create_term_online([VehicleID]) of
-				                                                                {ok, WSUpdate} ->
-				                                                                    %common:loginfo("VDR (~p) WS : ~p~n~p~n", [State#vdritem.addr, WSUpdate, list_to_binary(WSUpdate)]),
-				                                                                    send_msg_to_ws(WSUpdate, NewState),
-																					
-				                                                                    FlowIdx = NewState#vdritem.msgflownum,
-				                                                                    MsgBody = vdr_data_processor:create_gen_resp(ID, MsgIdx, ?T_GEN_RESP_OK),
-				                                                                    %common:loginfo("~p sends VDR (~p) response for 16#102 (ok) : ~p~n", [NewState#vdritem.pid, NewState#vdritem.addr, MsgBody]),
-				                                                                    NewFlowIdx = send_data_to_vdr(16#8001, Tel, FlowIdx, MsgBody, NewState),
-				                                        
-																					FinalState = NewState#vdritem{id=VDRID,
-				                                                                                                  serialno=binary_to_list(VDRSerialNo),
-				                                                                                                  auth=binary_to_list(VDRAuthenCode),
-				                                                                                                  vehicleid=VehicleID,
-				                                                                                                  vehiclecode=binary_to_list(VehicleCode),
-																									              driverid=DriverID,
-				                                                                                                  msgflownum=NewFlowIdx, msg2vdr=[], msg=[], req=[],
-																									              alarm=0, alarmlist=AlarmList, state=0, statelist=[], tel=Tel},
-                                                                                    VDRTablePid = NewState#vdritem.vdrtablepid,
-                                                                                    common:send_vdr_table_operation(VDRTablePid, {self(), insert, FinalState, noresp}),
-																					
-				                                                                    {ok, FinalState};
-				                                                                _ ->
-				                                                                    {error, autherror, NewState}
-				                                                            end
-																	end;
-		                                                        _ ->
-		                                                            % vdrtable error
-		                                                            {error, autherror, NewState}
-		                                                    end
-		                                            end
-											end;
-                                        _ ->
-                                            % DB includes no record with the given authen_code
-                                            {error, autherror, NewState}
+													SqlAlarmList = list_to_binary([<<"select * from vehicle_alarm where vehicle_id=">>, common:integer_to_binary(VehicleID), <<" and isnull(clear_time)">>]),
+													SqlAlarmListResp = send_sql_to_db(conn, SqlAlarmList, NewState),
+													case extract_db_resp(SqlAlarmListResp) of
+														{ok, empty} ->
+															%common:loginfo("Original AlarmList : []~n"),	
+                                                            case wsock_data_parser:create_term_online([VehicleID]) of
+                                                                {ok, WSUpdate} ->
+                                                                    %common:loginfo("VDR (~p) WS : ~p~n~p~n", [State#vdritem.addr, WSUpdate, list_to_binary(WSUpdate)]),
+                                                                    send_msg_to_ws(WSUpdate, NewState),
+                                                            
+                                                                    FlowIdx = NewState#vdritem.msgflownum,
+                                                                    MsgBody = vdr_data_processor:create_gen_resp(ID, MsgIdx, ?T_GEN_RESP_OK),
+                                                                    %common:loginfo("~p sends VDR (~p) response for 16#102 (ok) : ~p~n", [State#vdritem.pid, State#vdritem.addr, MsgBody]),
+                                                                    NewFlowIdx = send_data_to_vdr(16#8001, Tel, FlowIdx, MsgBody, NewState),
+																
+																	FinalState = NewState#vdritem{id=VDRID, 
+                                                                                                  serialno=binary_to_list(VDRSerialNo),
+                                                                                                  auth=binary_to_list(VDRAuthenCode),
+                                                                                                  vehicleid=VehicleID,
+                                                                                                  vehiclecode=binary_to_list(VehicleCode),
+																					              driverid=DriverID,
+                                                                                                  msgflownum=NewFlowIdx, msg2vdr=[], msg=[], req=[],
+																					              alarm=0, alarmlist=[], state=0, statelist=[], tel=Tel},
+                                                                    VDRTablePid = NewState#vdritem.vdrtablepid,
+                                                                    common:send_vdr_table_operation(VDRTablePid, {self(), insert, FinalState, noresp}),
+                                        
+																	{ok, FinalState};
+                                                                _ ->
+                                                                    {error, autherror, NewState}
+                                                            end;
+														{ok, Reses} ->
+															% Initialize the alarm list immediately after auth
+															AlarmList = get_alarm_list(Reses),
+															%common:loginfo("Original AlarmList : ~p~n", [AlarmList]),		                                                            
+                                                            case wsock_data_parser:create_term_online([VehicleID]) of
+                                                                {ok, WSUpdate} ->
+                                                                    %common:loginfo("VDR (~p) WS : ~p~n~p~n", [State#vdritem.addr, WSUpdate, list_to_binary(WSUpdate)]),
+                                                                    send_msg_to_ws(WSUpdate, NewState),
+																	
+                                                                    FlowIdx = NewState#vdritem.msgflownum,
+                                                                    MsgBody = vdr_data_processor:create_gen_resp(ID, MsgIdx, ?T_GEN_RESP_OK),
+                                                                    %common:loginfo("~p sends VDR (~p) response for 16#102 (ok) : ~p~n", [NewState#vdritem.pid, NewState#vdritem.addr, MsgBody]),
+                                                                    NewFlowIdx = send_data_to_vdr(16#8001, Tel, FlowIdx, MsgBody, NewState),
+                                        
+																	FinalState = NewState#vdritem{id=VDRID,
+                                                                                                  serialno=binary_to_list(VDRSerialNo),
+                                                                                                  auth=binary_to_list(VDRAuthenCode),
+                                                                                                  vehicleid=VehicleID,
+                                                                                                  vehiclecode=binary_to_list(VehicleCode),
+																					              driverid=DriverID,
+                                                                                                  msgflownum=NewFlowIdx, msg2vdr=[], msg=[], req=[],
+																					              alarm=0, alarmlist=AlarmList, state=0, statelist=[], tel=Tel},
+                                                                    VDRTablePid = NewState#vdritem.vdrtablepid,
+                                                                    common:send_vdr_table_operation(VDRTablePid, {self(), insert, FinalState, noresp}),
+																	
+                                                                    {ok, FinalState};
+                                                                _ ->
+                                                                    {error, autherror, NewState}
+                                                            end
+													end;
+                                                _ ->
+                                                    % vdrtable error
+                                                    {error, autherror, NewState}
+                                            end
                                     end;
-                                _ ->
-                                    % Authentication fails
-                                    {error, autherror, NewState}
-                            end;
+								error ->
+									%common:loginfo("Local authen fails"),
+		                            case create_sql_from_vdr(HeadInfo, Msg, NewState) of
+		                                {ok, Sql} ->
+		                                    SqlResp = send_sql_to_db(conn, Sql, NewState),
+											case extract_db_resp(SqlResp) of
+		                                        {ok, empty} ->
+		                                            {error, autherror, NewState};
+		                                        {ok, [Rec]} ->
+		                                            % "id" is NOT NULL & UNIQUE, so it cannot be null. However it can be undefined because vehicle table device_id may don't be euqual to device table id 
+		                                            {<<"vehicle">>, <<"code">>, VehicleCode} = get_record_field(<<"vehicle">>, Rec, <<"code">>),
+													if
+														VehicleCode =/= undefined andalso binary_part(VehicleCode, 0, 1) == <<"?">> ->
+															common:logerror("VDR (~p) Vehicle Code has invalid character \"?\" and will be disconnected : ~p~n", [State#vdritem.addr, VehicleCode]),
+															{error, charerror, NewState};
+														true ->
+															{VDRID, VDRSerialNo, VDRAuthenCode, _VehicleCode, VehicleID, DriverID} = get_record_column_info(Rec),
+				                                            if
+				                                                VehicleID == undefined orelse VehicleCode==undefined ->
+				                                                    {error, autherror, NewState};
+				                                                true ->
+																	disconn_socket_by_vehicle_id(VehicleID),
+				                                                    SockVdrList = ets:lookup(vdrtable, Socket),
+				                                                    case length(SockVdrList) of
+				                                                        1 ->
+				                                                            % "authen_code" is the query condition, so Auth should be equal to VDRAuthEnCode
+				                                                            %{Auth} = Msg,
+				                                                            
+				                                                            %SqlUpdate = list_to_binary([<<"update device set is_online=1 where authen_code='">>, VDRAuthenCode, <<"'">>]),
+				                                                            %SqlUpdate = list_to_binary([<<"replace into device(authen_code,is_online) values('">>, VDRAuthenCode, <<"',1)">>]),
+				                                                            %send_sql_to_db(conn, SqlUpdate, NewState),
+		
+																			SqlAlarmList = list_to_binary([<<"select * from vehicle_alarm where vehicle_id=">>, common:integer_to_binary(VehicleID), <<" and isnull(clear_time)">>]),
+																			SqlAlarmListResp = send_sql_to_db(conn, SqlAlarmList, NewState),
+																			case extract_db_resp(SqlAlarmListResp) of
+																				{ok, empty} ->
+																					%common:loginfo("Original AlarmList : []~n"),	
+						                                                            case wsock_data_parser:create_term_online([VehicleID]) of
+						                                                                {ok, WSUpdate} ->
+						                                                                    %common:loginfo("VDR (~p) WS : ~p~n~p~n", [State#vdritem.addr, WSUpdate, list_to_binary(WSUpdate)]),
+						                                                                    send_msg_to_ws(WSUpdate, NewState),
+						                                                            
+						                                                                    FlowIdx = NewState#vdritem.msgflownum,
+						                                                                    MsgBody = vdr_data_processor:create_gen_resp(ID, MsgIdx, ?T_GEN_RESP_OK),
+						                                                                    %common:loginfo("~p sends VDR (~p) response for 16#102 (ok) : ~p~n", [State#vdritem.pid, State#vdritem.addr, MsgBody]),
+						                                                                    NewFlowIdx = send_data_to_vdr(16#8001, Tel, FlowIdx, MsgBody, NewState),
+																						
+																							FinalState = NewState#vdritem{id=VDRID, 
+						                                                                                                  serialno=binary_to_list(VDRSerialNo),
+						                                                                                                  auth=binary_to_list(VDRAuthenCode),
+						                                                                                                  vehicleid=VehicleID,
+						                                                                                                  vehiclecode=binary_to_list(VehicleCode),
+																											              driverid=DriverID,
+						                                                                                                  msgflownum=NewFlowIdx, msg2vdr=[], msg=[], req=[],
+																											              alarm=0, alarmlist=[], state=0, statelist=[], tel=Tel},
+		                                                                                    VDRTablePid = NewState#vdritem.vdrtablepid,
+		                                                                                    common:send_vdr_table_operation(VDRTablePid, {self(), insert, FinalState, noresp}),
+						                                        
+																							{ok, FinalState};
+						                                                                _ ->
+						                                                                    {error, autherror, NewState}
+						                                                            end;
+																				{ok, Reses} ->
+																					% Initialize the alarm list immediately after auth
+																					AlarmList = get_alarm_list(Reses),
+																					%common:loginfo("Original AlarmList : ~p~n", [AlarmList]),		                                                            
+						                                                            case wsock_data_parser:create_term_online([VehicleID]) of
+						                                                                {ok, WSUpdate} ->
+						                                                                    %common:loginfo("VDR (~p) WS : ~p~n~p~n", [State#vdritem.addr, WSUpdate, list_to_binary(WSUpdate)]),
+						                                                                    send_msg_to_ws(WSUpdate, NewState),
+																							
+						                                                                    FlowIdx = NewState#vdritem.msgflownum,
+						                                                                    MsgBody = vdr_data_processor:create_gen_resp(ID, MsgIdx, ?T_GEN_RESP_OK),
+						                                                                    %common:loginfo("~p sends VDR (~p) response for 16#102 (ok) : ~p~n", [NewState#vdritem.pid, NewState#vdritem.addr, MsgBody]),
+						                                                                    NewFlowIdx = send_data_to_vdr(16#8001, Tel, FlowIdx, MsgBody, NewState),
+						                                        
+																							FinalState = NewState#vdritem{id=VDRID,
+						                                                                                                  serialno=binary_to_list(VDRSerialNo),
+						                                                                                                  auth=binary_to_list(VDRAuthenCode),
+						                                                                                                  vehicleid=VehicleID,
+						                                                                                                  vehiclecode=binary_to_list(VehicleCode),
+																											              driverid=DriverID,
+						                                                                                                  msgflownum=NewFlowIdx, msg2vdr=[], msg=[], req=[],
+																											              alarm=0, alarmlist=AlarmList, state=0, statelist=[], tel=Tel},
+		                                                                                    VDRTablePid = NewState#vdritem.vdrtablepid,
+		                                                                                    common:send_vdr_table_operation(VDRTablePid, {self(), insert, FinalState, noresp}),
+																							
+						                                                                    {ok, FinalState};
+						                                                                _ ->
+						                                                                    {error, autherror, NewState}
+						                                                            end
+																			end;
+				                                                        _ ->
+				                                                            % vdrtable error
+				                                                            {error, autherror, NewState}
+				                                                    end
+				                                            end
+													end;
+		                                        _ ->
+		                                            % DB includes no record with the given authen_code
+		                                            {error, autherror, NewState}
+		                                    end;
+		                                _ ->
+		                                    % Authentication fails
+		                                    {error, autherror, NewState}
+		                            end
+							end;
                         true ->
                             common:logerror("Invalid common message from unknown/unregistered/unauthenticated VDR (~p) (id:~p, serialno:~p, authen_code:~p, vehicleid:~p, vehiclecode:~p) MSG ID : ~p~n", [NewState#vdritem.addr, NewState#vdritem.id, NewState#vdritem.serialno, NewState#vdritem.auth, NewState#vdritem.vehicleid, NewState#vdritem.vehiclecode, ID]),
                             % Unauthorized/Unregistered VDR can only accept 16#100/16#102
@@ -955,7 +1040,29 @@ process_vdr_data(Socket, Data, State) ->
             {error, unvdrerror, NewState}
     end.
 
+check_vdrdbtable_auth(Auth) when is_binary(Auth) ->
+	Res = ets:lookup(vdrdbtable, Auth),
+	%common:loginfo("Res for Auth: ~p, ~p", [Res, Auth]),
+	case Res of
+		[] ->
+			error;
+		[VDRDBItem] ->
+			{ok, VDRDBItem}
+	end;
+check_vdrdbtable_auth(Auth) when is_list(Auth) ->
+	Res = ets:lookup(vdrdbtable, list_to_binary(Auth)),
+	%common:loginfo("Res for Auth: ~p, ~p", [Res, Auth]),
+	case Res of
+		[] ->
+			error;
+		[VDRDBItem] ->
+			{ok, VDRDBItem}
+	end;
+check_vdrdbtable_auth(_Auth) ->
+	error.
+
 get_record_column_info(Record) ->
+	{<<"vehicle">>, <<"code">>, VehicleCode} = get_record_field(<<"vehicle">>, Record, <<"code">>),
 	% "id" is PK, so it cannot be null or empty
     {<<"device">>, <<"id">>, VDRID} = get_record_field(<<"device">>, Record, <<"id">>),
     % "serial" is NOT NULL & UNIQUE, so it cannot be null or undefined
@@ -965,7 +1072,7 @@ get_record_column_info(Record) ->
     % "id" is PK, so it cannot be null. However it can be undefined because vehicle table device_id may don't be euqual to device table id 
     {<<"vehicle">>, <<"id">>, VehicleID} = get_record_field(<<"vehicle">>, Record, <<"id">>),
     {<<"vehicle">>, <<"driver_id">>, DriverID} = get_record_field(<<"vehicle">>, Record, <<"driver_id">>),
-	{VDRID, VDRSerialNo, VDRAuthenCode, VehicleID, DriverID}.
+	{VDRID, VDRSerialNo, VDRAuthenCode, VehicleCode, VehicleID, DriverID}.
 
 find_missing_msgidx(RequiredId, MsgPackages) when is_integer(RequiredId),
                                                   RequiredId > -1,

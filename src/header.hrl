@@ -14,6 +14,8 @@
 -define(MAX_DB_STORED_URGENT_COUNT, 100).
 -define(MAX_DB_PROC_WAIT_INTERVAL, 30000).
 
+-define(DB_RESP_TIMEOUT, 5000).
+
 %%% DB_SUP_MAX and DB_SUP_WITHIN are use in DB Supervisor for DB client restart mechanism
 %%% In development, they are 0 and 1 to make debug more easy and efficient.
 %%% When release, they should be 10 and 10 OR other better values
@@ -125,6 +127,16 @@
 					linkpid=undefined,
 					vdrtablepid=undefined
                  }).
+
+% VDRAuthenCode, VDRID, VDRSerialNo, VehicleCode, VehicleID, DriverID
+-record(vdrdbitem, {  authencode=undefined,		% VDRAuthenCode
+					  vdrid=undefined, 			% VDRID
+					  vdrserialno=undefined,	% VDRSerialNo
+					  vehiclecode=undefined, 	% VehicleCode
+                      vehicleid=undefined,		% VehicleID
+					  driverid=undefined		% DriverID
+                 }).
+
 
 %%%
 %%% pid     : VDR handler process id

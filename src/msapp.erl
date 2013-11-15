@@ -59,6 +59,7 @@ start(StartType, StartArgs) ->
     ets:insert(msgservertable, {wslog, []}),
     common:loginfo("StartType : ~p~n", [StartType]),
     common:loginfo("StartArgs : ~p~n", [StartArgs]),
+    ets:new(vdrdbtable,[ordered_set,public,named_table,{keypos,#vdrdbitem.authencode},{read_concurrency,true},{write_concurrency,true}]),
     ets:new(vdrtable,[ordered_set,public,named_table,{keypos,#vdritem.socket},{read_concurrency,true},{write_concurrency,true}]),
     ets:new(mantable,[set,public,named_table,{keypos,#manitem.socket},{read_concurrency,true},{write_concurrency,true}]),
     ets:new(usertable,[set,public,named_table,{keypos,#user.id},{read_concurrency,true},{write_concurrency,true}]),
@@ -114,37 +115,44 @@ start(StartType, StartArgs) ->
 		                    DBTablePid = spawn(fun() -> db_table_deamon() end),
 		                    CCPid = spawn(fun() -> code_convertor_process() end),
 		                    VdrTablePid = spawn(fun() -> vdrtable_insert_delete_process() end),
-							%VdrRespPid = spawn(fun() -> vdr_resp_process() end),
 		                    ets:insert(msgservertable, {dbpid, DBPid}),
 		                    ets:insert(msgservertable, {wspid, WSPid}),
 		                    ets:insert(msgservertable, {linkpid, LinkPid}),
 		                    ets:insert(msgservertable, {dbtablepid, DBTablePid}),
 		                    ets:insert(msgservertable, {ccpid, CCPid}),
 		                    ets:insert(msgservertable, {vdrtablepid, VdrTablePid}),
-		                    %ets:insert(msgservertable, {vdrresppid, VdrRespPid}),
 		                    common:loginfo("WS client process PID is ~p~n", [WSPid]),
 		                    common:loginfo("DB client process PID is ~p~n", [DBPid]),
 		                    common:loginfo("DB table deamon process PID is ~p~n", [DBTablePid]),
 		                    common:loginfo("Code convertor process PID is ~p~n", [CCPid]),
-		                    common:loginfo("VDR table proceesor process PID is ~p~n", [VdrTablePid]),
-		                    %common:loginfo("VDR response process PID is ~p~n", [VdrRespPid]),
+		                    common:loginfo("VDR table processor process PID is ~p~n", [VdrTablePid]),
 		                    
-							Pid = self(),
-							
-				            DBPid ! {Pid, conn, <<"set names 'utf8'">>},
+				            DBPid ! {AppPid, conn, <<"set names 'utf8'">>},
 				            receive
-				                {Pid, Result} ->
-				                    Result
-				            end,							
-							
-		                    CCPid ! {Pid, create},
-		                    receive
-		                        created ->
-		                            common:loginfo("Code convertor table is created~n"),
-		                            {ok, AppPid}
-		                        after ?TIMEOUT_CC_INIT_PROCESS ->
-		                            {error, "ERROR : code convertor table is timeout~n"}
-		                    end;
+				                {AppPid, _} ->
+									common:loginfo("DB coding setting returns"),
+									DBPid ! {AppPid, conn, <<"select * from device left join vehicle on vehicle.device_id = device.id">>},
+						            receive
+						                {AppPid, Result} ->
+											common:loginfo("DB device/vehicle init returns"),
+											init_vdrdbtable(Result),
+											common:loginfo("DB device/vehicle init success : ~p", [ets:info(vdrdbtable, size)]),
+						                    CCPid ! {AppPid, create},
+						                    receive
+						                        created ->
+						                            common:loginfo("Code convertor table is created~n"),
+						                            {ok, AppPid}
+						                        after ?TIMEOUT_CC_INIT_PROCESS ->
+						                            {error, "ERROR : code convertor table is timeout~n"}
+											end
+									after
+										?DB_RESP_TIMEOUT ->
+											{error, "ERROR : init vdr db table is timeout~n"}
+						            end
+							after
+								?DB_RESP_TIMEOUT ->
+									{error, "ERROR : init db coding is timeout~n"}
+							end;
 						true ->
 		                    LinkPid = spawn(fun() -> connection_info_process(0, 0, 0, 0, 0, 
 																			 0, 0, 0, 0, 0, 
@@ -156,27 +164,42 @@ start(StartType, StartArgs) ->
 		                    DBTablePid = spawn(fun() -> db_table_deamon() end),
 		                    CCPid = spawn(fun() -> code_convertor_process() end),
 		                    VdrTablePid = spawn(fun() -> vdrtable_insert_delete_process() end),
-							%VdrRespPid = spawn(fun() -> vdr_resp_process() end),
 		                    ets:insert(msgservertable, {dbpid, DBPid}),
 		                    ets:insert(msgservertable, {linkpid, LinkPid}),
 		                    ets:insert(msgservertable, {dbtablepid, DBTablePid}),
 		                    ets:insert(msgservertable, {ccpid, CCPid}),
 		                    ets:insert(msgservertable, {vdrtablepid, VdrTablePid}),
-		                    %ets:insert(msgservertable, {vdrresppid, VdrRespPid}),
 		                    common:loginfo("DB client process PID is ~p~n", [DBPid]),
 		                    common:loginfo("DB table deamon process PID is ~p~n", [DBTablePid]),
 		                    common:loginfo("Code convertor process PID is ~p~n", [CCPid]),
-		                    common:loginfo("VDR table insert/delete process PID is ~p~n", [VdrTablePid]),
-		                    %common:loginfo("VDR response process PID is ~p~n", [VdrRespPid]),
+		                    common:loginfo("VDR table processor process PID is ~p~n", [VdrTablePid]),
 		                    
-		                    CCPid ! {self(), create},
-		                    receive
-		                        created ->
-		                            common:loginfo("Code convertor table is created~n"),
-		                            {ok, AppPid}
-		                        after ?TIMEOUT_CC_INIT_PROCESS ->
-		                            {error, "ERROR : code convertor table is timeout~n"}
-		                    end
+				            DBPid ! {AppPid, conn, <<"set names 'utf8'">>},
+				            receive
+				                {AppPid, _} ->
+									common:loginfo("DB coding setting returns"),
+									DBPid ! {AppPid, conn, <<"select * from device left join vehicle on vehicle.device_id = device.id">>},
+						            receive
+						                {AppPid, Result} ->
+											common:loginfo("DB device/vehicle init returns : ~p", [length(Result)]),
+											init_vdrdbtable(Result),
+											common:loginfo("DB device/vehicle init success : ~p", [ets:info(vdrdbtable, size)]),
+						                    CCPid ! {AppPid, create},
+						                    receive
+						                        created ->
+						                            common:loginfo("Code convertor table is created~n"),
+						                            {ok, AppPid}
+						                        after ?TIMEOUT_CC_INIT_PROCESS ->
+						                            {error, "ERROR : code convertor table is timeout~n"}
+											end
+									after
+										?DB_RESP_TIMEOUT ->
+											{error, "ERROR : init vdr db table is timeout~n"}
+						            end
+							after
+								?DB_RESP_TIMEOUT ->
+									{error, "ERROR : init db coding is timeout~n"}
+							end
 					end;
                 {error, ErrMsg} ->
                     {error, ErrMsg}
@@ -188,6 +211,43 @@ start(StartType, StartArgs) ->
             common:logerror("Message server fails to start : ~p~n", [Error]),
             {error, Error}
     end.
+
+init_vdrdbtable(Result) ->
+	case vdr_handler:extract_db_resp(Result) of
+		error ->
+			common:logerror("Message server cannot init vdr db table");
+		{ok, empty} ->
+		    common:logerror("Message server init empty vdr db table");
+		{ok, Records} ->
+			try
+				do_init_vdrdbtable(Records)
+			catch
+				_:Msg ->
+					common:logerror("Message server fails to init vdr db table : ~p", [Msg])
+			end
+	end.
+
+do_init_vdrdbtable(Result) when is_list(Result),
+								length(Result) > 0 ->
+	[H|T] = Result,
+	{VDRID, VDRSerialNo, VDRAuthenCode, VehicleCode, VehicleID, DriverID} = vdr_handler:get_record_column_info(H),
+	if
+		VehicleCode =/= undefined andalso binary_part(VehicleCode, 0, 1) =/= <<"?">> ->
+			VDRDBItem = #vdrdbitem{authencode=VDRAuthenCode, 
+								   vdrid=VDRID, 
+								   vdrserialno=VDRSerialNo,
+								   vehiclecode=VehicleCode,
+								   vehicleid=VehicleID,
+								   driverid=DriverID},
+			ets:insert(vdrdbtable, VDRDBItem),
+			do_init_vdrdbtable(T);
+		true ->
+			common:logerror("Failt to insert Device/Vehicle : VDRAuthenCode ~p, VDRID ~p, VDRSerialNo ~p, VehicleCode ~p, VehicleID ~p, DriverID ~p",
+							[VDRAuthenCode, VDRID, VDRSerialNo, VehicleCode, VehicleID, DriverID]),
+			do_init_vdrdbtable(T)
+	end;
+do_init_vdrdbtable(_Result) ->
+	ok.
 
 vdrtable_insert_delete_process() ->
 	receive
