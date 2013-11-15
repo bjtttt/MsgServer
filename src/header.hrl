@@ -128,7 +128,6 @@
 					vdrtablepid=undefined
                  }).
 
-% VDRAuthenCode, VDRID, VDRSerialNo, VehicleCode, VehicleID, DriverID
 -record(vdrdbitem, {  authencode=undefined,		% VDRAuthenCode
 					  vdrid=undefined, 			% VDRID
 					  vdrserialno=undefined,	% VDRSerialNo
@@ -137,6 +136,10 @@
 					  driverid=undefined		% DriverID
                  }).
 
+-record(alarmitem, {  vehicleid=undefined,		% VehicleID
+					  type=undefined, 			% Type
+					  time=undefined			% Time
+                 }).
 
 %%%
 %%% pid     : VDR handler process id

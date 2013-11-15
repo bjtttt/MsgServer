@@ -59,6 +59,7 @@ start(StartType, StartArgs) ->
     ets:insert(msgservertable, {wslog, []}),
     common:loginfo("StartType : ~p~n", [StartType]),
     common:loginfo("StartArgs : ~p~n", [StartArgs]),
+    ets:new(alarmtable,[bag,public,named_table,{keypos,#alarmitem.vehicleid},{read_concurrency,true},{write_concurrency,true}]),
     ets:new(vdrdbtable,[ordered_set,public,named_table,{keypos,#vdrdbitem.authencode},{read_concurrency,true},{write_concurrency,true}]),
     ets:new(vdrtable,[ordered_set,public,named_table,{keypos,#vdritem.socket},{read_concurrency,true},{write_concurrency,true}]),
     ets:new(mantable,[set,public,named_table,{keypos,#manitem.socket},{read_concurrency,true},{write_concurrency,true}]),
@@ -137,13 +138,22 @@ start(StartType, StartArgs) ->
 											common:loginfo("DB device/vehicle init returns"),
 											init_vdrdbtable(Result),
 											common:loginfo("DB device/vehicle init success : ~p", [ets:info(vdrdbtable, size)]),
-						                    CCPid ! {AppPid, create},
-						                    receive
-						                        created ->
-						                            common:loginfo("Code convertor table is created~n"),
-						                            {ok, AppPid}
+											DBPid ! {AppPid, conn, <<"select * from vehicle_alarm where isnull(clear_time)">>},
+								            receive
+								                {AppPid, AlarmResult} ->
+													common:loginfo("DB alarm init returns"),
+													init_alarmtable(AlarmResult),
+													common:loginfo("DB alarm init success : ~p", [ets:info(alarmtable, size)]),
+								                    CCPid ! {AppPid, create},
+								                    receive
+								                        created ->
+								                            common:loginfo("Code convertor table is created~n"),
+								                            {ok, AppPid}
+								                        after ?TIMEOUT_CC_INIT_PROCESS ->
+								                            {error, "ERROR : code convertor table is timeout~n"}
+													end
 						                        after ?TIMEOUT_CC_INIT_PROCESS ->
-						                            {error, "ERROR : code convertor table is timeout~n"}
+						                            {error, "ERROR : init alarm table is timeout~n"}
 											end
 									after
 										?DB_RESP_TIMEOUT ->
@@ -181,16 +191,25 @@ start(StartType, StartArgs) ->
 									DBPid ! {AppPid, conn, <<"select * from device left join vehicle on vehicle.device_id = device.id">>},
 						            receive
 						                {AppPid, Result} ->
-											common:loginfo("DB device/vehicle init returns : ~p", [length(Result)]),
+											common:loginfo("DB device/vehicle init returns"),
 											init_vdrdbtable(Result),
 											common:loginfo("DB device/vehicle init success : ~p", [ets:info(vdrdbtable, size)]),
-						                    CCPid ! {AppPid, create},
-						                    receive
-						                        created ->
-						                            common:loginfo("Code convertor table is created~n"),
-						                            {ok, AppPid}
+											DBPid ! {AppPid, conn, <<"select * from vehicle_alarm where isnull(clear_time)">>},
+								            receive
+								                {AppPid, AlarmResult} ->
+													common:loginfo("DB alarm init returns"),
+													init_alarmtable(AlarmResult),
+													common:loginfo("DB alarm init success : ~p", [ets:info(alarmtable, size)]),
+								                    CCPid ! {AppPid, create},
+								                    receive
+								                        created ->
+								                            common:loginfo("Code convertor table is created~n"),
+								                            {ok, AppPid}
+								                        after ?TIMEOUT_CC_INIT_PROCESS ->
+								                            {error, "ERROR : code convertor table is timeout~n"}
+													end
 						                        after ?TIMEOUT_CC_INIT_PROCESS ->
-						                            {error, "ERROR : code convertor table is timeout~n"}
+						                            {error, "ERROR : init alarm table is timeout~n"}
 											end
 									after
 										?DB_RESP_TIMEOUT ->
@@ -249,6 +268,43 @@ do_init_vdrdbtable(Result) when is_list(Result),
 do_init_vdrdbtable(_Result) ->
 	ok.
 
+init_alarmtable(AlarmResult) ->
+	case vdr_handler:extract_db_resp(AlarmResult) of
+		error ->
+			common:logerror("Message server cannot init alarm table");
+		{ok, empty} ->
+		    common:logerror("Message server init empty alarm table");
+		{ok, Records} ->
+			try
+				do_init_alarmtable(Records)
+			catch
+				_:Msg ->
+					common:logerror("Message server fails to init alarm table : ~p", [Msg])
+			end
+	end.
+
+do_init_alarmtable(AlarmResult) when is_list(AlarmResult),
+									 length(AlarmResult) > 0 ->
+	[H|T] = AlarmResult,
+	{<<"vehicle_alarm">>, <<"vehicle_id">>, VehicleID} = vdr_handler:get_record_field(<<"vehicle_alarm">>, H, <<"vehicle_id">>),
+	{<<"vehicle_alarm">>, <<"type_id">>, TypeID} = vdr_handler:get_record_field(<<"vehicle_alarm">>, H, <<"type_id">>),
+	{<<"vehicle_alarm">>, <<"alarm_time">>, {datetime, AlarmTime}} = vdr_handler:get_record_field(<<"vehicle_alarm">>, H, <<"alarm_time">>),
+	%  AlarmTime is {{YY,MM,DD},{Hh,Mm,Ss}}
+	if
+		VehicleID =/= undefined andalso TypeID =/= undefined andalso AlarmTime =/= undefined ->
+			AlarmItem = #alarmitem{vehicleid=VehicleID, 
+								   type=TypeID, 
+								   time=AlarmTime},
+			ets:insert(alarmtable, AlarmItem),
+			do_init_alarmtable(T);
+		true ->
+			common:logerror("Failt to insert alarm : VehicleID ~p, TypeID ~p, ClearTime ~p",
+							[VehicleID, TypeID, AlarmTime]),
+			do_init_alarmtable(T)
+	end;
+do_init_alarmtable(_AlarmResult) ->
+	ok.
+		
 vdrtable_insert_delete_process() ->
 	receive
 		stop ->
