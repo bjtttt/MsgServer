@@ -30,8 +30,8 @@ init([Sock, Addr]) ->
     [{ccpid, CCPid}] = ets:lookup(msgservertable, ccpid),
     [{linkpid, LinkPid}] = ets:lookup(msgservertable, linkpid),
     [{vdrtablepid, VDRTablePid}] = ets:lookup(msgservertable, vdrtablepid),
-    %[{vdrresppid, VDRRespPid}] = ets:lookup(msgservertable, vdrresppid),
-    State = #vdritem{socket=Sock, pid=Pid, addr=Addr, msgflownum=1, errorcount=0, dbpid=DBPid, wspid=WSPid, ccpid=CCPid, linkpid=LinkPid, vdrtablepid=VDRTablePid},
+    [{dboperationpid, DBOperationPid}] = ets:lookup(msgservertable, dboperationpid),
+    State = #vdritem{socket=Sock, pid=Pid, vdrpid=DBOperationPid, addr=Addr, msgflownum=1, errorcount=0, dbpid=DBPid, wspid=WSPid, ccpid=CCPid, linkpid=LinkPid, vdrtablepid=VDRTablePid},
     %State = #vdritem{socket=Sock, pid=Pid, vdrpid=VDRRespPid, addr=Addr, msgflownum=1, errorcount=0, dbpid=DBPid, wspid=WSPid, ccpid=CCPid, linkpid=LinkPid, vdrtablepid=VDRTablePid},
 	common:send_stat_err(State, conn),
     common:send_vdr_table_operation(VDRTablePid, {self(), insert, State, noresp}),
@@ -460,7 +460,7 @@ process_vdr_data(Socket, Data, State) ->
                         16#102 ->
                             % VDR Authentication
 							{Auth} = Msg,
-							case check_vdrdbtable_auth(Auth) of
+							case check_vdrdbtable_auth(NewState, Auth) of
 								{ok, VDRDBItem} ->
 									%common:loginfo("Local authen passes"),
 									{vdrdbitem, VDRAuthenCode, VDRID, VDRSerialNo, VehicleCode, VehicleID, DriverID} = VDRDBItem,
@@ -479,7 +479,7 @@ process_vdr_data(Socket, Data, State) ->
                                                     %SqlUpdate = list_to_binary([<<"replace into device(authen_code,is_online) values('">>, VDRAuthenCode, <<"',1)">>]),
                                                     %send_sql_to_db(conn, SqlUpdate, NewState),
 
-													case check_alarm(VehicleID) of
+													case check_alarm(NewState, VehicleID) of
 														{ok, Alarms} ->
 															%case Alarms of
 															%	[] ->
@@ -666,7 +666,7 @@ process_vdr_data(Socket, Data, State) ->
 				                                                            %SqlUpdate = list_to_binary([<<"replace into device(authen_code,is_online) values('">>, VDRAuthenCode, <<"',1)">>]),
 				                                                            %send_sql_to_db(conn, SqlUpdate, NewState),
 									
-																			case check_alarm(VehicleID) of
+																			case check_alarm(NewState, VehicleID) of
 																				{ok, Alarms} ->
 																					% Initialize the alarm list immediately after auth
 																					%common:loginfo("Original Alarms : ~p~n", [Alarms]),
@@ -1130,34 +1130,58 @@ process_vdr_data(Socket, Data, State) ->
             {error, unvdrerror, NewState}
     end.
 
-check_vdrdbtable_auth(Auth) when is_binary(Auth) ->
-	Res = ets:lookup(vdrdbtable, Auth),
-	%common:loginfo("Res for Auth: ~p, ~p", [Res, Auth]),
-	case Res of
-		[] ->
-			error;
-		[VDRDBItem] ->
-			{ok, VDRDBItem}
+check_vdrdbtable_auth(State, Auth) when is_binary(Auth) ->
+	Pid = State#vdritem.pid,
+	DBOperationPid = State#vdritem.vdrpid,
+	DBOperationPid ! {Pid, lookup, vdrdbtable, Auth},
+	receive
+		{Pid, Res} ->
+			%Res = ets:lookup(vdrdbtable, Auth),
+			%common:loginfo("Res for Auth: ~p, ~p", [Res, Auth]),
+			case Res of
+				[] ->
+					error;
+				[VDRDBItem] ->
+					{ok, VDRDBItem}
+			end
+	after ?DB_RESP_TIMEOUT * 3 ->
+			error
 	end;
-check_vdrdbtable_auth(Auth) when is_list(Auth) ->
-	Res = ets:lookup(vdrdbtable, list_to_binary(Auth)),
-	%common:loginfo("Res for Auth: ~p, ~p", [Res, Auth]),
-	case Res of
-		[] ->
-			error;
-		[VDRDBItem] ->
-			{ok, VDRDBItem}
+check_vdrdbtable_auth(State, Auth) when is_list(Auth) ->
+	Pid = State#vdritem.pid,
+	DBOperationPid = State#vdritem.vdrpid,
+	DBOperationPid ! {Pid, lookup, vdrdbtable, list_to_binary(Auth)},
+	receive
+		{Pid, Res} ->
+			%Res = ets:lookup(vdrdbtable, list_to_binary(Auth)),
+			%common:loginfo("Res for Auth: ~p, ~p", [Res, Auth]),
+			case Res of
+				[] ->
+					error;
+				[VDRDBItem] ->
+					{ok, VDRDBItem}
+			end
+	after ?DB_RESP_TIMEOUT * 3 ->
+			error
 	end;
-check_vdrdbtable_auth(_Auth) ->
+check_vdrdbtable_auth(_State, _Auth) ->
 	error.
 
-check_alarm(VehicleID) ->
-	Res = ets:lookup(alarmtable, VehicleID),
-	case Res of
-		[] ->
-			empty;
-		Alarms ->
-			{ok, Alarms}
+check_alarm(State, VehicleID) ->
+	Pid = State#vdritem.pid,
+	DBOperationPid = State#vdritem.vdrpid,
+	DBOperationPid ! {Pid, lookup, vdrdbtable, VehicleID},
+	receive
+		{Pid, Res} ->
+			%Res = ets:lookup(alarmtable, VehicleID),
+			case Res of
+				[] ->
+					empty;
+				Alarms ->
+					{ok, Alarms}
+			end
+	after ?DB_RESP_TIMEOUT * 3 ->
+			empty
 	end.
 
 get_record_column_info(Record) ->

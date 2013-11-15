@@ -116,23 +116,23 @@ start(StartType, StartArgs) ->
 		                    DBTablePid = spawn(fun() -> db_table_deamon() end),
 		                    CCPid = spawn(fun() -> code_convertor_process() end),
 		                    VdrTablePid = spawn(fun() -> vdrtable_insert_delete_process() end),
-							DBMaintainPid = spawn(fun() -> db_data_maintain_process() end),
-							DBOperationPid = spawn(fun() -> db_data_operation_process() end),
+							DBOperationPid = spawn(fun() -> db_data_operation_process(DBPid) end),
+							DBMaintainPid = spawn(fun() -> db_data_maintain_process(DBOperationPid) end),
 		                    ets:insert(msgservertable, {dbpid, DBPid}),
 		                    ets:insert(msgservertable, {wspid, WSPid}),
 		                    ets:insert(msgservertable, {linkpid, LinkPid}),
 		                    ets:insert(msgservertable, {dbtablepid, DBTablePid}),
 		                    ets:insert(msgservertable, {ccpid, CCPid}),
 		                    ets:insert(msgservertable, {vdrtablepid, VdrTablePid}),
-		                    ets:insert(msgservertable, {dbmaintainpid, VdrTablePid}),
 							ets:insert(msgservertable, {dboperationpid, DBOperationPid}),
+		                    ets:insert(msgservertable, {dbmaintainpid, VdrTablePid}),
 		                    common:loginfo("WS client process PID is ~p~n", [WSPid]),
 		                    common:loginfo("DB client process PID is ~p~n", [DBPid]),
 		                    common:loginfo("DB table deamon process PID is ~p~n", [DBTablePid]),
 		                    common:loginfo("Code convertor process PID is ~p~n", [CCPid]),
 		                    common:loginfo("VDR table processor process PID is ~p~n", [VdrTablePid]),
-							common:loginfo("DB miantain process PID is ~p~n", [DBMaintainPid]),
 							common:loginfo("DB operation process PID is ~p~n", [DBOperationPid]),
+							common:loginfo("DB miantain process PID is ~p~n", [DBMaintainPid]),
 		                    
 				            DBPid ! {AppPid, conn, <<"set names 'utf8'">>},
 				            receive
@@ -158,12 +158,13 @@ start(StartType, StartArgs) ->
 								                        after ?TIMEOUT_CC_INIT_PROCESS ->
 								                            {error, "ERROR : code convertor table is timeout~n"}
 													end
-						                        after ?TIMEOUT_CC_INIT_PROCESS ->
+						                    after
+												?DB_RESP_TIMEOUT ->
 						                            {error, "ERROR : init alarm table is timeout~n"}
 											end
 									after
 										?DB_RESP_TIMEOUT ->
-											{error, "ERROR : init vdr db table is timeout~n"}
+											{error, "ERROR : init device/vehicle db table is timeout~n"}
 						            end
 							after
 								?DB_RESP_TIMEOUT ->
@@ -180,21 +181,21 @@ start(StartType, StartArgs) ->
 		                    DBTablePid = spawn(fun() -> db_table_deamon() end),
 		                    CCPid = spawn(fun() -> code_convertor_process() end),
 		                    VdrTablePid = spawn(fun() -> vdrtable_insert_delete_process() end),
-							DBMaintainPid = spawn(fun() -> db_data_maintain_process() end),
-							DBOperationPid = spawn(fun() -> db_data_operation_process() end),
+							DBOperationPid = spawn(fun() -> db_data_operation_process(DBPid) end),
+							DBMaintainPid = spawn(fun() -> db_data_maintain_process(DBOperationPid) end),
 		                    ets:insert(msgservertable, {dbpid, DBPid}),
 		                    ets:insert(msgservertable, {linkpid, LinkPid}),
 		                    ets:insert(msgservertable, {dbtablepid, DBTablePid}),
 		                    ets:insert(msgservertable, {ccpid, CCPid}),
 		                    ets:insert(msgservertable, {vdrtablepid, VdrTablePid}),
-							ets:insert(msgservertable, {dbmaintainpid, DBMaintainPid}),
 							ets:insert(msgservertable, {dboperationpid, DBOperationPid}),
+							ets:insert(msgservertable, {dbmaintainpid, DBMaintainPid}),
 		                    common:loginfo("DB client process PID is ~p~n", [DBPid]),
 		                    common:loginfo("DB table deamon process PID is ~p~n", [DBTablePid]),
 		                    common:loginfo("Code convertor process PID is ~p~n", [CCPid]),
 		                    common:loginfo("VDR table processor process PID is ~p~n", [VdrTablePid]),
-		                    common:loginfo("DB miantain process PID is ~p~n", [DBMaintainPid]),
 		                    common:loginfo("DB operation process PID is ~p~n", [DBOperationPid]),
+		                    common:loginfo("DB miantain process PID is ~p~n", [DBMaintainPid]),
 		                    
 				            DBPid ! {AppPid, conn, <<"set names 'utf8'">>},
 				            receive
@@ -220,12 +221,13 @@ start(StartType, StartArgs) ->
 								                        after ?TIMEOUT_CC_INIT_PROCESS ->
 								                            {error, "ERROR : code convertor table is timeout~n"}
 													end
-						                        after ?TIMEOUT_CC_INIT_PROCESS ->
+						                    after 
+												?DB_RESP_TIMEOUT ->
 						                            {error, "ERROR : init alarm table is timeout~n"}
 											end
 									after
 										?DB_RESP_TIMEOUT ->
-											{error, "ERROR : init vdr db table is timeout~n"}
+											{error, "ERROR : init device/vehicle db table is timeout~n"}
 						            end
 							after
 								?DB_RESP_TIMEOUT ->
@@ -244,6 +246,7 @@ start(StartType, StartArgs) ->
     end.
 
 init_vdrdbtable(Result) ->
+	ets:delete_all_objects(vdrdbtable),
 	case vdr_handler:extract_db_resp(Result) of
 		error ->
 			common:logerror("Message server cannot init vdr db table");
@@ -281,6 +284,7 @@ do_init_vdrdbtable(_Result) ->
 	ok.
 
 init_alarmtable(AlarmResult) ->
+	ets:delete_all_objects(alarmtable),
 	case vdr_handler:extract_db_resp(AlarmResult) of
 		error ->
 			common:logerror("Message server cannot init alarm table");
@@ -317,22 +321,89 @@ do_init_alarmtable(AlarmResult) when is_list(AlarmResult),
 do_init_alarmtable(_AlarmResult) ->
 	ok.
 
-db_data_maintain_process() ->
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%
+% This process will update device\vehicle table and alarm table every half an hour
+%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+db_data_maintain_process(DBOperationPid) ->
 	receive
 		stop ->
-			ok;
+			common:logerror("DB maintain process receive unknown msg.");
 		_ ->
-			db_data_maintain_process()
+			db_data_maintain_process(DBOperationPid)
 	after 2*60*60*1000 ->
-			db_data_maintain_process()
+			common:loginfo("DB maintain process is active."),
+			Pid = self(),
+			DBOperationPid ! {DBOperationPid, update, devicevehicle},
+			receive
+				{Pid, updateok} ->
+					ok
+			end,
+			DBOperationPid ! {DBOperationPid, update, alarm},
+			receive
+				{Pid, updateok} ->
+					ok
+			end,
+			db_data_maintain_process(DBOperationPid)
 	end.			
 
-db_data_operation_process() ->
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%
+% This process will operate device\vehicle table and alarm table
+%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+db_data_operation_process(DBPid) ->
 	receive
 		stop ->
-			ok;
+			common:logerror("DB operation process stops.");
+		{Pid, update, devicevehicle} ->
+			ProcPid = self(),
+			DBPid ! {ProcPid, conn, <<"select * from device left join vehicle on vehicle.device_id = device.id">>},
+            receive
+                {ProcPid, Result} ->
+					common:loginfo("DB device/vehicle update returns"),
+					init_vdrdbtable(Result),
+					common:loginfo("DB device/vehicle update success : ~p", [ets:info(vdrdbtable, size)])
+			after ?DB_RESP_TIMEOUT * 3 ->	% 10s * 3 = 30s
+				common:logerror("ERROR : update device/vehicle db table is timeout~n")
+            end,
+			Pid ! {Pid, updateok},
+			db_data_operation_process(DBPid);
+		{Pid, update, alarm} ->
+			ProcPid = self(),
+			DBPid ! {ProcPid, conn, <<"select * from vehicle_alarm where isnull(clear_time)">>},
+            receive
+                {ProcPid, AlarmResult} ->
+					common:loginfo("DB alarm init returns"),
+					init_alarmtable(AlarmResult),
+					common:loginfo("DB alarm init success : ~p", [ets:info(alarmtable, size)])
+                after ?DB_RESP_TIMEOUT * 3 ->	% 10s * 3 = 30s
+                    common:logerror("ERROR : update alarm table is timeout~n")
+			end,
+			Pid ! {Pid, updateok},
+			db_data_operation_process(DBPid);
+		{Pid, lookup, Table, Key} ->
+			Res = ets:lookup(Table, Key),
+			Pid ! {Pid, Res},
+			db_data_operation_process(DBPid);
+		{Pid, insert, Table, Object} ->
+			ets:insert(Table, Object),
+			Pid ! {Pid, insertok},
+			db_data_operation_process(DBPid);
+		{_Pid, insert, Table, Object, noresp} ->
+			ets:insert(Table, Object),
+			db_data_operation_process(DBPid);
+		{Pid, delete, Table, Key} ->
+			ets:delete(Table, Key),
+			Pid ! {Pid, deleteok},
+			db_data_operation_process(DBPid);
+		{_Pid, delete, Table, Key, noresp} ->
+			ets:delete(Table, Key),
+			db_data_operation_process(DBPid);
 		_ ->
-			db_data_operation_process()
+			common:logerror("DB operation process receive unknown msg."),
+			db_data_operation_process(DBPid)
 	end.
 
 vdrtable_insert_delete_process() ->
@@ -358,6 +429,7 @@ vdrtable_insert_delete_process() ->
 			Pid ! {Pid, Count},
 			vdrtable_insert_delete_process();
 		_ ->
+			common:logerror("VDR table insert/delete process receive unknown msg."),
 			vdrtable_insert_delete_process()
 	end.
 

@@ -14,7 +14,7 @@
 -define(MAX_DB_STORED_URGENT_COUNT, 100).
 -define(MAX_DB_PROC_WAIT_INTERVAL, 30000).
 
--define(DB_RESP_TIMEOUT, 5000).
+-define(DB_RESP_TIMEOUT, 10000).
 
 %%% DB_SUP_MAX and DB_SUP_WITHIN are use in DB Supervisor for DB client restart mechanism
 %%% In development, they are 0 and 1 to make debug more easy and efficient.
@@ -108,7 +108,7 @@
                     lastlat=0.0,
                     lastlon=0.0,
                     pid=undefined,
-                    vdrpid=undefined,
+                    vdrpid=undefined,			% db operation process
                     addr=undefined, 
                     acttime=undefined, 
                     timeout=undefined,
