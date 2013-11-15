@@ -116,17 +116,20 @@ start(StartType, StartArgs) ->
 		                    DBTablePid = spawn(fun() -> db_table_deamon() end),
 		                    CCPid = spawn(fun() -> code_convertor_process() end),
 		                    VdrTablePid = spawn(fun() -> vdrtable_insert_delete_process() end),
+							DBMaintainPid = spawn(fun() -> db_data_maintain_process() end),
 		                    ets:insert(msgservertable, {dbpid, DBPid}),
 		                    ets:insert(msgservertable, {wspid, WSPid}),
 		                    ets:insert(msgservertable, {linkpid, LinkPid}),
 		                    ets:insert(msgservertable, {dbtablepid, DBTablePid}),
 		                    ets:insert(msgservertable, {ccpid, CCPid}),
 		                    ets:insert(msgservertable, {vdrtablepid, VdrTablePid}),
+		                    ets:insert(msgservertable, {dbmaintainpid, VdrTablePid}),
 		                    common:loginfo("WS client process PID is ~p~n", [WSPid]),
 		                    common:loginfo("DB client process PID is ~p~n", [DBPid]),
 		                    common:loginfo("DB table deamon process PID is ~p~n", [DBTablePid]),
 		                    common:loginfo("Code convertor process PID is ~p~n", [CCPid]),
 		                    common:loginfo("VDR table processor process PID is ~p~n", [VdrTablePid]),
+							common:loginfo("DB miantain process PID is ~p~n", [DBMaintainPid]),
 		                    
 				            DBPid ! {AppPid, conn, <<"set names 'utf8'">>},
 				            receive
@@ -174,15 +177,18 @@ start(StartType, StartArgs) ->
 		                    DBTablePid = spawn(fun() -> db_table_deamon() end),
 		                    CCPid = spawn(fun() -> code_convertor_process() end),
 		                    VdrTablePid = spawn(fun() -> vdrtable_insert_delete_process() end),
+							DBMaintainPid = spawn(fun() -> db_data_maintain_process() end),
 		                    ets:insert(msgservertable, {dbpid, DBPid}),
 		                    ets:insert(msgservertable, {linkpid, LinkPid}),
 		                    ets:insert(msgservertable, {dbtablepid, DBTablePid}),
 		                    ets:insert(msgservertable, {ccpid, CCPid}),
 		                    ets:insert(msgservertable, {vdrtablepid, VdrTablePid}),
+							ets:insert(msgservertable, {dbmaintainpid, VdrTablePid}),
 		                    common:loginfo("DB client process PID is ~p~n", [DBPid]),
 		                    common:loginfo("DB table deamon process PID is ~p~n", [DBTablePid]),
 		                    common:loginfo("Code convertor process PID is ~p~n", [CCPid]),
 		                    common:loginfo("VDR table processor process PID is ~p~n", [VdrTablePid]),
+		                    common:loginfo("DB miantain process PID is ~p~n", [DBMaintainPid]),
 		                    
 				            DBPid ! {AppPid, conn, <<"set names 'utf8'">>},
 				            receive
@@ -304,7 +310,17 @@ do_init_alarmtable(AlarmResult) when is_list(AlarmResult),
 	end;
 do_init_alarmtable(_AlarmResult) ->
 	ok.
-		
+
+db_data_maintain_process() ->
+	receive
+		stop ->
+			ok;
+		_ ->
+			db_data_maintain_process()
+	after 2*60*60*1000 ->
+			db_data_maintain_process()
+	end.			
+
 vdrtable_insert_delete_process() ->
 	receive
 		stop ->
@@ -374,6 +390,13 @@ stop(_State) ->
             ok;
         _ ->
             VdrTablePid ! stop
+    end,
+    [{dbmaintainpid, DBMaintainPid}] = ets:lookup(msgservertable, dbmaintainpid),
+    case DBMaintainPid of
+        undefined ->
+            ok;
+        _ ->
+            DBMaintainPid ! stop
     end,
     [{vdrresppid, VdrRespPid}] = ets:lookup(msgservertable, vdrresppid),
     case VdrRespPid of
