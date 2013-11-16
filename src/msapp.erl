@@ -332,15 +332,15 @@ db_data_maintain_process(DBOperationPid) ->
 			common:logerror("DB maintain process receive unknown msg.");
 		_ ->
 			db_data_maintain_process(DBOperationPid)
-	after 2*60*60*1000 ->
+	after 3*60*60*1000 ->
 			common:loginfo("DB maintain process is active."),
 			Pid = self(),
-			DBOperationPid ! {DBOperationPid, update, devicevehicle},
+			DBOperationPid ! {Pid, update, devicevehicle},
 			receive
 				{Pid, updateok} ->
 					ok
 			end,
-			DBOperationPid ! {DBOperationPid, update, alarm},
+			DBOperationPid ! {Pid, update, alarm},
 			receive
 				{Pid, updateok} ->
 					ok
@@ -358,6 +358,7 @@ db_data_operation_process(DBPid) ->
 		stop ->
 			common:logerror("DB operation process stops.");
 		{Pid, update, devicevehicle} ->
+			common:loginfo("DB operation process update device/vehicle."),
 			ProcPid = self(),
 			DBPid ! {ProcPid, conn, <<"select * from device left join vehicle on vehicle.device_id = device.id">>},
             receive
@@ -371,6 +372,7 @@ db_data_operation_process(DBPid) ->
 			Pid ! {Pid, updateok},
 			db_data_operation_process(DBPid);
 		{Pid, update, alarm} ->
+			common:loginfo("DB operation process update alarm."),
 			ProcPid = self(),
 			DBPid ! {ProcPid, conn, <<"select * from vehicle_alarm where isnull(clear_time)">>},
             receive
