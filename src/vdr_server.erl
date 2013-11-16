@@ -30,10 +30,10 @@ start_link(PortVDR) ->
         {ok, Pid} ->
             {ok, Pid};
         ignore ->
-            common:logerror("vdr_server:start_link(~p) fails : ignore~n", [PortVDR]),
+            common:logerror("vdr_server:start_link(~p) fails : ignore", [PortVDR]),
             ignore;
         {already_started, Pid} ->
-            common:logerror("vdr_server:start_link(~p) fails : already_started : ~p~n", [PortVDR, Pid]),
+            common:logerror("vdr_server:start_link(~p) fails : already_started : ~p", [PortVDR, Pid]),
             {already_started, Pid}
     end.
 
@@ -48,18 +48,18 @@ init([PortVDR]) ->
 	% VDR server start listening
     case gen_tcp:listen(PortVDR, Opts) of	    
 		{ok, LSock} -> 
-            common:logerror("vdr_server:init([~p]) : gen_tcp:listen ok~n", [PortVDR]),
+            common:logerror("vdr_server:init([~p]) : gen_tcp:listen ok", [PortVDR]),
             % Create first accepting process	        
 			case prim_inet:async_accept(LSock, -1) of
                 {ok, Ref} ->
-                    %common:loginfo("vdr_server:init([~p]) : prim_inet:async_accept accept ok~n", [PortVDR]),
+                    %common:loginfo("vdr_server:init([~p]) : prim_inet:async_accept accept ok", [PortVDR]),
                     {ok, #serverstate{lsock=LSock, acceptor=Ref}};
                 Error ->
-                    common:logerr("vdr_server:init([~p]) : prim_inet:async_accept accept fails : ~p~n", [PortVDR, Error]),
+                    common:logerr("vdr_server:init([~p]) : prim_inet:async_accept accept fails : ~p", [PortVDR, Error]),
                     {stop, Error}
             end;
 		{error, Reason} ->	        
-            common:logerror("vdr_server:init([~p]) : gen_tcp:listen fails : ~p~n", [PortVDR, Reason]),
+            common:logerror("vdr_server:init([~p]) : gen_tcp:listen fails : ~p", [PortVDR, Reason]),
 			{stop, Reason}    
 	end. 
 
@@ -78,7 +78,7 @@ handle_info({inet_async, LSock, Ref, {ok, CSock}}, #serverstate{lsock=LSock, acc
 			ok -> 
 				ok;	        
 			{error, Reason} -> 
-                common:logerror("vdr_server:handle_info(...) : common:set_sockopt(...) fails : ~p~n", [Reason]),
+                common:logerror("vdr_server:handle_info(...) : common:set_sockopt(...) fails : ~p", [Reason]),
   				% Why use exit here?
                 % {stop, set_sockpt, Reason}
                 % Please consider it in the future
@@ -95,12 +95,12 @@ handle_info({inet_async, LSock, Ref, {ok, CSock}}, #serverstate{lsock=LSock, acc
                             ok ->
                                 ok;
                             {error, Reason1} ->
-                                common:logerror("vdr_server:handle_info(...) : gen_server:controlling_process(Socket, ~p) fails : ~p~n", [Pid, Reason1]),
+                                common:logerror("vdr_server:handle_info(...) : gen_server:controlling_process(Socket, ~p) fails : ~p", [Pid, Reason1]),
                                 case mssup:stop_child_vdr(Pid) of
                                     ok ->
                                         ok;
                                     {error, Reason2} ->
-                                        common:logerror("vdr_server:handle_info(...) : mssup:stop_child_vdr(~p) fails : ~p~n", [Pid, Reason2])
+                                        common:logerror("vdr_server:handle_info(...) : mssup:stop_child_vdr(~p) fails : ~p", [Pid, Reason2])
                                 end
                         end;
                     {ok, Pid, _Info} ->
@@ -108,30 +108,30 @@ handle_info({inet_async, LSock, Ref, {ok, CSock}}, #serverstate{lsock=LSock, acc
                             ok ->
                                 ok;
                             {error, Reason1} ->
-                                common:logerror("vdr_server:handle_info(...) : gen_server:controlling_process(Socket, ~p) fails: ~p~n", [Pid, Reason1]),
+                                common:logerror("vdr_server:handle_info(...) : gen_server:controlling_process(Socket, ~p) fails: ~p", [Pid, Reason1]),
                                 case mssup:stop_child_vdr(Pid) of
                                     ok ->
                                         ok;
                                     {error, Reason2} ->
-                                        common:logerror("vdr_server:handle_info(...) : mssup:stop_child_vdr(~p) fails : ~p~n", [Pid, Reason2])
+                                        common:logerror("vdr_server:handle_info(...) : mssup:stop_child_vdr(~p) fails : ~p", [Pid, Reason2])
                                 end
                         end;
                     {error, already_present} ->
-                        common:logerror("vdr_server:handle_info(...) : mssup:start_child_vdr fails : already_present~n");
+                        common:logerror("vdr_server:handle_info(...) : mssup:start_child_vdr fails : already_present");
                     {error, {already_started, Pid}} ->
-                        common:logerror("vdr_server:handle_info(...) : mssup:start_child_vdr fails : already_started PID : ~p~n", [Pid]);
+                        common:logerror("vdr_server:handle_info(...) : mssup:start_child_vdr fails : already_started PID : ~p", [Pid]);
                     {error, Msg} ->
-                        common:logerror("vdr_server:handle_info(...) : mssup:start_child_vdr fails : ~p~n", [Msg])
+                        common:logerror("vdr_server:handle_info(...) : mssup:start_child_vdr fails : ~p", [Msg])
                 end;
             {error, Err} ->
-                common:logerror("vdr_server:handle_info(...) : cannot start new process for new connection because common:safepeername(...) fails : ~p~n", [Err])
+                common:logerror("vdr_server:handle_info(...) : cannot start new process for new connection because common:safepeername(...) fails : ~p", [Err])
         end,
         %% Signal the network driver that we are ready to accept another connection        
 		case prim_inet:async_accept(LSock, -1) of	        
 			{ok, NewRef} -> 
                 {noreply, State#serverstate{acceptor=NewRef}};
 			Error ->
-                common:logerror("vdr_server:handle_info(...) : prim_inet:async_accept fails : ~p~n", [inet:format_error(Error)]),
+                common:logerror("vdr_server:handle_info(...) : prim_inet:async_accept fails : ~p", [inet:format_error(Error)]),
                 % Why use exit here?
                 % {stop, Error, State}
                 % Please consider it in the future
@@ -158,7 +158,7 @@ handle_info(_Info, State) ->
 	{noreply, State}. 
 
 terminate(Reason, State) ->    
-    common:logerror("vdr_server:terminate(...) : ~p~n", [Reason]),
+    common:logerror("vdr_server:terminate(...) : ~p", [Reason]),
 	gen_tcp:close(State#serverstate.lsock),    
 	ok. 
 

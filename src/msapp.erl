@@ -57,39 +57,39 @@ start(StartType, StartArgs) ->
     %ets:insert(msgservertable, {dbcount, 0}),
     ets:insert(msgservertable, {dblog, []}),
     ets:insert(msgservertable, {wslog, []}),
-    common:loginfo("StartType : ~p~n", [StartType]),
-    common:loginfo("StartArgs : ~p~n", [StartArgs]),
+    common:loginfo("StartType : ~p", [StartType]),
+    common:loginfo("StartArgs : ~p", [StartArgs]),
     ets:new(alarmtable,[bag,public,named_table,{keypos,#alarmitem.vehicleid},{read_concurrency,true},{write_concurrency,true}]),
     ets:new(vdrdbtable,[ordered_set,public,named_table,{keypos,#vdrdbitem.authencode},{read_concurrency,true},{write_concurrency,true}]),
     ets:new(vdrtable,[ordered_set,public,named_table,{keypos,#vdritem.socket},{read_concurrency,true},{write_concurrency,true}]),
     ets:new(mantable,[set,public,named_table,{keypos,#manitem.socket},{read_concurrency,true},{write_concurrency,true}]),
     ets:new(usertable,[set,public,named_table,{keypos,#user.id},{read_concurrency,true},{write_concurrency,true}]),
     ets:new(montable,[set,public,named_table,{keypos,#monitem.socket},{read_concurrency,true},{write_concurrency,true}]),
-    common:loginfo("Tables are initialized.~n"),
+    common:loginfo("Tables are initialized."),
 	%case file:get_cwd() of
 	%	{ok, Dir} ->
-	%		common:loginfo("Current directory ~p~n", [Dir]);
+	%		common:loginfo("Current directory ~p", [Dir]);
 	%	{error, CwdError} ->
-	%		common:logerror("Cannot get the current directory : ~p~n", [CwdError])
+	%		common:logerror("Cannot get the current directory : ~p", [CwdError])
 	%end,
 	case file:make_dir(Path ++ "/media") of
 		ok ->
-			common:loginfo("Successfully create directory media~n");
+			common:loginfo("Successfully create directory media");
 		{error, DirError0} ->
-			common:logerror("Cannot create directory media : ~p~n", [DirError0])
+			common:logerror("Cannot create directory media : ~p", [DirError0])
 	end,
 	case file:make_dir(Path ++ "/upgrade") of
 		ok ->
-			common:loginfo("Successfully create directory upgrade~n");
+			common:loginfo("Successfully create directory upgrade");
 		{error, DirError1} ->
-			common:logerror("Cannot create directory upgrade : ~p~n", [DirError1])
+			common:logerror("Cannot create directory upgrade : ~p", [DirError1])
 	end,
     case supervisor:start_link(mssup, []) of
         {ok, SupPid} ->
             ets:insert(msgservertable, {suppid, SupPid}),
-            common:loginfo("Message server starts~n"),
-            common:loginfo("Application PID is ~p~n", [AppPid]),
-            common:loginfo("Supervisor PID : ~p~n", [SupPid]),
+            common:loginfo("Message server starts"),
+            common:loginfo("Application PID is ~p", [AppPid]),
+            common:loginfo("Supervisor PID : ~p", [SupPid]),
             case receive_db_ws_init_msg(false, false, 0, Mode) of
                 ok ->
                     %mysql:utf8connect(regauth, DB, undefined, DBUid, DBPwd, DBName, true),
@@ -126,13 +126,13 @@ start(StartType, StartArgs) ->
 		                    ets:insert(msgservertable, {vdrtablepid, VdrTablePid}),
 							ets:insert(msgservertable, {dboperationpid, DBOperationPid}),
 		                    ets:insert(msgservertable, {dbmaintainpid, VdrTablePid}),
-		                    common:loginfo("WS client process PID is ~p~n", [WSPid]),
-		                    common:loginfo("DB client process PID is ~p~n", [DBPid]),
-		                    common:loginfo("DB table deamon process PID is ~p~n", [DBTablePid]),
-		                    common:loginfo("Code convertor process PID is ~p~n", [CCPid]),
-		                    common:loginfo("VDR table processor process PID is ~p~n", [VdrTablePid]),
-							common:loginfo("DB operation process PID is ~p~n", [DBOperationPid]),
-							common:loginfo("DB miantain process PID is ~p~n", [DBMaintainPid]),
+		                    common:loginfo("WS client process PID is ~p", [WSPid]),
+		                    common:loginfo("DB client process PID is ~p", [DBPid]),
+		                    common:loginfo("DB table deamon process PID is ~p", [DBTablePid]),
+		                    common:loginfo("Code convertor process PID is ~p", [CCPid]),
+		                    common:loginfo("VDR table processor process PID is ~p", [VdrTablePid]),
+							common:loginfo("DB operation process PID is ~p", [DBOperationPid]),
+							common:loginfo("DB miantain process PID is ~p", [DBMaintainPid]),
 		                    
 				            DBPid ! {AppPid, conn, <<"set names 'utf8'">>},
 				            receive
@@ -153,22 +153,22 @@ start(StartType, StartArgs) ->
 								                    CCPid ! {AppPid, create},
 								                    receive
 								                        created ->
-								                            common:loginfo("Code convertor table is created~n"),
+								                            common:loginfo("Code convertor table is created"),
 								                            {ok, AppPid}
 								                        after ?TIMEOUT_CC_INIT_PROCESS ->
-								                            {error, "ERROR : code convertor table is timeout~n"}
+								                            {error, "ERROR : code convertor table is timeout"}
 													end
 						                    after
 												?DB_RESP_TIMEOUT ->
-						                            {error, "ERROR : init alarm table is timeout~n"}
+						                            {error, "ERROR : init alarm table is timeout"}
 											end
 									after
 										?DB_RESP_TIMEOUT ->
-											{error, "ERROR : init device/vehicle db table is timeout~n"}
+											{error, "ERROR : init device/vehicle db table is timeout"}
 						            end
 							after
 								?DB_RESP_TIMEOUT ->
-									{error, "ERROR : init db coding is timeout~n"}
+									{error, "ERROR : init db coding is timeout"}
 							end;
 						true ->
 		                    LinkPid = spawn(fun() -> connection_info_process(0, 0, 0, 0, 0, 
@@ -190,23 +190,24 @@ start(StartType, StartArgs) ->
 		                    ets:insert(msgservertable, {vdrtablepid, VdrTablePid}),
 							ets:insert(msgservertable, {dboperationpid, DBOperationPid}),
 							ets:insert(msgservertable, {dbmaintainpid, DBMaintainPid}),
-		                    common:loginfo("DB client process PID is ~p~n", [DBPid]),
-		                    common:loginfo("DB table deamon process PID is ~p~n", [DBTablePid]),
-		                    common:loginfo("Code convertor process PID is ~p~n", [CCPid]),
-		                    common:loginfo("VDR table processor process PID is ~p~n", [VdrTablePid]),
-		                    common:loginfo("DB operation process PID is ~p~n", [DBOperationPid]),
-		                    common:loginfo("DB miantain process PID is ~p~n", [DBMaintainPid]),
+		                    common:loginfo("DB client process PID is ~p", [DBPid]),
+		                    common:loginfo("DB table deamon process PID is ~p", [DBTablePid]),
+		                    common:loginfo("Code convertor process PID is ~p", [CCPid]),
+		                    common:loginfo("VDR table processor process PID is ~p", [VdrTablePid]),
+		                    common:loginfo("DB operation process PID is ~p", [DBOperationPid]),
+		                    common:loginfo("DB miantain process PID is ~p", [DBMaintainPid]),
 		                    
+							common:loginfo("DB coding setting"),
 				            DBPid ! {AppPid, conn, <<"set names 'utf8'">>},
 				            receive
 				                {AppPid, _} ->
-									common:loginfo("DB coding setting returns"),
+									common:loginfo("DB coding setting returns\nDB device/vehicle init"),
 									DBPid ! {AppPid, conn, <<"select * from device left join vehicle on vehicle.device_id = device.id">>},
 						            receive
 						                {AppPid, Result} ->
 											common:loginfo("DB device/vehicle init returns"),
 											init_vdrdbtable(Result),
-											common:loginfo("DB device/vehicle init success : ~p", [ets:info(vdrdbtable, size)]),
+											common:loginfo("DB device/vehicle init success : ~p\nDB alarm init", [ets:info(vdrdbtable, size)]),
 											DBPid ! {AppPid, conn, <<"select * from vehicle_alarm where isnull(clear_time)">>},
 								            receive
 								                {AppPid, AlarmResult} ->
@@ -216,32 +217,32 @@ start(StartType, StartArgs) ->
 								                    CCPid ! {AppPid, create},
 								                    receive
 								                        created ->
-								                            common:loginfo("Code convertor table is created~n"),
+								                            common:loginfo("Code convertor table is created"),
 								                            {ok, AppPid}
 								                        after ?TIMEOUT_CC_INIT_PROCESS ->
-								                            {error, "ERROR : code convertor table is timeout~n"}
+								                            {error, "ERROR : code convertor table is timeout"}
 													end
 						                    after 
 												?DB_RESP_TIMEOUT ->
-						                            {error, "ERROR : init alarm table is timeout~n"}
+						                            {error, "ERROR : init alarm table is timeout"}
 											end
 									after
 										?DB_RESP_TIMEOUT ->
-											{error, "ERROR : init device/vehicle db table is timeout~n"}
+											{error, "ERROR : init device/vehicle db table is timeout"}
 						            end
 							after
 								?DB_RESP_TIMEOUT ->
-									{error, "ERROR : init db coding is timeout~n"}
+									{error, "ERROR : init db coding is timeout"}
 							end
 					end;
                 {error, ErrMsg} ->
                     {error, ErrMsg}
             end;
         ignore ->
-            common:logerror("Message server fails to start : ignore~n"),
+            common:logerror("Message server fails to start : ignore"),
             ignore;
         {error, Error} ->
-            common:logerror("Message server fails to start : ~p~n", [Error]),
+            common:logerror("Message server fails to start : ~p", [Error]),
             {error, Error}
     end.
 
@@ -367,7 +368,7 @@ db_data_operation_process(DBPid) ->
 					init_vdrdbtable(Result),
 					common:loginfo("DB device/vehicle update success : ~p", [ets:info(vdrdbtable, size)])
 			after ?DB_RESP_TIMEOUT * 3 ->	% 10s * 3 = 30s
-				common:logerror("ERROR : update device/vehicle db table is timeout~n")
+				common:logerror("ERROR : update device/vehicle db table is timeout")
             end,
 			Pid ! {Pid, updateok},
 			db_data_operation_process(DBPid);
@@ -381,7 +382,7 @@ db_data_operation_process(DBPid) ->
 					init_alarmtable(AlarmResult),
 					common:loginfo("DB alarm init success : ~p", [ets:info(alarmtable, size)])
                 after ?DB_RESP_TIMEOUT * 3 ->	% 10s * 3 = 30s
-                    common:logerror("ERROR : update alarm table is timeout~n")
+                    common:logerror("ERROR : update alarm table is timeout")
 			end,
 			Pid ! {Pid, updateok},
 			db_data_operation_process(DBPid);
@@ -445,7 +446,7 @@ vdrtable_insert_delete_process() ->
 %			try gen_tcp:send(Socket, Msg)
 %		    catch
 %		        _:Ex ->
-%		            common:logerror("Exception when gen_tcps:send ~p : ~p~n", [Msg, Ex])
+%		            common:logerror("Exception when gen_tcps:send ~p : ~p", [Msg, Ex])
 %		    end,
 %			Pid ! {Pid, ok};
 %		{_Pid, Socket, Msg, noresp} ->
@@ -454,7 +455,7 @@ vdrtable_insert_delete_process() ->
 %			try gen_tcp:send(Socket, Msg)
 %		    catch
 %		        _:Ex ->
-%		            common:logerror("Exception when gen_tcps:send ~p : ~p~n", [Msg, Ex])
+%		            common:logerror("Exception when gen_tcps:send ~p : ~p", [Msg, Ex])
 %		    end;
 %		Unknown ->
 %			common:loginfo("Msg from VDR to VDRPid unknwon : ~p", [Unknown]),
@@ -528,74 +529,74 @@ stop(_State) ->
         _ ->
             CCPid ! stop
     end,
-    error_logger:info_msg("Message server stops.~n").
+    error_logger:info_msg("Message server stops.").
 
 code_convertor_process() ->
     receive
         {Pid, create} ->
             code_convertor:init_code_table(),
-            common:loginfo("CC process ~p : code table is initialized~n", [self()]),
+            common:loginfo("CC process ~p : code table is initialized", [self()]),
             Pid ! created,
             code_convertor_process();
         {Pid, gbktoutf8, Src} ->
             try
-                common:loginfo("CC process ~p : source GBK from ~p : ~p~n", [self(), Src]),
+                common:loginfo("CC process ~p : source GBK from ~p : ~p", [self(), Src]),
                 Value = code_convertor:to_utf8(Src),
-                common:loginfo("CC process ~p : dest UTF8 : ~p~n", [self(), Value]),
+                common:loginfo("CC process ~p : dest UTF8 : ~p", [self(), Value]),
                 Pid ! code_convertor:to_utf8(Src)
             catch
                 _:_ ->
-                    common:logerror("CC process ~p : EXCEPTION when converting GBK to UTF8 : ~p~n", [self(), Src]),
+                    common:logerror("CC process ~p : EXCEPTION when converting GBK to UTF8 : ~p", [self(), Src]),
                     Pid ! Src
             end,
             code_convertor_process();
         {Pid, gbk2utf8, Src} ->
             try
-                common:loginfo("CC process ~p : source GBK from ~p : ~p~n", [self(), Src]),
+                common:loginfo("CC process ~p : source GBK from ~p : ~p", [self(), Src]),
                 Value = code_convertor:to_utf8(Src),
-                common:loginfo("CC process ~p : dest UTF8 : ~p~n", [self(), Value]),
+                common:loginfo("CC process ~p : dest UTF8 : ~p", [self(), Value]),
                 Pid ! code_convertor:to_utf8(Src)
             catch
                 _:_ ->
-                    common:logerror("CC process ~p : EXCEPTION when converting GBK to UTF8 : ~p~n", [self(), Src]),
+                    common:logerror("CC process ~p : EXCEPTION when converting GBK to UTF8 : ~p", [self(), Src]),
                     Pid ! Src
             end,
             code_convertor_process();
         {Pid, utf82gbk, Src} ->
             try
-                common:loginfo("CC process ~p : source UTF8 from ~p : ~p~n", [self(), Src]),
+                common:loginfo("CC process ~p : source UTF8 from ~p : ~p", [self(), Src]),
                 Value = code_convertor:to_gbk(Src),
-                common:loginfo("CC process ~p : dest GBK : ~p~n", [self(), Value]),
+                common:loginfo("CC process ~p : dest GBK : ~p", [self(), Value]),
                 Pid ! Value
             catch
                 _:_ ->
-                    common:logerror("CC process ~p : EXCEPTION when converting UTF8 to GBK : ~p~n", [self(), Src]),
+                    common:logerror("CC process ~p : EXCEPTION when converting UTF8 to GBK : ~p", [self(), Src]),
                     Pid ! Src
             end,
             code_convertor_process();
         {Pid, utf8togbk, Src} ->
             try
-                common:loginfo("CC process ~p : source UTF8 from ~p : ~p~n", [self(), Src]),
+                common:loginfo("CC process ~p : source UTF8 from ~p : ~p", [self(), Src]),
                 Value = code_convertor:to_gbk(Src),
-                common:loginfo("CC process ~p : dest GBK : ~p~n", [self(), Value]),
+                common:loginfo("CC process ~p : dest GBK : ~p", [self(), Value]),
                 Pid ! Value
             catch
                 _:_ ->
-                    common:logerror("CC process ~p : EXCEPTION when converting UTF8 to GBK : ~p~n", [self(), Src]),
+                    common:logerror("CC process ~p : EXCEPTION when converting UTF8 to GBK : ~p", [self(), Src]),
                     Pid ! Src
             end,
             code_convertor_process();
         stop ->
             ok;
 		{Pid, Msg} ->
-			common:loginfo("CC process ~p : unknown message from ~p : ~p~n", [self(), Pid, Msg]),
+			common:loginfo("CC process ~p : unknown message from ~p : ~p", [self(), Pid, Msg]),
 			Pid ! msg,
 			code_convertor_process();
 		UnknownMsg ->
-			common:loginfo("CC process ~p : unknown message : ~p~n", [self(), UnknownMsg]),
+			common:loginfo("CC process ~p : unknown message : ~p", [self(), UnknownMsg]),
 			code_convertor_process()
 	%after ?CC_PID_TIMEOUT ->
-	%		common:loginfo("CC process ~p : current waiting timeout and start another waiting~n", [self()]),
+	%		common:loginfo("CC process ~p : current waiting timeout and start another waiting", [self()]),
 	%		code_convertor_process()
     end.
             
@@ -903,7 +904,7 @@ db_table_deamon() ->
             ok;
         _ ->
             Pid = self(),
-            error_logger:info_msg("Check table gps_database.vehicle_position_~p~n", [binary_to_list(Bin)]),
+            error_logger:info_msg("Check table gps_database.vehicle_position_~p", [binary_to_list(Bin)]),
             DBPid ! {Pid, conn, list_to_binary([<<"CREATE TABLE IF NOT EXISTS gps_database.vehicle_position_">>, 
                          Bin,
                          <<" LIKE vehicle_position">>])},
@@ -911,7 +912,7 @@ db_table_deamon() ->
                 {Pid, Result1} ->
                     Result1
             end,
-            error_logger:info_msg("Check table gps_database.vehicle_position_~p~n", [binary_to_list(Bin1)]),
+            error_logger:info_msg("Check table gps_database.vehicle_position_~p", [binary_to_list(Bin1)]),
             DBPid ! {Pid, conn, list_to_binary([<<"CREATE TABLE IF NOT EXISTS gps_database.vehicle_position_">>, 
                          Bin1,
                          <<" LIKE vehicle_position">>])},

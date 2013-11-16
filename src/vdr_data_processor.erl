@@ -650,7 +650,7 @@ compose_term_args_binary(ID, Value) when is_integer(ID) ->
             <<>>
     end;
 compose_term_args_binary(_ID, _Value) ->
-    common:logerror("vdr_data_processor:compose_term_args_binary(ID, Value) fails : ID not list or integer~n"),
+    common:logerror("vdr_data_processor:compose_term_args_binary(ID, Value) fails : ID not list or integer"),
     <<>>.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

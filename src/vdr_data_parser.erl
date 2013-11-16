@@ -84,7 +84,7 @@ do_process_data(State, Data) ->
                                     end;
                                 BodyLen =/= ActBodyLen ->
 									common:send_stat_err(State, lenerr),
-                                    common:logerror("Length error for msg (~p) from (~p) : (Field)~p:(Actual)~p~n", [MsgIdx, State#vdritem.addr, BodyLen, ActBodyLen]),
+                                    common:logerror("Length error for msg (~p) from (~p) : (Field)~p:(Actual)~p", [MsgIdx, State#vdritem.addr, BodyLen, ActBodyLen]),
                                     {warning, HeadInfo, ?P_GENRESP_ERRMSG, State}
                             end;
                         1 ->
@@ -95,24 +95,24 @@ do_process_data(State, Data) ->
                             if
                                 Total =< 1 ->
 									common:send_stat_err(State, packerr),
-                                    common:logerror("Total error for msg (~p) from (~p) : ~p~n", [MsgIdx, State#vdritem.addr, Total]),
+                                    common:logerror("Total error for msg (~p) from (~p) : ~p", [MsgIdx, State#vdritem.addr, Total]),
                                     {warning, HeadInfo, ?P_GENRESP_ERRMSG, State};
                                 Total > 1 ->
                                     if
                                         Index < 1 ->
 											common:send_stat_err(State, packerr),
-                                            common:logerror("Index error for msg (~p) from (~p) : (Index)~p~n", [MsgIdx, State#vdritem.addr, Index]),
+                                            common:logerror("Index error for msg (~p) from (~p) : (Index)~p", [MsgIdx, State#vdritem.addr, Index]),
                                             {warning, HeadInfo, ?P_GENRESP_ERRMSG, State};
                                         Index > Total ->
 											common:send_stat_err(State, packerr),
-                                            common:logerror("Index error for msg (~p) from (~p) : (Total)~p:(Index)~p~n", [MsgIdx, State#vdritem.addr, Total, Index]),
+                                            common:logerror("Index error for msg (~p) from (~p) : (Total)~p:(Index)~p", [MsgIdx, State#vdritem.addr, Total, Index]),
                                             {warning, HeadInfo, ?P_GENRESP_ERRMSG, State};
                                         Index =< Total ->
                                             if
                                                 BodyLen == ActBodyLen ->
                                                     case combine_msg_packs(State, ID, MsgIdx, Total, Index, Body) of
                                                         {complete, Msg, NewState} ->
-															common:loginfo("VDR (~p) (id:~p, serialno:~p, authen_code:~p, vehicleid:~p, vehiclecode:~p)~nMsg packages is combined successfully (ID :~p)~n", 
+															common:loginfo("VDR (~p) (id:~p, serialno:~p, authen_code:~p, vehicleid:~p, vehiclecode:~p)~nMsg packages is combined successfully (ID :~p)", 
 																		   [State#vdritem.addr,
 																			State#vdritem.id,
 																			State#vdritem.serialno,
@@ -132,7 +132,7 @@ do_process_data(State, Data) ->
                                                     end;
                                                 BodyLen =/= ActBodyLen ->
 													common:send_stat_err(State, lenerr),
-                                                    common:logerror("Length error for msg (~p) from (~p) : (Field)~p:(Actual)~p~n", [MsgIdx, State#vdritem.addr, BodyLen, ActBodyLen]),
+                                                    common:logerror("Length error for msg (~p) from (~p) : (Field)~p:(Actual)~p", [MsgIdx, State#vdritem.addr, BodyLen, ActBodyLen]),
                                                     {warning, HeadInfo, ?P_GENRESP_ERRMSG, State}
                                             end
                                     end
@@ -140,7 +140,7 @@ do_process_data(State, Data) ->
                     end;
                 CalcParity =/= Parity ->
 					common:send_stat_err(State, parerr),
-                    common:logerror("Parity error (calculated)~p:(data)~p from ~p~n", [CalcParity, Parity, State#vdritem.addr]),
+                    common:logerror("Parity error (calculated)~p:(data)~p from ~p", [CalcParity, Parity, State#vdritem.addr]),
                     {error, parityerror, State}
             end;
         error ->
@@ -201,7 +201,7 @@ combine_msg_packs(State, ID, MsgIdx, Total, Idx, Body) ->
         [] ->
 			MergedList = lists:merge([[ID,MsgIdx,Total,Idx,Body]], StoredMsg),
             NewMsgPackages = update_msg_packs(MsgPackages, ID, get_missing_pack_msgidxs([[ID,MsgIdx,Total,Idx,Body]])),
-			common:loginfo("VDR (~p) (id:~p, serialno:~p, authen_code:~p, vehicleid:~p, vehiclecode:~p)~nNew msg packages 0 : ~p~n", 
+			common:loginfo("VDR (~p) (id:~p, serialno:~p, authen_code:~p, vehicleid:~p, vehiclecode:~p)~nNew msg packages 0 : ~p", 
 						   [State#vdritem.addr,
 							State#vdritem.id,
 							State#vdritem.serialno,
@@ -225,7 +225,7 @@ combine_msg_packs(State, ID, MsgIdx, Total, Idx, Body) ->
 		                            NewState = State#vdritem{msg=MsgWithoutID},
 		                            BinMsg = compose_real_msg(Msg),
                                     NewMsgPackages = remove_msgidx_with_id(MsgPackages, ID),
-									common:loginfo("VDR (~p) (id:~p, serialno:~p, authen_code:~p, vehicleid:~p, vehiclecode:~p)~nNew msg packages 1 : ~p~n", 
+									common:loginfo("VDR (~p) (id:~p, serialno:~p, authen_code:~p, vehicleid:~p, vehiclecode:~p)~nNew msg packages 1 : ~p", 
 												   [State#vdritem.addr,
 													State#vdritem.id,
 													State#vdritem.serialno,
@@ -237,7 +237,7 @@ combine_msg_packs(State, ID, MsgIdx, Total, Idx, Body) ->
 		                        error ->
 									MergedList = lists:merge(NewMsgWithID, MsgWithoutID),
                                     NewMsgPackages = update_msg_packs(MsgPackages, ID, get_missing_pack_msgidxs(NewMsgWithID)),
-									common:loginfo("VDR (~p) (id:~p, serialno:~p, authen_code:~p, vehicleid:~p, vehiclecode:~p)~nNew msg packages 2 : ~p~n", 
+									common:loginfo("VDR (~p) (id:~p, serialno:~p, authen_code:~p, vehicleid:~p, vehiclecode:~p)~nNew msg packages 2 : ~p", 
 												   [State#vdritem.addr,
 													State#vdritem.id,
 													State#vdritem.serialno,
@@ -251,7 +251,7 @@ combine_msg_packs(State, ID, MsgIdx, Total, Idx, Body) ->
 		                error ->
 							MergedList = lists:merge(NewMsgWithID, MsgWithoutID),
                             NewMsgPackages = update_msg_packs(MsgPackages, ID, get_missing_pack_msgidxs(NewMsgWithID)),
-							common:loginfo("VDR (~p) (id:~p, serialno:~p, authen_code:~p, vehicleid:~p, vehiclecode:~p)~nNew msg packages 3 : ~p~n", 
+							common:loginfo("VDR (~p) (id:~p, serialno:~p, authen_code:~p, vehicleid:~p, vehiclecode:~p)~nNew msg packages 3 : ~p", 
 										   [State#vdritem.addr,
 											State#vdritem.id,
 											State#vdritem.serialno,
@@ -275,7 +275,7 @@ combine_msg_packs(State, ID, MsgIdx, Total, Idx, Body) ->
 		                            NewState = State#vdritem{msg=MsgWithoutID},
 		                            BinMsg = compose_real_msg(Msg),
                                     NewMsgPackages = remove_msgidx_with_id(MsgPackages, ID),
-									common:loginfo("VDR (~p) (id:~p, serialno:~p, authen_code:~p, vehicleid:~p, vehiclecode:~p)~nNew msg packages 4 : ~p~n", 
+									common:loginfo("VDR (~p) (id:~p, serialno:~p, authen_code:~p, vehicleid:~p, vehiclecode:~p)~nNew msg packages 4 : ~p", 
 												   [State#vdritem.addr,
 													State#vdritem.id,
 													State#vdritem.serialno,
@@ -287,7 +287,7 @@ combine_msg_packs(State, ID, MsgIdx, Total, Idx, Body) ->
 		                        error ->
 									MergedList = lists:merge(NewMsgWithID, MsgWithoutID),
                                     NewMsgPackages = update_msg_packs(MsgPackages, ID, get_missing_pack_msgidxs(NewMsgWithID)),
-									common:loginfo("VDR (~p) (id:~p, serialno:~p, authen_code:~p, vehicleid:~p, vehiclecode:~p)~nNew msg packages 5 : ~p~n", 
+									common:loginfo("VDR (~p) (id:~p, serialno:~p, authen_code:~p, vehicleid:~p, vehiclecode:~p)~nNew msg packages 5 : ~p", 
 												   [State#vdritem.addr,
 													State#vdritem.id,
 													State#vdritem.serialno,
@@ -301,7 +301,7 @@ combine_msg_packs(State, ID, MsgIdx, Total, Idx, Body) ->
 		                error ->
 							MergedList = lists:merge(NewMsgWithID, MsgWithoutID),
                             NewMsgPackages = update_msg_packs(MsgPackages, ID, get_missing_pack_msgidxs(NewMsgWithID)),
-							common:loginfo("VDR (~p) (id:~p, serialno:~p, authen_code:~p, vehicleid:~p, vehiclecode:~p)~nNew msg packages 6 : ~p~n", 
+							common:loginfo("VDR (~p) (id:~p, serialno:~p, authen_code:~p, vehicleid:~p, vehiclecode:~p)~nNew msg packages 6 : ~p", 
 										   [State#vdritem.addr,
 											State#vdritem.id,
 											State#vdritem.serialno,
@@ -559,7 +559,7 @@ check_msg(Packages, Total) ->
                     error
             end;
         Len =/= Total ->
-			common:logerror("Check message error : Packages length ~p =/= Total ~p~n", [Len, Total]),
+			common:logerror("Check message error : Packages length ~p =/= Total ~p", [Len, Total]),
             error
     end.
 
@@ -569,7 +569,7 @@ check_msg(Packages, Total) ->
 %%% Return the missing package index list
 %%%
 del_num_from_num_list(NumList, Packages) ->
-	common:loginfo("Delete number from number list : current number list ~p~n", [NumList]),
+	common:loginfo("Delete number from number list : current number list ~p", [NumList]),
     case Packages of
         [] ->
             NumList;
@@ -577,7 +577,7 @@ del_num_from_num_list(NumList, Packages) ->
             [H|T] = Packages,
             [_ID, _MsgIdx, _Total, Idx, _Body] = H,
             NewNumList = [E || E <- NumList, E =/= Idx],
-			common:loginfo("Delete number from number list : new number list ~p without ~p~n", [NewNumList, Idx]),
+			common:loginfo("Delete number from number list : new number list ~p without ~p", [NewNumList, Idx]),
             del_num_from_num_list(NewNumList, T)
     end.
 
