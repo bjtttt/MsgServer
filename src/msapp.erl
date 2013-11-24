@@ -93,7 +93,7 @@ start(StartType, StartArgs) ->
                 ok ->
                     mysql:utf8connect(conn, DB, undefined, DBUid, DBPwd, DBName, true),
 					if
-						Mode == 1 ->
+						Mode == 2 ->
 		                    LinkPid = spawn(fun() -> connection_info_process(0, 0, 0, 0, 0, 
 																			 0, 0, 0, 0, 0, 
 																			 0, 0, 0, 0, 0, 
