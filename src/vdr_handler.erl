@@ -13,6 +13,7 @@
 		 send_sql_to_db/3,
 		 send_sql_to_db_nowait/3,
 		 send_msg_to_ws/2,
+		 send_msg_to_ws_nowait/2,
 		 get_record_column_info/1]).
 
 -include("header.hrl").
@@ -31,12 +32,23 @@ init([Sock, Addr]) ->
     [{linkpid, LinkPid}] = ets:lookup(msgservertable, linkpid),
     [{vdrtablepid, VDRTablePid}] = ets:lookup(msgservertable, vdrtablepid),
     [{dboperationpid, DBOperationPid}] = ets:lookup(msgservertable, dboperationpid),
-    State = #vdritem{socket=Sock, pid=Pid, vdrpid=DBOperationPid, addr=Addr, msgflownum=1, errorcount=0, dbpid=DBPid, wspid=WSPid, ccpid=CCPid, linkpid=LinkPid, vdrtablepid=VDRTablePid},
-    %State = #vdritem{socket=Sock, pid=Pid, vdrpid=VDRRespPid, addr=Addr, msgflownum=1, errorcount=0, dbpid=DBPid, wspid=WSPid, ccpid=CCPid, linkpid=LinkPid, vdrtablepid=VDRTablePid},
-	common:send_stat_err(State, conn),
-    common:send_vdr_table_operation(VDRTablePid, {self(), insert, State, noresp}),
-    inet:setopts(Sock, [{active, once}, {send_timeout, ?VDR_MSG_TIMEOUT}, {send_timeout_close, true}]),
-	{ok, State, ?VDR_MSG_TIMEOUT}.
+    [{dbstate, DBState}] = ets:lookup(msgservertable, dbstate),
+	if
+		DBState == true ->
+		    State = #vdritem{socket=Sock, pid=Pid, vdrpid=DBOperationPid, addr=Addr, msgflownum=1, errorcount=0, dbpid=DBPid, wspid=WSPid, ccpid=CCPid, linkpid=LinkPid, vdrtablepid=VDRTablePid},
+		    %State = #vdritem{socket=Sock, pid=Pid, vdrpid=VDRRespPid, addr=Addr, msgflownum=1, errorcount=0, dbpid=DBPid, wspid=WSPid, ccpid=CCPid, linkpid=LinkPid, vdrtablepid=VDRTablePid},
+			common:send_stat_err(State, conn),
+		    common:send_vdr_table_operation(VDRTablePid, {self(), insert, State, noresp}),
+		    inet:setopts(Sock, [{active, once}, {send_timeout, ?VDR_MSG_TIMEOUT}, {send_timeout_close, true}]),
+			{ok, State, ?VDR_MSG_TIMEOUT};
+		true ->
+		    State = #vdritem{socket=Sock, pid=Pid, vdrpid=DBOperationPid, addr=Addr, msgflownum=1, errorcount=0, dbpid=unused, wspid=WSPid, ccpid=CCPid, linkpid=LinkPid, vdrtablepid=VDRTablePid},
+		    %State = #vdritem{socket=Sock, pid=Pid, vdrpid=VDRRespPid, addr=Addr, msgflownum=1, errorcount=0, dbpid=DBPid, wspid=WSPid, ccpid=CCPid, linkpid=LinkPid, vdrtablepid=VDRTablePid},
+			common:send_stat_err(State, conn),
+		    common:send_vdr_table_operation(VDRTablePid, {self(), insert, State, noresp}),
+		    inet:setopts(Sock, [{active, once}, {send_timeout, ?VDR_MSG_TIMEOUT}, {send_timeout_close, true}]),
+			{ok, State, ?VDR_MSG_TIMEOUT}
+	end.
 
 %handle_call({fetch, PoolId, Msg}, _From, State) ->
 %    Resp = mysql:fetch(PoolId, Msg),
@@ -280,7 +292,6 @@ process_vdr_data(Socket, Data, State) ->
                             %{Province, City, Producer, TermModel, TermID, LicColor, LicID} = Msg,
                             case create_sql_from_vdr(HeadInfo, Msg, NewState) of
                                 {ok, Sql} ->
-                                    %SqlResp = send_sql_to_db(regauth, Sql, State),
                                     SqlResp = send_sql_to_db(conn, Sql, NewState),
                                     % 0 : ok
                                     % 1 : vehicle registered
@@ -518,7 +529,7 @@ process_vdr_data(Socket, Data, State) ->
                                                             case wsock_data_parser:create_term_online([VehicleID]) of
                                                                 {ok, WSUpdate} ->
                                                                     %common:loginfo("VDR (~p) WS : ~p~n~p", [State#vdritem.addr, WSUpdate, list_to_binary(WSUpdate)]),
-                                                                    send_msg_to_ws(WSUpdate, NewState),
+                                                                    send_msg_to_ws_nowait(WSUpdate, NewState),
 																	
                                                                     FlowIdx = NewState#vdritem.msgflownum,
                                                                     MsgBody = vdr_data_processor:create_gen_resp(ID, MsgIdx, ?T_GEN_RESP_OK),
@@ -545,7 +556,7 @@ process_vdr_data(Socket, Data, State) ->
                                                             case wsock_data_parser:create_term_online([VehicleID]) of
                                                                 {ok, WSUpdate} ->
                                                                     %common:loginfo("VDR (~p) WS : ~p~n~p", [State#vdritem.addr, WSUpdate, list_to_binary(WSUpdate)]),
-                                                                    send_msg_to_ws(WSUpdate, NewState),
+                                                                    send_msg_to_ws_nowait(WSUpdate, NewState),
                                                             
                                                                     FlowIdx = NewState#vdritem.msgflownum,
                                                                     MsgBody = vdr_data_processor:create_gen_resp(ID, MsgIdx, ?T_GEN_RESP_OK),
@@ -676,7 +687,7 @@ process_vdr_data(Socket, Data, State) ->
 						                                                            case wsock_data_parser:create_term_online([VehicleID]) of
 						                                                                {ok, WSUpdate} ->
 						                                                                    %common:loginfo("VDR (~p) WS : ~p~n~p", [State#vdritem.addr, WSUpdate, list_to_binary(WSUpdate)]),
-						                                                                    send_msg_to_ws(WSUpdate, NewState),
+						                                                                    send_msg_to_ws_nowait(WSUpdate, NewState),
 																							
 						                                                                    FlowIdx = NewState#vdritem.msgflownum,
 						                                                                    MsgBody = vdr_data_processor:create_gen_resp(ID, MsgIdx, ?T_GEN_RESP_OK),
@@ -703,7 +714,7 @@ process_vdr_data(Socket, Data, State) ->
 						                                                            case wsock_data_parser:create_term_online([VehicleID]) of
 						                                                                {ok, WSUpdate} ->
 						                                                                    %common:loginfo("VDR (~p) WS : ~p~n~p", [State#vdritem.addr, WSUpdate, list_to_binary(WSUpdate)]),
-						                                                                    send_msg_to_ws(WSUpdate, NewState),
+						                                                                    send_msg_to_ws_nowait(WSUpdate, NewState),
 						                                                            
 						                                                                    FlowIdx = NewState#vdritem.msgflownum,
 						                                                                    MsgBody = vdr_data_processor:create_gen_resp(ID, MsgIdx, ?T_GEN_RESP_OK),
@@ -800,7 +811,7 @@ process_vdr_data(Socket, Data, State) ->
                                                                                                [VehicleID],
                                                                                                Res),
                                             %common:loginfo("Gateway receives VDR (~p) response to WS request ~p : ~p", [NewState#vdritem.addr, RespID, WSUpdate]),
-                                            send_msg_to_ws(WSUpdate, NewState);
+                                            send_msg_to_ws_nowait(WSUpdate, NewState);
                                         ItemCount ->
                                             common:logerror("(FATAL) vdritem.msgws2vdr has ~p item(s) for wsid ~p", [ItemCount, RespID])
                                     end,
@@ -888,7 +899,7 @@ process_vdr_data(Socket, Data, State) ->
 																						  [VehicleID],
                                                                                           [AnswerID]),
                                     %common:loginfo("Gateway receives VDR (~p) response to WS request ~p : ~p", [NewState#vdritem.addr, 16#8302, WSUpdate]),
-                                    send_msg_to_ws(WSUpdate, NewState);
+                                    send_msg_to_ws_nowait(WSUpdate, NewState);
                                 ItemCount ->
                                     common:logerror("(FATAL) vdritem.msgws2vdr has ~p item(s) for wsid ~p", [ItemCount, 16#8302])
                             end,
@@ -926,7 +937,7 @@ process_vdr_data(Socket, Data, State) ->
                                                                                                   [VehicleID],
                                                                                                   [InfoState]),
                                     %common:loginfo("Gateway receives VDR (~p) response to WS request ~p : ~p", [NewState#vdritem.addr, 16#8500, WSUpdate]),
-                                    send_msg_to_ws(WSUpdate, NewState);
+                                    send_msg_to_ws_nowait(WSUpdate, NewState);
                                 ItemCount ->
                                     common:logerror("(FATAL) vdritem.msgws2vdr has ~p item(s) for wsid ~p", [ItemCount, 16#8500])
                             end,
@@ -1013,7 +1024,7 @@ process_vdr_data(Socket, Data, State) ->
 																						Res,
 																						List),
                                     %common:loginfo("Gateway receives VDR (~p) response to WS request ~p : ~p", [NewState#vdritem.addr, 16#8801, WSUpdate]),
-                                    send_msg_to_ws(WSUpdate, NewState);
+                                    send_msg_to_ws_nowait(WSUpdate, NewState);
                                 ItemCount ->
                                     common:logerror("(FATAL) vdritem.msgws2vdr has ~p item(s) for wsid ~p", [ItemCount, 16#8801])
                             end,
@@ -1227,46 +1238,56 @@ create_time_list_and_binary(_Time) ->
 	{<<"2000-01-01 00:00:00">>, "2000-01-01 00:00:00"}.
 
 process_pos_info(ID, MsgIdx, _VDRPid, HeadInfo, Msg, NewState) ->
-    case create_sql_from_vdr(HeadInfo, Msg, NewState) of
-		{ok, Sqls} ->
-            send_sqls_to_db_nowait(conn, Sqls, NewState),
-            
+	DBPid = NewState#vdritem.dbpid,
+	if
+		DBPid == unused ->
             FlowIdx = NewState#vdritem.msgflownum,
-            PreviousAlarm = NewState#vdritem.alarm,
-            
-            {H, _AppInfo} = Msg,
-            [AlarmSym, StateFlag, LatOri, LonOri, _Height, _Speed, _Direction, Time]= H,
-            {Lat, Lon} = get_not_0_lat_lon(LatOri, LonOri, NewState),
-            if
-                AlarmSym == PreviousAlarm ->
-		            MsgBody = vdr_data_processor:create_gen_resp(ID, MsgIdx, ?T_GEN_RESP_OK),
-		            NewFlowIdx = send_data_to_vdr(16#8001, NewState#vdritem.tel, FlowIdx, MsgBody, NewState),
-					
-					{ok, NewState#vdritem{msgflownum=NewFlowIdx, alarm=AlarmSym, state=StateFlag, lastlat=Lat, lastlon=Lon}};
-                true ->
-					{TimeBin, TimeS} = create_time_list_and_binary(Time),
-                    TimeBinS = list_to_binary([<<"\"">>, TimeBin, <<"\"">>]),
-					
-					AlarmList = update_vehicle_alarm(NewState#vdritem.vehicleid, NewState#vdritem.driverid, TimeS, AlarmSym, 0, NewState),
-					if
-						AlarmList == NewState#vdritem.alarmlist ->
-							ok;
-						AlarmList =/= NewState#vdritem.alarmlist ->
-							NewSetAlarmList = find_alarm_in_lista_not_in_listb(AlarmList, NewState#vdritem.alarmlist),
-							NewClearAlarmList = find_alarm_in_lista_not_in_listb(NewState#vdritem.alarmlist, AlarmList),
+            MsgBody = vdr_data_processor:create_gen_resp(ID, MsgIdx, ?T_GEN_RESP_OK),
+            NewFlowIdx = send_data_to_vdr(16#8001, NewState#vdritem.tel, FlowIdx, MsgBody, NewState),
+			
+			{ok, NewState#vdritem{msgflownum=NewFlowIdx}};
+		true ->
+		    case create_sql_from_vdr(HeadInfo, Msg, NewState) of
+				{ok, Sqls} ->
+		            send_sqls_to_db_nowait(conn, Sqls, NewState),
+		            
+		            FlowIdx = NewState#vdritem.msgflownum,
+		            PreviousAlarm = NewState#vdritem.alarm,
+		            
+		            {H, _AppInfo} = Msg,
+		            [AlarmSym, StateFlag, LatOri, LonOri, _Height, _Speed, _Direction, Time]= H,
+		            {Lat, Lon} = get_not_0_lat_lon(LatOri, LonOri, NewState),
+		            if
+		                AlarmSym == PreviousAlarm ->
+				            MsgBody = vdr_data_processor:create_gen_resp(ID, MsgIdx, ?T_GEN_RESP_OK),
+				            NewFlowIdx = send_data_to_vdr(16#8001, NewState#vdritem.tel, FlowIdx, MsgBody, NewState),
 							
-							send_masg_to_ws_alarm(FlowIdx, NewSetAlarmList, 1, Lat, Lon, TimeBinS, NewState),
-							send_masg_to_ws_alarm(FlowIdx, NewClearAlarmList, 0, Lat, Lon, TimeBinS, NewState)
-					end,
-
-                    MsgBody = vdr_data_processor:create_gen_resp(ID, MsgIdx, ?T_GEN_RESP_OK),
-                    NewFlowIdx = send_data_to_vdr(16#8001, NewState#vdritem.tel, FlowIdx, MsgBody, NewState),
-                    
-                    {ok, NewState#vdritem{msgflownum=NewFlowIdx, alarm=AlarmSym, alarmlist=AlarmList, state=StateFlag, lastlat=Lat, lastlon=Lon}}
-            end;
-        _ ->
-            {error, invaliderror, NewState}
-    end.
+							{ok, NewState#vdritem{msgflownum=NewFlowIdx, alarm=AlarmSym, state=StateFlag, lastlat=Lat, lastlon=Lon}};
+		                true ->
+							{TimeBin, TimeS} = create_time_list_and_binary(Time),
+		                    TimeBinS = list_to_binary([<<"\"">>, TimeBin, <<"\"">>]),
+							
+							AlarmList = update_vehicle_alarm(NewState#vdritem.vehicleid, NewState#vdritem.driverid, TimeS, AlarmSym, 0, NewState),
+							if
+								AlarmList == NewState#vdritem.alarmlist ->
+									ok;
+								AlarmList =/= NewState#vdritem.alarmlist ->
+									NewSetAlarmList = find_alarm_in_lista_not_in_listb(AlarmList, NewState#vdritem.alarmlist),
+									NewClearAlarmList = find_alarm_in_lista_not_in_listb(NewState#vdritem.alarmlist, AlarmList),
+									
+									send_masg_to_ws_alarm(FlowIdx, NewSetAlarmList, 1, Lat, Lon, TimeBinS, NewState),
+									send_masg_to_ws_alarm(FlowIdx, NewClearAlarmList, 0, Lat, Lon, TimeBinS, NewState)
+							end,
+		
+		                    MsgBody = vdr_data_processor:create_gen_resp(ID, MsgIdx, ?T_GEN_RESP_OK),
+		                    NewFlowIdx = send_data_to_vdr(16#8001, NewState#vdritem.tel, FlowIdx, MsgBody, NewState),
+		                    
+		                    {ok, NewState#vdritem{msgflownum=NewFlowIdx, alarm=AlarmSym, alarmlist=AlarmList, state=StateFlag, lastlat=Lat, lastlon=Lon}}
+		            end;
+		        _ ->
+		            {error, invaliderror, NewState}
+		    end
+	end.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %
@@ -1289,7 +1310,7 @@ send_masg_to_ws_alarm(FlowIdx, AlarmList, SetClear, Lat, Lon, TimeBinS, State) w
                                                                  Lat, 
                                                                  Lon,
                                                                  binary_to_list(TimeBinS)),
-            send_msg_to_ws(WSUpdate, State), %wsock_client:send(WSUpdate)
+            send_msg_to_ws_nowait(WSUpdate, State), %wsock_client:send(WSUpdate)
 			if
 				LenT > 0 ->
 					send_masg_to_ws_alarm(FlowIdx, T, SetClear, Lat, Lon, TimeBinS, State);
@@ -1305,7 +1326,7 @@ send_masg_to_ws_alarm(FlowIdx, AlarmList, SetClear, Lat, Lon, TimeBinS, State) w
                                                                  Lat, 
                                                                  Lon,
                                                                  binary_to_list(TimeBinS)),
-            send_msg_to_ws(WSUpdate, State), %wsock_client:send(WSUpdate)
+            send_msg_to_ws_nowait(WSUpdate, State), %wsock_client:send(WSUpdate)
 			if
 				LenT > 0 ->
 					send_masg_to_ws_alarm(FlowIdx, T, SetClear, Lat, Lon, TimeBinS, State);
@@ -1805,6 +1826,8 @@ send_sql_to_db(PoolId, Msg, State) ->
 	LinkPid = State#vdritem.linkpid,
 	Pid = State#vdritem.pid,
     case State#vdritem.dbpid of
+		unused ->
+			{Pid, <<"">>};
         undefined ->
 			LinkPid ! {Pid, dbmsgerror};
         DBPid ->
@@ -1864,6 +1887,8 @@ send_sql_to_db_nowait(PoolId, Msg, State) ->
 	LinkPid = State#vdritem.linkpid,
 	Pid = State#vdritem.pid,
     case State#vdritem.dbpid of
+		unused ->
+			ok;
         undefined ->
 			LinkPid ! {Pid, dbmsgerror};
         DBPid ->
@@ -2396,6 +2421,14 @@ get_not_0_lat_lon(Lat, Lon, State) ->
 %%%     error
 %%%
 extract_db_resp(Msg) ->
+	try
+		do_extract_db_resp(Msg)
+	catch
+		_:_ ->
+			error
+	end.
+	
+do_extract_db_resp(Msg) ->
     case Msg of
         {data, {mysql_result, ColDef, Res, _, _, _, _, _}} ->
             case Res of
