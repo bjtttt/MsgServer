@@ -51,10 +51,15 @@ start(StartType, StartArgs) ->
     ets:insert(msgservertable, {dbpid, undefined}),
     ets:insert(msgservertable, {wspid, undefined}),
     ets:insert(msgservertable, {linkpid, undefined}),
-    %ets:insert(msgservertable, {sysinit4ws, true}),
+	ets:insert(msgservertable, {dboperationpid, undefined}),
+	ets:insert(msgservertable, {dbmaintainpid, undefined}),
+	if
+		Mode == 2 orelse Mode == 1 ->
+			ets:insert(msgservertable, {dbstate, true});
+		true ->
+			ets:insert(msgservertable, {dbstate, false})
+	end,
     ets:insert(msgservertable, {apppid, AppPid}),
-    %ets:insert(msgservertable, {wscount, 0}),
-    %ets:insert(msgservertable, {dbcount, 0}),
     ets:insert(msgservertable, {dblog, []}),
     ets:insert(msgservertable, {wslog, []}),
     common:loginfo("StartType : ~p", [StartType]),
@@ -66,12 +71,6 @@ start(StartType, StartArgs) ->
     ets:new(usertable,[set,public,named_table,{keypos,#user.id},{read_concurrency,true},{write_concurrency,true}]),
     ets:new(montable,[set,public,named_table,{keypos,#monitem.socket},{read_concurrency,true},{write_concurrency,true}]),
     common:loginfo("Tables are initialized."),
-	%case file:get_cwd() of
-	%	{ok, Dir} ->
-	%		common:loginfo("Current directory ~p", [Dir]);
-	%	{error, CwdError} ->
-	%		common:logerror("Cannot get the current directory : ~p", [CwdError])
-	%end,
 	case file:make_dir(Path ++ "/media") of
 		ok ->
 			common:loginfo("Successfully create directory media");
@@ -92,17 +91,7 @@ start(StartType, StartArgs) ->
             common:loginfo("Supervisor PID : ~p", [SupPid]),
             case receive_db_ws_init_msg(false, false, 0, Mode) of
                 ok ->
-                    %mysql:utf8connect(regauth, DB, undefined, DBUid, DBPwd, DBName, true),
                     mysql:utf8connect(conn, DB, undefined, DBUid, DBPwd, DBName, true),
-                    %mysql:utf8connect(cmd, DB, undefined, DBUid, DBPwd, DBName, true),
-					%mysql:utf8connect(conn, DB, undefined, DBUid, DBPwd, DBName, true),
-					%mysql:utf8connect(conn, DB, undefined, DBUid, DBPwd, DBName, true),
-					%mysql:utf8connect(conn, DB, undefined, DBUid, DBPwd, DBName, true),
-                    
-                    %mysql:fetch(regauth, <<"set names 'utf8">>),
-                    %mysql:fetch(conn, <<"set names 'utf8">>),
-                    %mysql:fetch(cmd, <<"set names 'utf8">>),
-					
 					if
 						Mode == 1 ->
 		                    LinkPid = spawn(fun() -> connection_info_process(0, 0, 0, 0, 0, 
@@ -134,14 +123,15 @@ start(StartType, StartArgs) ->
 							common:loginfo("DB operation process PID is ~p", [DBOperationPid]),
 							common:loginfo("DB miantain process PID is ~p", [DBMaintainPid]),
 		                    
-				            DBPid ! {AppPid, conn, <<"set names 'utf8'">>},
+				            common:loginfo("DB coding setting"),
+							DBPid ! {AppPid, conn, <<"set names 'utf8'">>},
 				            receive
 				                {AppPid, _} ->
-									common:loginfo("DB coding setting returns"),
+									common:loginfo("DB coding setting returns\nDB device/vehicle init"),
 									DBPid ! {AppPid, conn, <<"select * from device left join vehicle on vehicle.device_id = device.id">>},
 						            receive
 						                {AppPid, Result} ->
-											common:loginfo("DB device/vehicle init returns"),
+											common:loginfo("DB device/vehicle init returns\nDB alarm init"),
 											init_vdrdbtable(Result),
 											common:loginfo("DB device/vehicle init success : ~p", [ets:info(vdrdbtable, size)]),
 											DBPid ! {AppPid, conn, <<"select * from vehicle_alarm where isnull(clear_time)">>},
