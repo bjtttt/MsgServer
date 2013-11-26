@@ -106,7 +106,7 @@ start(StartType, StartArgs) ->
 		                    CCPid = spawn(fun() -> code_convertor_process() end),
 		                    VdrTablePid = spawn(fun() -> vdrtable_insert_delete_process() end),
 							DBOperationPid = spawn(fun() -> db_data_operation_process(DBPid) end),
-							DBMaintainPid = spawn(fun() -> db_data_maintain_process(DBOperationPid) end),
+							DBMaintainPid = spawn(fun() -> db_data_maintain_process(DBOperationPid, Mode) end),
 		                    ets:insert(msgservertable, {dbpid, DBPid}),
 		                    ets:insert(msgservertable, {wspid, WSPid}),
 		                    ets:insert(msgservertable, {linkpid, LinkPid}),
@@ -172,7 +172,7 @@ start(StartType, StartArgs) ->
 		                    CCPid = spawn(fun() -> code_convertor_process() end),
 		                    VdrTablePid = spawn(fun() -> vdrtable_insert_delete_process() end),
 							DBOperationPid = spawn(fun() -> db_data_operation_process(DBPid) end),
-							DBMaintainPid = spawn(fun() -> db_data_maintain_process(DBOperationPid) end),
+							DBMaintainPid = spawn(fun() -> db_data_maintain_process(DBOperationPid, Mode) end),
 		                    ets:insert(msgservertable, {dbpid, DBPid}),
 		                    ets:insert(msgservertable, {linkpid, LinkPid}),
 		                    ets:insert(msgservertable, {dbtablepid, DBTablePid}),
@@ -317,26 +317,32 @@ do_init_alarmtable(_AlarmResult) ->
 % This process will update device\vehicle table and alarm table every half an hour
 %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-db_data_maintain_process(DBOperationPid) ->
+db_data_maintain_process(DBOperationPid, Mode) ->
 	receive
 		stop ->
 			common:logerror("DB maintain process receive unknown msg.");
 		_ ->
-			db_data_maintain_process(DBOperationPid)
+			db_data_maintain_process(DBOperationPid, Mode)
 	after 3*60*60*1000 ->
-			common:loginfo("DB maintain process is active."),
-			Pid = self(),
-			DBOperationPid ! {Pid, update, devicevehicle},
-			receive
-				{Pid, updateok} ->
-					ok
-			end,
-			DBOperationPid ! {Pid, update, alarm},
-			receive
-				{Pid, updateok} ->
-					ok
-			end,
-			db_data_maintain_process(DBOperationPid)
+			if
+				Mode == 2 orelse Mode == 1 ->
+					common:loginfo("DB maintain process is active."),
+					Pid = self(),
+					DBOperationPid ! {Pid, update, devicevehicle},
+					receive
+						{Pid, updateok} ->
+							ok
+					end,
+					DBOperationPid ! {Pid, update, alarm},
+					receive
+						{Pid, updateok} ->
+							ok
+					end,
+					db_data_maintain_process(DBOperationPid, Mode);
+				true ->
+					common:loginfo("DB maintain process is active without DB operation."),
+					db_data_maintain_process(DBOperationPid, Mode)
+			end
 	end.			
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
