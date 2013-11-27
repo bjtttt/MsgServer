@@ -211,6 +211,7 @@ mysql_process(Num1, Num2, SqlInsert, InsertCount, SqlReplace, ReplaceCount, Link
 			Pid ! ok,
 			mysql_process_err(Num1, Num2, LinkPid);
 		{Pid, insert, Table, Key, Content} ->
+			%common:loginfo("SqlInsert : ~p", [SqlInsert]),
 			[TableName, _KeyName, Values] = SqlInsert,
 			if
 				TableName =/= Table ->
@@ -245,6 +246,7 @@ mysql_process(Num1, Num2, SqlInsert, InsertCount, SqlReplace, ReplaceCount, Link
 					end
 			end;
 		{_Pid, insert, Table, Key, Content, noresp} ->
+			%common:loginfo("SqlInsert : ~p", [SqlInsert]),
 			[TableName, _KeyName, Values] = SqlInsert,
 			if
 				TableName =/= Table ->
@@ -256,9 +258,9 @@ mysql_process(Num1, Num2, SqlInsert, InsertCount, SqlReplace, ReplaceCount, Link
 							do_sql(FinalSql),
 							DecCount = length(Values),
 							LinkPid ! {self(), dbmsgsent, DecCount},
-							mysql_process(Num1+1, Num2, [Table, [Content]], 1, SqlReplace, ReplaceCount, LinkPid);
+							mysql_process(Num1+1, Num2, [Table, Key, [Content]], 1, SqlReplace, ReplaceCount, LinkPid);
 						true ->
-							mysql_process(Num1+1, Num2, [Table, [Content]], 1, SqlReplace, ReplaceCount, LinkPid)
+							mysql_process(Num1+1, Num2, [Table, Key, [Content]], 1, SqlReplace, ReplaceCount, LinkPid)
 					end;
 				true ->
 					if
@@ -269,12 +271,13 @@ mysql_process(Num1, Num2, SqlInsert, InsertCount, SqlReplace, ReplaceCount, Link
 							do_sql(FinalSql),
 							DecCount = length(Values),
 							LinkPid ! {self(), dbmsgsent, DecCount},
-							mysql_process(Num1+1, Num2, [Table, [Content]], 1, SqlReplace, ReplaceCount, LinkPid);
+							mysql_process(Num1+1, Num2, [Table, Key, [Content]], 1, SqlReplace, ReplaceCount, LinkPid);
 						true ->
-							mysql_process(Num1+1, Num2, [Table, lists:append(Values, [Content])], InsertCount+1, SqlReplace, ReplaceCount, LinkPid)
+							mysql_process(Num1+1, Num2, [Table, Key, lists:append(Values, [Content])], InsertCount+1, SqlReplace, ReplaceCount, LinkPid)
 					end
 			end;
 		{Pid, replace, Table, Key, Content} ->
+			%common:loginfo("SqlReplace : ~p", [SqlReplace]),
 			[TableName, _KeyName, Values] = SqlReplace,
 			if
 				TableName =/= Table ->
@@ -309,6 +312,7 @@ mysql_process(Num1, Num2, SqlInsert, InsertCount, SqlReplace, ReplaceCount, Link
 					end
 			end;
 		{_Pid, replace, Table, Key, Content, noresp} ->
+			%common:loginfo("SqlReplace : ~p", [SqlReplace]),
 			[TableName, _KeyName, Values] = SqlReplace,
 			if
 				TableName =/= Table ->
@@ -339,11 +343,13 @@ mysql_process(Num1, Num2, SqlInsert, InsertCount, SqlReplace, ReplaceCount, Link
 					end
 			end;
         {Pid, _PoolId, Sql} ->
+			%common:loginfo("SQL : ~p", [Sql]),
 			Result = do_sql(Sql),
 			LinkPid ! {self(), dbmsgsent, 1},
 			Pid ! {Pid, Result},
             mysql_process(Num1+1, Num2, SqlInsert, InsertCount, SqlReplace, ReplaceCount, LinkPid);
         {_Pid, _PoolId, Sql, noresp} ->
+			%common:loginfo("SQL noresp : ~p", [Sql]),
 			do_sql(Sql),
 			LinkPid ! {self(), dbmsgsent, 1},
 			mysql_process(Num1+1, Num2, SqlInsert, InsertCount, SqlReplace, ReplaceCount, LinkPid);
@@ -367,7 +373,7 @@ mysql_process(Num1, Num2, SqlInsert, InsertCount, SqlReplace, ReplaceCount, Link
 											   combine_all_values(Values)]),
 					do_sql(FinalSql),
 					DecCount = length(Values),
-					common:loginfo("Sent MSG count pos timeout : ~p", [DecCount]),
+					%common:loginfo("Sent MSG count pos timeout : ~p", [DecCount]),
 					LinkPid ! {self(), dbmsgsent, DecCount};
 				true ->
 					ok
@@ -380,7 +386,7 @@ mysql_process(Num1, Num2, SqlInsert, InsertCount, SqlReplace, ReplaceCount, Link
 											   combine_all_values(Values1)]),
 					do_sql(FinalSql1),
 					DecCount1 = length(Values1),
-					common:loginfo("Sent MSG count lastpos timeout : ~p", [DecCount1]),
+					%common:loginfo("Sent MSG count lastpos timeout : ~p", [DecCount1]),
 					LinkPid ! {self(), dbmsgsent, DecCount1};
 				true ->
 					ok

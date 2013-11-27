@@ -67,13 +67,39 @@ wsock_client_process(Num1, Num2) ->
 			Pid ! {Num1, Num2},
             wsock_client_process(Num1, Num2);
         {Pid, WSMsg} ->
-			%common:loginfo("WS process ~p : ~p~n", [self(), WSMsg]),
-            wsock_client:send(WSMsg),
+			CheckBin = is_binary(WSMsg),
+			if
+				CheckBin == true ->
+					%common:loginfo("WS process ~p : (BIN)~p~n", [self(), WSMsg]),
+					wsock_client:send(WSMsg);
+				true ->
+					%common:loginfo("WS process ~p : (ASC)~p~n", [self(), WSMsg]),
+					try
+						WSMsgBin = list_to_binary(WSMsg),
+						wsock_client:send(WSMsgBin)
+					catch
+						_:_ ->
+							ok
+					end
+			end,
             Pid ! {Pid, wsok},
             wsock_client_process(Num1+1, Num2);
         {_Pid, WSMsg, noresp} ->
-			%common:loginfo("WS process ~p : ~p~n", [self(), WSMsg]),
-            wsock_client:send(WSMsg),
+			CheckBin = is_binary(WSMsg),
+			if
+				CheckBin == true ->
+					%common:loginfo("WS process ~p : (BIN)~p~n", [self(), WSMsg]),
+					wsock_client:send(WSMsg);
+				true ->
+					%common:loginfo("WS process ~p : (ASC)~p~n", [self(), WSMsg]),
+					try
+						WSMsgBin = list_to_binary(WSMsg),
+						wsock_client:send(WSMsgBin)
+					catch
+						_:_ ->
+							ok
+					end
+			end,
             wsock_client_process(Num1+1, Num2);
         stop ->
             ok;

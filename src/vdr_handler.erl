@@ -1233,9 +1233,9 @@ create_time_list_and_binary(Time) when is_integer(Time) ->
     SecondBin = common:integer_to_binary(common:convert_bcd_integer(Second)),
 	TimeBin = list_to_binary([YearBin, <<"-">>, MonthBin, <<"-">>, DayBin, <<" ">>, HourBin, <<":">>, MinuteBin, <<":">>, SecondBin]),
 	TimeList = binary_to_list(TimeBin),
-	{TimeBin, TimeList};
+	{TimeBin, TimeList, {{Year,Month,Day},{Hour,Minute,Second}}};
 create_time_list_and_binary(_Time) ->
-	{<<"2000-01-01 00:00:00">>, "2000-01-01 00:00:00"}.
+	{<<"2000-01-01 00:00:00">>, "2000-01-01 00:00:00", {{2000,1,1},{0,0,0}}}.
 
 process_pos_info(ID, MsgIdx, _VDRPid, HeadInfo, Msg, NewState) ->
 	DBPid = NewState#vdritem.dbpid,
@@ -1264,16 +1264,23 @@ process_pos_info(ID, MsgIdx, _VDRPid, HeadInfo, Msg, NewState) ->
 							
 							{ok, NewState#vdritem{msgflownum=NewFlowIdx, alarm=AlarmSym, state=StateFlag, lastlat=Lat, lastlon=Lon}};
 		                true ->
-							{TimeBin, TimeS} = create_time_list_and_binary(Time),
+							{TimeBin, TimeS, TimeTuple} = create_time_list_and_binary(Time),
 		                    TimeBinS = list_to_binary([<<"\"">>, TimeBin, <<"\"">>]),
 							
-							AlarmList = update_vehicle_alarm(NewState#vdritem.vehicleid, NewState#vdritem.driverid, TimeS, AlarmSym, 0, NewState),
+							AlarmList = update_vehicle_alarm(NewState#vdritem.vehicleid, NewState#vdritem.driverid, TimeS, TimeTuple, AlarmSym, 0, NewState),
 							if
 								AlarmList == NewState#vdritem.alarmlist ->
 									ok;
 								AlarmList =/= NewState#vdritem.alarmlist ->
 									NewSetAlarmList = find_alarm_in_lista_not_in_listb(AlarmList, NewState#vdritem.alarmlist),
 									NewClearAlarmList = find_alarm_in_lista_not_in_listb(NewState#vdritem.alarmlist, AlarmList),
+									
+									if
+										NewState#vdritem.vdrpid =/= undefined ->
+											NewState#vdritem.vdrpid ! {NewState#vdritem.pid, replace, alarm, NewState#vdritem.vehicleid, AlarmList};
+										true ->
+											ok
+									end,
 									
 									send_masg_to_ws_alarm(FlowIdx, NewSetAlarmList, 1, Lat, Lon, TimeBinS, NewState),
 									send_masg_to_ws_alarm(FlowIdx, NewClearAlarmList, 0, Lat, Lon, TimeBinS, NewState)
@@ -1371,8 +1378,8 @@ find_alarm_in_lista_not_in_listb(_ListA, _ListB) ->
 find_a_in_lista(ListA, A) when is_list(ListA),
 							   length(ListA) > 0 ->
 	[H|T] = ListA,
-	{ID, _Time} = H,
-	{IDA, _TimeA} = A,
+	{alarm, _VehicleID, ID, _Time} = H,
+	{alarm, _VehicleIDA, IDA, _TimeA} = A,
 	if
 		ID == IDA ->
 			true;
@@ -1508,7 +1515,7 @@ update_reg_install_time(DeviceID, DeviceRegTime, VehicleID, VehicleDeviceInstall
 %       AlarmList   : List
 %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-update_vehicle_alarm(VehicleID, DriverID, TimeS, Alarm, Index, State) when is_integer(VehicleID),
+update_vehicle_alarm(VehicleID, DriverID, TimeS, TimeTuple, Alarm, Index, State) when is_integer(VehicleID),
                                                                            is_integer(DriverID),
                                                                            is_integer(Index),
                                                                            is_list(TimeS),
@@ -1529,16 +1536,16 @@ update_vehicle_alarm(VehicleID, DriverID, TimeS, Alarm, Index, State) when is_in
                                                 list_to_binary(TimeS), <<"',NULL,">>,
                                                 common:integer_to_binary(Index), <<")">>]),
                     send_sql_to_db_nowait(conn, UpdateSql, State),
-                    NewAlarmList = lists:merge(AlarmList,[{Index, TimeS}]),
-                    update_vehicle_alarm(VehicleID, DriverID, TimeS, Alarm, Index+1, State#vdritem{alarmlist=NewAlarmList});
+                    NewAlarmList = lists:merge(AlarmList,[{alarmitem, VehicleID, Index, TimeTuple}]),
+                    update_vehicle_alarm(VehicleID, DriverID, TimeS, TimeTuple, Alarm, Index+1, State#vdritem{alarmlist=NewAlarmList});
                 true ->
-                    update_vehicle_alarm(VehicleID, DriverID, TimeS, Alarm, Index+1, State)
+                    update_vehicle_alarm(VehicleID, DriverID, TimeS, TimeTuple, Alarm, Index+1, State)
             end;
 		true ->
             AlarmEntry = get_alarm_item(Index, AlarmList),
             if
                 AlarmEntry == empty ->
-                    update_vehicle_alarm(VehicleID, DriverID, TimeS, Alarm, Index+1, State);
+                    update_vehicle_alarm(VehicleID, DriverID, TimeS, TimeTuple, Alarm, Index+1, State);
                 true ->
                     {Index, SetTime} = AlarmEntry,
                     UpdateSql = list_to_binary([<<"update vehicle_alarm set clear_time='">>, list_to_binary(TimeS),
@@ -1548,10 +1555,10 @@ update_vehicle_alarm(VehicleID, DriverID, TimeS, Alarm, Index, State) when is_in
                                                 <<"' and type_id=">>, common:integer_to_binary(Index)]),
                     send_sql_to_db_nowait(conn, UpdateSql, State),
                     NewAlarmList = remove_alarm_item(Index, AlarmList),
-                    update_vehicle_alarm(VehicleID, DriverID, TimeS, Alarm, Index+1, State#vdritem{alarmlist=NewAlarmList})
+                    update_vehicle_alarm(VehicleID, DriverID, TimeS, TimeTuple, Alarm, Index+1, State#vdritem{alarmlist=NewAlarmList})
             end
 	end;
-update_vehicle_alarm(VehicleID, _DriverID, TimeS, Alarm, Index, State) when is_integer(VehicleID),
+update_vehicle_alarm(VehicleID, _DriverID, TimeS, TimeTuple, Alarm, Index, State) when is_integer(VehicleID),
                                                                            %is_integer(DriverID),
                                                                            is_integer(Index),
                                                                            is_list(TimeS),
@@ -1572,15 +1579,15 @@ update_vehicle_alarm(VehicleID, _DriverID, TimeS, Alarm, Index, State) when is_i
                                                 common:integer_to_binary(Index), <<")">>]),
                     send_sql_to_db_nowait(conn, UpdateSql, State),
                     NewAlarmList = lists:merge(AlarmList,[{Index, TimeS}]),
-                    update_vehicle_alarm(VehicleID, _DriverID, TimeS, Alarm, Index+1, State#vdritem{alarmlist=NewAlarmList});
+                    update_vehicle_alarm(VehicleID, _DriverID, TimeS, TimeTuple, Alarm, Index+1, State#vdritem{alarmlist=NewAlarmList});
                 true ->
-                    update_vehicle_alarm(VehicleID, _DriverID, TimeS, Alarm, Index+1, State)
+                    update_vehicle_alarm(VehicleID, _DriverID, TimeS, TimeTuple, Alarm, Index+1, State)
             end;
         true ->
             AlarmEntry = get_alarm_item(Index, AlarmList),
             if
                 AlarmEntry == empty ->
-                    update_vehicle_alarm(VehicleID, _DriverID, TimeS, Alarm, Index+1, State);
+                    update_vehicle_alarm(VehicleID, _DriverID, TimeS, TimeTuple, Alarm, Index+1, State);
                 true ->
                     {Index, SetTime} = AlarmEntry,
                     UpdateSql = list_to_binary([<<"update vehicle_alarm set clear_time='">>, list_to_binary(TimeS),
@@ -1589,10 +1596,10 @@ update_vehicle_alarm(VehicleID, _DriverID, TimeS, Alarm, Index, State) when is_i
                                                 <<"' and type_id=">>, common:integer_to_binary(Index)]),
                     send_sql_to_db_nowait(conn, UpdateSql, State),
                     NewAlarmList = remove_alarm_item(Index, AlarmList),
-                    update_vehicle_alarm(VehicleID, _DriverID, TimeS, Alarm, Index+1, State#vdritem{alarmlist=NewAlarmList})
+                    update_vehicle_alarm(VehicleID, _DriverID, TimeS, TimeTuple, Alarm, Index+1, State#vdritem{alarmlist=NewAlarmList})
             end
     end;
-update_vehicle_alarm(_VehicleID, _DriverID, _TimeS, _Alarm, _Index, State) ->
+update_vehicle_alarm(_VehicleID, _DriverID, _TimeS, _TimeTuple, _Alarm, _Index, State) ->
 	State#vdritem.alarmlist.
 
 get_alarm_item(Index, AlarmList) when is_integer(Index),
@@ -1897,7 +1904,8 @@ send_sql_to_db_nowait(PoolId, Msg, State) ->
 				BinOper == <<"insert into ">> ->
 					[TableName, Fields, Values] = remove_empty_item_in_binary_list(binary:split(Msg, [<<"insert into ">>, <<"(">>, <<") values(">>, <<")">>], [global]), []),
 					if
-						Fields == <<"vehicle_id, gps_time, server_time, longitude, latitude, height, speed, direction, status_flag, alarm_flag">> ->
+						Fields == <<"vehicle_id, gps_time, server_time, longitude, latitude, height, speed, direction, status_flag, alarm_flag, distance, oil, record_speed, event_man_acq, ex_speed_type, ex_speed_id, alarm_add_type, alarm_add_id, alarm_add_direct, road_alarm_id, road_alarm_time, road_alarm_result, ex_state, io_state, analog_quantity_ad0, analog_quantity_ad1, wl_signal_amp, gnss_count">> ->
+						%Fields == <<"vehicle_id, gps_time, server_time, longitude, latitude, height, speed, direction, status_flag, alarm_flag">> ->
 							DBPid ! {Pid, insert, TableName, Fields, Values, noresp};
 						true ->
 				            DBPid ! {Pid, PoolId, Msg, noresp}
