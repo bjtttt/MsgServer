@@ -422,8 +422,8 @@ db_data_maintain_process(DBOperationPid, Mode) ->
 			common:logerror("DB maintain process receive unknown msg.");
 		_ ->
 			db_data_maintain_process(DBOperationPid, Mode)
-	%after 3*60*60*1000 ->
-	after 60*1000 ->
+	after 3*60*60*1000 ->
+	%after 60*1000 ->
 			if
 				Mode == 2 orelse Mode == 1 ->
 					common:loginfo("DB maintain process is active."),
