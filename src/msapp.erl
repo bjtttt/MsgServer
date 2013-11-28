@@ -134,7 +134,7 @@ start(StartType, StartArgs) ->
 											common:loginfo("DB device/vehicle init returns\nDB alarm init"),
 											init_vdrdbtable(Result),
 											common:loginfo("DB device/vehicle init success : ~p", [ets:info(vdrdbtable, size)]),
-											DBPid ! {AppPid, conn, <<"select * from vehicle_alarm where isnull(clear_time)">>},
+											DBPid ! {AppPid, conn, <<"select * from vehicle_alarm where isnull(clear_time) and to_days(now())-to_days(alarm_time)<2 order by alarm_time desc limit 30000">>},
 								            receive
 								                {AppPid, AlarmResult} ->
 													common:loginfo("DB alarm init returns"),
@@ -198,7 +198,7 @@ start(StartType, StartArgs) ->
 											common:loginfo("DB device/vehicle init returns"),
 											init_vdrdbtable(Result),
 											common:loginfo("DB device/vehicle init success : ~p\nDB alarm init", [ets:info(vdrdbtable, size)]),
-											DBPid ! {AppPid, conn, <<"select * from vehicle_alarm where isnull(clear_time) and to_days(now())-to_days(alarm_time)<2">>},
+											DBPid ! {AppPid, conn, <<"select * from vehicle_alarm where isnull(clear_time) and to_days(now())-to_days(alarm_time)<2 order by alarm_time desc limit 30000">>},
 								            receive
 								                {AppPid, AlarmResult} ->
 													common:loginfo("DB alarm init returns"),
@@ -371,7 +371,7 @@ db_data_operation_process(DBPid) ->
 		{Pid, update, alarm} ->
 			common:loginfo("DB operation process update alarm."),
 			ProcPid = self(),
-			DBPid ! {ProcPid, conn, <<"select * from vehicle_alarm where isnull(clear_time) and to_days(now())-to_days(alarm_time)<2">>},
+			DBPid ! {ProcPid, conn, <<"select * from vehicle_alarm where isnull(clear_time) and to_days(now())-to_days(alarm_time)<2 order by alarm_time desc limit 30000">>},
             receive
                 {ProcPid, AlarmResult} ->
 					common:loginfo("DB alarm init returns"),
