@@ -382,10 +382,10 @@ db_data_operation_process(DBPid) ->
 			end,
 			Pid ! {Pid, updateok},
 			db_data_operation_process(DBPid);
-		{Pid, replace, alarm, VehicleID, AlarmList} ->
+		{_Pid, replace, alarm, VehicleID, AlarmList} ->
 			ets:delete(alarmtable, VehicleID),
 			ets:insert(alarmtable, AlarmList),
-			Pid ! {Pid, relpaceok},
+			%Pid ! {Pid, relpaceok},
 			db_data_operation_process(DBPid);
 		{Pid, lookup, Table, Key} ->
 			Res = ets:lookup(Table, Key),
