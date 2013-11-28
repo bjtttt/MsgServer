@@ -106,7 +106,7 @@ start(StartType, StartArgs) ->
 		                    CCPid = spawn(fun() -> code_convertor_process() end),
 		                    VdrTablePid = spawn(fun() -> vdrtable_insert_delete_process() end),
 							DBOperationPid = spawn(fun() -> db_data_operation_process(DBPid) end),
-							DBMaintainPid = spawn(fun() -> db_data_maintain_process(DBOperationPid, Mode) end),
+							DBMaintainPid = spawn(fun() -> db_data_maintain_process(DBPid, DBOperationPid, Mode) end),
 		                    ets:insert(msgservertable, {dbpid, DBPid}),
 		                    ets:insert(msgservertable, {wspid, WSPid}),
 		                    ets:insert(msgservertable, {linkpid, LinkPid}),
@@ -162,7 +162,7 @@ start(StartType, StartArgs) ->
 		                    CCPid = spawn(fun() -> code_convertor_process() end),
 		                    VdrTablePid = spawn(fun() -> vdrtable_insert_delete_process() end),
 							DBOperationPid = spawn(fun() -> db_data_operation_process(DBPid) end),
-							DBMaintainPid = spawn(fun() -> db_data_maintain_process(DBOperationPid, Mode) end),
+							DBMaintainPid = spawn(fun() -> db_data_maintain_process(DBPid, DBOperationPid, Mode) end),
 		                    ets:insert(msgservertable, {dbpid, DBPid}),
 		                    ets:insert(msgservertable, {linkpid, LinkPid}),
 		                    ets:insert(msgservertable, {dbtablepid, DBTablePid}),
@@ -413,7 +413,7 @@ do_init_alarmtable(_AlarmResult) ->
 % This process will update device\vehicle table and alarm table every half an hour
 %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-db_data_maintain_process(DBOperationPid, Mode) ->
+db_data_maintain_process(DBPid, DBOperationPid, Mode) ->
 %	ok.
 %
 %db_data_maintain_process_dummy(DBOperationPid, Mode) ->
@@ -421,14 +421,14 @@ db_data_maintain_process(DBOperationPid, Mode) ->
 		stop ->
 			common:logerror("DB maintain process receive unknown msg.");
 		_ ->
-			db_data_maintain_process(DBOperationPid, Mode)
+			db_data_maintain_process(DBPid, DBOperationPid, Mode)
 	after 3*60*60*1000 ->
 	%after 60*1000 ->
 			if
 				Mode == 2 orelse Mode == 1 ->
 					common:loginfo("DB maintain process is active."),
 					Pid = self(),
-					DBOperationPid ! {Pid, conn, <<"set names 'utf8'">>},
+					DBPid ! {Pid, conn, <<"set names 'utf8'">>},
 					receive
 						{Pid, _} ->
 							ok
@@ -443,10 +443,10 @@ db_data_maintain_process(DBOperationPid, Mode) ->
 						{Pid, updateok} ->
 							ok
 					end,
-					db_data_maintain_process(DBOperationPid, Mode);
+					db_data_maintain_process(DBPid, DBOperationPid, Mode);
 				true ->
 					common:loginfo("DB maintain process is active without DB operation."),
-					db_data_maintain_process(DBOperationPid, Mode)
+					db_data_maintain_process(DBPid, DBOperationPid, Mode)
 			end
 	end.			
 
