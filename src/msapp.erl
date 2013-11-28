@@ -198,7 +198,7 @@ start(StartType, StartArgs) ->
 											common:loginfo("DB device/vehicle init returns"),
 											init_vdrdbtable(Result),
 											common:loginfo("DB device/vehicle init success : ~p\nDB alarm init", [ets:info(vdrdbtable, size)]),
-											DBPid ! {AppPid, conn, <<"select * from vehicle_alarm where isnull(clear_time)">>},
+											DBPid ! {AppPid, conn, <<"select * from vehicle_alarm where isnull(clear_time) and to_days(now())-to_days(alarm_time)<2">>},
 								            receive
 								                {AppPid, AlarmResult} ->
 													common:loginfo("DB alarm init returns"),
@@ -327,17 +327,17 @@ db_data_maintain_process(DBOperationPid, Mode) ->
 			if
 				Mode == 2 orelse Mode == 1 ->
 					common:loginfo("DB maintain process is active."),
-					Pid = self(),
-					DBOperationPid ! {Pid, update, devicevehicle},
-					receive
-						{Pid, updateok} ->
-							ok
-					end,
-					DBOperationPid ! {Pid, update, alarm},
-					receive
-						{Pid, updateok} ->
-							ok
-					end,
+					%Pid = self(),
+					%DBOperationPid ! {Pid, update, devicevehicle},
+					%receive
+					%	{Pid, updateok} ->
+					%		ok
+					%end,
+					%DBOperationPid ! {Pid, update, alarm},
+					%receive
+					%	{Pid, updateok} ->
+					%		ok
+					%end,
 					db_data_maintain_process(DBOperationPid, Mode);
 				true ->
 					common:loginfo("DB maintain process is active without DB operation."),
@@ -371,7 +371,7 @@ db_data_operation_process(DBPid) ->
 		{Pid, update, alarm} ->
 			common:loginfo("DB operation process update alarm."),
 			ProcPid = self(),
-			DBPid ! {ProcPid, conn, <<"select * from vehicle_alarm where isnull(clear_time)">>},
+			DBPid ! {ProcPid, conn, <<"select * from vehicle_alarm where isnull(clear_time) and to_days(now())-to_days(alarm_time)<2">>},
             receive
                 {ProcPid, AlarmResult} ->
 					common:loginfo("DB alarm init returns"),
@@ -404,6 +404,13 @@ db_data_operation_process(DBPid) ->
 			db_data_operation_process(DBPid);
 		{_Pid, delete, Table, Key, noresp} ->
 			ets:delete(Table, Key),
+			db_data_operation_process(DBPid);
+		{Pid, clear, Table} ->
+			ets:delete_all_objects(Table),
+			Pid ! {Pid, clearok},
+			db_data_operation_process(DBPid);
+		{_Pid, clear, Table, noresp} ->
+			ets:delete_all_objects(Table),
 			db_data_operation_process(DBPid);
 		_ ->
 			common:logerror("DB operation process receive unknown msg."),
