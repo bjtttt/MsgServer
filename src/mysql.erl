@@ -450,8 +450,8 @@ do_sql(Sql) ->
                 [{dbname, DBName}] = ets:lookup(msgservertable, dbname),
                 [{dbuid, DBUid}] = ets:lookup(msgservertable, dbuid),
                 [{dbpwd, DBPwd}] = ets:lookup(msgservertable, dbpwd),
-                mysql:utf8connect(conn, DB, undefined, DBUid, DBPwd, DBName, true),
-				mysql:fetch(conn, Sql)
+                mysql:utf8connect(conn, DB, undefined, DBUid, DBPwd, DBName, true)%,
+				%mysql:fetch(conn, Sql)
             catch
                 Oper1:Msg1 ->
                     common:logerror("Fail to start new DB client: ~n(Operation)~p:(Message)~p", [Oper1, Msg1]),
