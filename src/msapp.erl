@@ -127,19 +127,15 @@ start(StartType, StartArgs) ->
 							DBPid ! {AppPid, conn, <<"set names 'utf8'">>},
 				            receive
 				                {AppPid, _} ->
-									common:loginfo("DB coding setting returns\nDB device/vehicle init"),
-									DBPid ! {AppPid, conn, <<"select * from device left join vehicle on vehicle.device_id = device.id">>},
-						            receive
-						                {AppPid, Result} ->
-											common:loginfo("DB device/vehicle init returns\nDB alarm init"),
-											init_vdrdbtable(Result),
-											common:loginfo("DB device/vehicle init success : ~p", [ets:info(vdrdbtable, size)]),
-											DBPid ! {AppPid, conn, <<"select * from vehicle_alarm where isnull(clear_time) and to_days(now())-to_days(alarm_time)<2 order by alarm_time desc limit 30000">>},
-								            receive
-								                {AppPid, AlarmResult} ->
-													common:loginfo("DB alarm init returns"),
-													init_alarmtable(AlarmResult),
-													common:loginfo("DB alarm init success : ~p", [ets:info(alarmtable, size)]),
+									common:loginfo("DB coding setting returns"),
+									case init_vdrdbtable(AppPid, DBPid) of
+										{error, ErrorMsg} ->
+											{error, ErrorMsg};
+										ok ->
+											case init_alarmtable(AppPid, DBPid) of
+												{error, ErrorMsg1} ->
+													{error, ErrorMsg1};
+												ok ->
 								                    CCPid ! {AppPid, create},
 								                    receive
 								                        created ->
@@ -148,14 +144,8 @@ start(StartType, StartArgs) ->
 								                        after ?TIMEOUT_CC_INIT_PROCESS ->
 								                            {error, "ERROR : code convertor table is timeout"}
 													end
-						                    after
-												?DB_RESP_TIMEOUT ->
-						                            {error, "ERROR : init alarm table is timeout"}
 											end
-									after
-										?DB_RESP_TIMEOUT ->
-											{error, "ERROR : init device/vehicle db table is timeout"}
-						            end
+									end
 							after
 								?DB_RESP_TIMEOUT ->
 									{error, "ERROR : init db coding is timeout"}
@@ -191,19 +181,15 @@ start(StartType, StartArgs) ->
 				            DBPid ! {AppPid, conn, <<"set names 'utf8'">>},
 				            receive
 				                {AppPid, _} ->
-									common:loginfo("DB coding setting returns\nDB device/vehicle init"),
-									DBPid ! {AppPid, conn, <<"select * from device left join vehicle on vehicle.device_id = device.id">>},
-						            receive
-						                {AppPid, Result} ->
-											common:loginfo("DB device/vehicle init returns"),
-											init_vdrdbtable(Result),
-											common:loginfo("DB device/vehicle init success : ~p\nDB alarm init", [ets:info(vdrdbtable, size)]),
-											DBPid ! {AppPid, conn, <<"select * from vehicle_alarm where isnull(clear_time) and to_days(now())-to_days(alarm_time)<2 order by alarm_time desc limit 30000">>},
-								            receive
-								                {AppPid, AlarmResult} ->
-													common:loginfo("DB alarm init returns"),
-													init_alarmtable(AlarmResult),
-													common:loginfo("DB alarm init success : ~p", [ets:info(alarmtable, size)]),
+									common:loginfo("DB coding setting returns"),
+									case init_vdrdbtable(AppPid, DBPid) of
+										{error, ErrorMsg} ->
+											{error, ErrorMsg};
+										ok ->
+											case init_alarmtable(AppPid, DBPid) of
+												{error, ErrorMsg1} ->
+													{error, ErrorMsg1};
+												ok ->
 								                    CCPid ! {AppPid, create},
 								                    receive
 								                        created ->
@@ -212,14 +198,8 @@ start(StartType, StartArgs) ->
 								                        after ?TIMEOUT_CC_INIT_PROCESS ->
 								                            {error, "ERROR : code convertor table is timeout"}
 													end
-						                    after 
-												?DB_RESP_TIMEOUT ->
-						                            {error, "ERROR : init alarm table is timeout"}
 											end
-									after
-										?DB_RESP_TIMEOUT ->
-											{error, "ERROR : init device/vehicle db table is timeout"}
-						            end
+									end
 							after
 								?DB_RESP_TIMEOUT ->
 									{error, "ERROR : init db coding is timeout"}
@@ -236,8 +216,66 @@ start(StartType, StartArgs) ->
             {error, Error}
     end.
 
-init_vdrdbtable(Result) ->
+init_vdrdbtable(AppPid, DBPid) ->
 	ets:delete_all_objects(vdrdbtable),
+	common:loginfo("Init device/vehicle db table count."),
+	DBPid ! {AppPid, conn, <<"select count(*) from device left join vehicle on vehicle.device_id = device.id">>},
+	receive
+		{AppPid, Count} ->
+			RealCount = extract_vdrdbtable_count(Count),
+			common:loginfo("Init device/vehicle db table count=~p", [RealCount]),
+			init_vdrdbtable_once(AppPid, DBPid, 0, RealCount),
+			common:loginfo("Init alarm table final count=~p", [ets:info(vdrdbtable,size)])
+	after ?DB_RESP_TIMEOUT ->
+		{error, "ERROR : init device/vehicle db table count is timeout"}
+	end.
+
+extract_vdrdbtable_count(Result) ->
+	try
+		%{data,{mysql_result,[{<<>>,<<"count(*)">>,21,'LONGLONG'}],[[24067]],0,0,[],0,[]}} = Result,
+		{_,{_,[{_,_,_,_}],[[Count]],_,_,_,_,_}} = Result,
+		Count
+	catch
+		Ex:Msg ->
+			common:logerror("Cannot extract device/vehicle db table count.\n(Exception)~p:(Message)~p~n", [Ex, Msg]),
+			0
+	end.	
+
+init_vdrdbtable_once(AppPid, DBPid, Index, Count) when is_integer(Count),
+													   Count > 0,
+													   is_integer(Index),
+													   Index >= 0,
+													   Index < Count,
+													   Index + 10000 =< Count ->
+	common:loginfo("Init device/vehicle db table index=~p", [Index]),
+	DBPid ! {AppPid, conn, binary:list_to_bin([<<"select * from device left join vehicle on vehicle.device_id = device.id order by reg_time desc limit ">>, 
+											   integer_to_binary(Index), <<", ">>, integer_to_binary(Index + 10000)])},
+	receive
+		{AppPid, Result} ->
+			init_vdrdbtable_once(Result),
+			init_vdrdbtable_once(AppPid, DBPid, Index+10000, Count)
+	after ?DB_RESP_TIMEOUT ->
+		{error, lists:append(["ERROR : init device/vehicle db table is timeout when index=", integer_to_list(Index), " and count=", integer_to_list(Count), "."])}
+	end;
+init_vdrdbtable_once(AppPid, DBPid, Index, Count) when is_integer(Count),
+													   Count > 0,
+													   is_integer(Index),
+													   Index >= 0,
+													   Index < Count,
+													   Index+10000 > Count ->
+	common:loginfo("Init device/vehicle db table index=~p", [Index]),
+	DBPid ! {AppPid, conn, binary:list_to_bin([<<"select * from device left join vehicle on vehicle.device_id = device.id order by reg_time desc limit ">>, 
+											   integer_to_binary(Index), <<", ">>, integer_to_binary(Count-Index)])},
+	receive
+		{AppPid, Result} ->
+			init_vdrdbtable_once(Result)
+	after ?DB_RESP_TIMEOUT ->
+		{error, lists:append(["ERROR : init device/vehicle db table is timeout when index=", integer_to_list(Index), " and count=", integer_to_list(Count), "."])}
+	end;
+init_vdrdbtable_once(_AppPid, _DBPid, _Count, _Index) ->
+	ok.
+
+init_vdrdbtable_once(Result) ->
 	case vdr_handler:extract_db_resp(Result) of
 		error ->
 			common:logerror("Message server cannot init vdr db table");
@@ -245,14 +283,14 @@ init_vdrdbtable(Result) ->
 		    common:logerror("Message server init empty vdr db table");
 		{ok, Records} ->
 			try
-				do_init_vdrdbtable(Records)
+				do_init_vdrdbtable_once(Records)
 			catch
 				_:Msg ->
 					common:logerror("Message server fails to init vdr db table : ~p", [Msg])
 			end
 	end.
 
-do_init_vdrdbtable(Result) when is_list(Result),
+do_init_vdrdbtable_once(Result) when is_list(Result),
 								length(Result) > 0 ->
 	[H|T] = Result,
 	{VDRID, VDRSerialNo, VDRAuthenCode, VehicleCode, VehicleID, DriverID} = vdr_handler:get_record_column_info(H),
@@ -265,17 +303,75 @@ do_init_vdrdbtable(Result) when is_list(Result),
 								   vehicleid=VehicleID,
 								   driverid=DriverID},
 			ets:insert(vdrdbtable, VDRDBItem),
-			do_init_vdrdbtable(T);
+			do_init_vdrdbtable_once(T);
 		true ->
 			common:logerror("Failt to insert Device/Vehicle : VDRAuthenCode ~p, VDRID ~p, VDRSerialNo ~p, VehicleCode ~p, VehicleID ~p, DriverID ~p",
 							[VDRAuthenCode, VDRID, VDRSerialNo, VehicleCode, VehicleID, DriverID]),
-			do_init_vdrdbtable(T)
+			do_init_vdrdbtable_once(T)
 	end;
-do_init_vdrdbtable(_Result) ->
+do_init_vdrdbtable_once(_Result) ->
 	ok.
 
-init_alarmtable(AlarmResult) ->
+init_alarmtable(AppPid, DBPid) ->
 	ets:delete_all_objects(alarmtable),
+	common:loginfo("Init alarm table count."),
+	DBPid ! {AppPid, conn, <<"select count(*) from vehicle_alarm where isnull(clear_time)">>},
+	receive
+		{AppPid, Count} ->
+			RealCount = extract_alarmtable_count(Count),
+			common:loginfo("Init alarm table count=~p", [RealCount]),
+			init_alarmtable_once(AppPid, DBPid, 0, RealCount),
+			common:loginfo("Init alarm table final count=~p", [ets:info(alarmtable,size)])
+	after ?DB_RESP_TIMEOUT ->
+		{error, "ERROR : init alarm table count is timeout"}
+	end.
+
+extract_alarmtable_count(Result) ->
+	try
+		%{data,{mysql_result,[{<<>>,<<"count(*)">>,21,'LONGLONG'}],[[15018]],0,0,[],0,[]}} = Result,
+		{_,{_,[{_,_,_,_}],[[Count]],_,_,_,_,_}} = Result,
+		Count
+	catch
+		Ex:Msg ->
+			common:logerror("Cannot extract alarm table count.\n(Exception)~p:(Message)~p~n", [Ex, Msg]),
+			0
+	end.	
+
+init_alarmtable_once(AppPid, DBPid, Index, Count) when is_integer(Count),
+													   Count > 0,
+													   is_integer(Index),
+													   Index >= 0,
+													   Index < Count,
+													   Index + 10000 =< Count ->
+	common:loginfo("Init alarm table index=~p", [Index]),
+	DBPid ! {AppPid, conn, binary:list_to_bin([<<"select * from vehicle_alarm where isnull(clear_time) order by alarm_time desc limit ">>, 
+											   integer_to_binary(Index), <<", ">>, integer_to_binary(Index + 10000)])},
+	receive
+		{AppPid, Result} ->
+			init_alarmtable_once(Result),
+			init_alarmtable_once(AppPid, DBPid, Index+10000, Count)
+	after ?DB_RESP_TIMEOUT ->
+		{error, lists:append(["ERROR : init alarm table is timeout when index=", integer_to_list(Index), " and count=", integer_to_list(Count), "."])}
+	end;
+init_alarmtable_once(AppPid, DBPid, Index, Count) when is_integer(Count),
+													   Count > 0,
+													   is_integer(Index),
+													   Index >= 0,
+													   Index < Count,
+													   Index+10000 > Count ->
+	common:loginfo("Init alarm table index=~p", [Index]),
+	DBPid ! {AppPid, conn, binary:list_to_bin([<<"select * from vehicle_alarm where isnull(clear_time) order by alarm_time desc limit ">>, 
+											   integer_to_binary(Index), <<", ">>, integer_to_binary(Count-Index)])},
+	receive
+		{AppPid, Result} ->
+			init_alarmtable_once(Result)
+	after ?DB_RESP_TIMEOUT ->
+		{error, lists:append(["ERROR : init alarm table is timeout when index=", integer_to_list(Index), " and count=", integer_to_list(Count), "."])}
+	end;
+init_alarmtable_once(_AppPid, _DBPid, _Count, _Index) ->
+	ok.
+
+init_alarmtable_once(AlarmResult) ->
 	case vdr_handler:extract_db_resp(AlarmResult) of
 		error ->
 			common:logerror("Message server cannot init alarm table");
@@ -318,6 +414,9 @@ do_init_alarmtable(_AlarmResult) ->
 %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 db_data_maintain_process(DBOperationPid, Mode) ->
+%	ok.
+%
+%db_data_maintain_process_dummy(DBOperationPid, Mode) ->
 	receive
 		stop ->
 			common:logerror("DB maintain process receive unknown msg.");
@@ -327,17 +426,17 @@ db_data_maintain_process(DBOperationPid, Mode) ->
 			if
 				Mode == 2 orelse Mode == 1 ->
 					common:loginfo("DB maintain process is active."),
-					%Pid = self(),
-					%DBOperationPid ! {Pid, update, devicevehicle},
-					%receive
-					%	{Pid, updateok} ->
-					%		ok
-					%end,
-					%DBOperationPid ! {Pid, update, alarm},
-					%receive
-					%	{Pid, updateok} ->
-					%		ok
-					%end,
+					Pid = self(),
+					DBOperationPid ! {Pid, update, devicevehicle},
+					receive
+						{Pid, updateok} ->
+							ok
+					end,
+					DBOperationPid ! {Pid, update, alarm},
+					receive
+						{Pid, updateok} ->
+							ok
+					end,
 					db_data_maintain_process(DBOperationPid, Mode);
 				true ->
 					common:loginfo("DB maintain process is active without DB operation."),
@@ -357,29 +456,13 @@ db_data_operation_process(DBPid) ->
 		{Pid, update, devicevehicle} ->
 			common:loginfo("DB operation process update device/vehicle."),
 			ProcPid = self(),
-			DBPid ! {ProcPid, conn, <<"select * from device left join vehicle on vehicle.device_id = device.id">>},
-            receive
-                {ProcPid, Result} ->
-					common:loginfo("DB device/vehicle update returns"),
-					init_vdrdbtable(Result),
-					common:loginfo("DB device/vehicle update success : ~p", [ets:info(vdrdbtable, size)])
-			after ?DB_RESP_TIMEOUT * 3 ->	% 10s * 3 = 30s
-				common:logerror("ERROR : update device/vehicle db table is timeout")
-            end,
+			init_vdrdbtable(ProcPid, DBPid),
 			Pid ! {Pid, updateok},
 			db_data_operation_process(DBPid);
 		{Pid, update, alarm} ->
 			common:loginfo("DB operation process update alarm."),
 			ProcPid = self(),
-			DBPid ! {ProcPid, conn, <<"select * from vehicle_alarm where isnull(clear_time) and to_days(now())-to_days(alarm_time)<2 order by alarm_time desc limit 30000">>},
-            receive
-                {ProcPid, AlarmResult} ->
-					common:loginfo("DB alarm init returns"),
-					init_alarmtable(AlarmResult),
-					common:loginfo("DB alarm init success : ~p", [ets:info(alarmtable, size)])
-                after ?DB_RESP_TIMEOUT * 3 ->	% 10s * 3 = 30s
-                    common:logerror("ERROR : update alarm table is timeout")
-			end,
+			init_alarmtable(ProcPid, DBPid),
 			Pid ! {Pid, updateok},
 			db_data_operation_process(DBPid);
 		{_Pid, replace, alarm, VehicleID, AlarmList} ->
