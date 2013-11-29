@@ -414,16 +414,15 @@ do_init_alarmtable(_AlarmResult) ->
 %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 db_data_maintain_process(DBPid, DBOperationPid, Mode) ->
-	ok.
-
-db_data_maintain_process_dummy(DBPid, DBOperationPid, Mode) ->
+%	ok.
+%
+%db_data_maintain_process_dummy(DBPid, DBOperationPid, Mode) ->
 	receive
 		stop ->
 			common:logerror("DB maintain process receive unknown msg.");
 		_ ->
 			db_data_maintain_process(DBPid, DBOperationPid, Mode)
-	after 3*60*60*1000 ->
-	%after 60*1000 ->
+	after ?DB_HASH_UPDATE_INTERVAL ->
 			if
 				Mode == 2 orelse Mode == 1 ->
 					common:loginfo("DB maintain process is active."),
