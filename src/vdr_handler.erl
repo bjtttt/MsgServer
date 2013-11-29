@@ -452,49 +452,8 @@ process_vdr_data(Socket, Data, State) ->
                                             SockVdrList = ets:lookup(vdrtable, Socket),
                                             case length(SockVdrList) of
                                                 1 ->
-                                                    % "authen_code" is the query condition, so Auth should be equal to VDRAuthEnCode
-                                                    %{Auth} = Msg,
-                                                    
-                                                    %SqlUpdate = list_to_binary([<<"update device set is_online=1 where authen_code='">>, VDRAuthenCode, <<"'">>]),
-                                                    %SqlUpdate = list_to_binary([<<"replace into device(authen_code,is_online) values('">>, VDRAuthenCode, <<"',1)">>]),
-                                                    %send_sql_to_db(conn, SqlUpdate, NewState),
-
 													case check_alarm(NewState, VehicleID) of
 														{ok, Alarms} ->
-															%case Alarms of
-															%	[] ->
-															%		%common:loginfo("Original AlarmList : []"),	
-		                                                    %        case wsock_data_parser:create_term_online([VehicleID]) of
-		                                                    %            {ok, WSUpdate} ->
-		                                                    %                %common:loginfo("VDR (~p) WS : ~p~n~p", [State#vdritem.addr, WSUpdate, list_to_binary(WSUpdate)]),
-		                                                    %                send_msg_to_ws(WSUpdate, NewState),
-		                                                    %        
-		                                                    %                FlowIdx = NewState#vdritem.msgflownum,
-		                                                    %                MsgBody = vdr_data_processor:create_gen_resp(ID, MsgIdx, ?T_GEN_RESP_OK),
-		                                                    %                %common:loginfo("~p sends VDR (~p) response for 16#102 (ok) : ~p", [State#vdritem.pid, State#vdritem.addr, MsgBody]),
-		                                                    %                NewFlowIdx = send_data_to_vdr(16#8001, Tel, FlowIdx, MsgBody, NewState),
-															%			
-															%				FinalState = NewState#vdritem{id=VDRID, 
-		                                                    %                                              serialno=binary_to_list(VDRSerialNo),
-		                                                    %                                              auth=binary_to_list(VDRAuthenCode),
-		                                                    %                                              vehicleid=VehicleID,
-		                                                    %                                              vehiclecode=binary_to_list(VehicleCode),
-															%								              driverid=DriverID,
-		                                                    %                                              msgflownum=NewFlowIdx, msg2vdr=[], msg=[], req=[],
-															%								              alarm=0, alarmlist=[], state=0, statelist=[], tel=Tel},
-		                                                    %                VDRTablePid = NewState#vdritem.vdrtablepid,
-		                                                    %                common:send_vdr_table_operation(VDRTablePid, {self(), insert, FinalState, noresp}),
-		                                        			%
-															%				{ok, FinalState};
-		                                                    %            _ ->
-		                                                    %                {error, autherror, NewState}
-		                                                    %        end;
-															%	_ ->
-															% Initialize the alarm list immediately after auth
-															%common:loginfo("Original Alarms : ~p", [Alarms]),
-															% Original Alarms : [{alarmitem,19280,0,{{2013,10,24},{18,21,56}}}]
-															%AlarmList = get_alarm_list_from_table(Alarms),
-															%common:loginfo("Original AlarmList : ~p", [AlarmList]),		                                                            
                                                             case wsock_data_parser:create_term_online([VehicleID]) of
                                                                 {ok, WSUpdate} ->
                                                                     %common:loginfo("VDR (~p) WS : ~p~n~p", [State#vdritem.addr, WSUpdate, list_to_binary(WSUpdate)]),
@@ -546,67 +505,6 @@ process_vdr_data(Socket, Data, State) ->
                                                                 _ ->
                                                                     {error, autherror, NewState}
                                                             end
-															% Please don't delete
-															%SqlAlarmList = list_to_binary([<<"select * from vehicle_alarm where vehicle_id=">>, common:integer_to_binary(VehicleID), <<" and isnull(clear_time)">>]),
-															%SqlAlarmListResp = send_sql_to_db(conn, SqlAlarmList, NewState),
-															%case extract_db_resp(SqlAlarmListResp) of
-															%	{ok, empty} ->
-															%		%common:loginfo("Original AlarmList : []"),	
-		                                                    %        case wsock_data_parser:create_term_online([VehicleID]) of
-		                                                    %            {ok, WSUpdate} ->
-		                                                    %                %common:loginfo("VDR (~p) WS : ~p~n~p", [State#vdritem.addr, WSUpdate, list_to_binary(WSUpdate)]),
-		                                                    %                send_msg_to_ws(WSUpdate, NewState),
-		                                                    %        
-		                                                    %                FlowIdx = NewState#vdritem.msgflownum,
-		                                                    %                MsgBody = vdr_data_processor:create_gen_resp(ID, MsgIdx, ?T_GEN_RESP_OK),
-		                                                    %                %common:loginfo("~p sends VDR (~p) response for 16#102 (ok) : ~p", [State#vdritem.pid, State#vdritem.addr, MsgBody]),
-		                                                    %                NewFlowIdx = send_data_to_vdr(16#8001, Tel, FlowIdx, MsgBody, NewState),
-															%			
-															%				FinalState = NewState#vdritem{id=VDRID, 
-		                                                    %                                              serialno=binary_to_list(VDRSerialNo),
-		                                                    %                                              auth=binary_to_list(VDRAuthenCode),
-		                                                    %                                              vehicleid=VehicleID,
-		                                                    %                                              vehiclecode=binary_to_list(VehicleCode),
-															%								              driverid=DriverID,
-		                                                    %                                              msgflownum=NewFlowIdx, msg2vdr=[], msg=[], req=[],
-															%								              alarm=0, alarmlist=[], state=0, statelist=[], tel=Tel},
-		                                                    %                VDRTablePid = NewState#vdritem.vdrtablepid,
-		                                                    %                common:send_vdr_table_operation(VDRTablePid, {self(), insert, FinalState, noresp}),
-		                                        			%
-															%				{ok, FinalState};
-		                                                    %            _ ->
-		                                                    %                {error, autherror, NewState}
-		                                                    %        end;
-															%	{ok, Reses} ->
-															%		% Initialize the alarm list immediately after auth
-															%		AlarmList = get_alarm_list(Reses),
-															%		%common:loginfo("Original AlarmList : ~p", [AlarmList]),		                                                            
-		                                                    %        case wsock_data_parser:create_term_online([VehicleID]) of
-		                                                    %            {ok, WSUpdate} ->
-		                                                    %                %common:loginfo("VDR (~p) WS : ~p~n~p", [State#vdritem.addr, WSUpdate, list_to_binary(WSUpdate)]),
-		                                                    %                send_msg_to_ws(WSUpdate, NewState),
-															%				
-		                                                    %                FlowIdx = NewState#vdritem.msgflownum,
-		                                                    %                MsgBody = vdr_data_processor:create_gen_resp(ID, MsgIdx, ?T_GEN_RESP_OK),
-		                                                    %                %common:loginfo("~p sends VDR (~p) response for 16#102 (ok) : ~p", [NewState#vdritem.pid, NewState#vdritem.addr, MsgBody]),
-		                                                    %                NewFlowIdx = send_data_to_vdr(16#8001, Tel, FlowIdx, MsgBody, NewState),
-		                                        			%
-															%				FinalState = NewState#vdritem{id=VDRID,
-		                                                    %                                              serialno=binary_to_list(VDRSerialNo),
-		                                                    %                                              auth=binary_to_list(VDRAuthenCode),
-		                                                    %                                              vehicleid=VehicleID,
-		                                                    %                                              vehiclecode=binary_to_list(VehicleCode),
-															%								              driverid=DriverID,
-		                                                    %                                              msgflownum=NewFlowIdx, msg2vdr=[], msg=[], req=[],
-															%								              alarm=0, alarmlist=AlarmList, state=0, statelist=[], tel=Tel},
-		                                                    %                VDRTablePid = NewState#vdritem.vdrtablepid,
-		                                                    %                common:send_vdr_table_operation(VDRTablePid, {self(), insert, FinalState, noresp}),
-															%				
-		                                                    %                {ok, FinalState};
-		                                                    %            _ ->
-		                                                    %                {error, autherror, NewState}
-		                                                    %        end
-															%end
 													end;
                                                 _ ->
                                                     % vdrtable error
