@@ -231,7 +231,7 @@ init_vdrdbtable(AppPid, DBPid) ->
 			RealCount = extract_vdrdbtable_count(Count),
 			common:loginfo("Init device/vehicle db table count=~p", [RealCount]),
 			init_vdrdbtable_once(AppPid, DBPid, 0, RealCount),
-			common:loginfo("Init alarm table final count=~p", [ets:info(vdrdbtable,size)])
+			common:loginfo("Init device/vehicle db table final count=~p", [ets:info(vdrdbtable,size)])
 	after ?DB_RESP_TIMEOUT ->
 		{error, "ERROR : init device/vehicle db table count is timeout"}
 	end.
