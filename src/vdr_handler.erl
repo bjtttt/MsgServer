@@ -547,20 +547,8 @@ process_vdr_data(Socket, Data, State) ->
 				                                                    SockVdrList = ets:lookup(vdrtable, Socket),
 				                                                    case length(SockVdrList) of
 				                                                        1 ->
-				                                                            % "authen_code" is the query condition, so Auth should be equal to VDRAuthEnCode
-				                                                            %{Auth} = Msg,
-				                                                            
-				                                                            %SqlUpdate = list_to_binary([<<"update device set is_online=1 where authen_code='">>, VDRAuthenCode, <<"'">>]),
-				                                                            %SqlUpdate = list_to_binary([<<"replace into device(authen_code,is_online) values('">>, VDRAuthenCode, <<"',1)">>]),
-				                                                            %send_sql_to_db(conn, SqlUpdate, NewState),
-									
 																			case check_alarm(NewState, VehicleID) of
 																				{ok, Alarms} ->
-																					% Initialize the alarm list immediately after auth
-																					%common:loginfo("Original Alarms : ~p", [Alarms]),
-																					% Original Alarms : [{alarmitem,19280,0,{{2013,10,24},{18,21,56}}}]
-																					%AlarmList = get_alarm_list_from_table(Alarms),
-																					%common:loginfo("Original AlarmList : ~p", [AlarmList]),		                                                            
 						                                                            case wsock_data_parser:create_term_online([VehicleID]) of
 						                                                                {ok, WSUpdate} ->
 						                                                                    %common:loginfo("VDR (~p) WS : ~p~n~p", [State#vdritem.addr, WSUpdate, list_to_binary(WSUpdate)]),
