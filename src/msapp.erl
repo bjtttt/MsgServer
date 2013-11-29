@@ -414,9 +414,9 @@ do_init_alarmtable(_AlarmResult) ->
 %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 db_data_maintain_process(DBPid, DBOperationPid, Mode) ->
-%	ok.
-%
-%db_data_maintain_process_dummy(DBPid, DBOperationPid, Mode) ->
+	ok.
+
+db_data_maintain_process_dummy(DBPid, DBOperationPid, Mode) ->
 	receive
 		stop ->
 			common:logerror("DB maintain process receive unknown msg.");
