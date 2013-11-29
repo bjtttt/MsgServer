@@ -106,7 +106,7 @@ start(StartType, StartArgs) ->
 		                    CCPid = spawn(fun() -> code_convertor_process() end),
 		                    VdrTablePid = spawn(fun() -> vdrtable_insert_delete_process() end),
 							DBOperationPid = spawn(fun() -> db_data_operation_process(DBPid) end),
-							DBMaintainPid = spawn(fun() -> db_data_maintain_process(DBPid, DBOperationPid, Mode) end),
+							%DBMaintainPid = spawn(fun() -> db_data_maintain_process(DBPid, DBOperationPid, Mode) end),
 		                    ets:insert(msgservertable, {dbpid, DBPid}),
 		                    ets:insert(msgservertable, {wspid, WSPid}),
 		                    ets:insert(msgservertable, {linkpid, LinkPid}),
@@ -114,14 +114,14 @@ start(StartType, StartArgs) ->
 		                    ets:insert(msgservertable, {ccpid, CCPid}),
 		                    ets:insert(msgservertable, {vdrtablepid, VdrTablePid}),
 							ets:insert(msgservertable, {dboperationpid, DBOperationPid}),
-		                    ets:insert(msgservertable, {dbmaintainpid, VdrTablePid}),
+		                    %ets:insert(msgservertable, {dbmaintainpid, VdrTablePid}),
 		                    common:loginfo("WS client process PID is ~p", [WSPid]),
 		                    common:loginfo("DB client process PID is ~p", [DBPid]),
 		                    common:loginfo("DB table deamon process PID is ~p", [DBTablePid]),
 		                    common:loginfo("Code convertor process PID is ~p", [CCPid]),
 		                    common:loginfo("VDR table processor process PID is ~p", [VdrTablePid]),
 							common:loginfo("DB operation process PID is ~p", [DBOperationPid]),
-							common:loginfo("DB miantain process PID is ~p", [DBMaintainPid]),
+							%common:loginfo("DB miantain process PID is ~p", [DBMaintainPid]),
 		                    
 				            common:loginfo("DB coding setting"),
 							DBPid ! {AppPid, conn, <<"set names 'utf8'">>},
@@ -162,20 +162,20 @@ start(StartType, StartArgs) ->
 		                    CCPid = spawn(fun() -> code_convertor_process() end),
 		                    VdrTablePid = spawn(fun() -> vdrtable_insert_delete_process() end),
 							DBOperationPid = spawn(fun() -> db_data_operation_process(DBPid) end),
-							DBMaintainPid = spawn(fun() -> db_data_maintain_process(DBPid, DBOperationPid, Mode) end),
+							%DBMaintainPid = spawn(fun() -> db_data_maintain_process(DBPid, DBOperationPid, Mode) end),
 		                    ets:insert(msgservertable, {dbpid, DBPid}),
 		                    ets:insert(msgservertable, {linkpid, LinkPid}),
 		                    ets:insert(msgservertable, {dbtablepid, DBTablePid}),
 		                    ets:insert(msgservertable, {ccpid, CCPid}),
 		                    ets:insert(msgservertable, {vdrtablepid, VdrTablePid}),
 							ets:insert(msgservertable, {dboperationpid, DBOperationPid}),
-							ets:insert(msgservertable, {dbmaintainpid, DBMaintainPid}),
+							%ets:insert(msgservertable, {dbmaintainpid, DBMaintainPid}),
 		                    common:loginfo("DB client process PID is ~p", [DBPid]),
 		                    common:loginfo("DB table deamon process PID is ~p", [DBTablePid]),
 		                    common:loginfo("Code convertor process PID is ~p", [CCPid]),
 		                    common:loginfo("VDR table processor process PID is ~p", [VdrTablePid]),
 		                    common:loginfo("DB operation process PID is ~p", [DBOperationPid]),
-		                    common:loginfo("DB miantain process PID is ~p", [DBMaintainPid]),
+		                    %common:loginfo("DB miantain process PID is ~p", [DBMaintainPid]),
 		                    
 							common:loginfo("DB coding setting"),
 				            DBPid ! {AppPid, conn, <<"set names 'utf8'">>},
@@ -413,41 +413,41 @@ do_init_alarmtable(_AlarmResult) ->
 % This process will update device\vehicle table and alarm table every half an hour
 %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-db_data_maintain_process(DBPid, DBOperationPid, Mode) ->
-	ok.
-
-db_data_maintain_process_dummy(DBPid, DBOperationPid, Mode) ->
-	receive
-		stop ->
-			common:logerror("DB maintain process receive unknown msg.");
-		_ ->
-			db_data_maintain_process(DBPid, DBOperationPid, Mode)
-	after ?DB_HASH_UPDATE_INTERVAL ->
-			if
-				Mode == 2 orelse Mode == 1 ->
-					common:loginfo("DB maintain process is active."),
-					Pid = self(),
-					DBPid ! {Pid, conn, <<"set names 'utf8'">>},
-					receive
-						{Pid, _} ->
-							ok
-					end,
-					DBOperationPid ! {Pid, update, devicevehicle},
-					receive
-						{Pid, updateok} ->
-							ok
-					end,
-					DBOperationPid ! {Pid, update, alarm},
-					receive
-						{Pid, updateok} ->
-							ok
-					end,
-					db_data_maintain_process(DBPid, DBOperationPid, Mode);
-				true ->
-					common:loginfo("DB maintain process is active without DB operation."),
-					db_data_maintain_process(DBPid, DBOperationPid, Mode)
-			end
-	end.			
+%db_data_maintain_process(DBPid, DBOperationPid, Mode) ->
+%	ok.
+%
+%db_data_maintain_process_dummy(DBPid, DBOperationPid, Mode) ->
+%	receive
+%		stop ->
+%			common:logerror("DB maintain process receive unknown msg.");
+%		_ ->
+%			db_data_maintain_process(DBPid, DBOperationPid, Mode)
+%	after ?DB_HASH_UPDATE_INTERVAL ->
+%			if
+%				Mode == 2 orelse Mode == 1 ->
+%					common:loginfo("DB maintain process is active."),
+%					Pid = self(),
+%					DBPid ! {Pid, conn, <<"set names 'utf8'">>},
+%					receive
+%						{Pid, _} ->
+%							ok
+%					end,
+%					DBOperationPid ! {Pid, update, devicevehicle},
+%					receive
+%						{Pid, updateok} ->
+%							ok
+%					end,
+%					DBOperationPid ! {Pid, update, alarm},
+%					receive
+%						{Pid, updateok} ->
+%							ok
+%					end,
+%					db_data_maintain_process(DBPid, DBOperationPid, Mode);
+%				true ->
+%					common:loginfo("DB maintain process is active without DB operation."),
+%					db_data_maintain_process(DBPid, DBOperationPid, Mode)
+%			end
+%	end.			
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %
@@ -458,18 +458,18 @@ db_data_operation_process(DBPid) ->
 	receive
 		stop ->
 			common:logerror("DB operation process stops.");
-		{Pid, update, devicevehicle} ->
-			common:loginfo("DB operation process update device/vehicle."),
-			ProcPid = self(),
-			init_vdrdbtable(ProcPid, DBPid),
-			Pid ! {Pid, updateok},
-			db_data_operation_process(DBPid);
-		{Pid, update, alarm} ->
-			common:loginfo("DB operation process update alarm."),
-			ProcPid = self(),
-			init_alarmtable(ProcPid, DBPid),
-			Pid ! {Pid, updateok},
-			db_data_operation_process(DBPid);
+		%{Pid, update, devicevehicle} ->
+		%	common:loginfo("DB operation process update device/vehicle."),
+		%	ProcPid = self(),
+		%	init_vdrdbtable(ProcPid, DBPid),
+		%	Pid ! {Pid, updateok},
+		%	db_data_operation_process(DBPid);
+		%{Pid, update, alarm} ->
+		%	common:loginfo("DB operation process update alarm."),
+		%	ProcPid = self(),
+		%	init_alarmtable(ProcPid, DBPid),
+		%	Pid ! {Pid, updateok},
+		%	db_data_operation_process(DBPid);
 		{_Pid, replace, alarm, VehicleID, AlarmList} ->
 			ets:delete(alarmtable, VehicleID),
 			ets:insert(alarmtable, AlarmList),

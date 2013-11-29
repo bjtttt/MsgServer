@@ -35,15 +35,13 @@ init([Sock, Addr]) ->
     [{dbstate, DBState}] = ets:lookup(msgservertable, dbstate),
 	if
 		DBState == true ->
-		    State = #vdritem{socket=Sock, pid=Pid, vdrpid=DBOperationPid, addr=Addr, msgflownum=1, errorcount=0, dbpid=DBPid, wspid=WSPid, ccpid=CCPid, linkpid=LinkPid, vdrtablepid=VDRTablePid},
-		    %State = #vdritem{socket=Sock, pid=Pid, vdrpid=VDRRespPid, addr=Addr, msgflownum=1, errorcount=0, dbpid=DBPid, wspid=WSPid, ccpid=CCPid, linkpid=LinkPid, vdrtablepid=VDRTablePid},
+		    State = #vdritem{socket=Sock, pid=Pid, dboperid=DBOperationPid, addr=Addr, msgflownum=1, errorcount=0, dbpid=DBPid, wspid=WSPid, ccpid=CCPid, linkpid=LinkPid, vdrtablepid=VDRTablePid},
 			common:send_stat_err(State, conn),
 		    common:send_vdr_table_operation(VDRTablePid, {self(), insert, State, noresp}),
 		    inet:setopts(Sock, [{active, once}, {send_timeout, ?VDR_MSG_TIMEOUT}, {send_timeout_close, true}]),
 			{ok, State, ?VDR_MSG_TIMEOUT};
 		true ->
-		    State = #vdritem{socket=Sock, pid=Pid, vdrpid=DBOperationPid, addr=Addr, msgflownum=1, errorcount=0, dbpid=unused, wspid=WSPid, ccpid=CCPid, linkpid=LinkPid, vdrtablepid=VDRTablePid},
-		    %State = #vdritem{socket=Sock, pid=Pid, vdrpid=VDRRespPid, addr=Addr, msgflownum=1, errorcount=0, dbpid=DBPid, wspid=WSPid, ccpid=CCPid, linkpid=LinkPid, vdrtablepid=VDRTablePid},
+		    State = #vdritem{socket=Sock, pid=Pid, dboperid=DBOperationPid, addr=Addr, msgflownum=1, errorcount=0, dbpid=unused, wspid=WSPid, ccpid=CCPid, linkpid=LinkPid, vdrtablepid=VDRTablePid},
 			common:send_stat_err(State, conn),
 		    common:send_vdr_table_operation(VDRTablePid, {self(), insert, State, noresp}),
 		    inet:setopts(Sock, [{active, once}, {send_timeout, ?VDR_MSG_TIMEOUT}, {send_timeout_close, true}]),
@@ -172,18 +170,10 @@ handle_info(_Info, State) ->
 %%% When VDR handler process is terminated, do the clean jobs here
 %%%
 terminate(_Reason, State) ->
-    %Auth = State#vdritem.auth,
+	Pid = State#vdritem.pid,
     VehicleID = State#vdritem.vehicleid,
     Socket = State#vdritem.socket,
-    %VDRPid = State#vdritem.vdrpid,
     VDRTablePid = State#vdritem.vdrtablepid,
-	Pid = State#vdritem.pid,
-    %case VDRPid of
-    %    undefined ->
-    %        ok;
-    %    _ ->
-    %        VDRPid ! {Pid, stop, noresp}
-    %end,
     case Socket of
         undefined ->
             ok;
@@ -197,31 +187,11 @@ terminate(_Reason, State) ->
             {ok, WSUpdate} = wsock_data_parser:create_term_offline([VehicleID]),
             send_msg_to_ws_nowait(WSUpdate, State)
     end,
-    %case Auth of
-    %    undefined ->
-    %        ok;
-    %    _ ->
-			%Sql = list_to_binary([<<"replace into device(authen_code,is_online) values('">>, Auth, <<"',0)">>]),
-			%%Sql = list_to_binary([<<"update device set is_online=0 where authen_code='">>, 
-            %%                      list_to_binary(Auth), 
-            %%                      <<"'">>]),
-            %send_sql_to_db_nowait(conn, Sql, State)
-    %end,
 	try gen_tcp:close(State#vdritem.socket)
     catch
         _:Ex ->
             common:logerror("VDR (~p) : exception when gen_tcp:close : ~p", [State#vdritem.addr, Ex])
     end.
-    %common:loginfo("~p VDR (~p) socket (~p) (id:~p, serialno:~p, authen_code:~p, vehicleid:~p, vehiclecode:~p) is terminated : ~p",
-	%			   [self(),
-	%				State#vdritem.addr,
-	%				State#vdritem.socket,
-	%				State#vdritem.id, 
-	%				State#vdritem.serialno, 
-	%				State#vdritem.auth, 
-	%				State#vdritem.vehicleid, 
-	%				State#vdritem.vehiclecode,
-	%				Reason]).
 
 code_change(_OldVsn, State, _Extra) ->    
 	{ok, State}.
@@ -278,7 +248,6 @@ safe_process_vdr_msg(Socket, Msg, State) ->
 %%% FlowIdx : Gateway message flow index
 %%%
 process_vdr_data(Socket, Data, State) -> 
-	%VDRPid = State#vdritem.vdrpid,
     case vdr_data_parser:process_data(State, Data) of
         {ok, HeadInfo, Msg, NewState} ->
             {ID, MsgIdx, Tel, _CryptoType} = HeadInfo,
@@ -550,7 +519,6 @@ process_vdr_data(Socket, Data, State) ->
                                                                     {ok, FinalState};
                                                                 _ ->
                                                                     {error, autherror, NewState}
-                                                            %end
 															end;
 														empty ->
                                                             case wsock_data_parser:create_term_online([VehicleID]) of
@@ -661,11 +629,22 @@ process_vdr_data(Socket, Data, State) ->
 															common:logerror("VDR (~p) Vehicle Code has invalid character \"?\" and will be disconnected : ~p", [State#vdritem.addr, VehicleCode]),
 															{error, charerror, NewState};
 														true ->
-															{VDRID, VDRSerialNo, VDRAuthenCode, _VehicleCode, VehicleID, DriverID} = get_record_column_info(Rec),
+															{VDRID, VDRSerialNo, VDRAuthenCode, VehicleCode, VehicleID, DriverID} = get_record_column_info(Rec),
 				                                            if
 				                                                VehicleID == undefined orelse VehicleCode==undefined ->
 				                                                    {error, autherror, NewState};
 				                                                true ->
+																	% Update VDR DB hash
+																	Pid = State#vdritem.pid,
+																	DBOperationPid = State#vdritem.dboperid,
+																	VDRDBItem = #vdrdbitem{authencode=VDRAuthenCode, 
+																						   vdrid=VDRID, 
+																						   vdrserialno=VDRSerialNo,
+																						   vehiclecode=VehicleCode,
+																						   vehicleid=VehicleID,
+																						   driverid=DriverID},
+																	DBOperationPid ! {Pid, insert, vdrdbtable, VDRDBItem, noresp},
+																	
 																	disconn_socket_by_vehicle_id(VehicleID),
 				                                                    SockVdrList = ets:lookup(vdrtable, Socket),
 				                                                    case length(SockVdrList) of
@@ -758,7 +737,6 @@ process_vdr_data(Socket, Data, State) ->
                             {error, unautherror, State}
                     end;
                 true ->
-					VDRPid = State#vdritem.vdrpid,
 					%common:loginfo("VDR (~p) (id:~p, serialno:~p, authen_code:~p, vehicleid:~p, vehiclecode:~p) MSG ID (~p), MSG Index (~p), MSG Tel (~p)",
 					%			   [NewState#vdritem.addr, 
 					%				NewState#vdritem.id, 
@@ -871,11 +849,11 @@ process_vdr_data(Socket, Data, State) ->
                             
                             {ok, NewState};
                         16#200 ->
-							process_pos_info(ID, MsgIdx, VDRPid, HeadInfo, Msg, NewState);
+							process_pos_info(ID, MsgIdx, HeadInfo, Msg, NewState);
                         16#201 ->
                             case Msg of
 								{_RespFlowIdx, PosInfo} ->
-		                            process_pos_info(ID, MsgIdx, VDRPid, HeadInfo, PosInfo, NewState);
+		                            process_pos_info(ID, MsgIdx, HeadInfo, PosInfo, NewState);
 								_ ->
 									{error, vdrerror, NewState}
 							end;
@@ -1130,7 +1108,7 @@ process_vdr_data(Socket, Data, State) ->
             FlowIdx = NewState#vdritem.msgflownum,
             MsgBody = vdr_data_processor:create_gen_resp(ID, MsgIdx, ErrorType),
 			if
-				NewState#vdritem.vdrpid == undefined ->
+				NewState#vdritem.dboperid == undefined ->
             		NewFlowIdx = send_data_to_vdr(16#8001, NewState#vdritem.tel, FlowIdx, MsgBody, NewState),
 					{warning, NewState#vdritem{msgflownum=NewFlowIdx}};
 				true ->
@@ -1143,7 +1121,7 @@ process_vdr_data(Socket, Data, State) ->
 
 check_vdrdbtable_auth(State, Auth) when is_binary(Auth) ->
 	Pid = State#vdritem.pid,
-	DBOperationPid = State#vdritem.vdrpid,
+	DBOperationPid = State#vdritem.dboperid,
 	DBOperationPid ! {Pid, lookup, vdrdbtable, Auth},
 	receive
 		{Pid, Res} ->
@@ -1160,7 +1138,7 @@ check_vdrdbtable_auth(State, Auth) when is_binary(Auth) ->
 	end;
 check_vdrdbtable_auth(State, Auth) when is_list(Auth) ->
 	Pid = State#vdritem.pid,
-	DBOperationPid = State#vdritem.vdrpid,
+	DBOperationPid = State#vdritem.dboperid,
 	DBOperationPid ! {Pid, lookup, vdrdbtable, list_to_binary(Auth)},
 	receive
 		{Pid, Res} ->
@@ -1180,11 +1158,10 @@ check_vdrdbtable_auth(_State, _Auth) ->
 
 check_alarm(State, VehicleID) ->
 	Pid = State#vdritem.pid,
-	DBOperationPid = State#vdritem.vdrpid,
+	DBOperationPid = State#vdritem.dboperid,
 	DBOperationPid ! {Pid, lookup, vdrdbtable, VehicleID},
 	receive
 		{Pid, Res} ->
-			%Res = ets:lookup(alarmtable, VehicleID),
 			case Res of
 				[] ->
 					empty;
@@ -1237,7 +1214,7 @@ create_time_list_and_binary(Time) when is_integer(Time) ->
 create_time_list_and_binary(_Time) ->
 	{<<"2000-01-01 00:00:00">>, "2000-01-01 00:00:00", {{2000,1,1},{0,0,0}}}.
 
-process_pos_info(ID, MsgIdx, _VDRPid, HeadInfo, Msg, NewState) ->
+process_pos_info(ID, MsgIdx, HeadInfo, Msg, NewState) ->
 	DBPid = NewState#vdritem.dbpid,
 	if
 		DBPid == unused ->
@@ -1276,8 +1253,8 @@ process_pos_info(ID, MsgIdx, _VDRPid, HeadInfo, Msg, NewState) ->
 									NewClearAlarmList = find_alarm_in_lista_not_in_listb(NewState#vdritem.alarmlist, AlarmList),
 									
 									if
-										NewState#vdritem.vdrpid =/= undefined ->
-											NewState#vdritem.vdrpid ! {NewState#vdritem.pid, replace, alarm, NewState#vdritem.vehicleid, AlarmList};
+										NewState#vdritem.dboperid =/= undefined ->
+											NewState#vdritem.dboperid ! {NewState#vdritem.pid, replace, alarm, NewState#vdritem.vehicleid, AlarmList};
 										true ->
 											ok
 									end,
@@ -1688,7 +1665,6 @@ disconn_socket_by_vehicle_id(VehicleID) ->
 %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 send_data_to_vdr(ID, Tel, FlowIdx, MsgBody, State) ->
-	%VDRPid = State#vdritem.vdrpid,
 	Socket = State#vdritem.socket,
 	Pid = State#vdritem.pid,
 	LinkPid = State#vdritem.linkpid,

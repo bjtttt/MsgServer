@@ -93,8 +93,7 @@
 -record(user, {id=undefined, name=undefined, level=undefined, ip=undefined, time=undefined}).
 
 %%%
-%%% pid     : VDR handler PID
-%%% vdrpid  : VDR handler send data to VDR PID
+%%%
 %%%
 -record(vdritem, {  socket=undefined, 
                     id=undefined,               % DB VDR ID, only valid in DB table
@@ -111,7 +110,7 @@
                     lastlat=0.0,
                     lastlon=0.0,
                     pid=undefined,
-                    vdrpid=undefined,			% db operation process
+                    dboperid=undefined,			% db operation process
                     addr=undefined, 
                     acttime=undefined, 
                     timeout=undefined,
