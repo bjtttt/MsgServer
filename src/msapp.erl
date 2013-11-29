@@ -246,14 +246,14 @@ init_vdrdbtable_once(AppPid, DBPid, Index, Count) when is_integer(Count),
 													   is_integer(Index),
 													   Index >= 0,
 													   Index < Count,
-													   Index + 10000 =< Count ->
+													   Index + ?DB_HASH_UPDATE_ONCE_COUNT =< Count ->
 	common:loginfo("Init device/vehicle db table index=~p", [Index]),
 	DBPid ! {AppPid, conn, binary:list_to_bin([<<"select * from device left join vehicle on vehicle.device_id = device.id order by reg_time desc limit ">>, 
-											   integer_to_binary(Index), <<", ">>, integer_to_binary(Index + 10000)])},
+											   integer_to_binary(Index), <<", ">>, integer_to_binary(Index + ?DB_HASH_UPDATE_ONCE_COUNT)])},
 	receive
 		{AppPid, Result} ->
 			init_vdrdbtable_once(Result),
-			init_vdrdbtable_once(AppPid, DBPid, Index+10000, Count)
+			init_vdrdbtable_once(AppPid, DBPid, Index+?DB_HASH_UPDATE_ONCE_COUNT, Count)
 	after ?DB_RESP_TIMEOUT ->
 		{error, lists:append(["ERROR : init device/vehicle db table is timeout when index=", integer_to_list(Index), " and count=", integer_to_list(Count), "."])}
 	end;
@@ -262,7 +262,7 @@ init_vdrdbtable_once(AppPid, DBPid, Index, Count) when is_integer(Count),
 													   is_integer(Index),
 													   Index >= 0,
 													   Index < Count,
-													   Index+10000 > Count ->
+													   Index+?DB_HASH_UPDATE_ONCE_COUNT > Count ->
 	common:loginfo("Init device/vehicle db table index=~p", [Index]),
 	DBPid ! {AppPid, conn, binary:list_to_bin([<<"select * from device left join vehicle on vehicle.device_id = device.id order by reg_time desc limit ">>, 
 											   integer_to_binary(Index), <<", ">>, integer_to_binary(Count-Index)])},
@@ -342,14 +342,14 @@ init_alarmtable_once(AppPid, DBPid, Index, Count) when is_integer(Count),
 													   is_integer(Index),
 													   Index >= 0,
 													   Index < Count,
-													   Index + 10000 =< Count ->
+													   Index + ?DB_HASH_UPDATE_ONCE_COUNT =< Count ->
 	common:loginfo("Init alarm table index=~p", [Index]),
 	DBPid ! {AppPid, conn, binary:list_to_bin([<<"select * from vehicle_alarm where isnull(clear_time) order by alarm_time desc limit ">>, 
-											   integer_to_binary(Index), <<", ">>, integer_to_binary(Index + 10000)])},
+											   integer_to_binary(Index), <<", ">>, integer_to_binary(Index + ?DB_HASH_UPDATE_ONCE_COUNT)])},
 	receive
 		{AppPid, Result} ->
 			init_alarmtable_once(Result),
-			init_alarmtable_once(AppPid, DBPid, Index+10000, Count)
+			init_alarmtable_once(AppPid, DBPid, Index+?DB_HASH_UPDATE_ONCE_COUNT, Count)
 	after ?DB_RESP_TIMEOUT ->
 		{error, lists:append(["ERROR : init alarm table is timeout when index=", integer_to_list(Index), " and count=", integer_to_list(Count), "."])}
 	end;
@@ -358,7 +358,7 @@ init_alarmtable_once(AppPid, DBPid, Index, Count) when is_integer(Count),
 													   is_integer(Index),
 													   Index >= 0,
 													   Index < Count,
-													   Index+10000 > Count ->
+													   Index+?DB_HASH_UPDATE_ONCE_COUNT > Count ->
 	common:loginfo("Init alarm table index=~p", [Index]),
 	DBPid ! {AppPid, conn, binary:list_to_bin([<<"select * from vehicle_alarm where isnull(clear_time) order by alarm_time desc limit ">>, 
 											   integer_to_binary(Index), <<", ">>, integer_to_binary(Count-Index)])},
