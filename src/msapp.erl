@@ -319,6 +319,9 @@ do_init_vdrdbtable_once(_Result) ->
 	ok.
 
 init_alarmtable(AppPid, DBPid) ->
+	ok.
+
+init_alarmtable_dummy(AppPid, DBPid) ->
 	ets:delete_all_objects(alarmtable),
 	common:loginfo("Init alarm table count."),
 	DBPid ! {AppPid, conn, <<"select count(*) from vehicle_alarm where isnull(clear_time)">>},
