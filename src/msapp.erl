@@ -106,6 +106,7 @@ start(StartType, StartArgs) ->
 		                    CCPid = spawn(fun() -> code_convertor_process() end),
 		                    VdrTablePid = spawn(fun() -> vdrtable_insert_delete_process() end),
 							DBOperationPid = spawn(fun() -> db_data_operation_process(DBPid) end),
+							MysqlActivePid = spawn(fun() -> mysql_active_process(DBPid) end),
 							%DBMaintainPid = spawn(fun() -> db_data_maintain_process(DBPid, DBOperationPid, Mode) end),
 		                    ets:insert(msgservertable, {dbpid, DBPid}),
 		                    ets:insert(msgservertable, {wspid, WSPid}),
@@ -114,6 +115,7 @@ start(StartType, StartArgs) ->
 		                    ets:insert(msgservertable, {ccpid, CCPid}),
 		                    ets:insert(msgservertable, {vdrtablepid, VdrTablePid}),
 							ets:insert(msgservertable, {dboperationpid, DBOperationPid}),
+							ets:insert(msgservertable, {mysqlactivepid, MysqlActivePid}),
 		                    %ets:insert(msgservertable, {dbmaintainpid, VdrTablePid}),
 		                    common:loginfo("WS client process PID is ~p", [WSPid]),
 		                    common:loginfo("DB client process PID is ~p", [DBPid]),
@@ -121,6 +123,7 @@ start(StartType, StartArgs) ->
 		                    common:loginfo("Code convertor process PID is ~p", [CCPid]),
 		                    common:loginfo("VDR table processor process PID is ~p", [VdrTablePid]),
 							common:loginfo("DB operation process PID is ~p", [DBOperationPid]),
+							common:loginfo("Mysql active process PID is ~p", [MysqlActivePid]),
 							%common:loginfo("DB miantain process PID is ~p", [DBMaintainPid]),
 		                    
 				            common:loginfo("DB coding setting"),
@@ -162,6 +165,7 @@ start(StartType, StartArgs) ->
 		                    CCPid = spawn(fun() -> code_convertor_process() end),
 		                    VdrTablePid = spawn(fun() -> vdrtable_insert_delete_process() end),
 							DBOperationPid = spawn(fun() -> db_data_operation_process(DBPid) end),
+							MysqlActivePid = spawn(fun() -> mysql_active_process(DBPid) end),
 							%DBMaintainPid = spawn(fun() -> db_data_maintain_process(DBPid, DBOperationPid, Mode) end),
 		                    ets:insert(msgservertable, {dbpid, DBPid}),
 		                    ets:insert(msgservertable, {linkpid, LinkPid}),
@@ -169,12 +173,14 @@ start(StartType, StartArgs) ->
 		                    ets:insert(msgservertable, {ccpid, CCPid}),
 		                    ets:insert(msgservertable, {vdrtablepid, VdrTablePid}),
 							ets:insert(msgservertable, {dboperationpid, DBOperationPid}),
+							ets:insert(msgservertable, {mysqlactivepid, MysqlActivePid}),
 							%ets:insert(msgservertable, {dbmaintainpid, DBMaintainPid}),
 		                    common:loginfo("DB client process PID is ~p", [DBPid]),
 		                    common:loginfo("DB table deamon process PID is ~p", [DBTablePid]),
 		                    common:loginfo("Code convertor process PID is ~p", [CCPid]),
 		                    common:loginfo("VDR table processor process PID is ~p", [VdrTablePid]),
 		                    common:loginfo("DB operation process PID is ~p", [DBOperationPid]),
+							common:loginfo("Mysql active process PID is ~p", [MysqlActivePid]),
 		                    %common:loginfo("DB miantain process PID is ~p", [DBMaintainPid]),
 		                    
 							common:loginfo("DB coding setting"),
@@ -449,6 +455,17 @@ do_init_alarmtable(_AlarmResult) ->
 %			end
 %	end.			
 
+mysql_active_process(DBPid) ->
+	receive
+		stop ->
+			common:logerror("Mysql active process stops.");
+		_ ->
+			mysql_active_process(DBPid)
+	after ?MAX_DB_PROC_WAIT_INTERVAL ->
+			DBPid ! {self(), active},
+			mysql_active_process(DBPid)
+	end.
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %
 % This process will operate device\vehicle table and alarm table
@@ -589,6 +606,13 @@ stop(_State) ->
             ok;
         _ ->
             DBOperationPid ! stop
+    end,
+    [{mysqlactivepid, MysqlActivePid}] = ets:lookup(msgservertable, mysqlactivepid),
+    case MysqlActivePid of
+        undefined ->
+            ok;
+        _ ->
+            MysqlActivePid ! stop
     end,
     [{vdrresppid, VdrRespPid}] = ets:lookup(msgservertable, vdrresppid),
     case VdrRespPid of

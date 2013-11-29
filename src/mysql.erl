@@ -359,39 +359,47 @@ mysql_process(Num1, Num2, SqlInsert, InsertCount, SqlReplace, ReplaceCount, Link
         {Pid, count} ->
 			Pid ! {Num1, Num2},
             mysql_process(Num1, Num2, SqlInsert, InsertCount, SqlReplace, ReplaceCount, LinkPid);
-        stop ->
-            ok;
-        _ ->
-			LinkPid ! {self(), dbmsgunknown},
-            mysql_process(Num1, Num2, SqlInsert, InsertCount, SqlReplace, ReplaceCount, LinkPid)
-	after ?MAX_DB_PROC_WAIT_INTERVAL ->
+		{_Pid, active} ->
 			[TableName, KeyName, Values] = SqlInsert,
 			if
 				TableName =/= <<"">> ->
-					FinalSql = list_to_binary([<<"insert into ">>, TableName, 
-											   <<"(">>, KeyName, <<") values">>,
-											   combine_all_values(Values)]),
-					do_sql(FinalSql),
 					DecCount = length(Values),
-					%common:loginfo("Sent MSG count pos timeout : ~p", [DecCount]),
-					LinkPid ! {self(), dbmsgsent, DecCount};
+					%if
+					%	DecCount > ?MAX_DB_STORED_HALF_COUNT ->
+							FinalSql = list_to_binary([<<"insert into ">>, TableName, 
+													   <<"(">>, KeyName, <<") values">>,
+													   combine_all_values(Values)]),
+							do_sql(FinalSql),
+							LinkPid ! {self(), dbmsgsent, DecCount};
+					%	true ->
+					%		ok
+					%end;
 				true ->
 					ok
 			end,
 			[TableName1, KeyName1, Values1] = SqlReplace,
 			if
 				TableName1 =/= <<"">> ->
-					FinalSql1 = list_to_binary([<<"replace into ">>, TableName1, 
-											   <<"(">>, KeyName1, <<") values">>,
-											   combine_all_values(Values1)]),
-					do_sql(FinalSql1),
 					DecCount1 = length(Values1),
-					%common:loginfo("Sent MSG count lastpos timeout : ~p", [DecCount1]),
-					LinkPid ! {self(), dbmsgsent, DecCount1};
+					%if
+					%	DecCount1 > ?MAX_DB_STORED_HALF_COUNT ->
+								FinalSql1 = list_to_binary([<<"replace into ">>, TableName1, 
+														   <<"(">>, KeyName1, <<") values">>,
+														   combine_all_values(Values1)]),
+								do_sql(FinalSql1),
+								LinkPid ! {self(), dbmsgsent, DecCount1};
+					%	true ->
+					%		ok
+					%end;
 				true ->
 					ok
 			end,
-			mysql_process(Num1, Num2, [<<"">>, <<"">>, []], 0, [<<"">>, <<"">>, []], 0, LinkPid)
+			mysql_process(Num1, Num2, [<<"">>, <<"">>, []], 0, [<<"">>, <<"">>, []], 0, LinkPid);
+        stop ->
+            ok;
+        _ ->
+			LinkPid ! {self(), dbmsgunknown},
+            mysql_process(Num1, Num2, SqlInsert, InsertCount, SqlReplace, ReplaceCount, LinkPid)
     end.
 
 mysql_process_err(Num1, Num2, LinkPid) ->
