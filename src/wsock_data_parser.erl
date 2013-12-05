@@ -1199,7 +1199,6 @@ send_msg_to_vdr(ID, VID, Msg) when is_binary(Msg) ->
                                '_', '_', '_'}),
     case length(VidRes) of
         1 ->
-			%common:loginfo("Look up VID ~p : ~p", [VID, Res]),
             [[Sock]] = VidRes,
             Res = ets:lookup(vdrtable, Sock),
             case length(Res) of
