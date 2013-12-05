@@ -54,11 +54,11 @@ wsock_client_process(Num1, Num2) ->
     receive
 		{Pid, normal} ->
 			Pid ! {self(), normal},
-			common:loginfo("WS process ~p : ignore starting normal WS process according to ~p~n", [self(), Pid]),
+			common:loginfo("WS process ~p : ignore starting normal WS process according to ~p", [self(), Pid]),
 			wsock_client_process_err(Num1, Num2);
 		{Pid, abnormal} ->
 			Pid ! {self(), abnormal},
-			common:loginfo("WS process ~p : start abnormal WS process according to ~p~n", [self(), Pid]),
+			common:loginfo("WS process ~p : start abnormal WS process according to ~p", [self(), Pid]),
 			wsock_client_process_err(Num1, Num2);
 		{Pid, test} ->
 			Pid ! ok,
@@ -70,10 +70,10 @@ wsock_client_process(Num1, Num2) ->
 			CheckBin = is_binary(WSMsg),
 			if
 				CheckBin == true ->
-					%common:loginfo("WS process ~p : (BIN)~p~n", [self(), WSMsg]),
+					common:loginfo("WS process ~p : (BIN)~p", [self(), WSMsg]),
 					wsock_client:send(WSMsg);
 				true ->
-					%common:loginfo("WS process ~p : (ASC)~p~n", [self(), WSMsg]),
+					common:loginfo("WS process ~p : (ASC)~p", [self(), WSMsg]),
 					try
 						WSMsgBin = list_to_binary(WSMsg),
 						wsock_client:send(WSMsgBin)
@@ -88,10 +88,10 @@ wsock_client_process(Num1, Num2) ->
 			CheckBin = is_binary(WSMsg),
 			if
 				CheckBin == true ->
-					%common:loginfo("WS process ~p : (BIN)~p~n", [self(), WSMsg]),
+					common:loginfo("WS process ~p : (BIN)~p", [self(), WSMsg]),
 					wsock_client:send(WSMsg);
 				true ->
-					%common:loginfo("WS process ~p : (ASC)~p~n", [self(), WSMsg]),
+					common:loginfo("WS process ~p : (ASC)~p", [self(), WSMsg]),
 					try
 						WSMsgBin = list_to_binary(WSMsg),
 						wsock_client:send(WSMsgBin)
@@ -111,11 +111,11 @@ wsock_client_process_err(Num1, Num2) ->
     receive
 		{Pid, normal} ->
 			Pid ! {self(), normal},
-			common:loginfo("WS process ~p : start normal WS process according to ~p~n", [self(), Pid]),
+			common:loginfo("WS process ~p : start normal WS process according to ~p", [self(), Pid]),
 			wsock_client_process(Num1, Num2);
 		{Pid, abnormal} ->
 			Pid ! {self(), abnormal},
-			common:loginfo("WS process ~p : ignore starting abnormal WS process according to ~p~n", [self(), Pid]),
+			common:loginfo("WS process ~p : ignore starting abnormal WS process according to ~p", [self(), Pid]),
 			wsock_client_process_err(Num1, Num2);
 		{Pid, test} ->
 			Pid ! ok,
@@ -151,14 +151,14 @@ ws_on_open() ->
 		[{wspid, WSPid}] ->
 			if
 				WSPid =/= undefined ->
-					common:loginfo("WS process : ws_on_open() switchs WS process (~p) to normal state~n", [WSPid]),
+					common:loginfo("WS process : ws_on_open() switchs WS process (~p) to normal state", [WSPid]),
 					WSPid ! {self(), normal},
 					receive
 						{WSPid, normal} ->
-							common:loginfo("WS process : ws_on_open() has switched WS process (~p) to normal state~n", [WSPid])
+							common:loginfo("WS process : ws_on_open() has switched WS process (~p) to normal state", [WSPid])
 					end;
 				true ->
-					common:loginfo("WS process : ws_on_open() cannot switch uncreated WS process (~p) to normal state~n", [WSPid])
+					common:loginfo("WS process : ws_on_open() cannot switch uncreated WS process (~p) to normal state", [WSPid])
 			end
 	end.
 
@@ -175,7 +175,7 @@ ws_on_message(Type, Msg) ->
     catch
         Err:Info ->
             [ST] = erlang:get_stacktrace(),
-            common:logerr("WS process : ~p:~p when processing wsock msg : ~p~nStack trace :~n~p", [Err, Info, Msg, ST]),
+            common:logerr("WS process : ~p:~p when processing wsock msg : ~p~nStack trace :~n", [Err, Info, Msg, ST]),
             {error, exception}
     end.
 
@@ -191,14 +191,14 @@ ws_on_close(_Reason) ->
 		[{wspid, WSPid}] ->
 			if
 				WSPid =/= undefined ->
-					common:loginfo("WS process : ws_on_close(_Reason) switchs WS process (~p) to abnormal state~n", [WSPid]),
+					common:loginfo("WS process : ws_on_close(_Reason) switchs WS process (~p) to abnormal state", [WSPid]),
 					WSPid ! {self(), abnormal},
 					receive
 						{WSPid, abnormal} ->
-							common:loginfo("WS process : ws_on_close(_Reason) has switched WS process (~p) to abnormal state~n", [WSPid])
+							common:loginfo("WS process : ws_on_close(_Reason) has switched WS process (~p) to abnormal state", [WSPid])
 					end;
 				true ->
-					common:loginfo("WS process : ws_on_close(_Reason) cannot switch uncreated WS process (~p) to abnormal state~n", [WSPid])
+					common:loginfo("WS process : ws_on_close(_Reason) cannot switch uncreated WS process (~p) to abnormal state", [WSPid])
 			end
 	end.
 
@@ -218,6 +218,7 @@ ws_on_close(_Reason) ->
 %% </ul>
 -spec start(Host::string(), Port::integer(), Resource::string()) -> pid().
 start(Host, Port, Path) ->
+	common:loginfo("Start WS : ~p, ~p, ~p", [Host, Port, Path]),
     start(Host, Port, Path, {local, ?DEFAULT_REG_NAME}).
 
 %% @doc This function will start the websocket client
@@ -382,6 +383,8 @@ init({Host, Port, Resource}) ->
              <<"Sec-WebSocket-Key: ">>, list_to_binary(Key), <<"\r\n">>,
              <<"Sec-WebSocket-Version: 13\r\n">>,
              <<"\r\n">>],
+  
+  common:loginfo("WS init request : ~p", [Request1]),
 
   %ok = gen_tcp:send(Socket, Request),
   ok = gen_tcp:send(Socket, Request1),
@@ -483,6 +486,9 @@ handle_info({tcp, _Socket, Data}, connecting, StateData) ->
       %ets:insert(msgservertable, {wspid, ToWSPid}),
 
       {ok, Msg} = wsock_data_parser:create_init_msg(),
+	  
+	  common:loginfo("WS init request Msg: ~p", [Msg]),
+	  
       wsock_client:send(Msg),
 
       [{apppid, AppPid}] = ets:lookup(msgservertable, apppid),

@@ -281,6 +281,15 @@ init([]) ->
                   supervisor,                       % Type     = worker | supervisor
                   []                                % Modules  = [Module] | dynamic
                  },
+    % Create WS client
+    WSClient  = {
+                 wsock_client,                               % Id       = internal id
+                 {wsock_client, start, [WS, PortWS, "/"]},   % StartFun = {M, F, A}
+                 permanent,                                         % Restart  = permanent | transient | temporary
+                 ?TIME_TERMINATE_MAN,                               % Shutdown = brutal_kill | int() >= 0 | infinity
+                 worker,                                            % Type     = worker | supervisor
+                 [wsock_client]                                     % Modules  = [Module] | dynamic
+                },
     % Listen MP connection
     %MPServer = {
     %             mp_server,                             % Id       = internal id
@@ -308,15 +317,6 @@ init([]) ->
                  worker,                                    % Type     = worker | supervisor
                  [mysql]                             % Modules  = [Module] | dynamic
                 },
-    % Create WS client
-    WSClient  = {
-                 wsock_client,                               % Id       = internal id
-                 {wsock_client, start, [WS, PortWS, "/"]},   % StartFun = {M, F, A}
-                 permanent,                                         % Restart  = permanent | transient | temporary
-                 ?TIME_TERMINATE_MAN,                               % Shutdown = brutal_kill | int() >= 0 | infinity
-                 worker,                                            % Type     = worker | supervisor
-                 [wsock_client]                                     % Modules  = [Module] | dynamic
-                },
     % Create iconv
     %Iconv  = {
     %             iconv,                               % Id       = internal id
@@ -329,12 +329,16 @@ init([]) ->
     %Children = [VDRServer, VDRHandler, ManServer, ManHandler, MonServer, MonHandler, DBClient],
     %Children = [VDRServer, VDRHandler, MPServer, MPHandler, MonServer, MonHandler, DBClient, WSClient],%, Iconv],
 	if
-		Mode == 1 ->
+		Mode == 2 ->
     		Children = [VDRServer, VDRHandler, MonServer, MonHandler, DBClient, WSClient],%, Iconv],
 		    RestartStrategy = {one_for_one, MaxR, MaxT},
 		    {ok, {RestartStrategy, Children}};
+		Mode == 1 ->
+    		Children = [VDRServer, VDRHandler, MonServer, MonHandler, DBClient],%, Iconv],
+		    RestartStrategy = {one_for_one, MaxR, MaxT},
+		    {ok, {RestartStrategy, Children}};
 		true ->
-     		Children = [VDRServer, VDRHandler, MonServer, MonHandler, DBClient],%, Iconv],
+     		Children = [VDRServer, VDRHandler, MonServer, MonHandler],%, Iconv],
 		    RestartStrategy = {one_for_one, MaxR, MaxT},
 		    {ok, {RestartStrategy, Children}}
 	end;

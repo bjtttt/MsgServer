@@ -1189,7 +1189,7 @@ send_msg_to_vdrs(_ID, _VDRList, _Msg) ->
 %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 send_msg_to_vdr(ID, VID, Msg) when is_binary(Msg) ->
-    Res = ets:match(vdrtable, {'_', 
+    VidRes = ets:match(vdrtable, {'_', 
                                '$1', '_', '_', '_', VID,
                                '_', '_', '_', '_', '_',
                                '_', '_', '_', '_', '_',
@@ -1197,9 +1197,10 @@ send_msg_to_vdr(ID, VID, Msg) when is_binary(Msg) ->
                                '_', '_', '_', '_', '_',
                                '_', '_', '_', '_', '_',
                                '_', '_', '_'}),
-    case length(Res) of
+    case length(VidRes) of
         1 ->
-            [[Sock]] = Res,
+			%common:loginfo("Look up VID ~p : ~p", [VID, Res]),
+            [[Sock]] = VidRes,
             Res = ets:lookup(vdrtable, Sock),
             case length(Res) of
 				1 ->

@@ -663,7 +663,7 @@ code_convertor_process() ->
             code_convertor_process();
         {Pid, gbktoutf8, Src} ->
             try
-                common:loginfo("CC process ~p : source GBK from ~p : ~p", [self(), Src]),
+                common:loginfo("CC process ~p : source GBK from ~p : ~p", [self(), Pid, Src]),
                 Value = code_convertor:to_utf8(Src),
                 common:loginfo("CC process ~p : dest UTF8 : ~p", [self(), Value]),
                 Pid ! code_convertor:to_utf8(Src)
@@ -675,7 +675,7 @@ code_convertor_process() ->
             code_convertor_process();
         {Pid, gbk2utf8, Src} ->
             try
-                common:loginfo("CC process ~p : source GBK from ~p : ~p", [self(), Src]),
+                common:loginfo("CC process ~p : source GBK from ~p : ~p", [self(), Pid, Src]),
                 Value = code_convertor:to_utf8(Src),
                 common:loginfo("CC process ~p : dest UTF8 : ~p", [self(), Value]),
                 Pid ! code_convertor:to_utf8(Src)
@@ -687,7 +687,7 @@ code_convertor_process() ->
             code_convertor_process();
         {Pid, utf82gbk, Src} ->
             try
-                common:loginfo("CC process ~p : source UTF8 from ~p : ~p", [self(), Src]),
+                common:loginfo("CC process ~p : source UTF8 from ~p : ~p", [self(), Pid, Src]),
                 Value = code_convertor:to_gbk(Src),
                 common:loginfo("CC process ~p : dest GBK : ~p", [self(), Value]),
                 Pid ! Value
@@ -699,7 +699,7 @@ code_convertor_process() ->
             code_convertor_process();
         {Pid, utf8togbk, Src} ->
             try
-                common:loginfo("CC process ~p : source UTF8 from ~p : ~p", [self(), Src]),
+                common:loginfo("CC process ~p : source UTF8 from ~p : ~p", [self(), Pid, Src]),
                 Value = code_convertor:to_gbk(Src),
                 common:loginfo("CC process ~p : dest GBK : ~p", [self(), Value]),
                 Pid ! Value
@@ -926,7 +926,7 @@ receive_db_ws_init_msg(WSOK, DBOK, Count, Mode) ->
     if
         Count >= 20 ->
 			if
-				Mode == 1 ->
+				Mode == 2 ->
 		            if
 		                WSOK == false andalso DBOK == false ->
 		                    {error, "DB and WS both are not ready"};
@@ -935,23 +935,27 @@ receive_db_ws_init_msg(WSOK, DBOK, Count, Mode) ->
 		                WSOK == false andalso DBOK == true ->
 		                    {error, "WS is not ready"};
 		                WSOK == true andalso DBOK == true ->
+							common:loginfo("DB is ok and WS is ok."),
 		                    ok;
 		                true ->
 		                    {error, "Unknown DB and WS states"}
 		            end;
-				true ->
+				Mode == 1 ->
 		            if
 		                DBOK == true ->
+							common:loginfo("DB is ok."),
 		                    ok;
 		                DBOK == false ->
 		                    {error, "DB is not ready"};
 		                true ->
 		                    {error, "Unknown DB and WS states"}
-		            end
+		            end;
+				true ->
+                    ok
 			end;
         true ->
 			if
-				Mode == 1 ->
+				Mode == 2 ->
 					if
 		                WSOK == true andalso DBOK == true ->
 		                    ok;
@@ -960,6 +964,7 @@ receive_db_ws_init_msg(WSOK, DBOK, Count, Mode) ->
 				                {_DBPid, dbok} ->
 				                    if
 				                        WSOK == true ->
+											common:loginfo("DB is ok after WS is ok."),
 				                            ok;
 				                        true ->
 				                            receive_db_ws_init_msg(WSOK, true, Count+1, Mode)
@@ -967,6 +972,7 @@ receive_db_ws_init_msg(WSOK, DBOK, Count, Mode) ->
 				                {_WSPid, wsok} ->
 				                    if
 				                        DBOK == true ->
+											common:loginfo("WS is ok after DB is ok."),
 				                            ok;
 				                        true ->
 				                            receive_db_ws_init_msg(true, DBOK, Count+1, Mode)
@@ -977,25 +983,23 @@ receive_db_ws_init_msg(WSOK, DBOK, Count, Mode) ->
 				                    receive_db_ws_init_msg(WSOK, DBOK, Count+1, Mode)
 				            end
 					end;
-				true ->
+				Mode == 1 ->
 					if
 		                DBOK == true ->
 		                    ok;
 						true ->
 				            receive
 				                {_DBPid, dbok} ->
-				                    if
-				                        WSOK == true ->
-				                            ok;
-				                        true ->
-				                            receive_db_ws_init_msg(WSOK, true, Count+1, Mode)
-				                    end;
+									common:loginfo("DB is ok."),
+									ok;
 				                _ ->
 				                    receive_db_ws_init_msg(WSOK, DBOK, Count+1, Mode)
 				            after ?WAIT_LOOP_INTERVAL ->
 				                    receive_db_ws_init_msg(WSOK, DBOK, Count+1, Mode)
 				            end
-					end
+					end;
+				true ->
+                    ok
 			end
     end.                
 

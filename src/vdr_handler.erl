@@ -67,15 +67,15 @@ handle_info({tcp, Socket, Data}, OriState) ->
 	LinkPid = OriState#vdritem.linkpid,
 	Pid = OriState#vdritem.pid,
 	LinkPid ! {Pid, vdrmsggot},
-    %common:loginfo("~p : Data from VDR (~p) (id:~p, serialno:~p, authen_code:~p, vehicleid:~p, vehiclecode:~p)~n~p",
-	%			   [self(),
-	%				OriState#vdritem.addr, 
-	%				OriState#vdritem.id, 
-	%				OriState#vdritem.serialno, 
-	%				OriState#vdritem.auth, 
-	%				OriState#vdritem.vehicleid, 
-	%				OriState#vdritem.vehiclecode,
-	%				Data]),
+    common:loginfo("~p : Data from VDR (~p) (id:~p, serialno:~p, authen_code:~p, vehicleid:~p, vehiclecode:~p)~n~p",
+				   [self(),
+					OriState#vdritem.addr, 
+					OriState#vdritem.id, 
+					OriState#vdritem.serialno, 
+					OriState#vdritem.auth, 
+					OriState#vdritem.vehicleid, 
+					OriState#vdritem.vehiclecode,
+					Data]),
     % Update active time for VDR
     DateTime = {erlang:date(), erlang:time()},
     State = OriState#vdritem{acttime=DateTime},
@@ -1554,6 +1554,7 @@ send_data_to_vdr(ID, Tel, FlowIdx, MsgBody, State) ->
 	Socket = State#vdritem.socket,
 	Pid = State#vdritem.pid,
 	LinkPid = State#vdritem.linkpid,
+	common:loginfo("Msg2VDR : ID ~p, Tel ~p, FlowIdx ~p, Msgbody ~p", [ID, Tel, FlowIdx, MsgBody]),
 	case is_binary(MsgBody) of
 		true ->
 			MsgLen = byte_size(MsgBody),
@@ -1623,6 +1624,7 @@ get_new_flow_index(FlowIdx) ->
 do_send_msg2vdr(Pid, Socket, Msg, LinkPid) when is_binary(Msg),
 									   byte_size(Msg) > 0 ->
 	LinkPid ! {Pid, vdrmsgsent},
+	common:loginfo("Msg2VDR : ~p", [Msg]),
 	try
 		gen_tcp:send(Socket, Msg)
 	catch
