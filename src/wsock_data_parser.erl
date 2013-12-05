@@ -995,7 +995,9 @@ update_vdr_ws2vdr_msg_id_flowidx(ID, FlowIdx, VID, Value) when is_integer(ID),
         1 ->
             [[Sock]] = Res,
             [VDRItem] = ets:lookup(vdrtable, Sock),
+			common:loginfo("Old MSG from WS to VDR stored in GW : ~p", [VDRItem#vdritem.msgws2vdr]),
             MsgList = update_ws2vdrmsglist(VDRItem#vdritem.msgws2vdr, ID, FlowIdx, Value),
+			common:loginfo("New MSG from WS to VDR stored in GW : ~p", [MsgList]),
             VDRTablePid = VDRItem#vdritem.vdrtablepid,
             NewVDRItem = VDRItem#vdritem{msgws2vdr=MsgList},                          
             common:send_vdr_table_operation(VDRTablePid, {self(), insert, NewVDRItem, noresp});
