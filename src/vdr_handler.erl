@@ -665,6 +665,7 @@ process_vdr_data(Socket, Data, State) ->
 
                                     [VDRItem] = ets:lookup(vdrtable, Socket),
                                     MsgList = VDRItem#vdritem.msgws2vdr,
+									common:loginfo("Stored MSG from WS to VDR stored in GW : ~p", [MsgList]),
                                     
                                     TargetList = [{WSID, WSFlowIdx, WSValue} || {WSID, WSFlowIdx, WSValue} <- MsgList, WSID == RespID],
                                     case length(TargetList) of
@@ -681,6 +682,7 @@ process_vdr_data(Socket, Data, State) ->
                                     end,
                                     
                                     NewMsgList = [{WSID, WSFlowIdx, WSValue} || {WSID, WSFlowIdx, WSValue} <- MsgList, WSID =/= RespID],
+									common:loginfo("New stored MSG from WS to VDR stored in GW : ~p", [NewMsgList]),
                                     VDRTablePid = VDRItem#vdritem.vdrtablepid,
                                     NewVDRItem = VDRItem#vdritem{msgws2vdr=NewMsgList},
                                     common:send_vdr_table_operation(VDRTablePid, {self(), insert, NewVDRItem, noresp}),
