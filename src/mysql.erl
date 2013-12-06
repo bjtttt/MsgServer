@@ -138,7 +138,7 @@
 	 code_change/3
 	]).
 
--export([mysql_process/7]).
+-export([mysql_process/9]).
 
 %% Records
 -include("mysql.hrl").
@@ -205,7 +205,7 @@ log(Module, Line, _Level, FormatFun) ->
 % Interface process
 %
 %%%%%%%%%%%%%%%%%%%%%
-mysql_process(Num1, Num2, SqlInsert, InsertCount, SqlReplace, ReplaceCount, LinkPid) ->
+mysql_process(Num1, Num2, SqlInsert, InsertCount, SqlReplace, ReplaceCount, SqlOffline, OfflineCount, LinkPid) ->
     receive
 		{Pid, error} ->
 			Pid ! ok,
@@ -224,10 +224,10 @@ mysql_process(Num1, Num2, SqlInsert, InsertCount, SqlReplace, ReplaceCount, Link
 							DecCount = length(Values),
 							LinkPid ! {self(), dbmsgsent, DecCount},
 							Pid ! {Pid, insertok},
-							mysql_process(Num1+1, Num2, [Table, Key, [Content]], 1, SqlReplace, ReplaceCount, LinkPid);
+							mysql_process(Num1+1, Num2, [Table, Key, [Content]], 1, SqlReplace, ReplaceCount, SqlOffline, OfflineCount, LinkPid);
 						true ->
 							Pid ! {Pid, insertok},
-							mysql_process(Num1+1, Num2, [Table, Key, [Content]], 1, SqlReplace, ReplaceCount, LinkPid)
+							mysql_process(Num1+1, Num2, [Table, Key, [Content]], 1, SqlReplace, ReplaceCount, SqlOffline, OfflineCount, LinkPid)
 					end;
 				true ->
 					if
@@ -239,10 +239,10 @@ mysql_process(Num1, Num2, SqlInsert, InsertCount, SqlReplace, ReplaceCount, Link
 							DecCount = length(Values),
 							LinkPid ! {self(), dbmsgsent, DecCount},
 							Pid ! {Pid, insertok},
-							mysql_process(Num1+1, Num2, [Table, Key, [Content]], 1, SqlReplace, ReplaceCount, LinkPid);
+							mysql_process(Num1+1, Num2, [Table, Key, [Content]], 1, SqlReplace, ReplaceCount, SqlOffline, OfflineCount, LinkPid);
 						true ->
 							Pid ! {Pid, insertok},
-							mysql_process(Num1+1, Num2, [Table, Key, lists:append(Values, [Content])], InsertCount+1, SqlReplace, ReplaceCount, LinkPid)
+							mysql_process(Num1+1, Num2, [Table, Key, lists:append(Values, [Content])], InsertCount+1, SqlReplace, ReplaceCount, SqlOffline, OfflineCount, LinkPid)
 					end
 			end;
 		{_Pid, insert, Table, Key, Content, noresp} ->
@@ -258,9 +258,9 @@ mysql_process(Num1, Num2, SqlInsert, InsertCount, SqlReplace, ReplaceCount, Link
 							do_sql(FinalSql),
 							DecCount = length(Values),
 							LinkPid ! {self(), dbmsgsent, DecCount},
-							mysql_process(Num1+1, Num2, [Table, Key, [Content]], 1, SqlReplace, ReplaceCount, LinkPid);
+							mysql_process(Num1+1, Num2, [Table, Key, [Content]], 1, SqlReplace, ReplaceCount, SqlOffline, OfflineCount, LinkPid);
 						true ->
-							mysql_process(Num1+1, Num2, [Table, Key, [Content]], 1, SqlReplace, ReplaceCount, LinkPid)
+							mysql_process(Num1+1, Num2, [Table, Key, [Content]], 1, SqlReplace, ReplaceCount, SqlOffline, OfflineCount, LinkPid)
 					end;
 				true ->
 					if
@@ -271,9 +271,9 @@ mysql_process(Num1, Num2, SqlInsert, InsertCount, SqlReplace, ReplaceCount, Link
 							do_sql(FinalSql),
 							DecCount = length(Values),
 							LinkPid ! {self(), dbmsgsent, DecCount},
-							mysql_process(Num1+1, Num2, [Table, Key, [Content]], 1, SqlReplace, ReplaceCount, LinkPid);
+							mysql_process(Num1+1, Num2, [Table, Key, [Content]], 1, SqlReplace, ReplaceCount, SqlOffline, OfflineCount, LinkPid);
 						true ->
-							mysql_process(Num1+1, Num2, [Table, Key, lists:append(Values, [Content])], InsertCount+1, SqlReplace, ReplaceCount, LinkPid)
+							mysql_process(Num1+1, Num2, [Table, Key, lists:append(Values, [Content])], InsertCount+1, SqlReplace, ReplaceCount, SqlOffline, OfflineCount, LinkPid)
 					end
 			end;
 		{Pid, replace, Table, Key, Content} ->
@@ -290,10 +290,10 @@ mysql_process(Num1, Num2, SqlInsert, InsertCount, SqlReplace, ReplaceCount, Link
 							DecCount = length(Values),
 							LinkPid ! {self(), dbmsgsent, DecCount},
 							Pid ! {Pid, replaceok},
-							mysql_process(Num1+1, Num2, SqlInsert, InsertCount, [Table, Key, [Content]], 1, LinkPid);
+							mysql_process(Num1+1, Num2, SqlInsert, InsertCount, [Table, Key, [Content]], 1, SqlOffline, OfflineCount, LinkPid);
 						true ->
 							Pid ! {Pid, replaceok},
-							mysql_process(Num1+1, Num2, SqlInsert, InsertCount, [Table, Key, [Content]], 1, LinkPid)
+							mysql_process(Num1+1, Num2, SqlInsert, InsertCount, [Table, Key, [Content]], 1, SqlOffline, OfflineCount, LinkPid)
 					end;
 				true ->
 					if
@@ -305,10 +305,10 @@ mysql_process(Num1, Num2, SqlInsert, InsertCount, SqlReplace, ReplaceCount, Link
 							DecCount = length(Values),
 							LinkPid ! {self(), dbmsgsent, DecCount},
 							Pid ! {Pid, replaceok},
-							mysql_process(Num1+1, Num2, SqlInsert, InsertCount, [Table, Key, [Content]], 1, LinkPid);
+							mysql_process(Num1+1, Num2, SqlInsert, InsertCount, [Table, Key, [Content]], 1, SqlOffline, OfflineCount, LinkPid);
 						true ->
 							Pid ! {Pid, replaceok},
-							mysql_process(Num1+1, Num2, SqlInsert, InsertCount, [Table, Key, lists:append(Values, [Content])], ReplaceCount+1, LinkPid)
+							mysql_process(Num1+1, Num2, SqlInsert, InsertCount, [Table, Key, lists:append(Values, [Content])], ReplaceCount+1, SqlOffline, OfflineCount, LinkPid)
 					end
 			end;
 		{_Pid, replace, Table, Key, Content, noresp} ->
@@ -324,9 +324,9 @@ mysql_process(Num1, Num2, SqlInsert, InsertCount, SqlReplace, ReplaceCount, Link
 							do_sql(FinalSql),
 							DecCount = length(Values),
 							LinkPid ! {self(), dbmsgsent, DecCount},
-							mysql_process(Num1+1, Num2, SqlInsert, InsertCount, [Table, Key, [Content]], 1, LinkPid);
+							mysql_process(Num1+1, Num2, SqlInsert, InsertCount, [Table, Key, [Content]], 1, SqlOffline, OfflineCount, LinkPid);
 						true ->
-							mysql_process(Num1+1, Num2, SqlInsert, InsertCount, [Table, Key, [Content]], 1, LinkPid)
+							mysql_process(Num1+1, Num2, SqlInsert, InsertCount, [Table, Key, [Content]], 1, SqlOffline, OfflineCount, LinkPid)
 					end;
 				true ->
 					if
@@ -337,9 +337,33 @@ mysql_process(Num1, Num2, SqlInsert, InsertCount, SqlReplace, ReplaceCount, Link
 							do_sql(FinalSql),
 							DecCount = length(Values),
 							LinkPid ! {self(), dbmsgsent, DecCount},
-							mysql_process(Num1+1, Num2, SqlInsert, InsertCount, [Table, Key, [Content]], 1, LinkPid);
+							mysql_process(Num1+1, Num2, SqlInsert, InsertCount, [Table, Key, [Content]], 1, SqlOffline, OfflineCount, LinkPid);
 						true ->
-							mysql_process(Num1+1, Num2, SqlInsert, InsertCount, [Table, Key, lists:append(Values, [Content])], ReplaceCount+1, LinkPid)
+							mysql_process(Num1+1, Num2, SqlInsert, InsertCount, [Table, Key, lists:append(Values, [Content])], ReplaceCount+1, SqlOffline, OfflineCount, LinkPid)
+					end
+			end;
+		{_Pid, offline, VehicleID} -> % <<"replace into vehicle_position_last(vehicle_id, is_online) values(VehicleID, 0)">>
+			if
+				ReplaceCount >= ?MAX_DB_STORED_COUNT ->
+					FinalSql = list_to_binary([<<"replace into vehicle_position_last(vehicle_id, is_online) values">>,
+											   combine_all_values(SqlOffline)]),
+					do_sql(FinalSql),
+					DecCount = length(SqlOffline),
+					LinkPid ! {self(), dbmsgsent, DecCount},
+					case is_integer(VehicleID) of
+						true ->						
+							SqlItem = list_to_binary([<<"(">>, integer_to_binary(VehicleID), <<",0)">>]),
+							mysql_process(Num1+1, Num2, SqlInsert, InsertCount, SqlReplace, ReplaceCount, [SqlItem], 1, LinkPid);
+						_ ->
+							mysql_process(Num1+1, Num2, SqlInsert, InsertCount, SqlReplace, ReplaceCount, [<<"(0,0)">>], 1, LinkPid)
+					end;
+				true ->
+					case is_integer(VehicleID) of
+						true ->
+							SqlItem = list_to_binary([<<"(">>, integer_to_binary(VehicleID), <<",0)">>]),
+							mysql_process(Num1+1, Num2, SqlInsert, InsertCount, SqlReplace, ReplaceCount, lists:append(SqlOffline, [SqlItem]), OfflineCount+1, LinkPid);
+						false ->
+							mysql_process(Num1+1, Num2, SqlInsert, InsertCount, SqlReplace, ReplaceCount, SqlOffline, OfflineCount, LinkPid)
 					end
 			end;
         {Pid, _PoolId, Sql} ->
@@ -347,33 +371,33 @@ mysql_process(Num1, Num2, SqlInsert, InsertCount, SqlReplace, ReplaceCount, Link
 			Result = do_sql(Sql),
 			LinkPid ! {self(), dbmsgsent, 1},
 			Pid ! {Pid, Result},
-            mysql_process(Num1+1, Num2, SqlInsert, InsertCount, SqlReplace, ReplaceCount, LinkPid);
+            mysql_process(Num1+1, Num2, SqlInsert, InsertCount, SqlReplace, ReplaceCount, SqlOffline, OfflineCount, LinkPid);
         {_Pid, _PoolId, Sql, noresp} ->
 			%common:loginfo("SQL noresp : ~p", [Sql]),
 			do_sql(Sql),
 			LinkPid ! {self(), dbmsgsent, 1},
-			mysql_process(Num1+1, Num2, SqlInsert, InsertCount, SqlReplace, ReplaceCount, LinkPid);
+			mysql_process(Num1+1, Num2, SqlInsert, InsertCount, SqlReplace, ReplaceCount, SqlOffline, OfflineCount, LinkPid);
 		{Pid, test} ->
 			Pid ! ok,
-			mysql_process(Num1, Num2, SqlInsert, InsertCount, SqlReplace, ReplaceCount, LinkPid);
+			mysql_process(Num1, Num2, SqlInsert, InsertCount, SqlReplace, ReplaceCount, SqlOffline, OfflineCount, LinkPid);
         {Pid, count} ->
 			Pid ! {Num1, Num2},
-            mysql_process(Num1, Num2, SqlInsert, InsertCount, SqlReplace, ReplaceCount, LinkPid);
+            mysql_process(Num1, Num2, SqlInsert, InsertCount, SqlReplace, ReplaceCount, SqlOffline, OfflineCount, LinkPid);
 		{_Pid, active} ->
 			[TableName, KeyName, Values] = SqlInsert,
 			if
 				TableName =/= <<"">> ->
 					DecCount = length(Values),
-					%if
-					%	DecCount > ?MAX_DB_STORED_HALF_COUNT ->
+					if
+						DecCount > 0 ->
 							FinalSql = list_to_binary([<<"insert into ">>, TableName, 
 													   <<"(">>, KeyName, <<") values">>,
 													   combine_all_values(Values)]),
 							do_sql(FinalSql),
 							LinkPid ! {self(), dbmsgsent, DecCount};
-					%	true ->
-					%		ok
-					%end;
+						true ->
+							ok
+					end;
 				true ->
 					ok
 			end,
@@ -381,32 +405,42 @@ mysql_process(Num1, Num2, SqlInsert, InsertCount, SqlReplace, ReplaceCount, Link
 			if
 				TableName1 =/= <<"">> ->
 					DecCount1 = length(Values1),
-					%if
-					%	DecCount1 > ?MAX_DB_STORED_HALF_COUNT ->
+					if
+						DecCount1 > 0 ->
 								FinalSql1 = list_to_binary([<<"replace into ">>, TableName1, 
 														   <<"(">>, KeyName1, <<") values">>,
 														   combine_all_values(Values1)]),
 								do_sql(FinalSql1),
 								LinkPid ! {self(), dbmsgsent, DecCount1};
-					%	true ->
-					%		ok
-					%end;
+						true ->
+							ok
+					end;
 				true ->
 					ok
 			end,
-			mysql_process(Num1, Num2, [<<"">>, <<"">>, []], 0, [<<"">>, <<"">>, []], 0, LinkPid);
+			DecCount2 = length(SqlOffline),
+			if
+				DecCount2 > 0 ->
+					FinalSql2 = list_to_binary([<<"replace into vehicle_position_last(vehicle_id, is_online) values">>,
+											   combine_all_values(SqlOffline)]),
+					do_sql(FinalSql2),
+					LinkPid ! {self(), dbmsgsent, DecCount2};
+				true ->
+					ok
+			end,
+			mysql_process(Num1, Num2, [<<"">>, <<"">>, []], 0, [<<"">>, <<"">>, []], 0, [], 0, LinkPid);
         stop ->
             ok;
         _ ->
 			LinkPid ! {self(), dbmsgunknown},
-            mysql_process(Num1, Num2, SqlInsert, InsertCount, SqlReplace, ReplaceCount, LinkPid)
+            mysql_process(Num1, Num2, SqlInsert, InsertCount, SqlReplace, ReplaceCount, SqlOffline, OfflineCount, LinkPid)
     end.
 
 mysql_process_err(Num1, Num2, LinkPid) ->
     receive
 		{Pid, ok} ->
 			Pid ! ok,
-			mysql_process(Num1, Num2, [<<"">>, []], 0, [<<"">>, []], 0, LinkPid);
+			mysql_process(Num1, Num2, [<<"">>, []], 0, [<<"">>, []], 0, [], 0, LinkPid);
 		{Pid, insert, _Table, _Key, _Content} ->
 			Pid ! {Pid, <<"">>},
             mysql_process_err(Num1, Num2+1, LinkPid);
