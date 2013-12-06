@@ -995,24 +995,24 @@ update_vdr_ws2vdr_msg_id_flowidx(ID, FlowIdx, VID, Value) when is_integer(ID),
         1 ->
             [[Sock]] = Res,
             %[VDRItem] = ets:lookup(vdrtable, Sock),
-            Res = ets:lookup(vdrtable, Sock),
-			ResLen = length(Res),
-			case ResLen of
+            ResLookup = ets:lookup(vdrtable, Sock),
+			ResLookupLen = length(ResLookup),
+			case ResLookupLen of
 				1 ->
-					[VDRItem] = Res,
+					[VDRItem] = ResLookup,
 					common:loginfo("Old MSG from WS to VDR stored in GW : ~p", [VDRItem#vdritem.msgws2vdr]),
 					MsgList = update_ws2vdrmsglist(VDRItem#vdritem.msgws2vdr, ID, FlowIdx, Value),
 					common:loginfo("New MSG from WS to VDR stored in GW : ~p", [MsgList]),
 					VDRTablePid = VDRItem#vdritem.vdrtablepid,
 					NewVDRItem = VDRItem#vdritem{msgws2vdr=MsgList},                          
-					common:send_vdr_table_operation(VDRTablePid, {self(), insert, NewVDRItem, noresp});
+					common:send_vdr_table_operation(VDRTablePid, {self(), insert, NewVDRItem, noresp}),
+					% Check insert for sync
+		            [CheckedVDRItem] = common:send_vdr_table_operation(VDRTablePid, {self(), lookup, Sock}),
+		            CheckedMsgList = CheckedVDRItem#vdritem.msgws2vdr,
+					common:loginfo("Checked stored MSG from WS to VDR stored in GW : ~p", [CheckedMsgList]);
 				_ ->
-					common:logerror("(FATAL) WSClient : vdrtable has ~p item(s) for Sock ~p~n", [ResLen, Sock])
+					common:logerror("(FATAL) WSClient : vdrtable has ~p item(s) for Sock ~p~n", [ResLookupLen, Sock])
 			end;
-			% Check insert
-            %[CheckedVDRItem] = common:send_vdr_table_operation(VDRTablePid, {self(), lookup, Sock}),
-            %CheckedMsgList = CheckedVDRItem#vdritem.msgws2vdr,
-			%common:loginfo("Checked stored MSG from WS to VDR stored in GW : ~p", [CheckedMsgList]);
         ResCount ->
             common:logerror("(FATAL) WSClient : vdrtable has ~p item(s) for VechileID ~p~n", [ResCount, VID])
     end.

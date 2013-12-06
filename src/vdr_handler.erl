@@ -1565,12 +1565,17 @@ send_data_to_vdr(ID, Tel, FlowIdx, MsgBody, State) ->
 		true ->
 			MsgLen = byte_size(MsgBody),
 			try
-				MsgBodyTypeBytes = binary:part(MsgBody, MsgLen-3, 2),
 				if
-					MsgBodyTypeBytes =/= <<2,0>> andalso MsgBodyTypeBytes =/= <<0,2>> ->
-						common:loginfo("Msg2VDR : ID ~p, Tel ~p, FlowIdx ~p, MsgType ~p, Msgbody ~p", [ID, Tel, FlowIdx, MsgBodyTypeBytes, MsgBody]);
+					ID == 16#8001 ->
+						MsgBodyTypeBytes = binary:part(MsgBody, MsgLen-3, 2),
+						if
+							MsgBodyTypeBytes =/= <<2,0>> orelse MsgBodyTypeBytes =/= <<0,2>> ->
+								common:loginfo("Msg2VDR : ID ~p, Tel ~p, FlowIdx ~p, MsgType ~p, Msgbody ~p", [ID, Tel, FlowIdx, MsgBodyTypeBytes, MsgBody]);
+							true ->
+								ok
+						end;
 					true ->
-						ok
+						common:loginfo("Msg2VDR : ID ~p, Tel ~p, FlowIdx ~p, Msgbody ~p", [ID, Tel, FlowIdx, MsgBody])
 				end
 			catch
 				_:_ ->
@@ -1602,10 +1607,15 @@ send_data_to_vdr(ID, Tel, FlowIdx, MsgBody, State) ->
 				MsgLen = byte_size(MsgBody),
 				MsgBodyTypeBytes = binary:part(MsgBodyBin, MsgLen-3, 2),
 				if
-					MsgBodyTypeBytes =/= <<2,0>> andalso MsgBodyTypeBytes =/= <<0,2>> ->
-						common:loginfo("Msg2VDR : ID ~p, Tel ~p, FlowIdx ~p, MsgType ~p, Msgbody ~p", [ID, Tel, FlowIdx, MsgBodyTypeBytes, MsgBody]);
+					ID == 16#8001 ->
+						if
+							MsgBodyTypeBytes =/= <<2,0>> andalso MsgBodyTypeBytes =/= <<0,2>> ->
+								common:loginfo("Msg2VDR : ID ~p, Tel ~p, FlowIdx ~p, MsgType ~p, Msgbody ~p", [ID, Tel, FlowIdx, MsgBodyTypeBytes, MsgBody]);
+							true ->
+								ok
+						end;
 					true ->
-						ok
+						common:loginfo("Msg2VDR : ID ~p, Tel ~p, FlowIdx ~p, Msgbody ~p", [ID, Tel, FlowIdx, MsgBody])
 				end
 			catch
 				_:_ ->
@@ -1658,12 +1668,18 @@ do_send_msg2vdr(Pid, Socket, Msg, LinkPid) when is_binary(Msg),
 	LinkPid ! {Pid, vdrmsgsent},
 	MsgLen = byte_size(Msg),
 	try
-		MsgTypeBytes = binary:part(Msg, MsgLen-5, 2),
+		MsgTypeBytes = binary:part(Msg, 1, 2),
 		if
-			MsgTypeBytes =/= <<2,0>> andalso MsgTypeBytes =/= <<0,2>> ->
-				common:loginfo("Msg2VDR(~p) : ~p", [MsgTypeBytes, Msg]);
+			MsgTypeBytes == <<128, 1>> ->
+				MsgRespTypeBytes = binary:part(Msg, MsgLen-5, 2),
+				if
+					MsgRespTypeBytes =/= <<2,0>> andalso MsgRespTypeBytes =/= <<0,2>> ->
+						common:loginfo("Msg2VDR(~p, ~p) : ~p", [MsgTypeBytes, MsgRespTypeBytes, Msg]);
+					true ->
+						ok
+				end;
 			true ->
-				ok
+				common:loginfo("Msg2VDR(~p) : ~p", [MsgTypeBytes, Msg])
 		end
 	catch
 		_:_ ->
@@ -1690,12 +1706,18 @@ do_send_msg2vdr(Pid, Socket, Msg, LinkPid) when is_list(Msg),
 	LinkPid ! {Pid, vdrmsgsent},
 	HLen = byte_size(H),
 	try
-		HTypeBytes = binary:part(H, HLen-5, 2),
+		HTypeBytes = binary:part(Msg, 1, 2),
 		if
-			HTypeBytes =/= <<2,0>> andalso HTypeBytes =/= <<0,2>> ->
-				common:loginfo("Msg2VDR(~p) : ~p", [HTypeBytes, H]);
+			HTypeBytes  == <<128, 1>> ->
+				HRespTypeBytes = binary:part(H, HLen-5, 2),
+				if
+					HRespTypeBytes =/= <<2,0>> andalso HRespTypeBytes =/= <<0,2>> ->
+						common:loginfo("Msg2VDR(~p, ~p) : ~p", [HTypeBytes, HRespTypeBytes, H]);
+					true ->
+						ok
+				end;
 			true ->
-				ok
+				common:loginfo("Msg2VDR(~p) : ~p", [HTypeBytes, Msg])
 		end
 	catch
 		_:_ ->
