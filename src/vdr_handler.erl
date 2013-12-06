@@ -625,14 +625,14 @@ process_vdr_data(Socket, Data, State) ->
                 true ->
 					if
 						ID =/= 16#2 andalso ID =/= 16#200 ->
-							common:loginfo("VDR (~p) (id:~p, serialno:~p, authen_code:~p, vehicleid:~p, vehiclecode:~p) MSG ID (~p), MSG Index (~p), MSG Tel (~p)",
+							common:loginfo("VDR (~p) (id:~p, serialno:~p, authen_code:~p, vehicleid:~p, vehiclecode:~p) MSG ID (~p), MSG Index (~p), MSG Tel (~p)~n~p",
 										   [NewState#vdritem.addr, 
 											NewState#vdritem.id, 
 											NewState#vdritem.serialno, 
 											NewState#vdritem.auth, 
 											NewState#vdritem.vehicleid, 
 											NewState#vdritem.vehiclecode, 
-											ID, MsgIdx, Tel]);
+											ID, MsgIdx, Tel, Data]);
 						true ->
 							ok
 					end,
