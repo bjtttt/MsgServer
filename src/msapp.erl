@@ -547,6 +547,10 @@ vdrtable_insert_delete_process() ->
 			Count = ets:info(vdrtable, size),
 			Pid ! {Pid, Count},
 			vdrtable_insert_delete_process();
+		{Pid, lookup, Key} ->
+			Res = ets:lookup(vdrtable, Key),
+			Pid ! {Pid, Res},
+			vdrtable_insert_delete_process();
 		_ ->
 			common:logerror("VDR table insert/delete process receive unknown msg."),
 			vdrtable_insert_delete_process()

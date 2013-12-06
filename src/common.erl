@@ -815,6 +815,12 @@ send_vdr_table_operation(VDRTablePid, Oper) ->
 		                            receive
 		                                {Pid, Count} ->
 		                                    Count
+		                            end;
+								{Pid, lookup, _Key} ->
+									VDRTablePid1 ! Oper,
+		                            receive
+		                                {Pid, Res} ->
+		                                    Res
 		                            end
 		                  end
 		            end;
@@ -844,6 +850,12 @@ send_vdr_table_operation(VDRTablePid, Oper) ->
                     receive
                         {Pid, Count} ->
                             Count
+                    end;
+				{Pid, lookup, _Key} ->
+					VDRTablePid ! Oper,
+                    receive
+                        {Pid, Res} ->
+                            Res
                     end
             end
     end.
