@@ -67,15 +67,15 @@ handle_info({tcp, Socket, Data}, OriState) ->
 	LinkPid = OriState#vdritem.linkpid,
 	Pid = OriState#vdritem.pid,
 	LinkPid ! {Pid, vdrmsggot},
-    common:loginfo("~p : Data from VDR (~p) (id:~p, serialno:~p, authen_code:~p, vehicleid:~p, vehiclecode:~p)~n~p",
-				   [self(),
-					OriState#vdritem.addr, 
-					OriState#vdritem.id, 
-					OriState#vdritem.serialno, 
-					OriState#vdritem.auth, 
-					OriState#vdritem.vehicleid, 
-					OriState#vdritem.vehiclecode,
-					Data]),
+    %common:loginfo("~p : Data from VDR (~p) (id:~p, serialno:~p, authen_code:~p, vehicleid:~p, vehiclecode:~p)~n~p",
+	%			   [self(),
+	%				OriState#vdritem.addr, 
+	%				OriState#vdritem.id, 
+	%				OriState#vdritem.serialno, 
+	%				OriState#vdritem.auth, 
+	%				OriState#vdritem.vehicleid, 
+	%				OriState#vdritem.vehiclecode,
+	%				Data]),
     % Update active time for VDR
     DateTime = {erlang:date(), erlang:time()},
     State = OriState#vdritem{acttime=DateTime},
@@ -623,14 +623,19 @@ process_vdr_data(Socket, Data, State) ->
                             {error, unautherror, State}
                     end;
                 true ->
-					%common:loginfo("VDR (~p) (id:~p, serialno:~p, authen_code:~p, vehicleid:~p, vehiclecode:~p) MSG ID (~p), MSG Index (~p), MSG Tel (~p)",
-					%			   [NewState#vdritem.addr, 
-					%				NewState#vdritem.id, 
-					%				NewState#vdritem.serialno, 
-					%				NewState#vdritem.auth, 
-					%				NewState#vdritem.vehicleid, 
-					%				NewState#vdritem.vehiclecode, 
-					%				ID, MsgIdx, Tel]),
+					if
+						ID =/= 16#2 andalso ID =/= 16#200 ->
+							common:loginfo("VDR (~p) (id:~p, serialno:~p, authen_code:~p, vehicleid:~p, vehiclecode:~p) MSG ID (~p), MSG Index (~p), MSG Tel (~p)",
+										   [NewState#vdritem.addr, 
+											NewState#vdritem.id, 
+											NewState#vdritem.serialno, 
+											NewState#vdritem.auth, 
+											NewState#vdritem.vehicleid, 
+											NewState#vdritem.vehiclecode, 
+											ID, MsgIdx, Tel]);
+						true ->
+							ok
+					end,
                     case ID of
                         16#1 ->     % VDR general response
                             {RespFlowIdx, RespID, Res} = Msg,
@@ -1555,11 +1560,22 @@ disconn_socket_by_vehicle_id(VehicleID) ->
 send_data_to_vdr(ID, Tel, FlowIdx, MsgBody, State) ->
 	Socket = State#vdritem.socket,
 	Pid = State#vdritem.pid,
-	LinkPid = State#vdritem.linkpid,
-	common:loginfo("Msg2VDR : ID ~p, Tel ~p, FlowIdx ~p, Msgbody ~p", [ID, Tel, FlowIdx, MsgBody]),
+	LinkPid = State#vdritem.linkpid,	
 	case is_binary(MsgBody) of
 		true ->
 			MsgLen = byte_size(MsgBody),
+			try
+				MsgBodyTypeBytes = binary:part(MsgBody, MsgLen-3, 2),
+				if
+					MsgBodyTypeBytes =/= <<2,0>> andalso MsgBodyTypeBytes =/= <<0,2>> ->
+						common:loginfo("Msg2VDR : ID ~p, Tel ~p, FlowIdx ~p, MsgType ~p, Msgbody ~p", [ID, Tel, FlowIdx, MsgBodyTypeBytes, MsgBody]);
+					true ->
+						ok
+				end
+			catch
+				_:_ ->
+					ok
+			end,
 			if
 				MsgLen > 24 ->
 					Header = binary:part(MsgBody, 0, 20),
@@ -1581,6 +1597,20 @@ send_data_to_vdr(ID, Tel, FlowIdx, MsgBody, State) ->
 					do_send_data_to_vdr(Pid, Socket, Msg, ID, FlowIdx, LinkPid)
 			end;
 		_ ->
+			try
+				MsgBodyBin = list_to_binary(MsgBody),
+				MsgLen = byte_size(MsgBody),
+				MsgBodyTypeBytes = binary:part(MsgBodyBin, MsgLen-3, 2),
+				if
+					MsgBodyTypeBytes =/= <<2,0>> andalso MsgBodyTypeBytes =/= <<0,2>> ->
+						common:loginfo("Msg2VDR : ID ~p, Tel ~p, FlowIdx ~p, MsgType ~p, Msgbody ~p", [ID, Tel, FlowIdx, MsgBodyTypeBytes, MsgBody]);
+					true ->
+						ok
+				end
+			catch
+				_:_ ->
+					ok
+			end,
             Msg = vdr_data_processor:create_final_msg(ID, Tel, FlowIdx, MsgBody),
 			do_send_data_to_vdr(Pid, Socket, Msg, ID, FlowIdx, LinkPid)
     end.
@@ -1626,7 +1656,19 @@ get_new_flow_index(FlowIdx) ->
 do_send_msg2vdr(Pid, Socket, Msg, LinkPid) when is_binary(Msg),
 									   byte_size(Msg) > 0 ->
 	LinkPid ! {Pid, vdrmsgsent},
-	common:loginfo("Msg2VDR : ~p", [Msg]),
+	MsgLen = byte_size(Msg),
+	try
+		MsgTypeBytes = binary:part(Msg, MsgLen-5, 2),
+		if
+			MsgTypeBytes =/= <<2,0>> andalso MsgTypeBytes =/= <<0,2>> ->
+				common:loginfo("Msg2VDR(~p) : ~p", [MsgTypeBytes, Msg]);
+			true ->
+				ok
+		end
+	catch
+		_:_ ->
+			ok
+	end,
 	try
 		gen_tcp:send(Socket, Msg)
 	catch
@@ -1646,6 +1688,19 @@ do_send_msg2vdr(Pid, Socket, Msg, LinkPid) when is_list(Msg),
 									   length(Msg) > 0 ->
 	[H|T] = Msg,
 	LinkPid ! {Pid, vdrmsgsent},
+	HLen = byte_size(H),
+	try
+		HTypeBytes = binary:part(H, HLen-5, 2),
+		if
+			HTypeBytes =/= <<2,0>> andalso HTypeBytes =/= <<0,2>> ->
+				common:loginfo("Msg2VDR(~p) : ~p", [HTypeBytes, H]);
+			true ->
+				ok
+		end
+	catch
+		_:_ ->
+			ok
+	end,
 	try
 		gen_tcp:send(Socket, H)
 	catch

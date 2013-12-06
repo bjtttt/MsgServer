@@ -70,10 +70,44 @@ wsock_client_process(Num1, Num2) ->
 			CheckBin = is_binary(WSMsg),
 			if
 				CheckBin == true ->
-					common:loginfo("WS process ~p : (BIN)~p", [self(), WSMsg]),
+					try
+						MsgLen = byte_size(WSMsg),
+						if
+							MsgLen >= 8 ->
+								Mid = binary:part(WSMsg, 1, 7),
+								if
+									Mid =/= <<"\"MID\":3">> ->
+										common:loginfo("WS process ~p : (BIN)~p", [self(), WSMsg]);
+									true ->
+										ok
+								end;
+							true ->
+								ok
+						end
+					catch
+						_:_ ->
+							ok
+					end,
 					wsock_client:send(WSMsg);
 				true ->
-					common:loginfo("WS process ~p : (ASC)~p", [self(), WSMsg]),
+					try
+						MsgLen = length(WSMsg),
+						if
+							MsgLen >= 8 ->
+								Mid = binary:part(list_to_binary(WSMsg), 1, 7),
+								if
+									Mid =/= <<"\"MID\":3">> ->
+										common:loginfo("WS process ~p : (ASC)~p", [self(), WSMsg]);
+									true ->
+										ok
+								end;
+							true ->
+								ok
+						end
+					catch
+						_:_ ->
+							ok
+					end,
 					try
 						WSMsgBin = list_to_binary(WSMsg),
 						wsock_client:send(WSMsgBin)
@@ -88,10 +122,44 @@ wsock_client_process(Num1, Num2) ->
 			CheckBin = is_binary(WSMsg),
 			if
 				CheckBin == true ->
-					common:loginfo("WS process ~p : (BIN)~p", [self(), WSMsg]),
+					try
+						MsgLen = byte_size(WSMsg),
+						if
+							MsgLen >= 8 ->
+								Mid = binary:part(WSMsg, 1, 7),
+								if
+									Mid =/= <<"\"MID\":3">> ->
+										common:loginfo("WS process ~p : (BIN)~p", [self(), WSMsg]);
+									true ->
+										ok
+								end;
+							true ->
+								ok
+						end
+					catch
+						_:_ ->
+							ok
+					end,
 					wsock_client:send(WSMsg);
 				true ->
-					common:loginfo("WS process ~p : (ASC)~p", [self(), WSMsg]),
+					try
+						MsgLen = length(WSMsg),
+						if
+							MsgLen >= 8 ->
+								Mid = binary:part(list_to_binary(WSMsg), 1, 7),
+								if
+									Mid =/= <<"\"MID\":3">> ->
+										common:loginfo("WS process ~p : (ASC)~p", [self(), WSMsg]);
+									true ->
+										ok
+								end;
+							true ->
+								ok
+						end
+					catch
+						_:_ ->
+							ok
+					end,
 					try
 						WSMsgBin = list_to_binary(WSMsg),
 						wsock_client:send(WSMsgBin)
