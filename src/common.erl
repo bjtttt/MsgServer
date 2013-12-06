@@ -529,7 +529,7 @@ is_string(_Value) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %
 % true only when Value is NOT an empty integer string
-% For example, "81", "8A" and "0x8B" is false
+% For example, "81", "8A" and "0x8B" is true
 %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 is_integer_string(Value) when is_list(Value) ->
@@ -539,14 +539,16 @@ is_integer_string(Value) when is_list(Value) ->
             false;
         true ->
             Fun = fun(X) ->
-                          if X < 48 orelse X > 57 -> 
-                                 if
-                                     X == 88 orelse X == 120 ->
-                                         true;
-                                     true ->
-                                         false
-                                 end;                                     
-                             true -> true
+                          if X >= 48 orelse X =< 57 -> 
+								 true;
+							 X == 88 orelse X == 120 ->
+								 true;
+							 X >= 65 orelse X =< 70 ->
+								 true;
+							 X >= 97 orelse X =< 102 ->
+								 true;
+                             true -> 
+								 false
                           end
                   end,
             lists:all(Fun, Value)
@@ -603,10 +605,9 @@ is_dec_integer_string(_Value) ->
 is_hex_integer_string(Value) when is_list(Value) ->
     case is_integer_string(Value) of
         true ->
-            Lenx = length(string:tokens(Value, "0x")),
-            LenX = length(string:tokens(Value, "0x")),
+            Len = length(string:tokens(Value, "xX")),
             if
-                Lenx == 1 orelse LenX == 1 ->
+                Len == 2 ->
                     true;
                 true ->
                     false
@@ -626,12 +627,12 @@ convert_word_hex_string_to_integer(WordHexStr) when is_list(WordHexStr) ->
     case is_hex_integer_string(WordHexStr) of
         true ->
             [_Pre, Value] = string:tokens(WordHexStr, "xX"),
-            Hex = list_to_integer(Value),
-            First = Hex div 1000,
-            Second = Hex div 100,
-            Third = Hex div 10,
-            Fourth = Hex rem 10,
-            First * 16 * 16 * 16 + Second * 16 * 16 + Third * 16 + Fourth;
+			try
+				list_to_integer(Value, 16)
+			catch
+				_:_ ->
+					16#FFFF
+			end;
         _ ->
             0
     end;

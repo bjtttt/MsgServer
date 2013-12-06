@@ -427,6 +427,8 @@ create_set_term_args(Count, ArgList) when is_list(ArgList),
     [H|_T] = ArgList,
     if
         is_tuple(H) == true ->
+			%ComposedList = [compose_term_args_binary(ID, Value) || {ID, Value} <- ArgList],
+			%common:loginfo("ComposedList : ~p",[ComposedList]),
             Bin = list_to_binary([compose_term_args_binary(ID, Value) || {ID, Value} <- ArgList]),
             <<Count:?LEN_BYTE,Bin/binary>>;
         is_list(H) == true ->
@@ -448,11 +450,13 @@ create_set_term_args(_Count, _ArgList) ->
 compose_term_args_binary(ID, Value) when is_list(ID) ->
     case common:is_dec_integer_string(ID) of
         true ->
+			%common:loginfo("ID DEC : ~p", [ID]),
             IDInt = list_to_integer(ID),
             compose_term_args_binary(IDInt, Value);
         _ ->
             case common:is_hex_integer_string(ID) of
                 true ->
+					%common:loginfo("ID HEX : ~p", [ID]),
                     IDInt = common:convert_word_hex_string_to_integer(ID),
                     compose_term_args_binary(IDInt, Value);
                 _ ->

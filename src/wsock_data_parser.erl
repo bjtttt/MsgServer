@@ -698,7 +698,9 @@ connect_ws_to_vdr(Msg) ->
                 16#8103 ->
                     [SN, VIDList, [ST, DT]] = Res,
                     SDT = ST ++ DT,
+					common:loginfo("16#8103 set VDR parameter : ~p", [SDT]),
                     SDTBin = vdr_data_processor:create_set_term_args(length(SDT), SDT),
+					common:loginfo("16#8103 set VDR parameter result : ~p", [SDTBin]),
                     case SDTBin of
                         <<>> ->
                             send_resp_to_ws(SN, 16#8103, VIDList, ?P_GENRESP_ERRMSG);

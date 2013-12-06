@@ -1569,7 +1569,7 @@ send_data_to_vdr(ID, Tel, FlowIdx, MsgBody, State) ->
 					ID == 16#8001 ->
 						MsgBodyTypeBytes = binary:part(MsgBody, MsgLen-3, 2),
 						if
-							MsgBodyTypeBytes =/= <<2,0>> orelse MsgBodyTypeBytes =/= <<0,2>> ->
+							MsgBodyTypeBytes =/= <<2,0>> andalso MsgBodyTypeBytes =/= <<0,2>> ->
 								common:loginfo("Msg2VDR : ID ~p, Tel ~p, FlowIdx ~p, MsgType ~p, Msgbody ~p", [ID, Tel, FlowIdx, MsgBodyTypeBytes, MsgBody]);
 							true ->
 								ok
@@ -1708,7 +1708,7 @@ do_send_msg2vdr(Pid, Socket, Msg, LinkPid) when is_list(Msg),
 	try
 		HTypeBytes = binary:part(Msg, 1, 2),
 		if
-			HTypeBytes  == <<128, 1>> ->
+			HTypeBytes == <<128, 1>> ->
 				HRespTypeBytes = binary:part(H, HLen-5, 2),
 				if
 					HRespTypeBytes =/= <<2,0>> andalso HRespTypeBytes =/= <<0,2>> ->
