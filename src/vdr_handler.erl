@@ -1520,7 +1520,7 @@ remove_alarm_item(_Index, AlarmList) ->
 % Diconnect socket and remove related entries from vdrtable
 %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-disconn_socket_by_id(VDRTablePid, SockList) when is_list(SockList),
+disconn_socket_by_id(SockList) when is_list(SockList),
                                     length(SockList) > 0 ->
     case SockList of
         [] ->
@@ -1528,33 +1528,18 @@ disconn_socket_by_id(VDRTablePid, SockList) when is_list(SockList),
         _ ->
             [H|T] = SockList,
             [Sock] = H,
-			if
-				VDRTablePid == undefined ->
-					ok;
-				true ->
-		            VDRResult = common:send_vdr_table_operation(VDRTablePid, {self(), lookup, Sock}),
-					case VDRResult of
-						[] ->
-							common:logerror("Cannot check stored MSG from WS to VDR stored in GW because of NO VDR found.");
-						_ ->
-							VDRResultLen = length(VDRResult),
-							case VDRResultLen of
-								1 ->
-									[VDRItem] = VDRResult,
-						            MsgList = VDRItem#vdritem.msgws2vdr,
-									common:loginfo("Checked stored MSG from WS to VDR stored in GW : ~p", [MsgList]);
-								_ ->
-									common:logerror("Cannot check stored MSG from WS to VDR stored in GW because ~p VDR found", [CheckedVDRResultLen])
-							end
-					end,
-					vdr_server:terminate_invalid_vdrs(Sock),
-		            disconn_socket_by_id(VDRTablePid, T)
-			end
+			try
+				gen_tcp:close(Sock)
+			catch
+				_:_ ->
+					ok
+			end,
+            disconn_socket_by_id(T)
     end;
-disconn_socket_by_id(_VDRTablePid, _SockList) ->
+disconn_socket_by_id(_SockList) ->
     ok.
 
-disconn_socket_by_vehicle_id(VDRTablePid, VehicleID) ->
+disconn_socket_by_vehicle_id(VehicleID) ->
 	SockList = ets:match(vdrtable, {'_', 
 	                     '$1', '_', '_', '_', VehicleID,
 	                     '_', '_', '_', '_', '_',
@@ -1563,7 +1548,7 @@ disconn_socket_by_vehicle_id(VDRTablePid, VehicleID) ->
 	                     '_', '_', '_', '_', '_',
                          '_', '_', '_', '_', '_',
                          '_', '_', '_'}),
-	disconn_socket_by_id(VDRTablePid, SockList).
+	disconn_socket_by_id(SockList).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %
