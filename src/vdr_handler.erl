@@ -1683,7 +1683,7 @@ do_send_msg2vdr(Pid, Socket, Msg, LinkPid) when is_binary(Msg),
 		MsgTypeBytes = binary:part(Msg, 1, 2),
 		if
 			MsgTypeBytes == <<128, 1>> ->
-				MsgRespTypeBytes = binary:part(Msg, MsgLen-5, 2),
+				MsgRespTypeBytes = binary:part(Msg, MsgLen-6, 2),
 				if
 					MsgRespTypeBytes =/= <<2,0>> andalso MsgRespTypeBytes =/= <<0,2>> ->
 						common:loginfo("Msg2VDR(~p, ~p) : ~p", [MsgTypeBytes, MsgRespTypeBytes, Msg]);
@@ -1721,7 +1721,7 @@ do_send_msg2vdr(Pid, Socket, Msg, LinkPid) when is_list(Msg),
 		HTypeBytes = binary:part(Msg, 1, 2),
 		if
 			HTypeBytes == <<128, 1>> ->
-				HRespTypeBytes = binary:part(H, HLen-5, 2),
+				HRespTypeBytes = binary:part(H, HLen-6, 2),
 				if
 					HRespTypeBytes =/= <<2,0>> andalso HRespTypeBytes =/= <<0,2>> ->
 						common:loginfo("Msg2VDR(~p, ~p) : ~p", [HTypeBytes, HRespTypeBytes, H]);
