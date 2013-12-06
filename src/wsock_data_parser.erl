@@ -1009,9 +1009,21 @@ update_vdr_ws2vdr_msg_id_flowidx(ID, FlowIdx, VID, Value) when is_integer(ID),
 					NewVDRItem = VDRItem#vdritem{msgws2vdr=MsgList},                          
 					common:send_vdr_table_operation(VDRTablePid, {self(), insert, NewVDRItem, noresp}),
 					% Check insert for sync
-		            [CheckedVDRItem] = common:send_vdr_table_operation(VDRTablePid, {self(), lookup, Sock}),
-		            CheckedMsgList = CheckedVDRItem#vdritem.msgws2vdr,
-					common:loginfo("Checked stored MSG from WS to VDR stored in GW : ~p", [CheckedMsgList]);
+		            CheckedVDRResult = common:send_vdr_table_operation(VDRTablePid, {self(), lookup, Sock}),
+					case CheckedVDRResult of
+						[] ->
+							common:logerror("Cannot check stored MSG from WS to VDR stored in GW because of NO VDR found.");
+						_ ->
+							CheckedVDRResultLen = length(CheckedVDRResult),
+							case CheckedVDRResultLen of
+								1 ->
+									[CheckedVDRItem] = CheckedVDRResult,
+						            CheckedMsgList = CheckedVDRItem#vdritem.msgws2vdr,
+									common:loginfo("Checked stored MSG from WS to VDR stored in GW : ~p", [CheckedMsgList]);
+								_ ->
+									common:logerror("Cannot check stored MSG from WS to VDR stored in GW because ~p VDR found", [CheckedVDRResultLen])
+							end
+					end;
 				_ ->
 					common:logerror("(FATAL) WSClient : vdrtable has ~p item(s) for Sock ~p~n", [ResLookupLen, Sock])
 			end;

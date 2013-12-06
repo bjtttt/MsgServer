@@ -82,7 +82,7 @@
 
 -define(WS2VDRFREQ, 10).
 
--define(VDR_MSG_TIMEOUT, 300000).
+-define(VDR_MSG_TIMEOUT, 180000).
 -define(VDR_MSG_RESP_TIMEOUT, 5000).
 -define(CC_PID_TIMEOUT, 5000).
 
