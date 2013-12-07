@@ -76,9 +76,13 @@ process_data(Data) ->
     try do_process_data(Data)
     catch
         _:Why ->
-            [ST] = erlang:get_stacktrace(),
-            common:logerr("Parsing management data exception : ~p~n~Stack trace :~n~p", [Why, ST]),
-            {error, exception, Why}
+			try
+	            [ST] = erlang:get_stacktrace(),
+	            common:logerr("Parsing management data exception : ~p~n~Stack trace :~n~p", [Why, ST])
+			catch
+				_:_ ->ok
+			end,
+			{error, exception, Why}
     end.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -203,6 +207,17 @@ do_process_data(Data) ->
                                         true ->
                                             {error, format_error}
                                     end;
+                                true ->
+                                    {error, length_error}
+                            end;
+                        16#8104 ->
+                            if
+                                Len == 4 ->
+                                    {"SN", SN} = get_specific_entry(Content, "SN"),
+                                    {"LIST", List} = get_specific_entry(Content, "LIST"),
+                                    VIDList = get_same_key_list(List),
+                                    %{"DATA", Data} = get_specific_entry(Content, "DATA"),
+                                    {ok, Mid, [SN, VIDList]};
                                 true ->
                                     {error, length_error}
                             end;
@@ -709,6 +724,10 @@ connect_ws_to_vdr(Msg) ->
                             send_msg_to_vdrs(16#8103, VIDList, SDTBin)%,
                             %send_resp_to_ws(SN, 16#8103, VIDList, ?P_GENRESP_OK)
                     end;
+                16#8104 ->
+                    [SN, VIDList] = Res,
+                    update_vdrs_ws2vdr_msg_id_flowidx(16#8103, SN, VIDList, null),
+                    send_msg_to_vdrs(16#8103, VIDList, <<>>);
                 16#8203 ->
 					%[SN, VIDList, DataList] = Res,
                     [SN, VIDList, [ASN, TYPE]] = Res,

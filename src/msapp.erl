@@ -101,7 +101,7 @@ start(StartType, StartArgs) ->
 																			 0, 0, 0, 0, 0,
 																			 0) end),
 		                    WSPid = spawn(fun() -> wsock_client:wsock_client_process(0, 0) end),
-		                    DBPid = spawn(fun() -> mysql:mysql_process(0, 0, [<<"">>, <<"">>, []], 0, [<<"">>, <<"">>, []], 0, [], 0, LinkPid) end),
+		                    DBPid = spawn(fun() -> mysql:mysql_process(0, 0, [<<"">>, <<"">>, []], 0, [<<"">>, <<"">>, []], 0, [], 0, [<<"">>, <<"">>, []], 0, LinkPid) end),
 		                    DBTablePid = spawn(fun() -> db_table_deamon() end),
 		                    CCPid = spawn(fun() -> code_convertor_process() end),
 		                    VdrTablePid = spawn(fun() -> vdrtable_insert_delete_process() end),
@@ -160,7 +160,7 @@ start(StartType, StartArgs) ->
 																			 0, 0, 0, 0, 0, 
 																			 0, 0, 0, 0, 0,
 																			 0) end),
-		                    DBPid = spawn(fun() -> mysql:mysql_process(0, 0, [<<"">>, <<"">>, []], 0, [<<"">>, <<"">>, []], 0, [], 0, LinkPid) end),
+		                    DBPid = spawn(fun() -> mysql:mysql_process(0, 0, [<<"">>, <<"">>, []], 0, [<<"">>, <<"">>, []], 0, [], 0, [<<"">>, <<"">>, []], 0, LinkPid) end),
 		                    DBTablePid = spawn(fun() -> db_table_deamon() end),
 		                    CCPid = spawn(fun() -> code_convertor_process() end),
 		                    VdrTablePid = spawn(fun() -> vdrtable_insert_delete_process() end),
@@ -520,8 +520,8 @@ db_data_operation_process(DBPid) ->
 		{_Pid, clear, Table, noresp} ->
 			ets:delete_all_objects(Table),
 			db_data_operation_process(DBPid);
-		_ ->
-			common:logerror("DB operation process receive unknown msg."),
+		Msg ->
+			common:logerror("DB operation process receive unknown msg : ~p", [Msg]),
 			db_data_operation_process(DBPid)
 	end.
 

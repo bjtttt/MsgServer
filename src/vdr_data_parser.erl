@@ -178,8 +178,10 @@ restore_7d_7e_msg(State, Data) ->
     {Body, Tail} = split_binary(Remain, Len-2),
     if
         Head == <<16#7e>> andalso Tail == <<16#7e>> ->
-            Result = binary:replace(Body, <<125,1>>, <<125>>, [global]),
-            FinalResult = binary:replace(Result, <<125,2>>, <<126>>, [global]),
+		    Result1 = binary:replace(Body, <<125,1>>, <<255,254,253,252,251,250,251,252,253,254,255>>, [global]),
+		    FinalResult1 = binary:replace(Result1, <<125,2>>, <<245,244,243,242,241,240,241,242,243,244,245>>, [global]),
+		    Result = binary:replace(FinalResult1, <<255,254,253,252,251,250,251,252,253,254,255>>, <<125>>, [global]),
+		    FinalResult = binary:replace(Result, <<245,244,243,242,241,240,241,242,243,244,245>>, <<126>>, [global]),
             {ok, FinalResult};
         true ->
             common:logerror("Wrong data head/tail from ~p~n: (Head)~p / (Tail)~p",[State#vdritem.addr, Head, Tail]),

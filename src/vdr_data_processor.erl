@@ -92,7 +92,8 @@
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 create_final_msg(ID, Tel, MsgIdx, Data) when is_binary(Data),
 										     byte_size(Data) =< ?MAX_SINGLE_MSG_LEN ->
-    Len = byte_size(Data),
+    %common:loginfo("3"),
+	Len = byte_size(Data),
     Header = <<ID:16, 0:2, 0:1, 0:3, Len:10, Tel:48, MsgIdx:16>>,
     HeaderBody = list_to_binary([Header, Data]),
     Parity = vdr_data_parser:bxorbytelist(HeaderBody),
@@ -439,6 +440,21 @@ create_set_term_args(Count, ArgList) when is_list(ArgList),
     end;
 create_set_term_args(_Count, _ArgList) ->
     <<>>.
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%
+% 0x8104
+%     Count   : BYTE
+%     ArgList : [[ID0, Value0], [ID1, Value1], [ID2, Value2], ...]
+%               [{ID0, Value0}, {ID1, Value1}, {ID2, Value2}, ...]
+%               T-L-V : DWORD-BYTE-L*8
+%
+% Return    :
+%       Bin | <<>>
+%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %

@@ -76,8 +76,14 @@ wsock_client_process(Num1, Num2) ->
 							MsgLen >= 8 ->
 								Mid = binary:part(WSMsg, 1, 7),
 								if
-									Mid =/= <<"\"MID\":3">> ->
-										common:loginfo("WS process ~p : (BIN)~p", [self(), WSMsg]);
+									Mid =/= <<"\"MID\":3">> andalso Mid =/= <<"\"MID\":4">> ->
+										Mid2 = binary:part(WSMsg, 1, 9),
+										if
+											Mid2 =/= <<"\"MID\":512">> ->
+												common:loginfo("WS process ~p : (BIN)~p", [self(), WSMsg]);
+											true ->
+												ok
+										end;
 									true ->
 										ok
 								end;
@@ -96,8 +102,14 @@ wsock_client_process(Num1, Num2) ->
 							MsgLen >= 8 ->
 								Mid = binary:part(list_to_binary(WSMsg), 1, 7),
 								if
-									Mid =/= <<"\"MID\":3">> ->
-										common:loginfo("WS process ~p : (ASC)~p", [self(), WSMsg]);
+									Mid =/= <<"\"MID\":3">> andalso Mid =/= <<"\"MID\":4">> ->
+										Mid2 = binary:part(list_to_binary(WSMsg), 1, 9),
+										if
+											Mid2 =/= <<"\"MID\":512">> ->
+												common:loginfo("WS process ~p : (ASC)~p", [self(), WSMsg]);
+											true ->
+												ok
+										end;
 									true ->
 										ok
 								end;
@@ -128,8 +140,14 @@ wsock_client_process(Num1, Num2) ->
 							MsgLen >= 8 ->
 								Mid = binary:part(WSMsg, 1, 7),
 								if
-									Mid =/= <<"\"MID\":3">> ->
-										common:loginfo("WS process ~p : (BIN)~p", [self(), WSMsg]);
+									Mid =/= <<"\"MID\":3">> andalso Mid =/= <<"\"MID\":4">> ->
+										Mid2 = binary:part(WSMsg, 1, 9),
+										if
+											Mid2 =/= <<"\"MID\":512">> ->
+												common:loginfo("WS process ~p : (BIN)~p", [self(), WSMsg]);
+											true ->
+												ok
+										end;
 									true ->
 										ok
 								end;
@@ -148,8 +166,14 @@ wsock_client_process(Num1, Num2) ->
 							MsgLen >= 8 ->
 								Mid = binary:part(list_to_binary(WSMsg), 1, 7),
 								if
-									Mid =/= <<"\"MID\":3">> ->
-										common:loginfo("WS process ~p : (ASC)~p", [self(), WSMsg]);
+									Mid =/= <<"\"MID\":3">> andalso Mid =/= <<"\"MID\":4">> ->
+										Mid2 = binary:part(list_to_binary(WSMsg), 1, 9),
+										if
+											Mid2 =/= <<"\"MID\":512">> ->
+												common:loginfo("WS process ~p : (ASC)~p", [self(), WSMsg]);
+											true ->
+												ok
+										end;
 									true ->
 										ok
 								end;

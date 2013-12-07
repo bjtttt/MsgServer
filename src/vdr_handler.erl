@@ -174,7 +174,8 @@ terminate(_Reason, State) ->
     VehicleID = State#vdritem.vehicleid,
     Socket = State#vdritem.socket,
     VDRTablePid = State#vdritem.vdrtablepid,
-	DBOperPid = State#vdritem.dboperid,
+	DBPid = State#vdritem.dbpid,
+	LinkPid = State#vdritem.linkpid,
     case Socket of
         undefined ->
             ok;
@@ -185,11 +186,12 @@ terminate(_Reason, State) ->
         undefined ->
             ok;
         _ ->
-			case DBOperPid of
+			case DBPid of
 				undefined ->
 					ok;
 				_ ->
-					DBOperPid ! {self(), offline, VehicleID}
+					DBPid ! {self(), offline, VehicleID},
+					LinkPid ! {Pid, dbmsgstored, 1}
 			end,
             {ok, WSUpdate} = wsock_data_parser:create_term_offline([VehicleID]),
             send_msg_to_ws_nowait(WSUpdate, State)
@@ -768,6 +770,7 @@ process_vdr_data(Socket, Data, State) ->
 
                             [VDRItem] = ets:lookup(vdrtable, Socket),
                             MsgList = VDRItem#vdritem.msgws2vdr,
+							common:loginfo("Stored MSG from WS to VDR stored in GW : ~p", [MsgList]),
 
                             TargetList = [{WSID, WSFlowIdx, WSValue} || {WSID, WSFlowIdx, WSValue} <- MsgList, WSID == 16#8302],
                             case length(TargetList) of
@@ -783,6 +786,7 @@ process_vdr_data(Socket, Data, State) ->
                             end,
                                     
                             NewMsgList = [{WSID, WSFlowIdx, WSValue} || {WSID, WSFlowIdx, WSValue} <- MsgList, WSID =/= 16#8302],
+							common:loginfo("New stored MSG from WS to VDR stored in GW : ~p", [NewMsgList]),
                             VDRTablePid = VDRItem#vdritem.vdrtablepid,
                             NewVDRItem = VDRItem#vdritem{msgws2vdr=NewMsgList},
                             common:send_vdr_table_operation(VDRTablePid, {self(), insert, NewVDRItem, noresp}),
@@ -801,6 +805,7 @@ process_vdr_data(Socket, Data, State) ->
 
                             [VDRItem] = ets:lookup(vdrtable, Socket),
                             MsgList = VDRItem#vdritem.msgws2vdr,
+							common:loginfo("Stored MSG from WS to VDR stored in GW : ~p", [MsgList]),
 
                             TargetList = [{WSID, WSFlowIdx, WSValue} || {WSID, WSFlowIdx, WSValue} <- MsgList, WSID == 16#8500],
                             case length(TargetList) of
@@ -821,6 +826,7 @@ process_vdr_data(Socket, Data, State) ->
                             end,
                                     
                             NewMsgList = [{WSID, WSFlowIdx, WSValue} || {WSID, WSFlowIdx, WSValue} <- MsgList, WSID =/= 16#8500],
+							common:loginfo("New stored MSG from WS to VDR stored in GW : ~p", [NewMsgList]),
                             VDRTablePid = VDRItem#vdritem.vdrtablepid,
                             NewVDRItem = VDRItem#vdritem{msgws2vdr=NewMsgList},
                             common:send_vdr_table_operation(VDRTablePid, {self(), insert, NewVDRItem, noresp}),
@@ -892,6 +898,7 @@ process_vdr_data(Socket, Data, State) ->
 
                             [VDRItem] = ets:lookup(vdrtable, Socket),
                             MsgList = VDRItem#vdritem.msgws2vdr,
+							common:loginfo("Stored MSG from WS to VDR stored in GW : ~p", [MsgList]),
 
                             TargetList = [{WSID, WSFlowIdx, WSValue} || {WSID, WSFlowIdx, WSValue} <- MsgList, WSID == 16#8801],
                             case length(TargetList) of
@@ -908,6 +915,7 @@ process_vdr_data(Socket, Data, State) ->
                             end,
                                     
                             NewMsgList = [{WSID, WSFlowIdx, WSValue} || {WSID, WSFlowIdx, WSValue} <- MsgList, WSID =/= 16#8801],
+							common:loginfo("New stored MSG from WS to VDR stored in GW : ~p", [NewMsgList]),
                             VDRTablePid = VDRItem#vdritem.vdrtablepid,
                             NewVDRItem = VDRItem#vdritem{msgws2vdr=NewMsgList},
                             common:send_vdr_table_operation(VDRTablePid, {self(), insert, NewVDRItem, noresp}),
@@ -1575,13 +1583,14 @@ send_data_to_vdr(ID, Tel, FlowIdx, MsgBody, State) ->
 	LinkPid = State#vdritem.linkpid,	
 	case is_binary(MsgBody) of
 		true ->
+			%common:loginfo("1"),
 			MsgLen = byte_size(MsgBody),
 			try
 				if
 					ID == 16#8001 ->
 						MsgBodyTypeBytes = binary:part(MsgBody, MsgLen-3, 2),
 						if
-							MsgBodyTypeBytes =/= <<2,0>> andalso MsgBodyTypeBytes =/= <<0,2>> ->
+							MsgBodyTypeBytes =/= <<2,0>> andalso MsgBodyTypeBytes =/= <<0,2>> andalso MsgBodyTypeBytes =/= <<1,2>> ->
 								common:loginfo("Msg2VDR : ID ~p, Tel ~p, FlowIdx ~p, MsgType ~p, Msgbody ~p", [ID, Tel, FlowIdx, MsgBodyTypeBytes, MsgBody]);
 							true ->
 								ok
@@ -1610,7 +1619,9 @@ send_data_to_vdr(ID, Tel, FlowIdx, MsgBody, State) ->
 							do_send_data_to_vdr(Pid, Socket, Msg, ID, FlowIdx, LinkPid)
 					end;
 				true ->
+					%common:loginfo("2"),
 		            Msg = vdr_data_processor:create_final_msg(ID, Tel, FlowIdx, MsgBody),
+					%common:loginfo("4"),
 					do_send_data_to_vdr(Pid, Socket, Msg, ID, FlowIdx, LinkPid)
 			end;
 		_ ->
@@ -1621,7 +1632,7 @@ send_data_to_vdr(ID, Tel, FlowIdx, MsgBody, State) ->
 				if
 					ID == 16#8001 ->
 						if
-							MsgBodyTypeBytes =/= <<2,0>> andalso MsgBodyTypeBytes =/= <<0,2>> ->
+							MsgBodyTypeBytes =/= <<2,0>> andalso MsgBodyTypeBytes =/= <<0,2>> andalso MsgBodyTypeBytes =/= <<1,2>> ->
 								common:loginfo("Msg2VDR : ID ~p, Tel ~p, FlowIdx ~p, MsgType ~p, Msgbody ~p", [ID, Tel, FlowIdx, MsgBodyTypeBytes, MsgBody]);
 							true ->
 								ok
@@ -1678,14 +1689,18 @@ get_new_flow_index(FlowIdx) ->
 do_send_msg2vdr(Pid, Socket, Msg, LinkPid) when is_binary(Msg),
 									   byte_size(Msg) > 0 ->
 	LinkPid ! {Pid, vdrmsgsent},
-	MsgLen = byte_size(Msg),
 	try
-		MsgTypeBytes = binary:part(Msg, 1, 2),
+	    MsgResult1 = binary:replace(Msg, <<125,1>>, <<255,254,253,252,251,250,251,252,253,254,255>>, [global]),
+	    FinalMsgResult1 = binary:replace(MsgResult1, <<125,2>>, <<245,244,243,242,241,240,241,242,243,244,245>>, [global]),
+	    MsgResult = binary:replace(FinalMsgResult1, <<255,254,253,252,251,250,251,252,253,254,255>>, <<125>>, [global]),
+	    FinalMsgResult = binary:replace(MsgResult, <<245,244,243,242,241,240,241,242,243,244,245>>, <<126>>, [global]),
+		FinalMsgResultLen = byte_size(FinalMsgResult),
+		MsgTypeBytes = binary:part(FinalMsgResult, 1, 2),
 		if
 			MsgTypeBytes == <<128, 1>> ->
-				MsgRespTypeBytes = binary:part(Msg, MsgLen-5, 2),
+				MsgRespTypeBytes = binary:part(FinalMsgResult, FinalMsgResultLen-5, 2),
 				if
-					MsgRespTypeBytes =/= <<2,0>> andalso MsgRespTypeBytes =/= <<0,2>> ->
+					MsgRespTypeBytes =/= <<2,0>> andalso MsgRespTypeBytes =/= <<0,2>> andalso MsgRespTypeBytes =/= <<1,2>> ->
 						common:loginfo("Msg2VDR(~p, ~p) : ~p", [MsgTypeBytes, MsgRespTypeBytes, Msg]);
 					true ->
 						ok
@@ -1716,20 +1731,24 @@ do_send_msg2vdr(Pid, Socket, Msg, LinkPid) when is_list(Msg),
 									   length(Msg) > 0 ->
 	[H|T] = Msg,
 	LinkPid ! {Pid, vdrmsgsent},
-	HLen = byte_size(H),
 	try
-		HTypeBytes = binary:part(Msg, 1, 2),
+	    HResult1 = binary:replace(H, <<125,1>>, <<255,254,253,252,251,250,251,252,253,254,255>>, [global]),
+	    FinalHResult1 = binary:replace(HResult1, <<125,2>>, <<245,244,243,242,241,240,241,242,243,244,245>>, [global]),
+	    HResult = binary:replace(FinalHResult1, <<255,254,253,252,251,250,251,252,253,254,255>>, <<125>>, [global]),
+	    FinalHResult = binary:replace(HResult, <<245,244,243,242,241,240,241,242,243,244,245>>, <<126>>, [global]),
+		FinalHResultLen = byte_size(FinalHResult),
+		HTypeBytes = binary:part(FinalHResult, 1, 2),
 		if
 			HTypeBytes == <<128, 1>> ->
-				HRespTypeBytes = binary:part(H, HLen-5, 2),
+				HRespTypeBytes = binary:part(H, FinalHResultLen-5, 2),
 				if
-					HRespTypeBytes =/= <<2,0>> andalso HRespTypeBytes =/= <<0,2>> ->
+					HRespTypeBytes =/= <<2,0>> andalso HRespTypeBytes =/= <<0,2>> andalso HRespTypeBytes =/= <<1,2>> ->
 						common:loginfo("Msg2VDR(~p, ~p) : ~p", [HTypeBytes, HRespTypeBytes, H]);
 					true ->
 						ok
 				end;
 			true ->
-				common:loginfo("Msg2VDR(~p) : ~p", [HTypeBytes, Msg])
+				common:loginfo("Msg2VDR(~p) : ~p", [HTypeBytes, H])
 		end
 	catch
 		_:_ ->
@@ -1826,12 +1845,34 @@ send_sql_to_db(PoolId, Msg, State) ->
 						                    Result
 						            end;
 								true ->
-						            DBPid ! {Pid, PoolId, Msg},
-									LinkPid ! {Pid, dbmsgstored, 1},
-						            receive
-						                {Pid, Result} ->
-						                    Result
-						            end
+									BinOper2 = get_binary_msg_first_n_char(Msg, 25),
+									if
+										BinOper2 == <<"insert into vehicle_alarm">> ->
+											[TableName2, Fields2, Values2] = remove_empty_item_in_binary_list(binary:split(Msg, [<<"insert into ">>, <<"(">>, <<") values(">>, <<")">>], [global]), []),
+											if
+												Fields2 == <<"vehicle_id,driver_id,alarm_time,clear_time,type_id">> ->
+													DBPid ! {Pid, alarm, TableName2, Fields2, Values2},
+													LinkPid ! {Pid, dbmsgstored, 1},
+										            receive
+										                {Pid, Result} ->
+										                    Result
+										            end;
+												true ->
+										            DBPid ! {Pid, PoolId, Msg},
+													LinkPid ! {Pid, dbmsgstored, 1},
+										            receive
+										                {Pid, Result} ->
+										                    Result
+										            end
+											end;
+										true ->
+								            DBPid ! {Pid, PoolId, Msg},
+											LinkPid ! {Pid, dbmsgstored, 1},
+								            receive
+								                {Pid, Result} ->
+								                    Result
+								            end
+									end
 							end;
 						true ->
 				            DBPid ! {Pid, PoolId, Msg},
@@ -1873,7 +1914,19 @@ send_sql_to_db_nowait(PoolId, Msg, State) ->
 								Fields1 == <<"vehicle_id, gps_time, server_time, longitude, latitude, height, speed, direction, status_flag, alarm_flag, distance, oil, record_speed, event_man_acq, ex_speed_type, ex_speed_id, alarm_add_type, alarm_add_id, alarm_add_direct, road_alarm_id, road_alarm_time, road_alarm_result, ex_state, io_state, analog_quantity_ad0, analog_quantity_ad1, wl_signal_amp, gnss_count, is_online">> ->
 									DBPid ! {Pid, replace, TableName1, Fields1, Values1, noresp};
 								true ->
-						            DBPid ! {Pid, PoolId, Msg, noresp}
+									BinOper2 = get_binary_msg_first_n_char(Msg, 25),
+									if
+										BinOper2 == <<"insert into vehicle_alarm">> ->
+											[TableName2, Fields2, Values2] = remove_empty_item_in_binary_list(binary:split(Msg, [<<"insert into ">>, <<"(">>, <<") values(">>, <<")">>], [global]), []),
+											if
+												Fields2 == <<"vehicle_id,driver_id,alarm_time,clear_time,type_id">> ->
+													DBPid ! {Pid, alarm, TableName2, Fields2, Values2, noresp};
+												true ->
+										            DBPid ! {Pid, PoolId, Msg, noresp}
+											end;
+										true ->
+								            DBPid ! {Pid, PoolId, Msg}
+									end
 							end;
 						true ->
 				            DBPid ! {Pid, PoolId, Msg}
