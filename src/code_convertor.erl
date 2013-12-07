@@ -39,7 +39,7 @@ gbk_to_utf8([Char | S], U, RowIndex, ColIndex) when Char < 128 ->
 gbk_to_utf8([A, B | S], U, RowIndex, ColIndex) ->
     case get({gbk, A, B}) of
         undefined ->
-            common:logerror("gbk not found: ~p, ~p~n", [{gbk, A, B}, {index, RowIndex, ColIndex}]),
+            common:logerror("gbk not found: ~p, ~p", [{gbk, A, B}, {index, RowIndex, ColIndex}]),
             gbk_to_utf8(S, U, RowIndex, ColIndex + 2);
         Other ->  
 			gbk_to_utf8(S, list_append(Other, U), RowIndex, ColIndex + 2)
@@ -79,7 +79,7 @@ utf8_to_gbk([Char | S], U, RowIndex, ColIndex) when Char =/= 63,	% 1
 													Char =/= 233,	% 3
 													Char =/= 238,	% 3
 													Char =/= 239 ->	% 3
-    common:loginfo("utf8 (1): ~p~n", [Char]),
+    common:loginfo("utf8 (1): ~p", [Char]),
     case Char of
         10 -> 
 			utf8_to_gbk(S, [Char | U], RowIndex + 1, 0);
@@ -96,10 +96,10 @@ utf8_to_gbk([A, B, C | S], U, RowIndex, ColIndex) when A == 226 orelse  % 3
 													   A == 233 orelse  % 3
 													   A == 238 orelse  % 3
 													   A == 239 ->	% 3
-    common:loginfo("utf8 (2): ~p~n", [{utf8, A, B, C}]),
+    common:loginfo("utf8 (2): ~p", [{utf8, A, B, C}]),
     case get({utf8, A, B, C}) of
         undefined ->
-            common:logerror("utf8 not found: ~p, ~p~n", [{utf8, A, B, C}, {index, RowIndex, ColIndex}]),
+            common:logerror("utf8 not found: ~p, ~p", [{utf8, A, B, C}, {index, RowIndex, ColIndex}]),
             utf8_to_gbk(S, U, RowIndex, ColIndex + 2);
         Other ->  
 			utf8_to_gbk(S, list_append(Other, U), RowIndex, ColIndex + 2)
@@ -114,25 +114,25 @@ utf8_to_gbk([A, B | S], U, RowIndex, ColIndex) when A == 194 orelse  % 2
 													A == 206 orelse  % 2
 													A == 207 orelse  % 2
 													A == 208 ->	% 2
-    common:loginfo("utf8 (3): ~p~n", [{utf8, A, B}]),
+    common:loginfo("utf8 (3): ~p", [{utf8, A, B}]),
     case get({utf8, A, B}) of
         undefined ->
-            common:logerror("utf8 not found: ~p, ~p~n", [{utf8, A, B}, {index, RowIndex, ColIndex}]),
+            common:logerror("utf8 not found: ~p, ~p", [{utf8, A, B}, {index, RowIndex, ColIndex}]),
             utf8_to_gbk(S, U, RowIndex, ColIndex + 2);
         Other ->  
 			utf8_to_gbk(S, list_append(Other, U), RowIndex, ColIndex + 2)
     end;    
 utf8_to_gbk([A | S], U, RowIndex, ColIndex) when A == 63 ->	% 1
-    common:loginfo("utf8 (4): ~p~n", [{utf8, A}]),
+    common:loginfo("utf8 (4): ~p", [{utf8, A}]),
     case get({utf8, A}) of
         undefined ->
-            common:logerror("utf8 not found: ~p, ~p~n", [{utf8, A}, {index, RowIndex, ColIndex}]),
+            common:logerror("utf8 not found: ~p, ~p", [{utf8, A}, {index, RowIndex, ColIndex}]),
             utf8_to_gbk(S, U, RowIndex, ColIndex + 2);
         Other ->  
 			utf8_to_gbk(S, list_append(Other, U), RowIndex, ColIndex + 2)
     end;    
 utf8_to_gbk([Char | S], U, RowIndex, ColIndex) ->
-    common:loginfo("utf8 (5): ~p~n", [Char]),
+    common:loginfo("utf8 (5): ~p", [Char]),
     case Char of
         10 -> 
 			utf8_to_gbk(S, [Char | U], RowIndex + 1, 0);
@@ -140,7 +140,7 @@ utf8_to_gbk([Char | S], U, RowIndex, ColIndex) ->
 			utf8_to_gbk(S, [Char | U], RowIndex, ColIndex + 1)
     end;     
 utf8_to_gbk([], U, _RowIndex, _ColIndex) ->
-    common:loginfo("utf8 (6)~n"),
+    common:loginfo("utf8 (6)"),
      lists:reverse(U).
      
 list_append([], List) ->
