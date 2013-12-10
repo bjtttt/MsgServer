@@ -1442,7 +1442,7 @@ get_lng_lat_from_pts(_PTS) ->
 %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 get_items_from_turnlist(TURNLIST) when is_list(TURNLIST),
-									   length(TURNLIST) ->
+									   length(TURNLIST) > 0 ->
     [H|T] = TURNLIST,
 	{obj, [{"id", ID},{"sid", SID},{"lng", LNG},{"lat", LAT},{"width", WIDTH},{"sproperty", SPROPERTY},{"max_t", MAXT},{"min_t", MINT},{"max_s", MAXS}]} = H,
     case T of

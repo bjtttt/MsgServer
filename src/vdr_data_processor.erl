@@ -1935,10 +1935,10 @@ convert_datetime_to_bcd(DateTime) when is_list(DateTime) ->
     case common:is_string(DateTime) of
         true ->
             DateTimeList = string:tokens(DateTime, " -:"),
-            list_to_binary(convert_string_list_to_integer_list(DateTimeList));
+            list_to_binary(convert_string_list_to_integer_list_bcd(DateTimeList));
         _ ->
             DateTimeList = string:tokens("01-01-01 01:01:01", " -:"),
-            list_to_binary(convert_string_list_to_integer_list(DateTimeList))
+            list_to_binary(convert_string_list_to_integer_list_bcd(DateTimeList))
     end;
 convert_datetime_to_bcd(_DateTime) ->
     convert_datetime_to_bcd("01-01-01 01:01:01").
@@ -1949,17 +1949,30 @@ convert_datetime_to_bcd(_DateTime) ->
 % It is for DateTime format
 %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-convert_string_list_to_integer_list(List) when is_list(List),
+%convert_string_list_to_integer_list(List) when is_list(List),
+%                                               length(List) == 6 ->
+%    [YY,MM,DD,Hh,Mm,Ss] = List,
+%    YYInt = get_2_number_integer_from_oct_string(YY),
+%    MMInt = get_2_number_integer_from_oct_string(MM),
+%    DDInt = get_2_number_integer_from_oct_string(DD),
+%    HhInt = get_2_number_integer_from_oct_string(Hh),
+%    MmInt = get_2_number_integer_from_oct_string(Mm),
+%    SsInt = get_2_number_integer_from_oct_string(Ss),
+%    [YYInt, MMInt, DDInt, HhInt, MmInt, SsInt];
+%convert_string_list_to_integer_list(_List) ->
+%    [1,1,1,1,1,1].
+
+convert_string_list_to_integer_list_bcd(List) when is_list(List),
                                                length(List) == 6 ->
     [YY,MM,DD,Hh,Mm,Ss] = List,
-    YYInt = get_2_number_integer_from_oct_string(YY),
-    MMInt = get_2_number_integer_from_oct_string(MM),
-    DDInt = get_2_number_integer_from_oct_string(DD),
-    HhInt = get_2_number_integer_from_oct_string(Hh),
-    MmInt = get_2_number_integer_from_oct_string(Mm),
-    SsInt = get_2_number_integer_from_oct_string(Ss),
+    YYInt = common:convert_integer_bcd(get_2_number_integer_from_oct_string(YY)),
+    MMInt = common:convert_integer_bcd(get_2_number_integer_from_oct_string(MM)),
+    DDInt = common:convert_integer_bcd(get_2_number_integer_from_oct_string(DD)),
+    HhInt = common:convert_integer_bcd(get_2_number_integer_from_oct_string(Hh)),
+    MmInt = common:convert_integer_bcd(get_2_number_integer_from_oct_string(Mm)),
+    SsInt = common:convert_integer_bcd(get_2_number_integer_from_oct_string(Ss)),
     [YYInt, MMInt, DDInt, HhInt, MmInt, SsInt];
-convert_string_list_to_integer_list(_List) ->
+convert_string_list_to_integer_list_bcd(_List) ->
     [1,1,1,1,1,1].
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -2064,11 +2077,15 @@ create_del_polygon_area(Count, IDs) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 create_set_lines(ID, Prop, StartTime, StopTime, _PointsCount, Points) ->
     Len = length(Points),
+    St = convert_datetime_to_bcd(StartTime),
+    Et = convert_datetime_to_bcd(StopTime),
     PointsBin = get_lines_point_entries(Points),
-    <<ID:32,Prop:16,StartTime:48,StopTime:48,Len:16,PointsBin/binary>>.
+    list_to_binary([<<ID:32,Prop:16>>,St,Et,<<Len:16,PointsBin/binary>>]).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %
+% lon : JingDu
+% lat : Weidu
 %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 get_lines_point_entries(Items) ->
@@ -2077,13 +2094,32 @@ get_lines_point_entries(Items) ->
             <<>>;
         _ ->
             [H|T] = Items,
-            {PointID,LineID,PointLat,PointLon,LineWidth,LineLength,LargerThr,SmallerThr,MaxSpeed,ExceedTime} = H,
-            case T of
-                [] ->
-                    <<PointID:32,LineID:32,PointLat:32,PointLon:32,LineWidth:8,LineLength:8,LargerThr:16,SmallerThr:16,MaxSpeed:16,ExceedTime:6>>;
-                _ ->
-                    list_to_binary([<<PointID:32,LineID:32,PointLat:32,PointLon:32,LineWidth:8,LineLength:8,LargerThr:16,SmallerThr:16,MaxSpeed:16,ExceedTime:6>>, get_lines_point_entries(T)])
-            end
+			Len = length(H),
+			if
+				Len == 10 ->
+		            [PointID,LineID,PointLon,PointLat,LineWidth,LineProperty,LargerThr,SmallerThr,MaxSpeed,ExceedTime] = H,
+					PointLatNew = round(convert_null_to_zero(PointLat) * 1000000),
+					PointLonNew = round(convert_null_to_zero(PointLon) * 1000000),
+		            case T of
+		                [] ->
+		                    <<PointID:32,LineID:32,PointLatNew:32,PointLonNew:32,LineWidth:8,LineProperty:8,LargerThr:16,SmallerThr:16,MaxSpeed:16,ExceedTime:8>>;
+		                _ ->
+		                    list_to_binary([<<PointID:32,LineID:32,PointLatNew:32,PointLonNew:32,LineWidth:8,LineProperty:8,LargerThr:16,SmallerThr:16,MaxSpeed:16,ExceedTime:8>>, get_lines_point_entries(T)])
+		            end;
+				Len == 9 ->
+		            [PointID,LineID,PointLon,PointLat,LineWidth,LineProperty,LargerThr,SmallerThr,MaxSpeed] = H,
+					PointLatNew = round(convert_null_to_zero(PointLat) * 1000000),
+					PointLonNew = round(convert_null_to_zero(PointLon) * 1000000),
+		            case T of
+		                [] ->
+		                    <<PointID:32,LineID:32,PointLatNew:32,PointLonNew:32,LineWidth:8,LineProperty:8,LargerThr:16,SmallerThr:16,MaxSpeed:16>>;
+		                _ ->
+							TBin =  get_lines_point_entries(T),
+		                    list_to_binary([<<PointID:32,LineID:32,PointLatNew:32,PointLonNew:32,LineWidth:8,LineProperty:8,LargerThr:16,SmallerThr:16,MaxSpeed:16>>,TBin])
+		            end;
+				true ->
+					get_lines_point_entries(T)
+			end
     end.                                   
     
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

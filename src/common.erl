@@ -11,7 +11,7 @@
 		 make_sure_n_byte_binary/2,
 		 convert_integer_to_binary_string_list/1,
          convert_bcd_integer/1,
-		 %convert_integer_bcd/1,
+		 convert_integer_bcd/1,
          removemsgfromlistbyflownum/2,
          combine_strings/1,
          combine_strings/2,
@@ -206,8 +206,8 @@ float_to_binary(Float) ->
 convert_bcd_integer(Number) ->
     (Number div 16) * 10 + (Number rem 16).
 
-%convert_integer_bcd(Number) ->
-%	(Number div 10) * 16 + (Number rem 10).
+convert_integer_bcd(Number) ->
+	(Number div 10) * 16 + (Number rem 10).
 
 %%%
 %%% Convert number list to binary.
