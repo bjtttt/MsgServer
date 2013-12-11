@@ -1192,7 +1192,7 @@ send_masg_to_ws_alarm(FlowIdx, AlarmList, SetClear, Lat, Lon, TimeBinS, State) w
 														                            is_binary(TimeBinS) ->
 	[H|T] = AlarmList,
 	LenT = length(T),
-	{alarmitem, _VehicleID, ID, _Time, SN} = H,
+	{alarmitem, _VehicleID, ID, _Time} = H,
 	case SetClear of
 		1 ->
             {ok, WSUpdate} = wsock_data_parser:create_term_alarm([State#vdritem.vehicleid],
@@ -1264,8 +1264,8 @@ find_alarm_in_lista_not_in_listb(_ListA, _ListB) ->
 find_a_in_lista(ListA, A) when is_list(ListA),
 							   length(ListA) > 0 ->
 	[H|T] = ListA,
-	{alarmitem, _VehicleID, ID, _Time, SN} = H,
-	{alarmitem, _VehicleIDA, IDA, _TimeA, SNA} = A,
+	{alarmitem, _VehicleID, ID, _Time} = H,
+	{alarmitem, _VehicleIDA, IDA, _TimeA} = A,
 	if
 		ID == IDA ->
 			true;
@@ -1292,7 +1292,7 @@ find_a_in_lista(_ListA, _A) ->
 %	[H|T] = AlarmList,
 %    {<<"vehicle_alarm">>, <<"type_id">>, TypeId} = get_record_field(<<"vehicle_alarm">>, H, <<"type_id">>),
 %    {<<"vehicle_alarm">>, <<"alarm_time">>, {datetime, {{YY,MM,DD},{Hh,Mm,Ss}}}} = get_record_field(<<"vehicle_alarm">>, H, <<"alarm_time">>),
-%    {<<"vehicle_alarm">>, <<"sn">>, SN} = get_record_field(<<"vehicle_alarm">>, H, <<"sn">>),
+%    %{<<"vehicle_alarm">>, <<"sn">>, SN} = get_record_field(<<"vehicle_alarm">>, H, <<"sn">>),
 %	YYS = integer_to_list(vdr_data_processor:get_2_number_integer_from_oct_string(integer_to_list(YY))),
 %	MMS = integer_to_list(MM),
 %	DDS = integer_to_list(DD),
@@ -1300,7 +1300,7 @@ find_a_in_lista(_ListA, _A) ->
 %	MmS = integer_to_list(Mm),
 %	SsS = integer_to_list(Ss),
 %	DTS = common:combine_strings([YYS, "-", MMS, "-", DDS, " ", HhS, ":", MmS, ":", SsS], false),
-%	Cur = [{alarmitem, VehicleID, TypeId, DTS, SN}],
+%	Cur = [{alarmitem, VehicleID, TypeId, DTS}],
 %	case T of
 %
 %		[] ->
@@ -1319,7 +1319,7 @@ find_a_in_lista(_ListA, _A) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %
-%	[{alarmitem,19280,0,{{2013,10,24},{18,21,56}},12345}]
+%	[{alarmitem,19280,0,{{2013,10,24},{18,21,56}}}]
 %
 % Return	: [{ID0, "YY-MM-DD hh:mm:ss"}, {ID1, "YY-MM-DD hh:mm:ss"}, ...]
 % 			"YY-MM-DD hh:mm:ss" is alarm time.
@@ -1328,7 +1328,7 @@ find_a_in_lista(_ListA, _A) ->
 %get_alarm_list_from_table(AlarmList) when is_list(AlarmList),
 %										  length(AlarmList) > 0 ->
 %	[H|T] = AlarmList,
-%   {alarmitem, VehicleID, TypeId, {{YY,MM,DD},{Hh,Mm,Ss}}, SN} = H,
+%   {alarmitem, VehicleID, TypeId, {{YY,MM,DD},{Hh,Mm,Ss}}} = H,
 %	YYS = integer_to_list(vdr_data_processor:get_2_number_integer_from_oct_string(integer_to_list(YY))),
 %	MMS = integer_to_list(MM),
 %	DDS = integer_to_list(DD),
@@ -1427,7 +1427,7 @@ update_vehicle_alarm(VehicleID, DriverID, TimeS, TimeTuple, Alarm, Index, MsgIdx
                                                 common:integer_to_binary(Index), <<",">>,
                                                 common:integer_to_binary(MsgIdx), <<")">>]),
                     send_sql_to_db_nowait(conn, UpdateSql, State),
-                    NewAlarmList = lists:merge(AlarmList,[{alarmitem, VehicleID, Index, TimeTuple, MsgIdx}]),
+                    NewAlarmList = lists:merge(AlarmList,[{alarmitem, VehicleID, Index, TimeTuple}]),
                     update_vehicle_alarm(VehicleID, DriverID, TimeS, TimeTuple, Alarm, Index+1, MsgIdx, State#vdritem{alarmlist=NewAlarmList});
                 true ->
                     update_vehicle_alarm(VehicleID, DriverID, TimeS, TimeTuple, Alarm, Index+1, MsgIdx, State)
@@ -1438,14 +1438,12 @@ update_vehicle_alarm(VehicleID, DriverID, TimeS, TimeTuple, Alarm, Index, MsgIdx
                 AlarmEntry == empty ->
                     update_vehicle_alarm(VehicleID, DriverID, TimeS, TimeTuple, Alarm, Index+1, MsgIdx, State);
                 true ->
-                    {alarmitem, _VehicleID, Index, SetTime, SN} = AlarmEntry,
+                    {alarmitem, _VehicleID, Index, SetTime} = AlarmEntry,
 	                    UpdateSql = list_to_binary([<<"update vehicle_alarm set clear_time='">>, list_to_binary(TimeS),
 	                                                <<"' where vehicle_id=">>, common:integer_to_binary(VehicleID),
 	                                                <<" and driver_id=">>, common:integer_to_binary(DriverID),
 	                                                <<" and alarm_time='">>, list_to_binary(SetTime),
 	                                                <<"' and type_id=">>, common:integer_to_binary(Index)]),
-	                                                %<<"' and type_id=">>, common:integer_to_binary(Index),
-	                                                %<<"' and sn=">>, common:integer_to_binary(MsgIdx)]),
 	                    send_sql_to_db_nowait(conn, UpdateSql, State),
 	                    NewAlarmList = remove_alarm_item(Index, AlarmList),
 	                    update_vehicle_alarm(VehicleID, DriverID, TimeS, TimeTuple, Alarm, Index+1, MsgIdx, State#vdritem{alarmlist=NewAlarmList})
@@ -1472,7 +1470,7 @@ update_vehicle_alarm(VehicleID, _DriverID, TimeS, TimeTuple, Alarm, Index, MsgId
                                                 list_to_binary(TimeS), <<"',NULL,">>,
                                                 common:integer_to_binary(Index), <<")">>]),
                     send_sql_to_db_nowait(conn, UpdateSql, State),
-                    NewAlarmList = lists:merge(AlarmList,[{alarmitem, VehicleID, Index, TimeTuple, MsgIdx}]),
+                    NewAlarmList = lists:merge(AlarmList,[{alarmitem, VehicleID, Index, TimeTuple}]),
                     update_vehicle_alarm(VehicleID, _DriverID, TimeS, TimeTuple, Alarm, Index+1, MsgIdx, State#vdritem{alarmlist=NewAlarmList});
                 true ->
                     update_vehicle_alarm(VehicleID, _DriverID, TimeS, TimeTuple, Alarm, Index+1, MsgIdx, State)
@@ -1483,7 +1481,7 @@ update_vehicle_alarm(VehicleID, _DriverID, TimeS, TimeTuple, Alarm, Index, MsgId
                 AlarmEntry == empty ->
                     update_vehicle_alarm(VehicleID, _DriverID, TimeS, TimeTuple, Alarm, Index+1, MsgIdx, State);
                 true ->
-                    {alarmitem, _VehicleID, Index, SetTime, SN} = AlarmEntry,
+                    {alarmitem, _VehicleID, Index, SetTime} = AlarmEntry,
                     UpdateSql = list_to_binary([<<"update vehicle_alarm set clear_time='">>, list_to_binary(TimeS),
                                                 <<"' where vehicle_id=">>, common:integer_to_binary(VehicleID),
                                                 <<" and driver_id=0 and alarm_time='">>, list_to_binary(SetTime),
@@ -1502,7 +1500,7 @@ get_alarm_item(Index, AlarmList) when is_integer(Index),
                                       Index >= 0,
                                       Index =< 31 ->
     [H|T] = AlarmList,
-    {alarmitem, _VehicleID, Idx, _Time, SN} = H,
+    {alarmitem, _VehicleID, Idx, _Time} = H,
     if
         Index == Idx ->
             H;
@@ -1518,7 +1516,7 @@ remove_alarm_item(Index, AlarmList) when is_integer(Index),
                                          Index >= 0,
                                          Index =< 31 ->
     [H|T] = AlarmList,
-    {alarmitem, _VehicleID, Idx, _Time, SN} = H,
+    {alarmitem, _VehicleID, Idx, _Time} = H,
     if
         Index == Idx ->
             case T of

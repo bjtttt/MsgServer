@@ -401,14 +401,14 @@ do_init_alarmtable(AlarmResult) when is_list(AlarmResult),
 	{<<"vehicle_alarm">>, <<"vehicle_id">>, VehicleID} = vdr_handler:get_record_field(<<"vehicle_alarm">>, H, <<"vehicle_id">>),
 	{<<"vehicle_alarm">>, <<"type_id">>, TypeID} = vdr_handler:get_record_field(<<"vehicle_alarm">>, H, <<"type_id">>),
 	{<<"vehicle_alarm">>, <<"alarm_time">>, {datetime, AlarmTime}} = vdr_handler:get_record_field(<<"vehicle_alarm">>, H, <<"alarm_time">>),
-	{<<"vehicle_alarm">>, <<"sn">>, SN} = vdr_handler:get_record_field(<<"vehicle_alarm">>, H, <<"sn">>),
+	%{<<"vehicle_alarm">>, <<"sn">>, SN} = vdr_handler:get_record_field(<<"vehicle_alarm">>, H, <<"sn">>),
 	%  AlarmTime is {{YY,MM,DD},{Hh,Mm,Ss}}
 	if
 		VehicleID =/= undefined andalso TypeID =/= undefined andalso AlarmTime =/= undefined ->
 			AlarmItem = #alarmitem{vehicleid=VehicleID, 
 								   type=TypeID, 
-								   time=AlarmTime, 
-								   sn=SN},
+								   time=AlarmTime}, 
+								   %sn=SN},
 			ets:insert(alarmtable, AlarmItem),
 			do_init_alarmtable(T);
 		true ->
