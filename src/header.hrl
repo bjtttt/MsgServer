@@ -142,6 +142,7 @@
 -record(alarmitem, {  vehicleid=undefined,		% VehicleID
 					  type=undefined, 			% Type
 					  time=undefined			% Time
+					  sn=undefined				% msg flow index
                  }).
 
 %%%
