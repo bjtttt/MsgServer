@@ -1465,10 +1465,11 @@ update_vehicle_alarm(VehicleID, _DriverID, TimeS, TimeTuple, Alarm, Index, MsgId
             AlarmEntry = get_alarm_item(Index, AlarmList),
             if
                 AlarmEntry == empty ->
-                    UpdateSql = list_to_binary([<<"insert into vehicle_alarm(vehicle_id,driver_id,alarm_time,clear_time,type_id) values(">>,
+                    UpdateSql = list_to_binary([<<"insert into vehicle_alarm(vehicle_id,driver_id,alarm_time,clear_time,type_id,sn) values(">>,
                                                 common:integer_to_binary(VehicleID), <<",0,'">>,
                                                 list_to_binary(TimeS), <<"',NULL,">>,
-                                                common:integer_to_binary(Index), <<")">>]),
+                                                common:integer_to_binary(Index), <<",">>,
+                                                common:integer_to_binary(MsgIdx), <<")">>]),
                     send_sql_to_db_nowait(conn, UpdateSql, State),
                     NewAlarmList = lists:merge(AlarmList,[{alarmitem, VehicleID, Index, TimeTuple}]),
                     update_vehicle_alarm(VehicleID, _DriverID, TimeS, TimeTuple, Alarm, Index+1, MsgIdx, State#vdritem{alarmlist=NewAlarmList});
