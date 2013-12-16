@@ -1032,23 +1032,29 @@ db_table_deamon() ->
                common:integer_to_2byte_binary(Month1S),
                common:integer_to_2byte_binary(Day1S)]),
     [{dbpid, DBPid}] = ets:lookup(msgservertable, dbpid),
+    [{dbname, DBName}] = ets:lookup(msgservertable, dbname),
+	DBNameBin = list_to_binary(DBName),
     case DBPid of
         undefined ->
             ok;
         _ ->
             Pid = self(),
-            error_logger:info_msg("Check table gps_database.vehicle_position_~p", [binary_to_list(Bin)]),
-            DBPid ! {Pid, conn, list_to_binary([<<"CREATE TABLE IF NOT EXISTS gps_database.vehicle_position_">>, 
-                         Bin,
-                         <<" LIKE vehicle_position">>])},
+            error_logger:info_msg("Check table ~p.vehicle_position_~p", [DBName, binary_to_list(Bin)]),
+            DBPid ! {Pid, conn, list_to_binary([<<"CREATE TABLE IF NOT EXISTS ">>,
+												DBNameBin,
+												<<".vehicle_position_">>,
+												Bin,
+												<<" LIKE vehicle_position">>])},
             receive
                 {Pid, Result1} ->
                     Result1
             end,
-            error_logger:info_msg("Check table gps_database.vehicle_position_~p", [binary_to_list(Bin1)]),
-            DBPid ! {Pid, conn, list_to_binary([<<"CREATE TABLE IF NOT EXISTS gps_database.vehicle_position_">>, 
-                         Bin1,
-                         <<" LIKE vehicle_position">>])},
+            error_logger:info_msg("Check table ~p.vehicle_position_~p", [DBName, binary_to_list(Bin1)]),
+            DBPid ! {Pid, conn, list_to_binary([<<"CREATE TABLE IF NOT EXISTS ">>,
+												DBNameBin,
+												<<".vehicle_position_">>,
+												Bin1,
+												<<" LIKE vehicle_position">>])},
             receive
                 {Pid, Result2} ->
                     Result2
