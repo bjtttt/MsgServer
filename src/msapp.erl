@@ -239,6 +239,7 @@ init_vdrdbtable(AppPid, DBPid) ->
 extract_vdrdbtable_count(Result) ->
 	try
 		%{data,{mysql_result,[{<<>>,<<"count(*)">>,21,'LONGLONG'}],[[24067]],0,0,[],0,[]}} = Result,
+		common:loginfo("extract_vdrdbtable_count(Result) : ~p", [Result]),
 		{_,{_,[{_,_,_,_}],[[Count]],_,_,_,_,_}} = Result,
 		Count
 	catch
