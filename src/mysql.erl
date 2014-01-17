@@ -411,23 +411,23 @@ mysql_process(Num1, Num2, SqlInsert, InsertCount, SqlReplace, ReplaceCount, SqlO
 		{_Pid, offline, VehicleID} -> % <<"replace into vehicle_position_last(vehicle_id, is_online) values(VehicleID, 0)">>
 			if
 				ReplaceCount >= ?MAX_DB_STORED_COUNT ->
-					FinalSql = list_to_binary([<<"replace into vehicle_position_last(vehicle_id, is_online) values">>,
-											   combine_all_values(SqlOffline)]),
+					FinalSql = list_to_binary([<<"update vehicle_position_last set is_online=0 where ">>,
+											   combine_all_values(SqlOffline, <<"or">>)]),
 					%common:loginfo("Offline : ~p", [FinalSql]),
 					do_sql(FinalSql),
 					DecCount = length(SqlOffline),
 					LinkPid ! {self(), dbmsgsent, DecCount},
 					case is_integer(VehicleID) of
 						true ->						
-							SqlItem = list_to_binary([<<"">>, integer_to_binary(VehicleID), <<",0">>]),
+							SqlItem = list_to_binary([<<"vehicle_id=">>, integer_to_binary(VehicleID)]),
 							mysql_process(Num1+1, Num2, SqlInsert, InsertCount, SqlReplace, ReplaceCount, [SqlItem], 1, SqlAlarm, AlarmCount, LinkPid);
 						_ ->
-							mysql_process(Num1+1, Num2, SqlInsert, InsertCount, SqlReplace, ReplaceCount, [<<"0,0">>], 1, SqlAlarm, AlarmCount, LinkPid)
+							mysql_process(Num1+1, Num2, SqlInsert, InsertCount, SqlReplace, ReplaceCount, [], 0, SqlAlarm, AlarmCount, LinkPid)
 					end;
 				true ->
 					case is_integer(VehicleID) of
 						true ->
-							SqlItem = list_to_binary([<<"">>, integer_to_binary(VehicleID), <<",0">>]),
+							SqlItem = list_to_binary([<<"vehicle_id=">>, integer_to_binary(VehicleID)]),
 							mysql_process(Num1+1, Num2, SqlInsert, InsertCount, SqlReplace, ReplaceCount, lists:append(SqlOffline, [SqlItem]), OfflineCount+1, SqlAlarm, AlarmCount, LinkPid);
 						false ->
 							mysql_process(Num1+1, Num2, SqlInsert, InsertCount, SqlReplace, ReplaceCount, SqlOffline, OfflineCount, SqlAlarm, AlarmCount, LinkPid)
@@ -488,8 +488,8 @@ mysql_process(Num1, Num2, SqlInsert, InsertCount, SqlReplace, ReplaceCount, SqlO
 			DecCount2 = length(SqlOffline),
 			if
 				DecCount2 > 0 ->
-					FinalSql2 = list_to_binary([<<"replace into vehicle_position_last(vehicle_id, is_online) values">>,
-											   combine_all_values(SqlOffline)]),
+					FinalSql2 = list_to_binary([<<"update vehicle_position_last set is_online=0 where ">>,
+											   combine_all_values(SqlOffline, <<"or">>)]),
 					%common:loginfo("Offline : ~p", [FinalSql2]),
 					do_sql(FinalSql2),
 					LinkPid ! {self(), dbmsgsent, DecCount2};
@@ -602,6 +602,62 @@ combine_all_values(Values) when is_list(Values),
 	list_to_binary([<<"(">>, H, <<")">>]);
 combine_all_values(_Values) ->
 	<<"">>.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%
+% Values should be a binary/list list
+% Sep should be binary/list
+%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+combine_all_values(Values, Sep) when is_list(Values),
+						             length(Values) > 1,
+									 is_binary(Sep)->
+	[H|T] = Values,
+	TResult = combine_all_values(T, Sep),
+	case is_binary(H) of
+		true ->
+			list_to_binary([H, <<" ">>, Sep, <<" ">>, TResult]);
+		false ->
+			case is_list(H) of
+				true ->
+					list_to_binary([list_to_binary(H), <<" ">>, Sep, <<" ">>, TResult]);
+				false ->
+					TResult
+			end
+	end;
+combine_all_values(Values, Sep) when is_list(Values),
+						             length(Values) > 1,
+									 is_list(Sep)->
+	[H|T] = Values,
+	TResult = combine_all_values(T, Sep),
+	case is_binary(H) of
+		true ->
+			list_to_binary([H, <<" ">>, list_to_binary(Sep), <<" ">>, TResult]);
+		false ->
+			case is_list(H) of
+				true ->
+					list_to_binary([list_to_binary(H), <<" ">>, list_to_binary(Sep), <<" ">>, TResult]);
+				false ->
+					TResult
+			end
+	end;
+combine_all_values(Values, _Sep) when is_list(Values),
+						             length(Values) == 1 ->
+	[H] = Values,
+	case is_binary(H) of
+		true ->
+			H;
+		false ->
+			case is_list(H) of
+				true ->
+					list_to_binary(H);
+				false ->
+					<<"">>
+			end
+	end;
+combine_all_values(_Values, _Sep) ->
+	<<"">>.
+
 
 %% @doc Starts the MySQL client gen_server process.
 %%
