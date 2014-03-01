@@ -1135,14 +1135,13 @@ process_pos_info(ID, MsgIdx, HeadInfo, Msg, NewState) ->
 		true ->
 		    case create_sql_from_vdr(HeadInfo, Msg, NewState) of
 				{ok, Sqls} ->
-		            send_sqls_to_db_nowait(conn, Sqls, NewState),
-		            
 		            FlowIdx = NewState#vdritem.msgflownum,
 		            PreviousAlarm = NewState#vdritem.alarm,
 		            
 		            {H, _AppInfo} = Msg,
 		            [AlarmSym, StateFlag, LatOri, LonOri, _Height, _Speed, _Direction, Time]= H,
 		            {Lat, Lon} = get_not_0_lat_lon(LatOri, LonOri, NewState),
+		            send_sqls_to_db_nowait(conn, Sqls, NewState#vdritem{lastlat=Lat, lastlon=Lon}),
 		            if
 		                AlarmSym == PreviousAlarm ->
 				            MsgBody = vdr_data_processor:create_gen_resp(ID, MsgIdx, ?T_GEN_RESP_OK),
