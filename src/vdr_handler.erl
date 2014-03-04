@@ -2281,19 +2281,41 @@ create_pos_info_sql(Msg, State) ->
                                   common:integer_to_binary(Direction), <<", ">>,
                                   common:integer_to_binary(StateFlag), <<", ">>,
                                   common:integer_to_binary(AlarmSym), AIVal, <<")">>]),
-            SQL1 = list_to_binary([<<"replace into vehicle_position_last(vehicle_id, gps_time, server_time, longitude, latitude, height, speed, direction, status_flag, alarm_flag">>, 
-								   AIKey, <<", is_online) values(">>,
-                                  common:integer_to_binary(VehicleID), <<", '">>,
-                                  TimeS, <<"', '">>,
-                                  ServerTimeS, <<"', ">>,
-                                  common:float_to_binary(Lon/1000000.0), <<", ">>,
-                                  common:float_to_binary(Lat/1000000.0), <<", ">>,
-                                  common:integer_to_binary(Height), <<", ">>,
-                                  common:float_to_binary(Speed/10.0), <<", ">>,
-                                  common:integer_to_binary(Direction), <<", ">>,
-                                  common:integer_to_binary(StateFlag), <<", ">>,
-                                  common:integer_to_binary(AlarmSym), AIVal, <<", 1)">>]),
-            {ok, [SQL0, SQL1]};
+			if
+				Lon == 0 orelse Lon == 0.0 orelse Lat == 0 orelse Lat == 0.0 ->
+					if
+						State#vdritem.lastlon == 0 orelse State#vdritem.lastlon == 0.0 orelse State#vdritem.lastlon == 0 orelse State#vdritem.lastlon == 0.0 ->
+							{ok, SQL0};
+						true ->
+				            SQL1 = list_to_binary([<<"replace into vehicle_position_last(vehicle_id, gps_time, server_time, longitude, latitude, height, speed, direction, status_flag, alarm_flag">>, 
+												   AIKey, <<", is_online) values(">>,
+				                                  common:integer_to_binary(VehicleID), <<", '">>,
+				                                  TimeS, <<"', '">>,
+				                                  ServerTimeS, <<"', ">>,
+				                                  common:float_to_binary(State#vdritem.lastlon/1000000.0), <<", ">>,
+				                                  common:float_to_binary(State#vdritem.lastlat/1000000.0), <<", ">>,
+				                                  common:integer_to_binary(Height), <<", ">>,
+				                                  common:float_to_binary(Speed/10.0), <<", ">>,
+				                                  common:integer_to_binary(Direction), <<", ">>,
+				                                  common:integer_to_binary(StateFlag), <<", ">>,
+				                                  common:integer_to_binary(AlarmSym), AIVal, <<", 1)">>]),
+				            {ok, [SQL0, SQL1]}
+					end;
+				true ->
+		            SQL1 = list_to_binary([<<"replace into vehicle_position_last(vehicle_id, gps_time, server_time, longitude, latitude, height, speed, direction, status_flag, alarm_flag">>, 
+										   AIKey, <<", is_online) values(">>,
+		                                  common:integer_to_binary(VehicleID), <<", '">>,
+		                                  TimeS, <<"', '">>,
+		                                  ServerTimeS, <<"', ">>,
+		                                  common:float_to_binary(Lon/1000000.0), <<", ">>,
+		                                  common:float_to_binary(Lat/1000000.0), <<", ">>,
+		                                  common:integer_to_binary(Height), <<", ">>,
+		                                  common:float_to_binary(Speed/10.0), <<", ">>,
+		                                  common:integer_to_binary(Direction), <<", ">>,
+		                                  common:integer_to_binary(StateFlag), <<", ">>,
+		                                  common:integer_to_binary(AlarmSym), AIVal, <<", 1)">>]),
+		            {ok, [SQL0, SQL1]}
+			end;
 		_ ->
 			error
     end.
