@@ -2414,20 +2414,20 @@ replace_pos_app_list(Init, _ID, _Item) ->
 	Init.
 
 get_not_0_lat_lon(Lat, Lon, State) ->
-    case Lat of
-        0.0 ->
-            case Lon of
-                0.0 ->
+	if
+		Lat == 0 orelse Lat == 0.0 ->
+			if
+				Lon == 0 orelse Lon == 0.0 ->
                     {State#vdritem.lastlat, State#vdritem.lastlon};
-                _ ->
+                true ->
                     {State#vdritem.lastlat, Lon}
             end;
-        _ ->
-            case Lon of
-                0.0 ->
-                    {Lat, State#vdritem.lastlon};
-                _ ->
-                    {Lat, Lon}
+        true ->
+			if
+				Lon == 0 orelse Lon == 0.0 ->
+                    {State#vdritem.lastlat, State#vdritem.lastlon};
+                true ->
+                    {State#vdritem.lastlat, Lon}
             end
     end.
 
