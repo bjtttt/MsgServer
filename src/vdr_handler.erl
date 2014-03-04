@@ -2351,7 +2351,7 @@ combine_pos_app_sql_parts(Parts) when is_list(Parts),
 	{A, B, C} = combine_pos_app_sql_parts(T),
 	if
 		KeyVal == null ->
-			{list_to_binary([Key, A]), list_to_binary([Val, B]), <<"">>};
+			{list_to_binary([Key, A]), list_to_binary([Val, B]), C};
 		true ->
 			{list_to_binary([Key, A]), list_to_binary([Val, B]), list_to_binary([KeyVal, C])}
 	end;
