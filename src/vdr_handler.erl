@@ -2267,7 +2267,7 @@ create_pos_info_sql(Msg, State) ->
             ServerSecondS = common:integer_to_binary(ServerSecond),
             ServerTimeS = list_to_binary([ServerYearS, <<"-">>, ServerMonthS, <<"-">>, ServerDayS, <<" ">>, ServerHourS, <<":">>, ServerMinuteS, <<":">>, ServerSecondS]),
             VehicleID = State#vdritem.vehicleid,
-   			{AIKey, AIVal} = create_pos_app_sql(AppInfo),
+   			{AIKey, AIVal, AIKeyVal} = create_pos_app_sql(AppInfo),
             SQL0 = list_to_binary([<<"insert into vehicle_position_">>, DBBin,
                                    <<"(vehicle_id, gps_time, server_time, longitude, latitude, height, speed, direction, status_flag, alarm_flag">>, 
 								   AIKey, <<") values(">>,
@@ -2285,7 +2285,16 @@ create_pos_info_sql(Msg, State) ->
 				Lon == 0 orelse Lon == 0.0 orelse Lat == 0 orelse Lat == 0.0 ->
 					if
 						State#vdritem.lastlon == 0 orelse State#vdritem.lastlon == 0.0 orelse State#vdritem.lastlon == 0 orelse State#vdritem.lastlon == 0.0 ->
-							{ok, SQL0};
+				            SQL1 = list_to_binary([<<"update vehicle_position_last set gps_time='">>, TimeS,
+												   <<"', server_time='">>, ServerTimeS,
+												   <<"', height=">>, common:integer_to_binary(Height),
+												   <<", speed=">>, common:float_to_binary(Speed/10.0),
+												   <<", direction=">>,  common:integer_to_binary(Direction),
+												   <<", status_flag=">>, common:integer_to_binary(StateFlag),
+												   <<", alarm_flag=">>, common:integer_to_binary(StateFlag),
+												   AIKeyVal,
+												   <<", is_online=1">>]),
+				            {ok, [SQL0, SQL1]};
 						true ->
 				            SQL1 = list_to_binary([<<"replace into vehicle_position_last(vehicle_id, gps_time, server_time, longitude, latitude, height, speed, direction, status_flag, alarm_flag">>, 
 												   AIKey, <<", is_online) values(">>,
@@ -2338,9 +2347,14 @@ create_pos_app_sql(AppInfo) ->
 combine_pos_app_sql_parts(Parts) when is_list(Parts),
 							  		  length(Parts) > 0 ->
 	[H|T] = Parts,
-	{_ID, Key, Val} = H,
-	{A, B} = combine_pos_app_sql_parts(T),
-	{list_to_binary([Key, A]), list_to_binary([Val, B])};
+	{_ID, Key, Val, KeyVal} = H,
+	{A, B, C} = combine_pos_app_sql_parts(T),
+	if
+		KeyVal == null ->
+			{list_to_binary([Key, A]), list_to_binary([Val, B]), <<"">>};
+		true ->
+			{list_to_binary([Key, A]), list_to_binary([Val, B]), list_to_binary([KeyVal, C])}
+	end;
 combine_pos_app_sql_parts(_Parts) ->
 	{[], []}.
 
@@ -2353,39 +2367,48 @@ create_pos_app_sql_part(Init, AppInfo) when is_list(AppInfo),
 				16#1 ->
 					A = <<", distance">>,
 					B = list_to_binary([<<", ">>, common:float_to_binary(Res / 10.0)]),
-					create_pos_app_sql_part(replace_pos_app_list(Init, 16#1, {A, B}), T);
+					C = list_to_binary([<<", distance=">>, common:float_to_binary(Res / 10.0)]),
+					create_pos_app_sql_part(replace_pos_app_list(Init, 16#1, {A, B, C}), T);
 				16#2 ->
 					A = <<", oil">>,
 					B = list_to_binary([<<", ">>, common:float_to_binary(Res / 10.0)]),
-					create_pos_app_sql_part(replace_pos_app_list(Init, 16#2, {A, B}), T);
+					C = list_to_binary([<<", oil=">>, common:float_to_binary(Res / 10.0)]),
+					create_pos_app_sql_part(replace_pos_app_list(Init, 16#2, {A, B, C}), T);
 				16#3 ->
 					A = <<", record_speed">>,
 					B = list_to_binary([<<", ">>, common:float_to_binary(Res / 10.0)]),
-					create_pos_app_sql_part(replace_pos_app_list(Init, 16#3, {A, B}), T);
+					C = list_to_binary([<<", record_speed=">>, common:float_to_binary(Res / 10.0)]),
+					create_pos_app_sql_part(replace_pos_app_list(Init, 16#3, {A, B, C}), T);
 				16#4 ->
 					A = <<", event_man_acq">>,
 					B = list_to_binary([<<", ">>, common:integer_to_binary(Res)]),
-					create_pos_app_sql_part(replace_pos_app_list(Init, 16#4, {A, B}), T);
+					C = list_to_binary([<<", event_man_acq=">>, common:integer_to_binary(Res)]),
+					create_pos_app_sql_part(replace_pos_app_list(Init, 16#4, {A, B, C}), T);
 				16#11 ->
 					A = <<", ex_speed_type">>,
 					B = list_to_binary([<<", ">>, common:integer_to_binary(Res)]),
-					create_pos_app_sql_part(replace_pos_app_list(Init, 16#11, {A, B}), T);
+					C = list_to_binary([<<", ex_speed_type=">>, common:integer_to_binary(Res)]),
+					create_pos_app_sql_part(replace_pos_app_list(Init, 16#11, {A, B, C}), T);
 				16#25 ->
 					A = <<", ex_state">>,
 					B = list_to_binary([<<", ">>, common:integer_to_binary(Res)]),
-					create_pos_app_sql_part(replace_pos_app_list(Init, 16#25, {A, B}), T);
+					C = list_to_binary([<<", ex_state=">>, common:integer_to_binary(Res)]),
+					create_pos_app_sql_part(replace_pos_app_list(Init, 16#25, {A, B, C}), T);
 				16#2A ->
 					A = <<", io_state">>,
 					B = list_to_binary([<<", ">>, common:integer_to_binary(Res)]),
-					create_pos_app_sql_part(replace_pos_app_list(Init, 16#2A, {A, B}), T);
+					C = list_to_binary([<<", io_state=">>, common:integer_to_binary(Res)]),
+					create_pos_app_sql_part(replace_pos_app_list(Init, 16#2A, {A, B, C}), T);
 				16#30 ->
 					A = <<", wl_signal_amp">>,
 					B = list_to_binary([<<", ">>, common:integer_to_binary(Res)]),
-					create_pos_app_sql_part(replace_pos_app_list(Init, 16#30, {A, B}), T);
+					C = list_to_binary([<<", wl_signal_amp=">>, common:integer_to_binary(Res)]),
+					create_pos_app_sql_part(replace_pos_app_list(Init, 16#30, {A, B, C}), T);
 				16#31 ->
 					A = <<", gnss_count">>,
 					B = list_to_binary([<<", ">>, common:integer_to_binary(Res)]),
-					create_pos_app_sql_part(replace_pos_app_list(Init, 16#31, {A, B}), T);
+					C = list_to_binary([<<", gnss_count=">>, common:integer_to_binary(Res)]),
+					create_pos_app_sql_part(replace_pos_app_list(Init, 16#31, {A, B, C}), T);
 				_ ->
 					create_pos_app_sql_part(Init, T)
 			end;				
@@ -2394,11 +2417,13 @@ create_pos_app_sql_part(Init, AppInfo) when is_list(AppInfo),
 				16#11 ->
 					A = <<", ex_speed_type, ex_speed_id">>,
 					B = list_to_binary([<<", ">>, common:integer_to_binary(Res1), <<", ">>, common:integer_to_binary(Res2)]),
-					create_pos_app_sql_part(replace_pos_app_list(Init, 16#11, {A, B}), T);
+					C = list_to_binary([<<", ex_speed_type=">>, common:integer_to_binary(Res1), <<", ex_speed_id=">>, common:integer_to_binary(Res2)]),
+					create_pos_app_sql_part(replace_pos_app_list(Init, 16#11, {A, B, C}), T);
 				16#2B ->
 					A = <<", analog_quantity_ad0, analog_quantity_ad1">>,
 					B = list_to_binary([<<", ">>, common:integer_to_binary(Res1), <<", ">>, common:integer_to_binary(Res2)]),
-					create_pos_app_sql_part(replace_pos_app_list(Init, 16#2B, {A, B}), T);
+					C = list_to_binary([<<", analog_quantity_ad0=">>, common:integer_to_binary(Res1), <<", analog_quantity_ad1=">>, common:integer_to_binary(Res2)]),
+					create_pos_app_sql_part(replace_pos_app_list(Init, 16#2B, {A, B, C}), T);
 				_ ->
 					create_pos_app_sql_part(Init, T)
 			end;
@@ -2407,11 +2432,13 @@ create_pos_app_sql_part(Init, AppInfo) when is_list(AppInfo),
 				16#12 ->
 					A = <<", alarm_add_type, alarm_add_id, alarm_add_direct">>,
 					B = list_to_binary([<<", ">>, common:integer_to_binary(Res1), <<", ">>, common:integer_to_binary(Res2), <<", ">>, common:integer_to_binary(Res3)]),
-					create_pos_app_sql_part(replace_pos_app_list(Init, 16#12, {A, B}), T);
+					C = list_to_binary([<<", alarm_add_type=">>, common:integer_to_binary(Res1), <<", alarm_add_id=">>, common:integer_to_binary(Res2), <<", alarm_add_direct=">>, common:integer_to_binary(Res3)]),
+					create_pos_app_sql_part(replace_pos_app_list(Init, 16#12, {A, B, C}), T);
 				16#13 ->
 					A = <<", road_alarm_id, road_alarm_time, road_alarm_result">>,
 					B = list_to_binary([<<", ">>, common:integer_to_binary(Res1), <<", ">>, common:integer_to_binary(Res2), <<", ">>, common:integer_to_binary(Res3)]),
-					create_pos_app_sql_part(replace_pos_app_list(Init, 16#13, {A, B}), T);
+					C = list_to_binary([<<", road_alarm_id=">>, common:integer_to_binary(Res1), <<", road_alarm_time=">>, common:integer_to_binary(Res2), <<", road_alarm_result=">>, common:integer_to_binary(Res3)]),
+					create_pos_app_sql_part(replace_pos_app_list(Init, 16#13, {A, B, C}), T);
 				_ ->
 					create_pos_app_sql_part(Init, T)
 			end;
@@ -2424,13 +2451,14 @@ create_pos_app_sql_part(Init, _AppInfo) ->
 replace_pos_app_list(Init, ID, Item) when is_list(Init),
 									      length(Init) > 0 ->
 	[H|T] = Init,
-	{HID, _HKey, _HValue} = H,
+	{HID, HKey, HValue} = H,
 	if
 		HID == ID ->
-			{NewKey, NewValue} = Item,
-			lists:append([[{HID, NewKey, NewValue}], T]);
+			{NewKey, NewValue, NewKeyValue} = Item,
+			lists:append([[{HID, NewKey, NewValue, NewKeyValue}], T]);
 		true ->
-			lists:append([[H], replace_pos_app_list(T, ID, Item)])			
+			HNew = {HID, HKey, HValue, null},
+			lists:append([[HNew], replace_pos_app_list(T, ID, Item)])			
 	end;
 replace_pos_app_list(Init, _ID, _Item) ->
 	Init.
