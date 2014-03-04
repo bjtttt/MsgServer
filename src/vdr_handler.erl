@@ -2330,18 +2330,18 @@ create_pos_info_sql(Msg, State) ->
     end.
 
 create_pos_app_sql(AppInfo) ->
-	Init = [{16#1, <<", distance">>, <<", NULL">>}, 
-			{16#2, <<", oil">>, <<", NULL">>}, 
-			{16#3, <<", record_speed">>, <<", NULL">>},
-			{16#4, <<", event_man_acq">>, <<", NULL">>}, 
-			{16#11, <<", ex_speed_type, ex_speed_id">>, <<", NULL, NULL">>},
-			{16#12, <<", alarm_add_type, alarm_add_id, alarm_add_direct">>, <<", NULL, NULL, NULL">>}, 
-			{16#13, <<", road_alarm_id, road_alarm_time, road_alarm_result">>, <<", NULL, NULL, NULL">>}, 
-			{16#25, <<", ex_state">>, <<", NULL">>}, 
-			{16#2A, <<", io_state">>, <<", NULL">>}, 
-			{16#2B, <<", analog_quantity_ad0, analog_quantity_ad1">>, <<", NULL, NULL">>}, 
-			{16#30, <<", wl_signal_amp">>, <<", NULL">>}, 
-			{16#31, <<", gnss_count">>, <<", NULL">>}],
+	Init = [{16#1, <<", distance">>, <<", NULL">>, null}, 
+			{16#2, <<", oil">>, <<", NULL">>, null}, 
+			{16#3, <<", record_speed">>, <<", NULL">>, null},
+			{16#4, <<", event_man_acq">>, <<", NULL">>, null}, 
+			{16#11, <<", ex_speed_type, ex_speed_id">>, <<", NULL, NULL">>, null},
+			{16#12, <<", alarm_add_type, alarm_add_id, alarm_add_direct">>, <<", NULL, NULL, NULL">>, null}, 
+			{16#13, <<", road_alarm_id, road_alarm_time, road_alarm_result">>, <<", NULL, NULL, NULL">>, null}, 
+			{16#25, <<", ex_state">>, <<", NULL">>, null}, 
+			{16#2A, <<", io_state">>, <<", NULL">>, null}, 
+			{16#2B, <<", analog_quantity_ad0, analog_quantity_ad1">>, <<", NULL, NULL">>, null}, 
+			{16#30, <<", wl_signal_amp">>, <<", NULL">>, null}, 
+			{16#31, <<", gnss_count">>, <<", NULL">>, null}],
 	combine_pos_app_sql_parts(create_pos_app_sql_part(Init, AppInfo)).
 
 combine_pos_app_sql_parts(Parts) when is_list(Parts),
@@ -2451,14 +2451,13 @@ create_pos_app_sql_part(Init, _AppInfo) ->
 replace_pos_app_list(Init, ID, Item) when is_list(Init),
 									      length(Init) > 0 ->
 	[H|T] = Init,
-	{HID, HKey, HValue} = H,
+	{HID, _HKey, _HValue, _HKeyVal} = H,
 	if
 		HID == ID ->
 			{NewKey, NewValue, NewKeyValue} = Item,
 			lists:append([[{HID, NewKey, NewValue, NewKeyValue}], T]);
 		true ->
-			HNew = {HID, HKey, HValue, null},
-			lists:append([[HNew], replace_pos_app_list(T, ID, Item)])			
+			lists:append([[H], replace_pos_app_list(T, ID, Item)])			
 	end;
 replace_pos_app_list(Init, _ID, _Item) ->
 	Init.
