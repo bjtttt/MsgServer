@@ -2356,7 +2356,7 @@ combine_pos_app_sql_parts(Parts) when is_list(Parts),
 			{list_to_binary([Key, A]), list_to_binary([Val, B]), list_to_binary([KeyVal, C])}
 	end;
 combine_pos_app_sql_parts(_Parts) ->
-	{[], []}.
+	{[], [], []}.
 
 create_pos_app_sql_part(Init, AppInfo) when is_list(AppInfo),
 									        length(AppInfo) > 0 ->
