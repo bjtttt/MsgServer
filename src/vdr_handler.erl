@@ -260,6 +260,7 @@ safe_process_vdr_msg(Socket, Msg, State) ->
 process_vdr_data(Socket, Data, State) -> 
     case vdr_data_parser:process_data(State, Data) of
         {ok, HeadInfo, Msg, NewState} ->
+			%common:loginfo("DEBUG : vdr_data_parser:process_data is OK"),
             {ID, MsgIdx, Tel, _CryptoType} = HeadInfo,
             if
                 State#vdritem.id == undefined ->
@@ -1170,7 +1171,7 @@ process_pos_info(ID, MsgIdx, HeadInfo, Msg, NewState) ->
 									send_masg_to_ws_alarm(FlowIdx, NewSetAlarmList, 1, Lat, Lon, TimeBinS, NewState),
 									send_masg_to_ws_alarm(FlowIdx, NewClearAlarmList, 0, Lat, Lon, TimeBinS, NewState)
 							end,
-		
+							
 		                    MsgBody = vdr_data_processor:create_gen_resp(ID, MsgIdx, ?T_GEN_RESP_OK),
 		                    NewFlowIdx = send_data_to_vdr(16#8001, NewState#vdritem.tel, FlowIdx, MsgBody, NewState),
 		                    
@@ -1935,7 +1936,13 @@ send_sql_to_db_nowait(PoolId, Msg, State) ->
 									end
 							end;
 						true ->
-				            DBPid ! {Pid, PoolId, Msg}
+							BinOper2 = get_binary_msg_first_n_char(Msg, 28),
+							if
+								BinOper2 == <<"update vehicle_position_last">> ->
+									DBPid ! {Pid, PoolId, Msg, noresp};
+								true ->
+				            		DBPid ! {Pid, PoolId, Msg}
+							end
 					end
 			end,
 			LinkPid ! {Pid, dbmsgstored, 1}
@@ -2293,7 +2300,8 @@ create_pos_info_sql(Msg, State) ->
 												   <<", status_flag=">>, common:integer_to_binary(StateFlag),
 												   <<", alarm_flag=">>, common:integer_to_binary(StateFlag),
 												   AIKeyVal,
-												   <<", is_online=1">>]),
+												   <<", is_online=1 where vehicle_id=">>, common:integer_to_binary(VehicleID)]),
+							%common:loginfo("DEBUG : ~p",[SQL1]),
 				            {ok, [SQL0, SQL1]};
 						true ->
 				            SQL1 = list_to_binary([<<"replace into vehicle_position_last(vehicle_id, gps_time, server_time, longitude, latitude, height, speed, direction, status_flag, alarm_flag">>, 
