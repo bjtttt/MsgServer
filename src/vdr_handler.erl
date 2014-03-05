@@ -2284,7 +2284,7 @@ create_pos_info_sql(Msg, State) ->
 			if
 				Lon == 0 orelse Lon == 0.0 orelse Lat == 0 orelse Lat == 0.0 ->
 					if
-						State#vdritem.lastlon == 0 orelse State#vdritem.lastlon == 0.0 orelse State#vdritem.lastlon == 0 orelse State#vdritem.lastlon == 0.0 ->
+						State#vdritem.lastlat == 0 orelse State#vdritem.lastlat == 0.0 orelse State#vdritem.lastlon == 0 orelse State#vdritem.lastlon == 0.0 ->
 				            SQL1 = list_to_binary([<<"update vehicle_position_last set gps_time='">>, TimeS,
 												   <<"', server_time='">>, ServerTimeS,
 												   <<"', height=">>, common:integer_to_binary(Height),
