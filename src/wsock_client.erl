@@ -239,6 +239,7 @@ ws_on_open() ->
 				   integer_to_list(Hh) ++ ":" ++ integer_to_list(Mm) ++ ":" ++ integer_to_list(Ss),
 	ets:insert(msgservertable, {wslog, lists:append([WSLog, [{0, DateTime}]])}),
 	Res = ets:lookup(msgservertable, wspid),
+	% Unecessary switch???
 	case Res of
 		[{wspid, WSPid}] ->
 			if
