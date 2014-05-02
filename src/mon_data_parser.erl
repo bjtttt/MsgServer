@@ -88,6 +88,10 @@ parse_data(RawData, State) ->
 									read_db_chinese_init_reponse(Req);
 								25 ->
 									get_system_info_reponse(Req);
+								26 ->
+									insert_driver_response(Req);
+								27 ->
+									get_driver_count_response(Req);
                                 _ ->
                                     create_unknown_msg_id_response(ID)
                             end
@@ -770,4 +774,8 @@ find_Tuple_in_turple_list(TupleList, Key) when is_list(TupleList),
 find_Tuple_in_turple_list(_TupleList, _Key) ->
 	0.
 
+insert_driver_response(Req) ->
+	ok.
 
+get_driver_count_response(_Req) ->
+	ets:info(drivertable,size).
