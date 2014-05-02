@@ -69,6 +69,7 @@ start(StartType, StartArgs) ->
     ets:new(vdrtable,[ordered_set,public,named_table,{keypos,#vdritem.socket},{read_concurrency,true},{write_concurrency,true}]),
     ets:new(mantable,[set,public,named_table,{keypos,#manitem.socket},{read_concurrency,true},{write_concurrency,true}]),
     ets:new(usertable,[set,public,named_table,{keypos,#user.id},{read_concurrency,true},{write_concurrency,true}]),
+    ets:new(drivertable,[set,public,named_table,{keypos,#driverinfo.driverid},{read_concurrency,true},{write_concurrency,true}]),
     ets:new(montable,[set,public,named_table,{keypos,#monitem.socket},{read_concurrency,true},{write_concurrency,true}]),
     common:loginfo("Tables are initialized."),
 	case file:make_dir(Path ++ "/media") of
@@ -139,13 +140,18 @@ start(StartType, StartArgs) ->
 												{error, ErrorMsg1} ->
 													{error, ErrorMsg1};
 												ok ->
-								                    CCPid ! {AppPid, create},
-								                    receive
-								                        created ->
-								                            common:loginfo("Code convertor table is created"),
-								                            {ok, AppPid}
-								                        after ?TIMEOUT_CC_INIT_PROCESS ->
-								                            {error, "ERROR : code convertor table is timeout"}
+													case init_drivertable(AppPid, DBPid) of
+														{error, ErrorMsg2} ->
+															{error, ErrorMsg2};
+														ok ->
+										                    CCPid ! {AppPid, create},
+										                    receive
+										                        created ->
+										                            common:loginfo("Code convertor table is created"),
+										                            {ok, AppPid}
+										                        after ?TIMEOUT_CC_INIT_PROCESS ->
+										                            {error, "ERROR : code convertor table is timeout"}
+															end
 													end
 											end
 									end
@@ -196,13 +202,18 @@ start(StartType, StartArgs) ->
 												{error, ErrorMsg1} ->
 													{error, ErrorMsg1};
 												ok ->
-								                    CCPid ! {AppPid, create},
-								                    receive
-								                        created ->
-								                            common:loginfo("Code convertor table is created"),
-								                            {ok, AppPid}
-								                        after ?TIMEOUT_CC_INIT_PROCESS ->
-								                            {error, "ERROR : code convertor table is timeout"}
+													case init_drivertable(AppPid, DBPid) of
+														{error, ErrorMsg2} ->
+															{error, ErrorMsg2};
+														ok ->
+										                    CCPid ! {AppPid, create},
+										                    receive
+										                        created ->
+										                            common:loginfo("Code convertor table is created"),
+										                            {ok, AppPid}
+										                        after ?TIMEOUT_CC_INIT_PROCESS ->
+										                            {error, "ERROR : code convertor table is timeout"}
+															end
 													end
 											end
 									end
@@ -319,6 +330,96 @@ do_init_vdrdbtable_once(Result) when is_list(Result),
 do_init_vdrdbtable_once(_Result) ->
 	ok.
 
+init_drivertable(AppPid, DBPid) ->
+	ets:delete_all_objects(drivertable),
+	common:loginfo("Init driver table count."),
+	DBPid ! {AppPid, conn, <<"select count(*) from driver">>},
+	receive
+		{AppPid, Count} ->
+			RealCount = extract_drivertable_count(Count),
+			common:loginfo("Init driver table count=~p", [RealCount]),
+			init_drivertable_once(AppPid, DBPid, 0, RealCount),
+			common:loginfo("Init driver table final count=~p", [ets:info(alarmtable,size)])
+	after ?DB_RESP_TIMEOUT ->
+		{error, "ERROR : init driver table count is timeout"}
+	end.
+
+extract_drivertable_count(Result) ->
+	try
+		%{data,{mysql_result,[{<<>>,<<"count(*)">>,21,'LONGLONG'}],[[15018]],0,0,[],0,[]}} = Result,
+		common:loginfo("extract_drivertable_count(Result) : ~p", [Result]),
+		{_,{_,[{_,_,_,_}],[[Count]],_,_,_,_,_}} = Result,
+		Count
+	catch
+		Ex:Msg ->
+			common:logerror("Cannot extract driver table count.\n(Exception)~p:(Message)~p~n", [Ex, Msg]),
+			0
+	end.	
+
+init_drivertable_once(AppPid, DBPid, Index, Count) when is_integer(Count),
+														Count > 0,
+														is_integer(Index),
+														Index >= 0,
+														Index < Count,
+														Index + ?DB_HASH_UPDATE_ONCE_COUNT =< Count ->
+	common:loginfo("Init driver table index=~p", [Index]),
+	DBPid ! {AppPid, conn, binary:list_to_bin([<<"select * from driver order by id desc limit ">>, 
+											   integer_to_binary(Index), <<", ">>, integer_to_binary(Index + ?DB_HASH_UPDATE_ONCE_COUNT)])},
+	receive
+		{AppPid, Result} ->
+			init_drivertable_once(Result),
+			init_drivertable_once(AppPid, DBPid, Index+?DB_HASH_UPDATE_ONCE_COUNT, Count)
+	after ?DB_RESP_TIMEOUT ->
+		{error, lists:append(["ERROR : init driver table is timeout when index=", integer_to_list(Index), " and count=", integer_to_list(Count), "."])}
+	end;
+init_drivertable_once(AppPid, DBPid, Index, Count) when is_integer(Count),
+														Count > 0,
+														is_integer(Index),
+														Index >= 0,
+														Index < Count,
+														Index+?DB_HASH_UPDATE_ONCE_COUNT > Count ->
+	common:loginfo("Init driver table index=~p", [Index]),
+	DBPid ! {AppPid, conn, binary:list_to_bin([<<"select * from driver order by id desc limit ">>, 
+											   integer_to_binary(Index), <<", ">>, integer_to_binary(Count-Index)])},
+	receive
+		{AppPid, Result} ->
+			init_drivertable_once(Result)
+	after ?DB_RESP_TIMEOUT ->
+		{error, lists:append(["ERROR : init driver table is timeout when index=", integer_to_list(Index), " and count=", integer_to_list(Count), "."])}
+	end;
+init_drivertable_once(_AppPid, _DBPid, _Count, _Index) ->
+	ok.
+
+init_drivertable_once(DriverResult) ->
+	case vdr_handler:extract_db_resp(DriverResult) of
+		error ->
+			common:logerror("Message server cannot init driver table");
+		{ok, empty} ->
+		    common:logerror("Message server init empty driver table");
+		{ok, Records} ->
+			try
+				do_init_drivertable(Records)
+			catch
+				_:Msg ->
+					common:logerror("Message server fails to init driver table : ~p", [Msg])
+			end
+	end.
+
+do_init_drivertable(DriverResult) when is_list(DriverResult),
+									   length(DriverResult) > 0 ->
+	[H|T] = DriverResult,
+	{<<"driver">>, <<"id">>, ID} = vdr_handler:get_record_field(<<"driver">>, H, <<"id">>),
+	{<<"driver">>, <<"license_no">>, LicNo} = vdr_handler:get_record_field(<<"driver">>, H, <<"license_no">>),
+	{<<"driver">>, <<"certificate_code">>, CertCode} = vdr_handler:get_record_field(<<"driver">>, H, <<"certificate_code">>),
+	DriverItem = #driverinfo{driverid=ID, 
+							 licno=LicNo, 
+							 certcode=CertCode},
+	%common:loginfo("Driver : ~p", [DriverItem]),
+	ets:insert(drivertable, DriverItem),
+	do_init_drivertable(T);
+do_init_drivertable(_DriverResult) ->
+	ok.
+
 init_alarmtable(AppPid, DBPid) ->
 	ok.
 
@@ -339,6 +440,7 @@ init_alarmtable_dummy(AppPid, DBPid) ->
 extract_alarmtable_count(Result) ->
 	try
 		%{data,{mysql_result,[{<<>>,<<"count(*)">>,21,'LONGLONG'}],[[15018]],0,0,[],0,[]}} = Result,
+		common:loginfo("extract_alarmtable_count(Result) : ~p", [Result]),
 		{_,{_,[{_,_,_,_}],[[Count]],_,_,_,_,_}} = Result,
 		Count
 	catch

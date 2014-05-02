@@ -18,7 +18,7 @@
 -define(MAX_DB_STORED_URGENT_COUNT, 100).
 -define(MAX_DB_PROC_WAIT_INTERVAL, 30000).
 
--define(DB_RESP_TIMEOUT, 10000).
+-define(DB_RESP_TIMEOUT, 30000).
 
 %%% DB_SUP_MAX and DB_SUP_WITHIN are use in DB Supervisor for DB client restart mechanism
 %%% In development, they are 0 and 1 to make debug more easy and efficient.
@@ -190,6 +190,11 @@
                     timeout=undefined,
                     wsacckey=undeifned
                  }).
+
+-record(driverinfo, {	driverid=undefined,
+						licno=undefined,
+						certcode=undefined
+					 }).
 
 %%%
 %%% lsock       : Listening socket
