@@ -339,7 +339,7 @@ init_drivertable(AppPid, DBPid) ->
 			RealCount = extract_drivertable_count(Count),
 			common:loginfo("Init driver table count=~p", [RealCount]),
 			init_drivertable_once(AppPid, DBPid, 0, RealCount),
-			common:loginfo("Init driver table final count=~p", [ets:info(alarmtable,size)])
+			common:loginfo("Init driver table final count=~p", [ets:info(drivertable,size)])
 	after ?DB_RESP_TIMEOUT ->
 		{error, "ERROR : init driver table count is timeout"}
 	end.
