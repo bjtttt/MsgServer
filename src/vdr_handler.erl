@@ -14,7 +14,8 @@
 		 send_sql_to_db_nowait/3,
 		 send_msg_to_ws/2,
 		 send_msg_to_ws_nowait/2,
-		 get_record_column_info/1]).
+		 get_record_column_info/1,
+		 remove_empty_item_in_binary_list/2]).
 
 -include("header.hrl").
 -include("mysql.hrl").

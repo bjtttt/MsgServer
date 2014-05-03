@@ -92,6 +92,10 @@ parse_data(RawData, State) ->
 									insert_driver_response(Req);
 								27 ->
 									get_driver_count_response(Req);
+								28 ->
+									delete_driver_response(Req);
+								29 ->
+									check_driver_response(Req);
                                 _ ->
                                     create_unknown_msg_id_response(ID)
                             end
@@ -775,7 +779,192 @@ find_Tuple_in_turple_list(_TupleList, _Key) ->
 	0.
 
 insert_driver_response(Req) ->
-	ok.
+	Check = is_binary(Req),
+	if
+		Check == true ->
+			ReqList = vdr_handler:remove_empty_item_in_binary_list(binary:split(Req, [<<",">>, <<" ">>], [global]), []),
+			Count = insert_driver_id_list(ReqList, 0),
+		    Content = <<4:?LEN_DWORD, 0:?LEN_BYTE, 26:?LEN_BYTE, Count:?LEN_WORD>>,
+		    Xor = vdr_data_parser:bxorbytelist(Content),
+			list_to_binary([Content, Xor]);
+		true ->
+		    Content = <<4:?LEN_DWORD, 0:?LEN_BYTE, 26:?LEN_BYTE, 0:?LEN_WORD>>,
+		    Xor = vdr_data_parser:bxorbytelist(Content),
+			list_to_binary([Content, Xor])
+	end.
+
+insert_driver_id_list(BinList, Count) when is_list(BinList) > 0 ->
+	[H|T] = BinList,
+	CheckBin = is_binary(H),
+	if
+		CheckBin == true ->
+			try
+				HInt = erlang:binary_to_integer(H),
+			    IDs = ets:match(drivertable, {'$1', 
+											  HInt, '_', '_'}),
+	    		Count = length(IDs),
+				if
+					Count > 0 ->
+						insert_driver_id_list(T, Count);
+					true ->
+						DriverItem = #driverinfo{driverid=HInt},
+						ets:insert(drivertable, DriverItem),
+						insert_driver_id_list(T, Count + 1)
+				end
+			catch
+				_:_ ->
+					insert_driver_id_list(T, Count)
+			end;
+		true ->
+			CheckList = is_list(H),
+			if
+				CheckList == true ->
+					try
+						HInt = erlang:list_to_integer(H),
+					    IDs = ets:match(drivertable, {'$1', 
+													  HInt, '_', '_'}),
+			    		Count = length(IDs),
+						if
+							Count > 0 ->
+								insert_driver_id_list(T, Count);
+							true ->
+								DriverItem = #driverinfo{driverid=HInt},
+								ets:insert(drivertable, DriverItem),
+								insert_driver_id_list(T, Count + 1)
+						end
+					catch
+						_:_ ->
+							insert_driver_id_list(T, Count)
+					end;
+				true ->
+					insert_driver_id_list(T, Count)
+			end
+	end;
+insert_driver_id_list(_BinList, Count) ->
+	Count.
 
 get_driver_count_response(_Req) ->
-	ets:info(drivertable,size).
+	Count = ets:info(drivertable,size),
+    Content = <<6:?LEN_DWORD, 0:?LEN_BYTE, 27:?LEN_BYTE, Count:?LEN_DWORD>>,
+    Xor = vdr_data_parser:bxorbytelist(Content),
+	list_to_binary([Content, Xor]).
+
+delete_driver_response(Req) ->
+	CheckBin = is_binary(Req),
+	if
+		CheckBin == true ->
+			try
+				HInt = erlang:binary_to_integer(Req),
+			    IDs = ets:match(drivertable, {'$1', 
+											  HInt, '_', '_'}),
+	    		Count = length(IDs),
+				if
+					Count > 0 ->
+						ets:delete(drivertable, HInt),
+					    Content = <<4:?LEN_DWORD, 0:?LEN_BYTE, 28:?LEN_BYTE, Count:?LEN_WORD>>,
+					    Xor = vdr_data_parser:bxorbytelist(Content),
+						list_to_binary([Content, Xor]);
+					true ->
+					    Content = <<4:?LEN_DWORD, 0:?LEN_BYTE, 28:?LEN_BYTE, 0:?LEN_WORD>>,
+					    Xor = vdr_data_parser:bxorbytelist(Content),
+						list_to_binary([Content, Xor])
+				end
+			catch
+				_:_ ->
+				    Zero = <<4:?LEN_DWORD, 0:?LEN_BYTE, 28:?LEN_BYTE, 0:?LEN_WORD>>,
+				    XorZero = vdr_data_parser:bxorbytelist(Zero),
+					list_to_binary([Zero, XorZero])
+			end;
+		true ->
+			CheckList = is_list(Req),
+			if
+				CheckList == true ->
+					try
+						HInt = erlang:list_to_integer(Req),
+					    IDs = ets:match(drivertable, {'$1', 
+													  HInt, '_', '_'}),
+			    		Count = length(IDs),
+						if
+							Count > 0 ->
+								ets:delete(drivertable, HInt),
+							    Content = <<4:?LEN_DWORD, 0:?LEN_BYTE, 28:?LEN_BYTE, Count:?LEN_WORD>>,
+							    Xor = vdr_data_parser:bxorbytelist(Content),
+								list_to_binary([Content, Xor]);
+							true ->
+							    Content = <<4:?LEN_DWORD, 0:?LEN_BYTE, 28:?LEN_BYTE, 0:?LEN_WORD>>,
+							    Xor = vdr_data_parser:bxorbytelist(Content),
+								list_to_binary([Content, Xor])
+						end
+					catch
+						_:_ ->
+						    Zero = <<4:?LEN_DWORD, 0:?LEN_BYTE, 28:?LEN_BYTE, 0:?LEN_WORD>>,
+						    XorZero = vdr_data_parser:bxorbytelist(Zero),
+							list_to_binary([Zero, XorZero])
+					end;
+				true ->
+				    Zero = <<4:?LEN_DWORD, 0:?LEN_BYTE, 28:?LEN_BYTE, 0:?LEN_WORD>>,
+				    XorZero = vdr_data_parser:bxorbytelist(Zero),
+					list_to_binary([Zero, XorZero])
+			end
+	end.
+
+check_driver_response(Req) ->
+	Check = is_binary(Req),
+	if
+		Check == true ->
+			ReqList = vdr_handler:remove_empty_item_in_binary_list(binary:split(Req, [<<",">>, <<" ">>], [global]), []),
+			Count = check_driver_id_list(ReqList, 0),
+		    Content = <<4:?LEN_DWORD, 0:?LEN_BYTE, 29:?LEN_BYTE, Count:?LEN_WORD>>,
+		    Xor = vdr_data_parser:bxorbytelist(Content),
+			list_to_binary([Content, Xor]);
+		true ->
+		    Content = <<4:?LEN_DWORD, 0:?LEN_BYTE, 29:?LEN_BYTE, 0:?LEN_WORD>>,
+		    Xor = vdr_data_parser:bxorbytelist(Content),
+			list_to_binary([Content, Xor])
+	end.
+
+check_driver_id_list(BinList, Count) when is_list(BinList) > 0 ->
+	[H|T] = BinList,
+	CheckBin = is_binary(H),
+	if
+		CheckBin == true ->
+			try
+				HInt = erlang:binary_to_integer(H),
+			    IDs = ets:match(drivertable, {'$1', 
+											  HInt, '_', '_'}),
+	    		Count = length(IDs),
+				if
+					Count > 0 ->
+						check_driver_id_list(T, Count);
+					true ->
+						check_driver_id_list(T, Count + 1)
+				end
+			catch
+				_:_ ->
+					check_driver_id_list(T, Count)
+			end;
+		true ->
+			CheckList = is_list(H),
+			if
+				CheckList == true ->
+					try
+						HInt = erlang:list_to_integer(H),
+					    IDs = ets:match(drivertable, {'$1', 
+													  HInt, '_', '_'}),
+			    		Count = length(IDs),
+						if
+							Count > 0 ->
+								check_driver_id_list(T, Count);
+							true ->
+								check_driver_id_list(T, Count + 1)
+						end
+					catch
+						_:_ ->
+							check_driver_id_list(T, Count)
+					end;
+				true ->
+					check_driver_id_list(T, Count)
+			end
+	end;
+check_driver_id_list(_BinList, Count) ->
+	Count.
