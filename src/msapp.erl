@@ -106,6 +106,7 @@ start(StartType, StartArgs) ->
 		                    DBTablePid = spawn(fun() -> db_table_deamon() end),
 		                    CCPid = spawn(fun() -> code_convertor_process() end),
 		                    VdrTablePid = spawn(fun() -> vdrtable_insert_delete_process() end),
+		                    DriverTablePid = spawn(fun() -> drivertable_insert_delete_process() end),
 							DBOperationPid = spawn(fun() -> db_data_operation_process(DBPid) end),
 							MysqlActivePid = spawn(fun() -> mysql_active_process(DBPid) end),
 							%DBMaintainPid = spawn(fun() -> db_data_maintain_process(DBPid, DBOperationPid, Mode) end),
@@ -115,6 +116,7 @@ start(StartType, StartArgs) ->
 		                    ets:insert(msgservertable, {dbtablepid, DBTablePid}),
 		                    ets:insert(msgservertable, {ccpid, CCPid}),
 		                    ets:insert(msgservertable, {vdrtablepid, VdrTablePid}),
+		                    ets:insert(msgservertable, {drivertablepid, DriverTablePid}),
 							ets:insert(msgservertable, {dboperationpid, DBOperationPid}),
 							ets:insert(msgservertable, {mysqlactivepid, MysqlActivePid}),
 		                    %ets:insert(msgservertable, {dbmaintainpid, VdrTablePid}),
@@ -123,6 +125,7 @@ start(StartType, StartArgs) ->
 		                    common:loginfo("DB table deamon process PID is ~p", [DBTablePid]),
 		                    common:loginfo("Code convertor process PID is ~p", [CCPid]),
 		                    common:loginfo("VDR table processor process PID is ~p", [VdrTablePid]),
+		                    common:loginfo("Driver table processor process PID is ~p", [DriverTablePid]),
 							common:loginfo("DB operation process PID is ~p", [DBOperationPid]),
 							common:loginfo("Mysql active process PID is ~p", [MysqlActivePid]),
 							%common:loginfo("DB miantain process PID is ~p", [DBMaintainPid]),
@@ -170,6 +173,7 @@ start(StartType, StartArgs) ->
 		                    DBTablePid = spawn(fun() -> db_table_deamon() end),
 		                    CCPid = spawn(fun() -> code_convertor_process() end),
 		                    VdrTablePid = spawn(fun() -> vdrtable_insert_delete_process() end),
+		                    DriverTablePid = spawn(fun() -> drivertable_insert_delete_process() end),
 							DBOperationPid = spawn(fun() -> db_data_operation_process(DBPid) end),
 							MysqlActivePid = spawn(fun() -> mysql_active_process(DBPid) end),
 							%DBMaintainPid = spawn(fun() -> db_data_maintain_process(DBPid, DBOperationPid, Mode) end),
@@ -178,6 +182,7 @@ start(StartType, StartArgs) ->
 		                    ets:insert(msgservertable, {dbtablepid, DBTablePid}),
 		                    ets:insert(msgservertable, {ccpid, CCPid}),
 		                    ets:insert(msgservertable, {vdrtablepid, VdrTablePid}),
+		                    ets:insert(msgservertable, {drivertablepid, DriverTablePid}),
 							ets:insert(msgservertable, {dboperationpid, DBOperationPid}),
 							ets:insert(msgservertable, {mysqlactivepid, MysqlActivePid}),
 							%ets:insert(msgservertable, {dbmaintainpid, DBMaintainPid}),
@@ -185,6 +190,7 @@ start(StartType, StartArgs) ->
 		                    common:loginfo("DB table deamon process PID is ~p", [DBTablePid]),
 		                    common:loginfo("Code convertor process PID is ~p", [CCPid]),
 		                    common:loginfo("VDR table processor process PID is ~p", [VdrTablePid]),
+		                    common:loginfo("Driver table processor process PID is ~p", [DriverTablePid]),
 		                    common:loginfo("DB operation process PID is ~p", [DBOperationPid]),
 							common:loginfo("Mysql active process PID is ~p", [MysqlActivePid]),
 		                    %common:loginfo("DB miantain process PID is ~p", [DBMaintainPid]),
@@ -661,6 +667,31 @@ vdrtable_insert_delete_process() ->
 			vdrtable_insert_delete_process()
 	end.
 
+drivertable_insert_delete_process() ->
+	receive
+		stop ->
+			common:loginfo("Driver table insert/delete process stops.");
+		{Pid, insert, Drivers} ->
+			Count = mon_data_parser:insert_driver_id_into_list(Drivers, 0),
+			Pid ! {Pid, Count},
+			drivertable_insert_delete_process();
+		{Pid, delete, Drivers} ->
+			Count = mon_data_parser:delete_driver_id_in_list(Drivers, 0),
+			Pid ! {Pid, Count},
+			drivertable_insert_delete_process();
+		{Pid, check, Drivers} ->
+			Count = mon_data_parser:check_driver_id_in_list(Drivers, 0),
+			Pid ! {Pid, Count},
+			drivertable_insert_delete_process();
+		{Pid, count} ->
+			Count = ets:info(drivertable,size),
+			Pid ! {Pid, Count},
+			drivertable_insert_delete_process();
+		_ ->
+			common:logerror("Driver table insert/delete process receive unknown msg."),
+			vdrtable_insert_delete_process()
+	end.
+
 %vdr_resp_process() ->
 %	receive
 %		stop ->
@@ -760,6 +791,13 @@ stop(_State) ->
             ok;
         _ ->
             CCPid ! stop
+    end,
+    [{drivertablepid, DriverTablePid}] = ets:lookup(msgservertable, drivertablepid),
+    case DriverTablePid of
+        undefined ->
+            ok;
+        _ ->
+            DriverTablePid ! stop
     end,
     error_logger:info_msg("Message server stops.").
 

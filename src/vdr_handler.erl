@@ -32,17 +32,18 @@ init([Sock, Addr]) ->
     [{ccpid, CCPid}] = ets:lookup(msgservertable, ccpid),
     [{linkpid, LinkPid}] = ets:lookup(msgservertable, linkpid),
     [{vdrtablepid, VDRTablePid}] = ets:lookup(msgservertable, vdrtablepid),
+    [{drivertablepid, DriverTablePid}] = ets:lookup(msgservertable, drivertablepid),
     [{dboperationpid, DBOperationPid}] = ets:lookup(msgservertable, dboperationpid),
     [{dbstate, DBState}] = ets:lookup(msgservertable, dbstate),
 	if
 		DBState == true ->
-		    State = #vdritem{socket=Sock, pid=Pid, dboperid=DBOperationPid, addr=Addr, msgflownum=1, errorcount=0, dbpid=DBPid, wspid=WSPid, ccpid=CCPid, linkpid=LinkPid, vdrtablepid=VDRTablePid},
+		    State = #vdritem{socket=Sock, pid=Pid, dboperid=DBOperationPid, addr=Addr, msgflownum=1, errorcount=0, dbpid=DBPid, wspid=WSPid, ccpid=CCPid, linkpid=LinkPid, vdrtablepid=VDRTablePid, drivertablepid=DriverTablePid},
 			common:send_stat_err(State, conn),
 		    common:send_vdr_table_operation(VDRTablePid, {self(), insert, State, noresp}),
 		    inet:setopts(Sock, [{active, once}, {send_timeout, ?VDR_MSG_TIMEOUT}, {send_timeout_close, true}]),
 			{ok, State, ?VDR_MSG_TIMEOUT};
 		true ->
-		    State = #vdritem{socket=Sock, pid=Pid, dboperid=DBOperationPid, addr=Addr, msgflownum=1, errorcount=0, dbpid=unused, wspid=WSPid, ccpid=CCPid, linkpid=LinkPid, vdrtablepid=VDRTablePid},
+		    State = #vdritem{socket=Sock, pid=Pid, dboperid=DBOperationPid, addr=Addr, msgflownum=1, errorcount=0, dbpid=unused, wspid=WSPid, ccpid=CCPid, linkpid=LinkPid, vdrtablepid=VDRTablePid, drivertablepid=DriverTablePid},
 			common:send_stat_err(State, conn),
 		    common:send_vdr_table_operation(VDRTablePid, {self(), insert, State, noresp}),
 		    inet:setopts(Sock, [{active, once}, {send_timeout, ?VDR_MSG_TIMEOUT}, {send_timeout_close, true}]),
@@ -1570,7 +1571,7 @@ disconn_socket_by_vehicle_id(VehicleID) ->
 	                     '_', '_', '_', '_', '_',
 	                     '_', '_', '_', '_', '_',
                          '_', '_', '_', '_', '_',
-                         '_', '_', '_'}),
+                         '_', '_', '_', '_'}),
 	disconn_socket_by_id(SockList).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -2240,7 +2241,20 @@ create_sql_from_vdr(HeaderInfo, Msg, State) ->
             {error, iderror}
     end.
 
+get_driver_id(State) ->
+	DriverTablePid = State#vdritem.drivertablepid,
+	Pid = State#vdritem.pid,
+	DriverID = State#vdritem.driverid,
+	DriverTablePid ! {Pid, check, [erlang:integer_to_binary(DriverID, 16)]},
+	receive
+		{Pid, Count} ->
+			Count
+	after ?PROC_RESP_TIMEOUT ->
+			0
+	end.	
+
 create_pos_info_sql(Msg, State) ->
+	DriverID = get_driver_id(State),
     case Msg of
         {H, AppInfo} ->
 			[AlarmSym, StateFlag, Lat, Lon, Height, Speed, Direction, Time]= H,
@@ -2275,7 +2289,7 @@ create_pos_info_sql(Msg, State) ->
             ServerSecondS = common:integer_to_binary(ServerSecond),
             ServerTimeS = list_to_binary([ServerYearS, <<"-">>, ServerMonthS, <<"-">>, ServerDayS, <<" ">>, ServerHourS, <<":">>, ServerMinuteS, <<":">>, ServerSecondS]),
             VehicleID = State#vdritem.vehicleid,
-            DriverID = State#vdritem.driverid,
+            %DriverID = State#vdritem.driverid,
    			{AIKey, AIVal, AIKeyVal} = create_pos_app_sql(AppInfo),
             SQL0 = list_to_binary([<<"insert into vehicle_position_">>, DBBin,
                                    <<"(vehicle_id, driver_id, gps_time, server_time, longitude, latitude, height, speed, direction, status_flag, alarm_flag">>, 

@@ -19,6 +19,7 @@
 -define(MAX_DB_PROC_WAIT_INTERVAL, 30000).
 
 -define(DB_RESP_TIMEOUT, 30000).
+-define(PROC_RESP_TIMEOUT, 10000).
 
 %%% DB_SUP_MAX and DB_SUP_WITHIN are use in DB Supervisor for DB client restart mechanism
 %%% In development, they are 0 and 1 to make debug more easy and efficient.
@@ -33,8 +34,8 @@
 -define(WAIT_LOOP_INTERVAL, 1000).
 
 -define(TIMEOUT_VDR, 60000). 
--define(TIMEOUT_MAN, 30000). 
--define(TIMEOUT_MON, 3000). 
+%-define(TIMEOUT_MAN, 30000). 
+-define(TIMEOUT_MON, 30000). 
 -define(TIMEOUT_DB, 30000). 
 
 -define(TIMEOUT_CC_INIT_PROCESS, 5000). 
@@ -128,7 +129,8 @@
                     msgpackages={-1, []},
 					tel=0,
 					linkpid=undefined,
-					vdrtablepid=undefined
+					vdrtablepid=undefined,
+					drivertablepid=undefined
                  }).
 
 -record(vdrdbitem, {  authencode=undefined,		% VDRAuthenCode
@@ -161,7 +163,8 @@
                     addr=undefined, 
                     timeout=undefined,
 					dbpid=undefined,
-					wspid=undefined
+					wspid=undefined,
+					driverpid=undefined
                  }).
 
 -record(mpitem, {  socket=undefined, 

@@ -15,14 +15,15 @@ init([Socket]) ->
 	process_flag(trap_exit, true),
     [{dbpid, DBPid}] = ets:lookup(msgservertable, dbpid),
     [{wspid, WSPid}] = ets:lookup(msgservertable, wspid),
+	[{drivertablepid, DriverTablePid}] = ets:lookup(msgservertable, drivertablepid),
     case common:safepeername(Socket) of
         {ok, {Address, _Port}} ->
-            State=#monitem{socket=Socket, pid=self(), addr=Address, dbpid=DBPid, wspid=WSPid},
+            State=#monitem{socket=Socket, pid=self(), addr=Address, dbpid=DBPid, wspid=WSPid, driverpid=DriverTablePid},
             ets:insert(montable, State), 
             inet:setopts(Socket, [{active, once}]),
             {ok, State};
         {error, _Reason} ->
-            State=#monitem{socket=Socket, pid=self(), addr="0.0.0.0", dbpid=DBPid, wspid=WSPid},
+            State=#monitem{socket=Socket, pid=self(), addr="0.0.0.0", dbpid=DBPid, wspid=WSPid, driverpid=DriverTablePid},
             ets:insert(montable, State), 
             inet:setopts(Socket, [{active, once}]),
             {ok, State}
