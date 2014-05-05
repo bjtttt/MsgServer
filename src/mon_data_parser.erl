@@ -935,11 +935,11 @@ check_driver_response(Req, State) ->
 	DriverTablePid ! {Pid, delete, ReqList},
 	receive
 		{Pid, Count} ->
-		    Content = <<4:?LEN_DWORD, 0:?LEN_BYTE, 29:?LEN_BYTE, Count:?LEN_WORD>>,
+		    Content = <<6:?LEN_DWORD, 0:?LEN_BYTE, 29:?LEN_BYTE, Count:?LEN_DWORD>>,
 		    Xor = vdr_data_parser:bxorbytelist(Content),
 			list_to_binary([Content, Xor])
 		after ?TIMEOUT_MON ->
-		    Content = <<4:?LEN_DWORD, 0:?LEN_BYTE, 29:?LEN_BYTE, 0:?LEN_WORD>>,
+		    Content = <<6:?LEN_DWORD, 0:?LEN_BYTE, 29:?LEN_BYTE, 0:?LEN_DWORD>>,
 		    Xor = vdr_data_parser:bxorbytelist(Content),
 			list_to_binary([Content, Xor])
 	end.
