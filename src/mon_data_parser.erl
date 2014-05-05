@@ -785,7 +785,7 @@ insert_driver_response(Req, State) ->
 	DriverTablePid = State#monitem.driverpid,
 	Pid = State#monitem.pid,
 	ReqList = vdr_handler:remove_empty_item_in_binary_list(binary:split(Req, [<<",">>, <<" ">>], [global]), []),
-	DriverTablePid ! {Pid, delete, ReqList},
+	DriverTablePid ! {Pid, insert, ReqList},
 	receive
 		{Pid, Count} ->
 		    Content = <<6:?LEN_DWORD, 0:?LEN_BYTE, 26:?LEN_BYTE, Count:?LEN_DWORD>>,
@@ -804,12 +804,12 @@ insert_driver_id_into_list(BinList, Count) when is_list(BinList),
 	if
 		CheckBin == true ->
 			try
-				HInt = erlang:binary_to_integer(H, 16),
+				HInt = erlang:binary_to_integer(H),
 			    IDs = ets:match(drivertable, {'$1', 
 											  HInt, '_', '_'}),
-	    		Count = length(IDs),
+	    		IDsCount = length(IDs),
 				if
-					Count > 0 ->
+					IDsCount > 0 ->
 						insert_driver_id_into_list(T, Count);
 					true ->
 						DriverItem = #driverinfo{driverid=HInt},
@@ -825,12 +825,12 @@ insert_driver_id_into_list(BinList, Count) when is_list(BinList),
 			if
 				CheckList == true ->
 					try
-						HInt = erlang:list_to_integer(H, 16),
+						HInt = erlang:list_to_integer(H),
 					    IDs = ets:match(drivertable, {'$1', 
 													  HInt, '_', '_'}),
-			    		Count = length(IDs),
+			    		IDsCount = length(IDs),
 						if
-							Count > 0 ->
+							IDsCount > 0 ->
 								insert_driver_id_into_list(T, Count);
 							true ->
 								DriverItem = #driverinfo{driverid=HInt},
@@ -886,12 +886,12 @@ delete_driver_id_in_list(ReqList, Count) when is_list(ReqList),
 	if
 		CheckBin == true ->
 			try
-				HInt = erlang:binary_to_integer(H, 16),
+				HInt = erlang:binary_to_integer(H),
 			    IDs = ets:match(drivertable, {'$1', 
 											  HInt, '_', '_'}),
-	    		Count = length(IDs),
+	    		IDsCount = length(IDs),
 				if
-					Count > 0 ->
+					IDsCount > 0 ->
 						ets:delete(drivertable, HInt),
 						delete_driver_id_in_list(T, Count+1);
 					true ->
@@ -906,12 +906,12 @@ delete_driver_id_in_list(ReqList, Count) when is_list(ReqList),
 			if
 				CheckList == true ->
 					try
-						HInt = erlang:list_to_integer(H, 16),
+						HInt = erlang:list_to_integer(H),
 					    IDs = ets:match(drivertable, {'$1', 
 													  HInt, '_', '_'}),
-			    		Count = length(IDs),
+			    		IDsCount = length(IDs),
 						if
-							Count > 0 ->
+							IDsCount > 0 ->
 								ets:delete(drivertable, HInt),
 								delete_driver_id_in_list(T, Count+1);
 							true ->
@@ -932,7 +932,7 @@ check_driver_response(Req, State) ->
 	DriverTablePid = State#monitem.driverpid,
 	Pid = State#monitem.pid,
 	ReqList = vdr_handler:remove_empty_item_in_binary_list(binary:split(Req, [<<",">>, <<" ">>], [global]), []),
-	DriverTablePid ! {Pid, delete, ReqList},
+	DriverTablePid ! {Pid, check, ReqList},
 	receive
 		{Pid, Count} ->
 		    Content = <<6:?LEN_DWORD, 0:?LEN_BYTE, 29:?LEN_BYTE, Count:?LEN_DWORD>>,
@@ -951,12 +951,12 @@ check_driver_id_in_list(BinList, Count) when is_list(BinList),
 	if
 		CheckBin == true ->
 			try
-				HInt = erlang:binary_to_integer(H, 16),
+				HInt = erlang:binary_to_integer(H),
 			    IDs = ets:match(drivertable, {'$1', 
 											  HInt, '_', '_'}),
-	    		Count = length(IDs),
+	    		IDsCount = length(IDs),
 				if
-					Count > 0 ->
+					IDsCount > 0 ->
 						check_driver_id_in_list(T, Count + 1);
 					true ->
 						check_driver_id_in_list(T, Count)
@@ -970,12 +970,12 @@ check_driver_id_in_list(BinList, Count) when is_list(BinList),
 			if
 				CheckList == true ->
 					try
-						HInt = erlang:list_to_integer(H, 16),
+						HInt = erlang:list_to_integer(H),
 					    IDs = ets:match(drivertable, {'$1', 
 													  HInt, '_', '_'}),
-			    		Count = length(IDs),
+			    		IDsCount = length(IDs),
 						if
-							Count > 0 ->
+							IDsCount > 0 ->
 								check_driver_id_in_list(T, Count+1);
 							true ->
 								check_driver_id_in_list(T, Count)
