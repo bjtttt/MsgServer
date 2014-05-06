@@ -33,17 +33,18 @@ init([Sock, Addr]) ->
     [{linkpid, LinkPid}] = ets:lookup(msgservertable, linkpid),
     [{vdrtablepid, VDRTablePid}] = ets:lookup(msgservertable, vdrtablepid),
     [{drivertablepid, DriverTablePid}] = ets:lookup(msgservertable, drivertablepid),
+    [{lastpostablepid, LastPosTablePid}] = ets:lookup(msgservertable, lastpostablepid),
     [{dboperationpid, DBOperationPid}] = ets:lookup(msgservertable, dboperationpid),
     [{dbstate, DBState}] = ets:lookup(msgservertable, dbstate),
 	if
 		DBState == true ->
-		    State = #vdritem{socket=Sock, pid=Pid, dboperid=DBOperationPid, addr=Addr, msgflownum=1, errorcount=0, dbpid=DBPid, wspid=WSPid, ccpid=CCPid, linkpid=LinkPid, vdrtablepid=VDRTablePid, drivertablepid=DriverTablePid},
+		    State = #vdritem{socket=Sock, pid=Pid, dboperid=DBOperationPid, addr=Addr, msgflownum=1, errorcount=0, dbpid=DBPid, wspid=WSPid, ccpid=CCPid, linkpid=LinkPid, vdrtablepid=VDRTablePid, drivertablepid=DriverTablePid, lastpostablepid=LastPosTablePid},
 			common:send_stat_err(State, conn),
 		    common:send_vdr_table_operation(VDRTablePid, {self(), insert, State, noresp}),
 		    inet:setopts(Sock, [{active, once}, {send_timeout, ?VDR_MSG_TIMEOUT}, {send_timeout_close, true}]),
 			{ok, State, ?VDR_MSG_TIMEOUT};
 		true ->
-		    State = #vdritem{socket=Sock, pid=Pid, dboperid=DBOperationPid, addr=Addr, msgflownum=1, errorcount=0, dbpid=unused, wspid=WSPid, ccpid=CCPid, linkpid=LinkPid, vdrtablepid=VDRTablePid, drivertablepid=DriverTablePid},
+		    State = #vdritem{socket=Sock, pid=Pid, dboperid=DBOperationPid, addr=Addr, msgflownum=1, errorcount=0, dbpid=unused, wspid=WSPid, ccpid=CCPid, linkpid=LinkPid, vdrtablepid=VDRTablePid, drivertablepid=DriverTablePid, lastpostablepid=LastPosTablePid},
 			common:send_stat_err(State, conn),
 		    common:send_vdr_table_operation(VDRTablePid, {self(), insert, State, noresp}),
 		    inet:setopts(Sock, [{active, once}, {send_timeout, ?VDR_MSG_TIMEOUT}, {send_timeout_close, true}]),
@@ -1144,6 +1145,22 @@ process_pos_info(ID, MsgIdx, HeadInfo, Msg, NewState) ->
 		            {H, _AppInfo} = Msg,
 		            [AlarmSym, StateFlag, LatOri, LonOri, _Height, _Speed, _Direction, Time]= H,
 		            {Lat, Lon} = get_not_0_lat_lon(LatOri, LonOri, NewState),
+					LonStored = NewState#vdritem.lastlon,
+					LatStored = NewState#vdritem.lastlat,
+					if
+						LonStored == 0 orelse LonStored == 0.0 orelse LatStored == 0.0 orelse LatStored == 0.0 ->
+							if
+								LatOri =/= 0 andalso LatOri =/= 0.0 andalso LonOri =/= 0 andalso LonOri =/= 0.0 ->
+									LastPosTablePid = NewState#vdritem.lastpostablepid,
+									VIDKey = NewState#vdritem.vehicleid,
+									SelfPid = NewState#vdritem.pid,
+									LastPosTablePid ! {SelfPid, set, [VIDKey, LonOri, LatOri]};
+								true ->
+									ok
+							end;
+						true ->
+							ok
+					end,
 		            send_sqls_to_db_nowait(conn, Sqls, NewState#vdritem{lastlat=Lat, lastlon=Lon}),
 		            if
 		                AlarmSym == PreviousAlarm ->
@@ -2314,18 +2331,55 @@ create_pos_info_sql(Msg, State) ->
 				Lon == 0 orelse Lon == 0.0 orelse Lat == 0 orelse Lat == 0.0 ->
 					if
 						State#vdritem.lastlat == 0 orelse State#vdritem.lastlat == 0.0 orelse State#vdritem.lastlon == 0 orelse State#vdritem.lastlon == 0.0 ->
-				            SQL1 = list_to_binary([<<"update vehicle_position_last set driver_id=">>, common:integer_to_binary(DriverID),
-												   <<", gps_time='">>, TimeS,
-												   <<"', server_time='">>, ServerTimeS,
-												   <<"', height=">>, common:integer_to_binary(Height),
-												   <<", speed=">>, common:float_to_binary(Speed/10.0),
-												   <<", direction=">>,  common:integer_to_binary(Direction),
-												   <<", status_flag=">>, common:integer_to_binary(StateFlag),
-												   <<", alarm_flag=">>, common:integer_to_binary(StateFlag),
-												   AIKeyVal,
-												   <<", is_online=1 where vehicle_id=">>, common:integer_to_binary(VehicleID)]),
+				            LastPosTablePid = State#vdritem.lastpostablepid,
+							SelfPid = State#vdritem.pid,
+							VIDKey = State#vdritem.vehicleid,
+							LastPosTablePid ! {SelfPid, get, VIDKey},
+							receive
+								{SelfPid, Info} ->
+									[LonStored, LatStored] = Info,
+						            SQL1 = list_to_binary([<<"replace into vehicle_position_last(vehicle_id, driver_id, gps_time, server_time, longitude, latitude, height, speed, direction, status_flag, alarm_flag">>, 
+														   AIKey, <<", is_online) values(">>,
+						                                  common:integer_to_binary(VehicleID), <<", ">>,
+						                                  common:integer_to_binary(DriverID), <<", '">>,
+						                                  TimeS, <<"', '">>,
+						                                  ServerTimeS, <<"', ">>,
+						                                  common:float_to_binary(LonStored/1000000.0), <<", ">>,
+						                                  common:float_to_binary(LatStored/1000000.0), <<", ">>,
+						                                  common:integer_to_binary(Height), <<", ">>,
+						                                  common:float_to_binary(Speed/10.0), <<", ">>,
+						                                  common:integer_to_binary(Direction), <<", ">>,
+						                                  common:integer_to_binary(StateFlag), <<", ">>,
+						                                  common:integer_to_binary(AlarmSym), AIVal, <<", 1)">>]),
+						            {ok, [SQL0, SQL1]}
+							after ?PROC_RESP_TIMEOUT ->
+						            SQL1 = list_to_binary([<<"replace into vehicle_position_last(vehicle_id, driver_id, gps_time, server_time, longitude, latitude, height, speed, direction, status_flag, alarm_flag">>, 
+														   AIKey, <<", is_online) values(">>,
+						                                  common:integer_to_binary(VehicleID), <<", ">>,
+						                                  common:integer_to_binary(DriverID), <<", '">>,
+						                                  TimeS, <<"', '">>,
+						                                  ServerTimeS, <<"', ">>,
+						                                  common:float_to_binary(0), <<", ">>,
+						                                  common:float_to_binary(0), <<", ">>,
+						                                  common:integer_to_binary(Height), <<", ">>,
+						                                  common:float_to_binary(Speed/10.0), <<", ">>,
+						                                  common:integer_to_binary(Direction), <<", ">>,
+						                                  common:integer_to_binary(StateFlag), <<", ">>,
+						                                  common:integer_to_binary(AlarmSym), AIVal, <<", 1)">>]),
+						            {ok, [SQL0, SQL1]}
+							end;
+							%SQL1 = list_to_binary([<<"update vehicle_position_last set driver_id=">>, common:integer_to_binary(DriverID),
+							%					   <<", gps_time='">>, TimeS,
+							%					   <<"', server_time='">>, ServerTimeS,
+							%					   <<"', height=">>, common:integer_to_binary(Height),
+							%					   <<", speed=">>, common:float_to_binary(Speed/10.0),
+							%					   <<", direction=">>,  common:integer_to_binary(Direction),
+							%					   <<", status_flag=">>, common:integer_to_binary(StateFlag),
+							%					   <<", alarm_flag=">>, common:integer_to_binary(StateFlag),
+							%					   AIKeyVal,
+							%					   <<", is_online=1 where vehicle_id=">>, common:integer_to_binary(VehicleID)]),
 							%common:loginfo("DEBUG : ~p",[SQL1]),
-				            {ok, [SQL0, SQL1]};
+				            %{ok, [SQL0, SQL1]};
 						true ->
 				            SQL1 = list_to_binary([<<"replace into vehicle_position_last(vehicle_id, driver_id, gps_time, server_time, longitude, latitude, height, speed, direction, status_flag, alarm_flag">>, 
 												   AIKey, <<", is_online) values(">>,
@@ -2497,20 +2551,22 @@ replace_pos_app_list(Init, _ID, _Item) ->
 
 get_not_0_lat_lon(Lat, Lon, State) ->
 	if
-		Lat == 0 orelse Lat == 0.0 ->
-			if
-				Lon == 0 orelse Lon == 0.0 ->
-                    {State#vdritem.lastlat, State#vdritem.lastlon};
-                true ->
-                    {State#vdritem.lastlat, Lon}
-            end;
+		Lat == 0 orelse Lat == 0.0 orelse Lon == 0 orelse Lon == 0.0 ->
+			{State#vdritem.lastlat, State#vdritem.lastlon};
+			%if
+			%	Lon == 0 orelse Lon == 0.0 ->
+            %        {State#vdritem.lastlat, State#vdritem.lastlon};
+            %    true ->
+            %        {State#vdritem.lastlat, Lon}
+            %end;
         true ->
-			if
-				Lon == 0 orelse Lon == 0.0 ->
-                    {State#vdritem.lastlat, State#vdritem.lastlon};
-                true ->
-                    {State#vdritem.lastlat, Lon}
-            end
+			{Lat, Lon}
+			%if
+			%	Lon == 0 orelse Lon == 0.0 ->
+            %        {Lat, State#vdritem.lastlon};
+            %    true ->
+            %        {Lat, Lon}
+            %end
     end.
 
 %%%

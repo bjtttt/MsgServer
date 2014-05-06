@@ -130,7 +130,8 @@
 					tel=0,
 					linkpid=undefined,
 					vdrtablepid=undefined,
-					drivertablepid=undefined
+					drivertablepid=undefined,
+					lastpostablepid=undefined
                  }).
 
 -record(vdrdbitem, {  authencode=undefined,		% VDRAuthenCode
@@ -197,6 +198,11 @@
 -record(driverinfo, {	driverid=undefined,
 						licno=undefined,
 						certcode=undefined
+					 }).
+
+-record(lastposinfo, {	vehicleid=undefined,
+						longitude=0,
+						latitude=0
 					 }).
 
 %%%

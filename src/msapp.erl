@@ -70,6 +70,7 @@ start(StartType, StartArgs) ->
     ets:new(mantable,[set,public,named_table,{keypos,#manitem.socket},{read_concurrency,true},{write_concurrency,true}]),
     ets:new(usertable,[set,public,named_table,{keypos,#user.id},{read_concurrency,true},{write_concurrency,true}]),
     ets:new(drivertable,[set,public,named_table,{keypos,#driverinfo.driverid},{read_concurrency,true},{write_concurrency,true}]),
+    ets:new(lastpostable,[set,public,named_table,{keypos,#lastposinfo.vehicleid},{read_concurrency,true},{write_concurrency,true}]),
     ets:new(montable,[set,public,named_table,{keypos,#monitem.socket},{read_concurrency,true},{write_concurrency,true}]),
     common:loginfo("Tables are initialized."),
 	case file:make_dir(Path ++ "/media") of
@@ -107,6 +108,7 @@ start(StartType, StartArgs) ->
 		                    CCPid = spawn(fun() -> code_convertor_process() end),
 		                    VdrTablePid = spawn(fun() -> vdrtable_insert_delete_process() end),
 		                    DriverTablePid = spawn(fun() -> drivertable_insert_delete_process() end),
+		                    LastPosTablePid = spawn(fun() -> lastpostable_insert_delete_process() end),
 							DBOperationPid = spawn(fun() -> db_data_operation_process(DBPid) end),
 							MysqlActivePid = spawn(fun() -> mysql_active_process(DBPid) end),
 							%DBMaintainPid = spawn(fun() -> db_data_maintain_process(DBPid, DBOperationPid, Mode) end),
@@ -117,6 +119,7 @@ start(StartType, StartArgs) ->
 		                    ets:insert(msgservertable, {ccpid, CCPid}),
 		                    ets:insert(msgservertable, {vdrtablepid, VdrTablePid}),
 		                    ets:insert(msgservertable, {drivertablepid, DriverTablePid}),
+		                    ets:insert(msgservertable, {lastpostablepid, LastPosTablePid}),
 							ets:insert(msgservertable, {dboperationpid, DBOperationPid}),
 							ets:insert(msgservertable, {mysqlactivepid, MysqlActivePid}),
 		                    %ets:insert(msgservertable, {dbmaintainpid, VdrTablePid}),
@@ -126,6 +129,7 @@ start(StartType, StartArgs) ->
 		                    common:loginfo("Code convertor process PID is ~p", [CCPid]),
 		                    common:loginfo("VDR table processor process PID is ~p", [VdrTablePid]),
 		                    common:loginfo("Driver table processor process PID is ~p", [DriverTablePid]),
+		                    common:loginfo("Last pos table processor process PID is ~p", [LastPosTablePid]),
 							common:loginfo("DB operation process PID is ~p", [DBOperationPid]),
 							common:loginfo("Mysql active process PID is ~p", [MysqlActivePid]),
 							%common:loginfo("DB miantain process PID is ~p", [DBMaintainPid]),
@@ -139,21 +143,26 @@ start(StartType, StartArgs) ->
 										{error, ErrorMsg} ->
 											{error, ErrorMsg};
 										ok ->
-											case init_alarmtable(AppPid, DBPid) of
-												{error, ErrorMsg1} ->
-													{error, ErrorMsg1};
+											case init_lastpostable(AppPid, DBPid) of
+												{error, ErrorMsg} ->
+													{error, ErrorMsg};
 												ok ->
-													case init_drivertable(AppPid, DBPid) of
-														{error, ErrorMsg2} ->
-															{error, ErrorMsg2};
+													case init_alarmtable(AppPid, DBPid) of
+														{error, ErrorMsg1} ->
+															{error, ErrorMsg1};
 														ok ->
-										                    CCPid ! {AppPid, create},
-										                    receive
-										                        created ->
-										                            common:loginfo("Code convertor table is created"),
-										                            {ok, AppPid}
-										                        after ?TIMEOUT_CC_INIT_PROCESS ->
-										                            {error, "ERROR : code convertor table is timeout"}
+															case init_drivertable(AppPid, DBPid) of
+																{error, ErrorMsg2} ->
+																	{error, ErrorMsg2};
+																ok ->
+												                    CCPid ! {AppPid, create},
+												                    receive
+												                        created ->
+												                            common:loginfo("Code convertor table is created"),
+												                            {ok, AppPid}
+												                        after ?TIMEOUT_CC_INIT_PROCESS ->
+												                            {error, "ERROR : code convertor table is timeout"}
+																	end
 															end
 													end
 											end
@@ -174,6 +183,7 @@ start(StartType, StartArgs) ->
 		                    CCPid = spawn(fun() -> code_convertor_process() end),
 		                    VdrTablePid = spawn(fun() -> vdrtable_insert_delete_process() end),
 		                    DriverTablePid = spawn(fun() -> drivertable_insert_delete_process() end),
+		                    LastPosTablePid = spawn(fun() -> lastpostable_insert_delete_process() end),
 							DBOperationPid = spawn(fun() -> db_data_operation_process(DBPid) end),
 							MysqlActivePid = spawn(fun() -> mysql_active_process(DBPid) end),
 							%DBMaintainPid = spawn(fun() -> db_data_maintain_process(DBPid, DBOperationPid, Mode) end),
@@ -183,6 +193,7 @@ start(StartType, StartArgs) ->
 		                    ets:insert(msgservertable, {ccpid, CCPid}),
 		                    ets:insert(msgservertable, {vdrtablepid, VdrTablePid}),
 		                    ets:insert(msgservertable, {drivertablepid, DriverTablePid}),
+		                    ets:insert(msgservertable, {lastpostablepid, LastPosTablePid}),
 							ets:insert(msgservertable, {dboperationpid, DBOperationPid}),
 							ets:insert(msgservertable, {mysqlactivepid, MysqlActivePid}),
 							%ets:insert(msgservertable, {dbmaintainpid, DBMaintainPid}),
@@ -191,6 +202,7 @@ start(StartType, StartArgs) ->
 		                    common:loginfo("Code convertor process PID is ~p", [CCPid]),
 		                    common:loginfo("VDR table processor process PID is ~p", [VdrTablePid]),
 		                    common:loginfo("Driver table processor process PID is ~p", [DriverTablePid]),
+		                    common:loginfo("Last pos table processor process PID is ~p", [LastPosTablePid]),
 		                    common:loginfo("DB operation process PID is ~p", [DBOperationPid]),
 							common:loginfo("Mysql active process PID is ~p", [MysqlActivePid]),
 		                    %common:loginfo("DB miantain process PID is ~p", [DBMaintainPid]),
@@ -204,21 +216,26 @@ start(StartType, StartArgs) ->
 										{error, ErrorMsg} ->
 											{error, ErrorMsg};
 										ok ->
-											case init_alarmtable(AppPid, DBPid) of
-												{error, ErrorMsg1} ->
-													{error, ErrorMsg1};
+											case init_lastpostable(AppPid, DBPid) of
+												{error, ErrorMsg} ->
+													{error, ErrorMsg};
 												ok ->
-													case init_drivertable(AppPid, DBPid) of
-														{error, ErrorMsg2} ->
-															{error, ErrorMsg2};
+													case init_alarmtable(AppPid, DBPid) of
+														{error, ErrorMsg1} ->
+															{error, ErrorMsg1};
 														ok ->
-										                    CCPid ! {AppPid, create},
-										                    receive
-										                        created ->
-										                            common:loginfo("Code convertor table is created"),
-										                            {ok, AppPid}
-										                        after ?TIMEOUT_CC_INIT_PROCESS ->
-										                            {error, "ERROR : code convertor table is timeout"}
+															case init_drivertable(AppPid, DBPid) of
+																{error, ErrorMsg2} ->
+																	{error, ErrorMsg2};
+																ok ->
+												                    CCPid ! {AppPid, create},
+												                    receive
+												                        created ->
+												                            common:loginfo("Code convertor table is created"),
+												                            {ok, AppPid}
+												                        after ?TIMEOUT_CC_INIT_PROCESS ->
+												                            {error, "ERROR : code convertor table is timeout"}
+																	end
 															end
 													end
 											end
@@ -424,6 +441,96 @@ do_init_drivertable(DriverResult) when is_list(DriverResult),
 	ets:insert(drivertable, DriverItem),
 	do_init_drivertable(T);
 do_init_drivertable(_DriverResult) ->
+	ok.
+
+init_lastpostable(AppPid, DBPid) ->
+	ets:delete_all_objects(lastpostable),
+	common:loginfo("Init last pos table count."),
+	DBPid ! {AppPid, conn, <<"select count(*) from vehicle_position_last">>},
+	receive
+		{AppPid, Count} ->
+			RealCount = extract_lastpostable_count(Count),
+			common:loginfo("Init last pos table count=~p", [RealCount]),
+			init_lastpostable_once(AppPid, DBPid, 0, RealCount),
+			common:loginfo("Init last pos table final count=~p", [ets:info(lastpostable,size)])
+	after ?DB_RESP_TIMEOUT ->
+		{error, "ERROR : init last pos table count is timeout"}
+	end.
+
+extract_lastpostable_count(Result) ->
+	try
+		%{data,{mysql_result,[{<<>>,<<"count(*)">>,21,'LONGLONG'}],[[15018]],0,0,[],0,[]}} = Result,
+		common:loginfo("extract_lastpostable_count(Result) : ~p", [Result]),
+		{_,{_,[{_,_,_,_}],[[Count]],_,_,_,_,_}} = Result,
+		Count
+	catch
+		Ex:Msg ->
+			common:logerror("Cannot extract last pos table count.\n(Exception)~p:(Message)~p~n", [Ex, Msg]),
+			0
+	end.	
+
+init_lastpostable_once(AppPid, DBPid, Index, Count) when is_integer(Count),
+														Count > 0,
+														is_integer(Index),
+														Index >= 0,
+														Index < Count,
+														Index + ?DB_HASH_UPDATE_ONCE_COUNT =< Count ->
+	common:loginfo("Init last pos table index=~p", [Index]),
+	DBPid ! {AppPid, conn, binary:list_to_bin([<<"select * from vehicle_position_last order by vehicle_id desc limit ">>, 
+											   integer_to_binary(Index), <<", ">>, integer_to_binary(Index + ?DB_HASH_UPDATE_ONCE_COUNT)])},
+	receive
+		{AppPid, Result} ->
+			init_lastpostable_once(Result),
+			init_lastpostable_once(AppPid, DBPid, Index+?DB_HASH_UPDATE_ONCE_COUNT, Count)
+	after ?DB_RESP_TIMEOUT ->
+		{error, lists:append(["ERROR : init last pos table is timeout when index=", integer_to_list(Index), " and count=", integer_to_list(Count), "."])}
+	end;
+init_lastpostable_once(AppPid, DBPid, Index, Count) when is_integer(Count),
+														Count > 0,
+														is_integer(Index),
+														Index >= 0,
+														Index < Count,
+														Index+?DB_HASH_UPDATE_ONCE_COUNT > Count ->
+	common:loginfo("Init driver table index=~p", [Index]),
+	DBPid ! {AppPid, conn, binary:list_to_bin([<<"select * from vehicle_position_last order by vehicle_id desc limit ">>, 
+											   integer_to_binary(Index), <<", ">>, integer_to_binary(Count-Index)])},
+	receive
+		{AppPid, Result} ->
+			init_lastpostable_once(Result)
+	after ?DB_RESP_TIMEOUT ->
+		{error, lists:append(["ERROR : init last pos table is timeout when index=", integer_to_list(Index), " and count=", integer_to_list(Count), "."])}
+	end;
+init_lastpostable_once(_AppPid, _DBPid, _Count, _Index) ->
+	ok.
+
+init_lastpostable_once(DriverResult) ->
+	case vdr_handler:extract_db_resp(DriverResult) of
+		error ->
+			common:logerror("Message server cannot init last pos table");
+		{ok, empty} ->
+		    common:logerror("Message server init empty last pos table");
+		{ok, Records} ->
+			try
+				do_init_lastpostable(Records)
+			catch
+				_:Msg ->
+					common:logerror("Message server fails to init last pos table : ~p", [Msg])
+			end
+	end.
+
+do_init_lastpostable(DriverResult) when is_list(DriverResult),
+									   length(DriverResult) > 0 ->
+	[H|T] = DriverResult,
+	{<<"vehicle_position_last">>, <<"vehicle_id">>, ID} = vdr_handler:get_record_field(<<"vehicle_position_last">>, H, <<"vehicle_id">>),
+	{<<"vehicle_position_last">>, <<"longitude">>, Lon} = vdr_handler:get_record_field(<<"vehicle_position_last">>, H, <<"longitude">>),
+	{<<"vehicle_position_last">>, <<"latitude">>, Lat} = vdr_handler:get_record_field(<<"vehicle_position_last">>, H, <<"latitude">>),
+	LastPosItem = #lastposinfo{vehicleid=ID, 
+							 longitude=Lon, 
+							 latitude=Lat},
+	%common:loginfo("Driver : ~p", [DriverItem]),
+	ets:insert(lastpostable, LastPosItem),
+	do_init_lastpostable(T);
+do_init_lastpostable(_DriverResult) ->
 	ok.
 
 init_alarmtable(AppPid, DBPid) ->
@@ -690,6 +797,44 @@ drivertable_insert_delete_process() ->
 		_ ->
 			common:logerror("Driver table insert/delete process receive unknown msg."),
 			vdrtable_insert_delete_process()
+	end.
+
+lastpostable_insert_delete_process() ->
+	receive
+		stop ->
+			common:loginfo("Last pos table insert/delete process stops.");
+		{Pid, get, VID} ->
+		    Infos = ets:match(lastpostable, {'$1', 
+											VID, '_', '_'}),
+			InfoCount = length(Infos),
+			if
+				InfoCount == 1 ->	
+					Info = [[Infos]],
+					Pid ! {Pid, [Info#lastposinfo.longitude, Info#lastposinfo.latitude]};
+				true ->
+					Pid ! {Pid, [0.0, 0.0]}
+			end,
+			lastpostable_insert_delete_process();
+		{Pid, set, Info} ->
+			[VID, Lon, Lat] = Info,
+		    Infos = ets:match(lsatpostable, {'$1', 
+											VID, '_', '_'}),
+			InfoCount = length(Infos),
+			if
+				InfoCount == 0 ->	
+					LastPosItem = #lastposinfo{vehicleid=VID,longitude=Lon,latitude=Lat},
+					ets:insert(lastpostable, LastPosItem);
+				true ->
+					ok
+			end,
+			lastpostable_insert_delete_process();
+		{Pid, count} ->
+			Count = ets:info(lastpostable,size),
+			Pid ! {Pid, Count},
+			lastpostable_insert_delete_process();
+		_ ->
+			common:logerror("Last pos table insert/delete process receive unknown msg."),
+			lastpostable_insert_delete_process()
 	end.
 
 %vdr_resp_process() ->
