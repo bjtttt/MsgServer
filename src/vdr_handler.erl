@@ -2245,7 +2245,7 @@ get_driver_id(State) ->
 	DriverTablePid = State#vdritem.drivertablepid,
 	Pid = State#vdritem.pid,
 	DriverID = State#vdritem.driverid,
-	DriverTablePid ! {Pid, check, [erlang:integer_to_binary(DriverID, 16)]},
+	DriverTablePid ! {Pid, check, [erlang:integer_to_binary(DriverID)]},
 	receive
 		{Pid, Count} ->
 			if
