@@ -2248,7 +2248,12 @@ get_driver_id(State) ->
 	DriverTablePid ! {Pid, check, [erlang:integer_to_binary(DriverID, 16)]},
 	receive
 		{Pid, Count} ->
-			Count
+			if
+				Count > 0 ->
+					DriverID;
+				true ->
+					0
+			end
 	after ?PROC_RESP_TIMEOUT ->
 			0
 	end.	
