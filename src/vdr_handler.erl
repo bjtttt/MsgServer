@@ -98,6 +98,7 @@ handle_info({tcp, Socket, Data}, OriState) ->
 	%DataDebug = <<126,7,2,0,50,1,52,1,8,18,33,0,11,1,19,9,3,21,8,87,0,8,53,54,185,220,192,237,212,177,49,50,51,52,53,54,55,56,56,56,57,48,49,50,51,52,57,57,0,0,8,183,162,214,164,187,250,185,185,0,24,7,5,118,126>>,
 	%DataDebug = <<126,2,0,0,64,1,50,97,51,36,129,0,120,0,0,0,0,0,12,0,19,2,97,0,56,6,241,103,104,0,48,0,100,0,1,19,16,24,21,73,2,1,4,0,0,0,160,2,2,0,0,3,2,0,0,37,4,0,0,0,0,42,2,0,0,43,4,0,0,0,0,48,1,0,49,1,17,192,126>>,
 	%DataDebug = <<126,02,00,00,64,01,50,97,51,66,17,00,05,00,00,64,00,00,12,00,03,01,102,244,156,06,197,41,112,00,30,26,134,00,76,19,18,09,24,35,40,01,04,00,00,00,146,02,02,00,00,03,02,01,234,37,04,00,00,00,00,42,02,00,00,43,04,00,00,00,00,48,01,00,49,01,00,32,126>>,
+	%DataDebug = <<126,7,2,0,48,1,56,16,89,23,38,0,82,1,18,1,39,5,34,0,0,6,185,220,192,237,212,177,50,51,52,53,54,55,56,57,48,53,48,53,53,51,52,53,54,55,56,57,8,183,162,214,164,187,250,185,185,0,20,1,1,34,126>>,
     Msgs = common:split_msg_to_single(Data, 16#7e),
     %Msgs = common:split_msg_to_single(DataDebug, 16#7e),
     case Msgs of
@@ -846,10 +847,70 @@ process_vdr_data(Socket, Data, State) ->
                             
                             {ok, NewState};
                         16#702 ->
-                            %{_DrvState, _Time, _IcReadResult, _NameLen, _N, _C, _OrgLen, _O, _Validity} = Msg,
                             case create_sql_from_vdr(HeadInfo, Msg, NewState) of
 								{ok, Sql} ->
 									send_sql_to_db_nowait(conn, Sql, NewState),
+									
+									MsgLength = tuple_size(Msg),
+									%common:loginfo("0x702 message body (~p) : ~p", [MsgLength, Msg]),
+									if
+										MsgLength == 9 ->
+											{_DrvState, _Time, _IcReadResult, _NameLen, _N, C, _OrgLen, _O, _Validity} = Msg,
+											DriverTablePid = NewState#vdritem.drivertablepid,
+											SelfPid = NewState#vdritem.pid,
+											%common:loginfo("Certificate Code : ~p", [C]),
+											DriverTablePid ! {SelfPid, checkcc, C},
+											receive
+												{Pid, DriverInfoCount} ->
+													%common:loginfo("Driver Info count : ~p", [DriverInfoCount]),
+													if
+														DriverInfoCount > 0 ->
+															ok;
+														true ->
+															DriverSql = list_to_binary([<<"select * from driver where certificate_code='">>, list_to_binary(C), <<"'">>]),
+															%common:loginfo("0x702 - Driver table query SQL : ~p", [DriverSql]),
+															DriverSqlResult = send_sql_to_db(conn, DriverSql , NewState),
+															case vdr_handler:extract_db_resp(DriverSqlResult) of
+																error ->
+																	common:logerror("Message server cannot read driver table");
+																{ok, empty} ->
+																    common:logerror("Message server get no driver info from driver table for certificate_code : ~p", [C]);
+																{ok, Records} ->
+																	RecordCount = length(Records),
+																	if
+																		RecordCount == 1 ->
+																			[Record] = Records,
+																			try
+																				{<<"driver">>, <<"id">>, DriverID} = vdr_handler:get_record_field(<<"driver">>, Record, <<"id">>),
+																				{<<"driver">>, <<"license_no">>, LicNo} = vdr_handler:get_record_field(<<"driver">>, Record, <<"license_no">>),
+																				{<<"driver">>, <<"certificate_code">>, CertCode} = vdr_handler:get_record_field(<<"driver">>, Record, <<"certificate_code">>),
+																				DriverTablePid ! {SelfPid, checkdid, DriverID},
+																				receive
+																					{Pid, NewDriverInfoCount} ->
+																						if
+																							NewDriverInfoCount == 0 ->
+																								DriverTablePid ! {SelfPid, insert, [DriverID, LicNo, CertCode]};
+																							true ->
+																								common:logerror("Message server get duplicated driver info with id(~p) from driver table for certificate_code : ~p", [DriverID, C])
+																						end
+																				after ?PROC_RESP_TIMEOUT ->
+																						common:logerror("Message server cannot get driver info count with id(~p) from driver table for certificate_code : ~p", [DriverID, C])
+																				end
+																			catch
+																				_:Msg ->
+																					common:logerror("Message server fails to get driver info from driver table for certificate_code (~p) : ~p", [C, Msg])
+																			end;
+																		true ->
+																    		common:logerror("Message server get ~p driver info from driver table for certificate_code : ~p", [RecordCount, C])
+																	end
+															end
+													end
+											after ?PROC_RESP_TIMEOUT ->
+													common:logerror("Message server fails to get driver info from driver table for certificate_code (~p) : timeout", [C])
+											end;
+										true ->
+											ok
+									end,
                                                         
 		                            FlowIdx = NewState#vdritem.msgflownum,
 		                            MsgBody = vdr_data_processor:create_gen_resp(ID, MsgIdx, ?T_GEN_RESP_OK),
@@ -1144,7 +1205,10 @@ process_pos_info(ID, MsgIdx, HeadInfo, Msg, NewState) ->
 		            
 		            {H, _AppInfo} = Msg,
 		            [AlarmSym, StateFlag, LatOri, LonOri, _Height, _Speed, _Direction, Time]= H,
+					% If LatOri =/= 0/0.0 AND LonOri =/= 0/0.0, will use LatOri and LonOri
+					% Otherwise, use NewState#vdritem.lastlon and NewState#vdritem.lastlat
 		            {Lat, Lon} = get_not_0_lat_lon(LatOri, LonOri, NewState),
+					%
 					LonStored = NewState#vdritem.lastlon,
 					LatStored = NewState#vdritem.lastlat,
 					if
@@ -2262,18 +2326,41 @@ get_driver_id(State) ->
 	DriverTablePid = State#vdritem.drivertablepid,
 	Pid = State#vdritem.pid,
 	DriverID = State#vdritem.driverid,
-	DriverTablePid ! {Pid, check, [erlang:integer_to_binary(DriverID)]},
-	receive
-		{Pid, Count} ->
+	IsInt = is_integer(DriverID),
+	if
+		IsInt == true ->
+			DriverTablePid ! {Pid, check, [erlang:integer_to_binary(DriverID)]},
+			receive
+				{Pid, Count} ->
+					if
+						Count > 0 ->
+							DriverID;
+						true ->
+							0
+					end
+			after ?PROC_RESP_TIMEOUT ->
+					0
+			end;
+		true ->
+			IsBin = is_binary(DriverID),
 			if
-				Count > 0 ->
-					DriverID;
+				IsBin == true ->
+					DriverTablePid ! {Pid, check, [DriverID]},
+					receive
+						{Pid, Count} ->
+							if
+								Count > 0 ->
+									DriverID;
+								true ->
+									0
+							end
+					after ?PROC_RESP_TIMEOUT ->
+							0
+					end;
 				true ->
 					0
 			end
-	after ?PROC_RESP_TIMEOUT ->
-			0
-	end.	
+	end.
 
 create_pos_info_sql(Msg, State) ->
 	DriverID = get_driver_id(State),

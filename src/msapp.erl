@@ -778,17 +778,103 @@ drivertable_insert_delete_process() ->
 	receive
 		stop ->
 			common:loginfo("Driver table insert/delete process stops.");
-		{Pid, insert, Drivers} ->
-			Count = mon_data_parser:insert_driver_id_into_list(Drivers, 0),
-			Pid ! {Pid, Count},
+		{Pid, checkdid, DriverID} ->
+			IsBin = is_binary(DriverID),
+			if
+				IsBin == true ->
+					try
+						DriverIDInt = erlang:binary_to_integer(DriverID),
+					    DriverInfos = ets:match(drivertable, {'$1',
+															  DriverIDInt, '_', '_'}),
+			    		DriverInfosCount = length(DriverInfos),
+						if
+							DriverInfosCount > 0 ->
+								Pid ! {Pid, 1};
+							true ->
+								Pid ! {Pid, 0}
+						end
+					catch
+						_:_ ->
+							Pid ! {Pid, 0}
+					end;
+				true ->
+					IsList = is_list(DriverID),
+					if
+						IsList == true ->
+							try
+								DriverIDInt = erlang:list_to_integer(DriverID),
+							    DriverInfos = ets:match(drivertable, {'$1',
+																	  DriverIDInt, '_', '_'}),
+					    		DriverInfosCount = length(DriverInfos),
+								if
+									DriverInfosCount > 0 ->
+										Pid ! {Pid, 1};
+									true ->
+										Pid ! {Pid, 0}
+								end
+							catch
+								_:_ ->
+									Pid ! {Pid, 0}
+							end;
+						true ->
+							IsInt = is_integer(DriverID),
+							if
+								IsInt == true ->
+								    DriverInfos = ets:match(drivertable, {'$1',
+																		  DriverID, '_', '_'}),
+						    		DriverInfosCount = length(DriverInfos),
+									if
+										DriverInfosCount > 0 ->
+											Pid ! {Pid, 1};
+										true ->
+											Pid ! {Pid, 0}
+									end;
+								true ->
+									Pid ! {Pid, 0}
+							end
+					end
+			end,					
 			drivertable_insert_delete_process();
-		{Pid, delete, Drivers} ->
-			Count = mon_data_parser:delete_driver_id_in_list(Drivers, 0),
-			Pid ! {Pid, Count},
+		{Pid, checkcc, CertCode} ->
+			IsList = is_list(CertCode),
+			if
+				IsList == true ->
+					try
+						CertCodeBin = erlang:list_to_binary(CertCode),
+					    DriverInfos = ets:match(drivertable, {'$1',
+															  '_', CertCodeBin, '_'}),
+			    		DriverInfosCount = length(DriverInfos),
+						if
+							DriverInfosCount > 0 ->
+								Pid ! {Pid, 1};
+							true ->
+								Pid ! {Pid, 0}
+						end
+					catch
+						_:_ ->
+							Pid ! {Pid, 0}
+					end;
+				true ->
+					IsBin = is_binary(CertCode),
+					if
+						IsBin == true ->
+					    DriverInfos = ets:match(drivertable, {'$1',
+															  '_', CertCode, '_'}),
+			    		DriverInfosCount = length(DriverInfos),
+						if
+							DriverInfosCount > 0 ->
+								Pid ! {Pid, 1};
+							true ->
+								Pid ! {Pid, 0}
+						end
+				end
+			end,					
 			drivertable_insert_delete_process();
-		{Pid, check, Drivers} ->
-			Count = mon_data_parser:check_driver_id_in_list(Drivers, 0),
-			Pid ! {Pid, Count},
+		{Pid, insert, DriverInfo} ->
+			common:loginfo("Insert driver info : ~p", [DriverInfo]),
+			[DriverID, LicNo, CertCode] = DriverInfo,
+			DriverInfoItem = #driverinfo{driverid=DriverID, licno=LicNo, certcode=CertCode},
+			ets:insert(drivertable, DriverInfoItem),
 			drivertable_insert_delete_process();
 		{Pid, count} ->
 			Count = ets:info(drivertable,size),
@@ -796,7 +882,7 @@ drivertable_insert_delete_process() ->
 			drivertable_insert_delete_process();
 		_ ->
 			common:logerror("Driver table insert/delete process receive unknown msg."),
-			vdrtable_insert_delete_process()
+			drivertable_insert_delete_process()
 	end.
 
 lastpostable_insert_delete_process() ->
@@ -804,20 +890,20 @@ lastpostable_insert_delete_process() ->
 		stop ->
 			common:loginfo("Last pos table insert/delete process stops.");
 		{Pid, get, VID} ->
-		    Infos = ets:match(lastpostable, {'$1', 
-											VID, '_', '_'}),
+		    Infos = ets:match(lastpostable, {'_', 
+											VID, '$1', '$2'}),
 			InfoCount = length(Infos),
 			if
 				InfoCount == 1 ->	
-					Info = [[Infos]],
-					Pid ! {Pid, [Info#lastposinfo.longitude, Info#lastposinfo.latitude]};
+					[[Lon, Lat]] = Infos,
+					Pid ! {Pid, [Lon, Lat]};
 				true ->
 					Pid ! {Pid, [0.0, 0.0]}
 			end,
 			lastpostable_insert_delete_process();
 		{Pid, set, Info} ->
 			[VID, Lon, Lat] = Info,
-		    Infos = ets:match(lsatpostable, {'$1', 
+		    Infos = ets:match(lastpostable, {'$1', 
 											VID, '_', '_'}),
 			InfoCount = length(Infos),
 			if
@@ -939,6 +1025,13 @@ stop(_State) ->
     end,
     [{drivertablepid, DriverTablePid}] = ets:lookup(msgservertable, drivertablepid),
     case DriverTablePid of
+        undefined ->
+            ok;
+        _ ->
+            DriverTablePid ! stop
+    end,
+    [{lastpostablepid, LastPosTablePid}] = ets:lookup(msgservertable, lastpostablepid),
+    case LastPosTablePid of
         undefined ->
             ok;
         _ ->
