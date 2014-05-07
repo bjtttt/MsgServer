@@ -779,60 +779,20 @@ drivertable_insert_delete_process() ->
 		stop ->
 			common:loginfo("Driver table insert/delete process stops.");
 		{Pid, checkdid, DriverID} ->
-			IsBin = is_binary(DriverID),
+			IsInt = is_integer(DriverID),
 			if
-				IsBin == true ->
-					try
-						DriverIDInt = erlang:binary_to_integer(DriverID),
-					    DriverInfos = ets:match(drivertable, {'$1',
-															  DriverIDInt, '_', '_'}),
-			    		DriverInfosCount = length(DriverInfos),
-						if
-							DriverInfosCount > 0 ->
-								Pid ! {Pid, 1};
-							true ->
-								Pid ! {Pid, 0}
-						end
-					catch
-						_:_ ->
+				IsInt == true ->
+				    DriverInfos = ets:match(drivertable, {'$1',
+														  DriverID, '_', '_'}),
+		    		DriverInfosCount = length(DriverInfos),
+					if
+						DriverInfosCount > 0 ->
+							Pid ! {Pid, 1};
+						true ->
 							Pid ! {Pid, 0}
 					end;
 				true ->
-					IsList = is_list(DriverID),
-					if
-						IsList == true ->
-							try
-								DriverIDInt = erlang:list_to_integer(DriverID),
-							    DriverInfos = ets:match(drivertable, {'$1',
-																	  DriverIDInt, '_', '_'}),
-					    		DriverInfosCount = length(DriverInfos),
-								if
-									DriverInfosCount > 0 ->
-										Pid ! {Pid, 1};
-									true ->
-										Pid ! {Pid, 0}
-								end
-							catch
-								_:_ ->
-									Pid ! {Pid, 0}
-							end;
-						true ->
-							IsInt = is_integer(DriverID),
-							if
-								IsInt == true ->
-								    DriverInfos = ets:match(drivertable, {'$1',
-																		  DriverID, '_', '_'}),
-						    		DriverInfosCount = length(DriverInfos),
-									if
-										DriverInfosCount > 0 ->
-											Pid ! {Pid, 1};
-										true ->
-											Pid ! {Pid, 0}
-									end;
-								true ->
-									Pid ! {Pid, 0}
-							end
-					end
+					Pid ! {Pid, 0}
 			end,					
 			drivertable_insert_delete_process();
 		{Pid, checkcc, CertCode} ->
@@ -867,7 +827,7 @@ drivertable_insert_delete_process() ->
 							true ->
 								Pid ! {Pid, 0}
 						end
-				end
+					end
 			end,					
 			drivertable_insert_delete_process();
 		{Pid, insert, DriverInfo} ->
@@ -875,6 +835,45 @@ drivertable_insert_delete_process() ->
 			[DriverID, LicNo, CertCode] = DriverInfo,
 			DriverInfoItem = #driverinfo{driverid=DriverID, licno=LicNo, certcode=CertCode},
 			ets:insert(drivertable, DriverInfoItem),
+			drivertable_insert_delete_process();
+		{Pid, get, CertCode} ->
+			IsList = is_list(CertCode),
+			if
+				IsList == true ->
+					try
+						CertCodeBin = erlang:list_to_binary(CertCode),
+					    DriverInfos = ets:match(drivertable, {'_',
+															  '$1', CertCodeBin, '_'}),
+			    		DriverInfosCount = length(DriverInfos),
+						if
+							DriverInfosCount == 1 ->
+								[[DriverID]] = DriverInfos,
+								common:loginfo("Get driver id ~p by certificate_code ~p", [DriverID, CertCode]),
+								Pid ! {Pid, DriverID};
+							true ->
+								Pid ! {Pid, 0}
+						end
+					catch
+						_:_ ->
+							Pid ! {Pid, 0}
+					end;
+				true ->
+					IsBin = is_binary(CertCode),
+					if
+						IsBin == true ->
+					    DriverInfos = ets:match(drivertable, {'_',
+															  '$1', CertCode, '_'}),
+			    		DriverInfosCount = length(DriverInfos),
+						if
+							DriverInfosCount > 0 ->
+								[[DriverID]] = DriverInfos,
+								common:loginfo("Get driver id ~p by certificate_code ~p", [DriverID, CertCode]),
+								Pid ! {Pid, DriverID};
+							true ->
+								Pid ! {Pid, 0}
+						end
+					end
+			end,					
 			drivertable_insert_delete_process();
 		{Pid, count} ->
 			Count = ets:info(drivertable,size),

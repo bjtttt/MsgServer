@@ -70,6 +70,7 @@ handle_info({tcp, Socket, Data}, OriState) ->
 	LinkPid = OriState#vdritem.linkpid,
 	Pid = OriState#vdritem.pid,
 	LinkPid ! {Pid, vdrmsggot},
+	%common:loginfo("Driver ID when MSG : ~p", [OriState#vdritem.driverid]),
     %common:loginfo("~p : Data from VDR (~p) (id:~p, serialno:~p, authen_code:~p, vehicleid:~p, vehiclecode:~p)~n~p",
 	%			   [self(),
 	%				OriState#vdritem.addr, 
@@ -262,8 +263,10 @@ safe_process_vdr_msg(Socket, Msg, State) ->
 %%% FlowIdx : Gateway message flow index
 %%%
 process_vdr_data(Socket, Data, State) -> 
+	%common:loginfo("Driver ID when MSG : ~p", [State#vdritem.driverid]),
     case vdr_data_parser:process_data(State, Data) of
         {ok, HeadInfo, Msg, NewState} ->
+			%common:loginfo("New Driver ID when MSG : ~p", [NewState#vdritem.driverid]),
 			%common:loginfo("DEBUG : vdr_data_parser:process_data is OK"),
             {ID, MsgIdx, Tel, _CryptoType} = HeadInfo,
             if
@@ -458,6 +461,7 @@ process_vdr_data(Socket, Data, State) ->
 							case check_vdrdbtable_auth(NewState, Auth) of
 								{ok, VDRDBItem} ->
 									%common:loginfo("Local authen passes"),
+									%common:loginfo("VDR DB Item : ~p", [VDRDBItem]),
 									{vdrdbitem, VDRAuthenCode, VDRID, VDRSerialNo, VehicleCode, VehicleID, DriverID} = VDRDBItem,
                                     if
                                         VehicleID == undefined orelse VehicleCode==undefined ->
@@ -757,6 +761,7 @@ process_vdr_data(Socket, Data, State) ->
                             
                             {ok, NewState};
                         16#200 ->
+							%common:loginfo("New Driver ID when MSG : ~p", [NewState#vdritem.driverid]),
 							process_pos_info(ID, MsgIdx, HeadInfo, Msg, NewState);
                         16#201 ->
                             case Msg of
@@ -852,12 +857,12 @@ process_vdr_data(Socket, Data, State) ->
 									send_sql_to_db_nowait(conn, Sql, NewState),
 									
 									MsgLength = tuple_size(Msg),
+									DriverTablePid = NewState#vdritem.drivertablepid,
+									SelfPid = NewState#vdritem.pid,
 									%common:loginfo("0x702 message body (~p) : ~p", [MsgLength, Msg]),
 									if
 										MsgLength == 9 ->
 											{_DrvState, _Time, _IcReadResult, _NameLen, _N, C, _OrgLen, _O, _Validity} = Msg,
-											DriverTablePid = NewState#vdritem.drivertablepid,
-											SelfPid = NewState#vdritem.pid,
 											%common:loginfo("Certificate Code : ~p", [C]),
 											DriverTablePid ! {SelfPid, checkcc, C},
 											receive
@@ -918,7 +923,26 @@ process_vdr_data(Socket, Data, State) ->
 		                            NewFlowIdx = send_data_to_vdr(16#8001, Tel, FlowIdx, MsgBody, NewState),
 		
 									%{ok, NewState};
-		                            {ok, NewState#vdritem{msgflownum=NewFlowIdx}};
+									OriDriverID = NewState#vdritem.driverid,
+									if
+										OriDriverID == undefined orelse OriDriverID < 1 ->
+											if
+												MsgLength == 9 ->
+													{_DrvState1, _Time1, _IcReadResult1, _NameLen1, _N1, C1, _OrgLen1, _O1, _Validity1} = Msg,
+													DriverTablePid ! {SelfPid, get, C1},
+													receive
+														{SelfPid, NewDriverID} ->
+															%common:loginfo("New Driver ID : ~p", [NewDriverID]),
+															{ok, NewState#vdritem{msgflownum=NewFlowIdx,driverid=NewDriverID}}
+													after ?PROC_RESP_TIMEOUT ->
+															{ok, NewState#vdritem{msgflownum=NewFlowIdx}}
+													end;
+												true ->
+													{ok, NewState#vdritem{msgflownum=NewFlowIdx}}
+											end;
+										true ->
+											{ok, NewState#vdritem{msgflownum=NewFlowIdx}}
+									end;		                            
  								_ ->
 									{error, vdrerror, NewState}
 							end;								
@@ -2085,6 +2109,7 @@ send_msg_to_ws_nowait(Msg, State) ->
 %%%     error
 %%%
 create_sql_from_vdr(HeaderInfo, Msg, State) ->
+	%common:loginfo("Driver ID : ~p", [State#vdritem.driverid]),
     {ID, _FlowNum, TelNum, _CryptoType} = HeaderInfo,
     case ID of
         16#1    ->
@@ -2329,7 +2354,7 @@ get_driver_id(State) ->
 	IsInt = is_integer(DriverID),
 	if
 		IsInt == true ->
-			DriverTablePid ! {Pid, check, [erlang:integer_to_binary(DriverID)]},
+			DriverTablePid ! {Pid, checkdid, DriverID},
 			receive
 				{Pid, Count} ->
 					if
@@ -2342,28 +2367,13 @@ get_driver_id(State) ->
 					0
 			end;
 		true ->
-			IsBin = is_binary(DriverID),
-			if
-				IsBin == true ->
-					DriverTablePid ! {Pid, check, [DriverID]},
-					receive
-						{Pid, Count} ->
-							if
-								Count > 0 ->
-									DriverID;
-								true ->
-									0
-							end
-					after ?PROC_RESP_TIMEOUT ->
-							0
-					end;
-				true ->
-					0
-			end
+			0
 	end.
 
 create_pos_info_sql(Msg, State) ->
+	%common:loginfo("Check Driver ID : ~p", [State#vdritem.driverid]),
 	DriverID = get_driver_id(State),
+	%common:loginfo("Driver ID : ~p", [DriverID]),
     case Msg of
         {H, AppInfo} ->
 			[AlarmSym, StateFlag, Lat, Lon, Height, Speed, Direction, Time]= H,
