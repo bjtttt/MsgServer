@@ -925,22 +925,28 @@ process_vdr_data(Socket, Data, State) ->
 		
 									if
 										MsgLength == 2 ->
+											common:loginfo("Delete Driver ID, Certificate Code"),
 											{ok, NewState#vdritem{msgflownum=NewFlowIdx,driverid=undefined,drivercertcode=undefined}};
 										MsgLength == 9 ->
-											if
-												NewState#vdritem.driverid == undefined orelse NewState#vdritem.driverid < 1 ->
-													{_DrvState1, _Time1, _IcReadResult1, _NameLen1, _N1, C1, _OrgLen1, _O1, _Validity1} = Msg,
-													DriverTablePid ! {SelfPid, get, C1},
-													receive
-														{SelfPid, NewDriverID} ->
-															%common:loginfo("New Driver ID : ~p", [NewDriverID]),
+											%if
+											%	NewState#vdritem.driverid == undefined orelse NewState#vdritem.driverid < 1 ->
+											{_DrvState1, _Time1, _IcReadResult1, _NameLen1, _N1, C1, _OrgLen1, _O1, _Validity1} = Msg,
+											DriverTablePid ! {SelfPid, get, C1},
+											receive
+												{SelfPid, NewDriverID} ->
+													if
+														NewDriverID == undefined orelse NewDriverID < 0 ->
+															{ok, NewState#vdritem{msgflownum=NewFlowIdx}};
+														true ->
+															common:loginfo("New Driver ID : ~p, Certificate Code : ~p", [NewDriverID, C1]),
 															{ok, NewState#vdritem{msgflownum=NewFlowIdx,driverid=NewDriverID,drivercertcode=C1}}
-													after ?PROC_RESP_TIMEOUT ->
-															{ok, NewState#vdritem{msgflownum=NewFlowIdx}}
-													end;
-												true ->
+													end
+											after ?PROC_RESP_TIMEOUT ->
 													{ok, NewState#vdritem{msgflownum=NewFlowIdx}}
 											end;
+											%	true ->
+											%		{ok, NewState#vdritem{msgflownum=NewFlowIdx}}
+											%end;
 										true ->
 											{ok, NewState#vdritem{msgflownum=NewFlowIdx}}
 									end;		                            
