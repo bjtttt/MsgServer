@@ -295,7 +295,7 @@ create_all_vehicle_ids_response() ->
                                 '_', '_', '_', '_', '_', 
                                 '_', '_', '_', '_', '_',
                                 '_', '_', '_', '_', '_', 
-                                '_', '_', '_', '_', '_'
+                                '_', '_', '_', '_', '_',
 								'_'}),
 	VIDList = compose_one_item_list_array_to_list(VIDs),
 	VIDsBin = convert_integer_list_to_4_bytes_binary_list(VIDList),

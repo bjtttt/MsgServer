@@ -852,6 +852,7 @@ process_vdr_data(Socket, Data, State) ->
                             
                             {ok, NewState};
                         16#702 ->
+							%common:loginfo("Driver Cert Code : ~p", [NewState#vdritem.drivercertcode]),
                             case create_sql_from_vdr(HeadInfo, Msg, NewState) of
 								{ok, Sql} ->
 									send_sql_to_db_nowait(conn, Sql, NewState),
@@ -2110,7 +2111,6 @@ send_msg_to_ws_nowait(Msg, State) ->
 %%%     error
 %%%
 create_sql_from_vdr(HeaderInfo, Msg, State) ->
-	%common:loginfo("Driver ID : ~p", [State#vdritem.driverid]),
     {ID, _FlowNum, TelNum, _CryptoType} = HeaderInfo,
     case ID of
         16#1    ->
@@ -2167,6 +2167,7 @@ create_sql_from_vdr(HeaderInfo, Msg, State) ->
         16#701  ->
             {ok, ""};
         16#702  ->
+			%common:loginfo("Driver Cert Code 2 : ~p", [State#vdritem.drivercertcode]),
 			MsgSize = tuple_size(Msg),
 			if
 				MsgSize == 2 ->
