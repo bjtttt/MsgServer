@@ -802,7 +802,7 @@ drivertable_insert_delete_process() ->
 					try
 						CertCodeBin = erlang:list_to_binary(CertCode),
 					    DriverInfos = ets:match(drivertable, {'$1',
-															  '_', CertCodeBin, '_'}),
+															  '_', '_', CertCodeBin}),
 			    		DriverInfosCount = length(DriverInfos),
 						if
 							DriverInfosCount > 0 ->
@@ -819,7 +819,7 @@ drivertable_insert_delete_process() ->
 					if
 						IsBin == true ->
 					    DriverInfos = ets:match(drivertable, {'$1',
-															  '_', CertCode, '_'}),
+															  '_', '_', CertCode}),
 			    		DriverInfosCount = length(DriverInfos),
 						if
 							DriverInfosCount > 0 ->
@@ -843,7 +843,7 @@ drivertable_insert_delete_process() ->
 					try
 						CertCodeBin = erlang:list_to_binary(CertCode),
 					    DriverInfos = ets:match(drivertable, {'_',
-															  '$1', CertCodeBin, '_'}),
+															  '$1', '_', CertCodeBin}),
 			    		DriverInfosCount = length(DriverInfos),
 						if
 							DriverInfosCount == 1 ->
@@ -862,7 +862,7 @@ drivertable_insert_delete_process() ->
 					if
 						IsBin == true ->
 					    DriverInfos = ets:match(drivertable, {'_',
-															  '$1', CertCode, '_'}),
+															  '$1', '_', CertCode}),
 			    		DriverInfosCount = length(DriverInfos),
 						if
 							DriverInfosCount > 0 ->

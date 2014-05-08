@@ -923,12 +923,12 @@ process_vdr_data(Socket, Data, State) ->
 		                            %common:loginfo("~p sends VDR driver info update response (ok) : ~p", [NewState#vdritem.pid, MsgBody]),
 		                            NewFlowIdx = send_data_to_vdr(16#8001, Tel, FlowIdx, MsgBody, NewState),
 		
-									%{ok, NewState};
-									OriDriverID = NewState#vdritem.driverid,
 									if
-										OriDriverID == undefined orelse OriDriverID < 1 ->
+										MsgLength == 2 ->
+											{ok, NewState#vdritem{msgflownum=NewFlowIdx,driverid=undefined,drivercertcode=undefined}};
+										MsgLength == 9 ->
 											if
-												MsgLength == 9 ->
+												NewState#vdritem.driverid == undefined orelse NewState#vdritem.driverid < 1 ->
 													{_DrvState1, _Time1, _IcReadResult1, _NameLen1, _N1, C1, _OrgLen1, _O1, _Validity1} = Msg,
 													DriverTablePid ! {SelfPid, get, C1},
 													receive
