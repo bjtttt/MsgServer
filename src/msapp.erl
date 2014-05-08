@@ -1042,14 +1042,14 @@ code_convertor_process() ->
     receive
         {Pid, create} ->
             code_convertor:init_code_table(),
-            common:loginfo("CC process ~p : code table is initialized", [self()]),
+            %common:loginfo("CC process ~p : code table is initialized", [self()]),
             Pid ! created,
             code_convertor_process();
         {Pid, gbktoutf8, Src} ->
             try
-                common:loginfo("CC process ~p : source GBK from ~p : ~p", [self(), Pid, Src]),
+                %common:loginfo("CC process ~p : source GBK from ~p : ~p", [self(), Pid, Src]),
                 Value = code_convertor:to_utf8(Src),
-                common:loginfo("CC process ~p : dest UTF8 : ~p", [self(), Value]),
+                %common:loginfo("CC process ~p : dest UTF8 : ~p", [self(), Value]),
                 Pid ! code_convertor:to_utf8(Src)
             catch
                 _:_ ->
@@ -1059,9 +1059,9 @@ code_convertor_process() ->
             code_convertor_process();
         {Pid, gbk2utf8, Src} ->
             try
-                common:loginfo("CC process ~p : source GBK from ~p : ~p", [self(), Pid, Src]),
+                %common:loginfo("CC process ~p : source GBK from ~p : ~p", [self(), Pid, Src]),
                 Value = code_convertor:to_utf8(Src),
-                common:loginfo("CC process ~p : dest UTF8 : ~p", [self(), Value]),
+                %common:loginfo("CC process ~p : dest UTF8 : ~p", [self(), Value]),
                 Pid ! code_convertor:to_utf8(Src)
             catch
                 _:_ ->
@@ -1071,9 +1071,9 @@ code_convertor_process() ->
             code_convertor_process();
         {Pid, utf82gbk, Src} ->
             try
-                common:loginfo("CC process ~p : source UTF8 from ~p : ~p", [self(), Pid, Src]),
+                %common:loginfo("CC process ~p : source UTF8 from ~p : ~p", [self(), Pid, Src]),
                 Value = code_convertor:to_gbk(Src),
-                common:loginfo("CC process ~p : dest GBK : ~p", [self(), Value]),
+                %common:loginfo("CC process ~p : dest GBK : ~p", [self(), Value]),
                 Pid ! Value
             catch
                 _:_ ->
@@ -1083,9 +1083,9 @@ code_convertor_process() ->
             code_convertor_process();
         {Pid, utf8togbk, Src} ->
             try
-                common:loginfo("CC process ~p : source UTF8 from ~p : ~p", [self(), Pid, Src]),
+                %common:loginfo("CC process ~p : source UTF8 from ~p : ~p", [self(), Pid, Src]),
                 Value = code_convertor:to_gbk(Src),
-                common:loginfo("CC process ~p : dest GBK : ~p", [self(), Value]),
+                %common:loginfo("CC process ~p : dest GBK : ~p", [self(), Value]),
                 Pid ! Value
             catch
                 _:_ ->
@@ -1096,11 +1096,11 @@ code_convertor_process() ->
         stop ->
             ok;
 		{Pid, Msg} ->
-			common:loginfo("CC process ~p : unknown message from ~p : ~p", [self(), Pid, Msg]),
+			%common:loginfo("CC process ~p : unknown message from ~p : ~p", [self(), Pid, Msg]),
 			Pid ! msg,
 			code_convertor_process();
 		UnknownMsg ->
-			common:loginfo("CC process ~p : unknown message : ~p", [self(), UnknownMsg]),
+			%common:loginfo("CC process ~p : unknown message : ~p", [self(), UnknownMsg]),
 			code_convertor_process()
 	%after ?CC_PID_TIMEOUT ->
 	%		common:loginfo("CC process ~p : current waiting timeout and start another waiting", [self()]),

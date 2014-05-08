@@ -925,7 +925,7 @@ process_vdr_data(Socket, Data, State) ->
 		
 									if
 										MsgLength == 2 ->
-											common:loginfo("Delete Driver ID, Certificate Code"),
+											%common:loginfo("Delete Driver ID, Certificate Code"),
 											{ok, NewState#vdritem{msgflownum=NewFlowIdx,driverid=undefined,drivercertcode=undefined}};
 										MsgLength == 9 ->
 											%if
@@ -938,7 +938,7 @@ process_vdr_data(Socket, Data, State) ->
 														NewDriverID == undefined orelse NewDriverID < 0 ->
 															{ok, NewState#vdritem{msgflownum=NewFlowIdx}};
 														true ->
-															common:loginfo("New Driver ID : ~p, Certificate Code : ~p", [NewDriverID, C1]),
+															%common:loginfo("New Driver ID : ~p, Certificate Code : ~p", [NewDriverID, C1]),
 															{ok, NewState#vdritem{msgflownum=NewFlowIdx,driverid=NewDriverID,drivercertcode=C1}}
 													end
 											after ?PROC_RESP_TIMEOUT ->
@@ -2247,10 +2247,10 @@ create_sql_from_vdr(HeaderInfo, Msg, State) ->
 		            ValidityS = list_to_binary([Year1S, <<"-">>, Month1S, <<"-">>, Day1S]),
 					ONew = common:convert_gbk_to_utf8(O),
 					NNew = common:convert_gbk_to_utf8(N),
-					common:loginfo("GBK Org : ~p", [common:get_str_bin_to_bin_list(O)]),
-					common:loginfo("UTF8 Org : ~p", [common:get_str_bin_to_bin_list(ONew)]),
-					common:loginfo("GBK Name : ~p", [common:get_str_bin_to_bin_list(N)]),
-					common:loginfo("UTF8 Name : ~p", [common:get_str_bin_to_bin_list(NNew)]),
+					%common:loginfo("GBK Org : ~p", [common:get_str_bin_to_bin_list(O)]),
+					%common:loginfo("UTF8 Org : ~p", [common:get_str_bin_to_bin_list(ONew)]),
+					%common:loginfo("GBK Name : ~p", [common:get_str_bin_to_bin_list(N)]),
+					%common:loginfo("UTF8 Name : ~p", [common:get_str_bin_to_bin_list(NNew)]),
 		            SQL = list_to_binary([<<"insert into driver_record(vehicle_id, certificate_code, remark, name, effectivedate, ontime, status, type) values(">>,
 										  common:integer_to_binary(State#vdritem.vehicleid), <<", '">>,
 		                                  list_to_binary(C), <<"', '">>,
