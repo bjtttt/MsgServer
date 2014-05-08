@@ -933,7 +933,7 @@ process_vdr_data(Socket, Data, State) ->
 													receive
 														{SelfPid, NewDriverID} ->
 															%common:loginfo("New Driver ID : ~p", [NewDriverID]),
-															{ok, NewState#vdritem{msgflownum=NewFlowIdx,driverid=NewDriverID}}
+															{ok, NewState#vdritem{msgflownum=NewFlowIdx,driverid=NewDriverID,drivercertcode=C1}}
 													after ?PROC_RESP_TIMEOUT ->
 															{ok, NewState#vdritem{msgflownum=NewFlowIdx}}
 													end;
@@ -1676,7 +1676,8 @@ disconn_socket_by_vehicle_id(VehicleID) ->
 	                     '_', '_', '_', '_', '_',
 	                     '_', '_', '_', '_', '_',
                          '_', '_', '_', '_', '_',
-                         '_', '_', '_', '_'}),
+                         '_', '_', '_', '_', '_',
+						 '_'}),
 	disconn_socket_by_id(SockList).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -2184,8 +2185,9 @@ create_sql_from_vdr(HeaderInfo, Msg, State) ->
 			            MinuteS = common:integer_to_binary(Minute),
 			            SecondS = common:integer_to_binary(Second),
 			            TimeS = list_to_binary([YearS, <<"-">>, MonthS, <<"-">>, DayS, <<" ">>, HourS, <<":">>, MinuteS, <<":">>, SecondS]),
-			            SQL = list_to_binary([<<"insert into driver_record(vehicle_id, ontime, type) values(">>,
+			            SQL = list_to_binary([<<"insert into driver_record(vehicle_id, certificate_code, ontime, type) values(">>,
 											  common:integer_to_binary(State#vdritem.vehicleid), <<", '">>,
+											  list_to_binary(State#vdritem.drivercertcode), <<"', '">>,
 											  TimeS, <<"', ">>,
 											  common:integer_to_binary(DrvState), <<")">>]),
 			            {ok, SQL};
@@ -2205,8 +2207,9 @@ create_sql_from_vdr(HeaderInfo, Msg, State) ->
 			            MinuteS = common:integer_to_binary(Minute),
 			            SecondS = common:integer_to_binary(Second),
 			            TimeS = list_to_binary([YearS, <<"-">>, MonthS, <<"-">>, DayS, <<" ">>, HourS, <<":">>, MinuteS, <<":">>, SecondS]),
-			            SQL = list_to_binary([<<"insert into driver_record(vehicle_id, ontime, status, type) values(">>,
+			            SQL = list_to_binary([<<"insert into driver_record(vehicle_id, certificate_code, ontime, status, type) values(">>,
 											  common:integer_to_binary(State#vdritem.vehicleid), <<", '">>,
+											  list_to_binary(State#vdritem.drivercertcode), <<"', '">>,
 											  TimeS, <<"', ">>,
 											  common:integer_to_binary(IcReadResult), <<", ">>,
 											  common:integer_to_binary(DrvState), <<")">>]),

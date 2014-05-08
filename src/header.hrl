@@ -131,7 +131,8 @@
 					linkpid=undefined,
 					vdrtablepid=undefined,
 					drivertablepid=undefined,
-					lastpostablepid=undefined
+					lastpostablepid=undefined,
+					drivercertcode=undefined
                  }).
 
 -record(vdrdbitem, {  authencode=undefined,		% VDRAuthenCode
