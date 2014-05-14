@@ -1238,7 +1238,7 @@ send_msg_to_vdrs(_ID, _VDRList, _Msg) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 send_msg_to_vdr(ID, VID, Msg) when is_binary(Msg) ->
     VidRes = ets:match(vdrtable, {'_', 
-                               '$1', '_', '_', '_', VID,
+                               '$1', '$2', '_', '_', VID,
                                '_', '_', '_', '_', '_',
                                '_', '_', '_', '_', '_',
                                '_', '_', '_', '_', '_',
@@ -1246,9 +1246,9 @@ send_msg_to_vdr(ID, VID, Msg) when is_binary(Msg) ->
                                '_', '_', '_', '_', '_',
                                '_', '_', '_', '_', '_',
 							   '_'}),
-    case length(VidRes) of
+	case length(VidRes) of
         1 ->
-            [[Sock]] = VidRes,
+            [[Sock, VDRID]] = VidRes,
             Res = ets:lookup(vdrtable, Sock),
             case length(Res) of
 				1 ->
@@ -1260,6 +1260,9 @@ send_msg_to_vdr(ID, VID, Msg) when is_binary(Msg) ->
 				Count1 ->
 					common:logerr("WS Server : Find ~p VID (~p) in vdrtable", [Count1, VID])
 			end;
+		0 ->
+            common:logerr("WS Server : Find 0 VID (~p) in vdrtable~n", [VID]),
+            ok;
         Count ->
             common:logerr("WS Server : Find ~p VID (~p) in vdrtable~n", [Count, VID]),
             ok
