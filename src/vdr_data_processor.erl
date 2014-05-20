@@ -1805,9 +1805,10 @@ parse_car_con_response(Msg) ->
 %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 create_set_circle_area(SetArr,AreaCount,AreaId,AreaArr,Latitude,Longitude,Radius,Stime,Etime,Hspeed,OSTime) when is_integer(Radius) ->
-	TimeFlag = SetArr band 1,
-	SpeedFlag = SetArr band 2,
-    St = convert_datetime_to_bcd(Stime),
+	TimeFlag = AreaArr band 1,
+	SpeedFlag = AreaArr band 2,
+    %common:loginfo("AreaArr ~p, Time ~p, Speed ~p", [AreaArr, TimeFlag, SpeedFlag]),
+	St = convert_datetime_to_bcd(Stime),
     Et = convert_datetime_to_bcd(Etime),
 	Lat = round(convert_null_to_zero(Latitude) * 1000000),
 	Lng = round(convert_null_to_zero(Longitude) * 1000000),
@@ -1815,21 +1816,26 @@ create_set_circle_area(SetArr,AreaCount,AreaId,AreaArr,Latitude,Longitude,Radius
 		TimeFlag == 1 ->
 			if
 				SpeedFlag == 2 ->
+					%common:loginfo("Time and Speed."),
 					list_to_binary([<<SetArr:8,AreaCount:8,AreaId:32,AreaArr:16,Lat:32,Lng:32,Radius:32>>,St,Et,<<Hspeed:16,OSTime:8>>]);
 				true ->
+					%common:loginfo("Time and No Speed."),
 					list_to_binary([<<SetArr:8,AreaCount:8,AreaId:32,AreaArr:16,Lat:32,Lng:32,Radius:32>>,St,Et])
 			end;
 		true ->
 			if
 				SpeedFlag == 2 ->
+					%common:loginfo("No Time and Speed."),
 					list_to_binary([<<SetArr:8,AreaCount:8,AreaId:32,AreaArr:16,Lat:32,Lng:32,Radius:32>>,<<Hspeed:16,OSTime:8>>]);
 				true ->
+					%common:loginfo("No Time and No Speed."),
 					list_to_binary([<<SetArr:8,AreaCount:8,AreaId:32,AreaArr:16,Lat:32,Lng:32,Radius:32>>])
 			end
 	end;
 create_set_circle_area(SetArr,AreaCount,AreaId,AreaArr,Latitude,Longitude,Radius,Stime,Etime,Hspeed,OSTime) when is_float(Radius) ->
-	TimeFlag = SetArr band 1,
-	SpeedFlag = SetArr band 2,
+	TimeFlag = AreaArr band 1,
+	SpeedFlag = AreaArr band 2,
+	%common:loginfo("SetArr ~p, Time ~p, Speed ~p", [AreaArr, TimeFlag, SpeedFlag]),
     St = convert_datetime_to_bcd(Stime),
     Et = convert_datetime_to_bcd(Etime),
 	Lat = round(convert_null_to_zero(Latitude) * 1000000),
@@ -1839,15 +1845,19 @@ create_set_circle_area(SetArr,AreaCount,AreaId,AreaArr,Latitude,Longitude,Radius
 		TimeFlag == 1 ->
 			if
 				SpeedFlag == 2 ->
+					%common:loginfo("Time and Speed."),
 					list_to_binary([<<SetArr:8,AreaCount:8,AreaId:32,AreaArr:16,Lat:32,Lng:32,R:32>>,St,Et,<<Hspeed:16,OSTime:8>>]);
 				true ->
+					%common:loginfo("Time and No Speed."),
 					list_to_binary([<<SetArr:8,AreaCount:8,AreaId:32,AreaArr:16,Lat:32,Lng:32,R:32>>,St,Et])
 			end;
 		true ->
 			if
 				SpeedFlag == 2 ->
+					%common:loginfo("No Time and Speed."),
 					list_to_binary([<<SetArr:8,AreaCount:8,AreaId:32,AreaArr:16,Lat:32,Lng:32,R:32>>,<<Hspeed:16,OSTime:8>>]);
 				true ->
+					%common:loginfo("No Time and No Speed."),
 					list_to_binary([<<SetArr:8,AreaCount:8,AreaId:32,AreaArr:16,Lat:32,Lng:32,R:32>>])
 			end
 	end.
