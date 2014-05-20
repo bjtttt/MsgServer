@@ -1805,18 +1805,52 @@ parse_car_con_response(Msg) ->
 %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 create_set_circle_area(SetArr,AreaCount,AreaId,AreaArr,Latitude,Longitude,Radius,Stime,Etime,Hspeed,OSTime) when is_integer(Radius) ->
+	TimeFlag = SetArr band 1,
+	SpeedFlag = SetArr band 2,
     St = convert_datetime_to_bcd(Stime),
     Et = convert_datetime_to_bcd(Etime),
 	Lat = round(convert_null_to_zero(Latitude) * 1000000),
 	Lng = round(convert_null_to_zero(Longitude) * 1000000),
-    list_to_binary([<<SetArr:8,AreaCount:8,AreaId:32,AreaArr:16,Lat:32,Lng:32,Radius:32>>,St,Et,<<Hspeed:16,OSTime:8>>]);
+	if
+		TimeFlag == 1 ->
+			if
+				SpeedFlag == 2 ->
+					list_to_binary([<<SetArr:8,AreaCount:8,AreaId:32,AreaArr:16,Lat:32,Lng:32,Radius:32>>,St,Et,<<Hspeed:16,OSTime:8>>]);
+				true ->
+					list_to_binary([<<SetArr:8,AreaCount:8,AreaId:32,AreaArr:16,Lat:32,Lng:32,Radius:32>>,St,Et])
+			end;
+		true ->
+			if
+				SpeedFlag == 2 ->
+					list_to_binary([<<SetArr:8,AreaCount:8,AreaId:32,AreaArr:16,Lat:32,Lng:32,Radius:32>>,<<Hspeed:16,OSTime:8>>]);
+				true ->
+					list_to_binary([<<SetArr:8,AreaCount:8,AreaId:32,AreaArr:16,Lat:32,Lng:32,Radius:32>>])
+			end
+	end;
 create_set_circle_area(SetArr,AreaCount,AreaId,AreaArr,Latitude,Longitude,Radius,Stime,Etime,Hspeed,OSTime) when is_float(Radius) ->
+	TimeFlag = SetArr band 1,
+	SpeedFlag = SetArr band 2,
     St = convert_datetime_to_bcd(Stime),
     Et = convert_datetime_to_bcd(Etime),
 	Lat = round(convert_null_to_zero(Latitude) * 1000000),
 	Lng = round(convert_null_to_zero(Longitude) * 1000000),
 	R = round(Radius),
-    list_to_binary([<<SetArr:8,AreaCount:8,AreaId:32,AreaArr:16,Lat:32,Lng:32,R:32>>,St,Et,<<Hspeed:16,OSTime:8>>]).
+	if
+		TimeFlag == 1 ->
+			if
+				SpeedFlag == 2 ->
+					list_to_binary([<<SetArr:8,AreaCount:8,AreaId:32,AreaArr:16,Lat:32,Lng:32,R:32>>,St,Et,<<Hspeed:16,OSTime:8>>]);
+				true ->
+					list_to_binary([<<SetArr:8,AreaCount:8,AreaId:32,AreaArr:16,Lat:32,Lng:32,R:32>>,St,Et])
+			end;
+		true ->
+			if
+				SpeedFlag == 2 ->
+					list_to_binary([<<SetArr:8,AreaCount:8,AreaId:32,AreaArr:16,Lat:32,Lng:32,R:32>>,<<Hspeed:16,OSTime:8>>]);
+				true ->
+					list_to_binary([<<SetArr:8,AreaCount:8,AreaId:32,AreaArr:16,Lat:32,Lng:32,R:32>>])
+			end
+	end.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %
@@ -1883,7 +1917,8 @@ get_rect_area_entries(Items) when is_list(Items) ->
 			ExceedTimeVal = convert_null_to_zero(ExceedTime),
 			case ID of
 				null ->
-		            Bin = list_to_binary([<<-1:32,Property:16,LeftTopLatVal:32,LeftTopLonVal:32,RightBotLatVal:32,RightBotLonVal:32>>,StartTimeBin,StopTimeBin,<<MaxSpeedVal:16,ExceedTimeVal:8>>]),
+		            Bin = create_rect_area_time_speed_from_flags(-1,Property,LeftTopLatVal,LeftTopLonVal,RightBotLatVal,RightBotLonVal,StartTimeBin,StopTimeBin,MaxSpeedVal,ExceedTimeVal),
+					%list_to_binary([<<-1:32,Property:16,LeftTopLatVal:32,LeftTopLonVal:32,RightBotLatVal:32,RightBotLonVal:32>>,StartTimeBin,StopTimeBin,<<MaxSpeedVal:16,ExceedTimeVal:8>>]),
 		            case T of
 		                [] ->
 		                    [Bin];
@@ -1891,7 +1926,8 @@ get_rect_area_entries(Items) when is_list(Items) ->
 		                    [Bin|get_rect_area_entries(T)]
 		            end;
 				_ ->
-		            Bin = list_to_binary([<<ID:32,Property:16,LeftTopLatVal:32,LeftTopLonVal:32,RightBotLatVal:32,RightBotLonVal:32>>,StartTimeBin,StopTimeBin,<<MaxSpeedVal:16,ExceedTimeVal:8>>]),
+		            Bin = create_rect_area_time_speed_from_flags(ID,Property,LeftTopLatVal,LeftTopLonVal,RightBotLatVal,RightBotLonVal,StartTimeBin,StopTimeBin,MaxSpeedVal,ExceedTimeVal),
+					%list_to_binary([<<ID:32,Property:16,LeftTopLatVal:32,LeftTopLonVal:32,RightBotLatVal:32,RightBotLonVal:32>>,StartTimeBin,StopTimeBin,<<MaxSpeedVal:16,ExceedTimeVal:8>>]),
 		            case T of
 		                [] ->
 		                    [Bin];
@@ -1904,6 +1940,26 @@ get_rect_area_entries(Items) when is_list(Items) ->
     end;
 get_rect_area_entries(_Items) ->
     [].
+
+create_rect_area_time_speed_from_flags(ID,Property,LeftTopLatVal,LeftTopLonVal,RightBotLatVal,RightBotLonVal,StartTimeBin,StopTimeBin,MaxSpeedVal,ExceedTimeVal) ->
+	TimeFlag = Property band 1,
+	SpeedFlag = Property band 2,
+	if
+		TimeFlag == 1 ->
+			if
+				SpeedFlag == 2 ->
+					list_to_binary([<<ID:32,Property:16,LeftTopLatVal:32,LeftTopLonVal:32,RightBotLatVal:32,RightBotLonVal:32>>,StartTimeBin,StopTimeBin,<<MaxSpeedVal:16,ExceedTimeVal:8>>]);
+				true ->
+					list_to_binary([<<ID:32,Property:16,LeftTopLatVal:32,LeftTopLonVal:32,RightBotLatVal:32,RightBotLonVal:32>>,StartTimeBin,StopTimeBin])
+			end;
+		true ->
+			if
+				SpeedFlag == 2 ->
+					list_to_binary([<<ID:32,Property:16,LeftTopLatVal:32,LeftTopLonVal:32,RightBotLatVal:32,RightBotLonVal:32>>,<<MaxSpeedVal:16,ExceedTimeVal:8>>]);
+				true ->
+					list_to_binary([<<ID:32,Property:16,LeftTopLatVal:32,LeftTopLonVal:32,RightBotLatVal:32,RightBotLonVal:32>>])
+			end
+	end.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %
@@ -2027,11 +2083,28 @@ create_del_rect_area(_Count, _IDs) ->
 %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 create_set_polygon_area(Id,Prop,StartTime,StopTime,MaxSpeed,OSTime,PointsCount,Points) ->
+	TimeFlag = Prop band 1,
+	SpeedFlag = Prop band 2,
     %Len = length(Points),
     St = convert_datetime_to_bcd(StartTime),
     Et = convert_datetime_to_bcd(StopTime),
     PointsBin = get_polygon_area_point_entries(Points),
-    list_to_binary([<<Id:32,Prop:16>>,St,Et,<<MaxSpeed:16,OSTime:8,PointsCount:16>>,PointsBin]).
+	if
+		TimeFlag == 1 ->
+			if
+				SpeedFlag == 2 ->
+					list_to_binary([<<Id:32,Prop:16>>,St,Et,<<MaxSpeed:16,OSTime:8,PointsCount:16>>,PointsBin]);
+				true ->
+					list_to_binary([<<Id:32,Prop:16>>,St,Et,<<PointsCount:16>>,PointsBin])
+			end;
+		true ->
+			if
+				SpeedFlag == 2 ->
+					list_to_binary([<<Id:32,Prop:16>>,<<MaxSpeed:16,OSTime:8,PointsCount:16>>,PointsBin]);
+				true ->
+					list_to_binary([<<Id:32,Prop:16>>,<<PointsCount:16>>,PointsBin])
+			end
+	end.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %
