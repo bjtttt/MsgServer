@@ -2159,11 +2159,17 @@ create_del_polygon_area(Count, IDs) ->
 %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 create_set_lines(ID, Prop, StartTime, StopTime, _PointsCount, Points) ->
+	TimeFlag = Prop band 1,
     Len = length(Points),
     St = convert_datetime_to_bcd(StartTime),
     Et = convert_datetime_to_bcd(StopTime),
     PointsBin = get_lines_point_entries(Points),
-    list_to_binary([<<ID:32,Prop:16>>,St,Et,<<Len:16,PointsBin/binary>>]).
+	if
+		TimeFlag == 1 ->
+			list_to_binary([<<ID:32,Prop:16>>,St,Et,<<Len:16,PointsBin/binary>>]);
+		true ->
+			list_to_binary([<<ID:32,Prop:16,Len:16,PointsBin/binary>>])
+	end.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %
