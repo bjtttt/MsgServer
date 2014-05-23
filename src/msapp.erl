@@ -1542,14 +1542,8 @@ http_gps_deamon(InitialIPPort, State, Count, ACount) ->
 			http_gps_deamon(InitialIPPort, uninit, Count, ACount);
 		stop ->
 			inets:stop();
-		{Pid, state} ->
-			Pid ! State,
-			http_gps_deamon(InitialIPPort, State, Count, ACount);
-		{Pid, server} ->
-			Pid ! InitialIPPort,
-			http_gps_deamon(InitialIPPort, State, Count, ACount);
-		{Pid, count} ->
-			Pid ! {Count, ACount},
+		{Pid, get} ->
+			Pid ! {InitialIPPort, State, Count, ACount},
 			http_gps_deamon(InitialIPPort, State, Count, ACount);
 		_ ->
 			common:logerror("HTTP GPS process receive unknown msg."),
