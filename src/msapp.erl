@@ -32,7 +32,7 @@
 %%%               1 -> log
 %%%
 start(StartType, StartArgs) ->
-    [PortVDR, PortMon, PortMP, WS, PortWS, DB, DBName, DBUid, DBPwd, MaxR, MaxT, Mode, Path] = StartArgs,
+    [PortVDR, PortMon, PortMP, WS, PortWS, DB, DBName, DBUid, DBPwd, MaxR, MaxT, Mode, Path, HttpGpsServer] = StartArgs,
     AppPid = self(),
     ets:new(msgservertable,[set,public,named_table,{keypos,1},{read_concurrency,true},{write_concurrency,true}]),
     ets:insert(msgservertable, {portvdr, PortVDR}),
@@ -48,6 +48,7 @@ start(StartType, StartArgs) ->
     ets:insert(msgservertable, {maxt, MaxT}),
     ets:insert(msgservertable, {mode, Mode}),
     ets:insert(msgservertable, {path, Path}),
+    ets:insert(msgservertable, {httpgpsserver, HttpGpsServer}),
     ets:insert(msgservertable, {dbpid, undefined}),
     ets:insert(msgservertable, {wspid, undefined}),
     ets:insert(msgservertable, {linkpid, undefined}),
@@ -111,6 +112,7 @@ start(StartType, StartArgs) ->
 		                    LastPosTablePid = spawn(fun() -> lastpostable_insert_delete_process() end),
 							DBOperationPid = spawn(fun() -> db_data_operation_process(DBPid) end),
 							MysqlActivePid = spawn(fun() -> mysql_active_process(DBPid) end),
+							HttpGpsPid = spawn(fun() -> http_gps_deamon(HttpGpsServer, uninit, 0, 0) end),
 							%DBMaintainPid = spawn(fun() -> db_data_maintain_process(DBPid, DBOperationPid, Mode) end),
 		                    ets:insert(msgservertable, {dbpid, DBPid}),
 		                    ets:insert(msgservertable, {wspid, WSPid}),
@@ -122,6 +124,7 @@ start(StartType, StartArgs) ->
 		                    ets:insert(msgservertable, {lastpostablepid, LastPosTablePid}),
 							ets:insert(msgservertable, {dboperationpid, DBOperationPid}),
 							ets:insert(msgservertable, {mysqlactivepid, MysqlActivePid}),
+							ets:insert(msgservertable, {httpgpspid, HttpGpsPid}),
 		                    %ets:insert(msgservertable, {dbmaintainpid, VdrTablePid}),
 		                    common:loginfo("WS client process PID is ~p", [WSPid]),
 		                    common:loginfo("DB client process PID is ~p", [DBPid]),
@@ -132,6 +135,7 @@ start(StartType, StartArgs) ->
 		                    common:loginfo("Last pos table processor process PID is ~p", [LastPosTablePid]),
 							common:loginfo("DB operation process PID is ~p", [DBOperationPid]),
 							common:loginfo("Mysql active process PID is ~p", [MysqlActivePid]),
+							common:loginfo("HTTP GPS process PID is ~p", [HttpGpsPid]),
 							%common:loginfo("DB miantain process PID is ~p", [DBMaintainPid]),
 		                    
 				            common:loginfo("DB coding setting"),
@@ -186,6 +190,7 @@ start(StartType, StartArgs) ->
 		                    LastPosTablePid = spawn(fun() -> lastpostable_insert_delete_process() end),
 							DBOperationPid = spawn(fun() -> db_data_operation_process(DBPid) end),
 							MysqlActivePid = spawn(fun() -> mysql_active_process(DBPid) end),
+							HttpGpsPid = spawn(fun() -> http_gps_deamon(HttpGpsServer, uninit, 0, 0) end),
 							%DBMaintainPid = spawn(fun() -> db_data_maintain_process(DBPid, DBOperationPid, Mode) end),
 		                    ets:insert(msgservertable, {dbpid, DBPid}),
 		                    ets:insert(msgservertable, {linkpid, LinkPid}),
@@ -196,6 +201,7 @@ start(StartType, StartArgs) ->
 		                    ets:insert(msgservertable, {lastpostablepid, LastPosTablePid}),
 							ets:insert(msgservertable, {dboperationpid, DBOperationPid}),
 							ets:insert(msgservertable, {mysqlactivepid, MysqlActivePid}),
+							ets:insert(msgservertable, {httpgpspid, HttpGpsPid}),
 							%ets:insert(msgservertable, {dbmaintainpid, DBMaintainPid}),
 		                    common:loginfo("DB client process PID is ~p", [DBPid]),
 		                    common:loginfo("DB table deamon process PID is ~p", [DBTablePid]),
@@ -205,6 +211,7 @@ start(StartType, StartArgs) ->
 		                    common:loginfo("Last pos table processor process PID is ~p", [LastPosTablePid]),
 		                    common:loginfo("DB operation process PID is ~p", [DBOperationPid]),
 							common:loginfo("Mysql active process PID is ~p", [MysqlActivePid]),
+							common:loginfo("HTTP GPS process PID is ~p", [HttpGpsPid]),
 		                    %common:loginfo("DB miantain process PID is ~p", [DBMaintainPid]),
 		                    
 							common:loginfo("DB coding setting"),
@@ -1036,6 +1043,13 @@ stop(_State) ->
         _ ->
             DriverTablePid ! stop
     end,
+    [{httpgpspid, HttpGpsPid}] = ets:lookup(msgservertable, httpgpspid),
+    case HttpGpsPid of
+        undefined ->
+            ok;
+        _ ->
+            HttpGpsPid ! stop
+    end,
     error_logger:info_msg("Message server stops.").
 
 code_convertor_process() ->
@@ -1497,6 +1511,52 @@ add({{YYYY, MM, DD}, Time}, N, months) when N < 0 andalso MM =:= 1 ->
 add(Date, N, years) ->
     add(Date, 12*N, months).
      
+
+http_gps_deamon(InitialIPPort, State, Count, ACount) ->
+	receive
+		{Pid, normal, Request} ->
+			Pid ! ok,
+			http_gps_deamon(InitialIPPort, State, Count+1, ACount);
+		{Pid, anbormal, Request} ->
+			Pid ! ok,
+			http_gps_deamon(InitialIPPort, State, Count, ACount+1);
+		{server, IPPort} ->
+			http_gps_deamon(IPPort, State, Count, ACount);
+		init ->
+			case State of
+				uninit ->
+					case inets:start() of
+						ok ->
+							http_gps_deamon(InitialIPPort, inited, Count, ACount);
+						{error, Reason} ->
+							common:logerror("Cannot start HTTP GPS inets : ~p", [Reason]),
+							http_gps_deamon(InitialIPPort, uninit, Count, ACount)
+					end;
+				inited ->
+					common:logerror("HTTP GPS inets already inited for init command");
+				_ ->
+					common:logerror("HTTP GPS inets unknown state for init command")
+			end;
+		pause ->
+			inets:stop(),
+			http_gps_deamon(InitialIPPort, uninit, Count, ACount);
+		stop ->
+			inets:stop();
+		{Pid, state} ->
+			Pid ! State,
+			http_gps_deamon(InitialIPPort, State, Count, ACount);
+		{Pid, server} ->
+			Pid ! InitialIPPort,
+			http_gps_deamon(InitialIPPort, State, Count, ACount);
+		{Pid, count} ->
+			Pid ! {Count, ACount},
+			http_gps_deamon(InitialIPPort, State, Count, ACount);
+		_ ->
+			common:logerror("HTTP GPS process receive unknown msg."),
+			http_gps_deamon(InitialIPPort, State, Count, ACount)
+	end.
+
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%% File END.
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
