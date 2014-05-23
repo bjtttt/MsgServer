@@ -1538,10 +1538,25 @@ http_gps_deamon(InitialIPPort, State, Count, ACount) ->
 					common:logerror("HTTP GPS inets unknown state for init command")
 			end;
 		pause ->
-			inets:stop(),
-			http_gps_deamon(InitialIPPort, uninit, Count, ACount);
+			case State of
+				uninit ->
+					common:logerror("HTTP GPS inets already uninit for pause command"),
+					http_gps_deamon(InitialIPPort, uninit, Count, ACount);
+				inited ->
+					inets:stop(),
+					http_gps_deamon(InitialIPPort, uninit, Count, ACount);
+				_ ->
+					common:logerror("HTTP GPS inets unknwon state for pause command")
+			end;
 		stop ->
-			inets:stop();
+			case State of
+				uninit ->
+					common:logerror("HTTP GPS inets already uninit for stop command");
+				inited ->
+					inets:stop();
+				_ ->
+					common:logerror("HTTP GPS inets unknwon state for stop command")
+			end;
 		{Pid, get} ->
 			Pid ! {InitialIPPort, State, Count, ACount},
 			http_gps_deamon(InitialIPPort, State, Count, ACount);
