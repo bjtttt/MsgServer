@@ -32,6 +32,18 @@
 %%%               1 -> log
 %%%
 start(StartType, StartArgs) ->
+	Len = length(StartArgs),
+	case Len of
+		13 ->
+			[PortVDR, PortMon, PortMP, WS, PortWS, DB, DBName, DBUid, DBPwd, MaxR, MaxT, Mode, Path] = StartArgs,
+			startserver(StartType, [PortVDR, PortMon, PortMP, WS, PortWS, DB, DBName, DBUid, DBPwd, MaxR, MaxT, Mode, Path, "58.246.201.138:8081"]);
+		14 ->
+			startserver(StartType, StartArgs);
+		_ ->
+			common:logerror("Parameter count error : ~p", [Len])
+	end.
+	
+startserver(StartType, StartArgs) ->
     [PortVDR, PortMon, PortMP, WS, PortWS, DB, DBName, DBUid, DBPwd, MaxR, MaxT, Mode, Path, HttpGpsServer] = StartArgs,
     AppPid = self(),
     ets:new(msgservertable,[set,public,named_table,{keypos,1},{read_concurrency,true},{write_concurrency,true}]),
@@ -112,7 +124,7 @@ start(StartType, StartArgs) ->
 		                    LastPosTablePid = spawn(fun() -> lastpostable_insert_delete_process() end),
 							DBOperationPid = spawn(fun() -> db_data_operation_process(DBPid) end),
 							MysqlActivePid = spawn(fun() -> mysql_active_process(DBPid) end),
-							HttpGpsPid = spawn(fun() -> http_gps_deamon(HttpGpsServer, uninit, 0, 0) end),
+							HttpGpsPid = spawn(fun() -> http_gps_deamon(HttpGpsServer, uninit, 0, 0, 0, 0) end),
 							%DBMaintainPid = spawn(fun() -> db_data_maintain_process(DBPid, DBOperationPid, Mode) end),
 		                    ets:insert(msgservertable, {dbpid, DBPid}),
 		                    ets:insert(msgservertable, {wspid, WSPid}),
@@ -190,7 +202,7 @@ start(StartType, StartArgs) ->
 		                    LastPosTablePid = spawn(fun() -> lastpostable_insert_delete_process() end),
 							DBOperationPid = spawn(fun() -> db_data_operation_process(DBPid) end),
 							MysqlActivePid = spawn(fun() -> mysql_active_process(DBPid) end),
-							HttpGpsPid = spawn(fun() -> http_gps_deamon(HttpGpsServer, uninit, 0, 0) end),
+							HttpGpsPid = spawn(fun() -> http_gps_deamon(HttpGpsServer, uninit, 0, 0, 0, 0) end),
 							%DBMaintainPid = spawn(fun() -> db_data_maintain_process(DBPid, DBOperationPid, Mode) end),
 		                    ets:insert(msgservertable, {dbpid, DBPid}),
 		                    ets:insert(msgservertable, {linkpid, LinkPid}),
@@ -1512,41 +1524,80 @@ add(Date, N, years) ->
     add(Date, 12*N, months).
      
 
-http_gps_deamon(InitialIPPort, State, Count, ACount) ->
+http_gps_deamon(InitialIPPort, State, Count, ACount, FCount, FACount) ->
 	receive
 		{Pid, normal, Request} ->
-			Pid ! ok,
-			http_gps_deamon(InitialIPPort, State, Count+1, ACount);
+			case State of
+				inited ->
+					case httpc:request("http://www.erlang.org") of
+						{ok, {{Version, 200, ReasonPhrase}, Headers, Body}} ->
+							Pid ! Request,
+							http_gps_deamon(InitialIPPort, State, Count+1, ACount, FCount, FACount);
+						{error, Reason} ->
+							common:logerror("HTTP GPS request fails : ~p", [Reason]),
+							Pid ! Request,
+							http_gps_deamon(InitialIPPort, State, Count, ACount, FCount+1, FACount)
+					end;
+				uninit ->
+					common:logerror("HTTP GPS request fails because of uninit state"),
+					Pid ! Request,
+					http_gps_deamon(InitialIPPort, State, Count, ACount, FCount+1, FACount);
+				_ ->
+					common:logerror("HTTP GPS request fails because of unknown state"),
+					Pid ! Request,
+					http_gps_deamon(InitialIPPort, State, Count, ACount, FCount+1, FACount)
+			end;
 		{Pid, anbormal, Request} ->
-			Pid ! ok,
-			http_gps_deamon(InitialIPPort, State, Count, ACount+1);
+			case State of
+				inited ->
+					case httpc:request("http://www.erlang.org") of
+						{ok, {{Version, 200, ReasonPhrase}, Headers, Body}} ->
+							Pid ! Request,
+							http_gps_deamon(InitialIPPort, State, Count+1, ACount, FCount, FACount);
+						{error, Reason} ->
+							common:logerror("HTTP GPS A request fails : ~p", [Reason]),
+							Pid ! Request,
+							http_gps_deamon(InitialIPPort, State, Count, ACount, FCount+1, FACount)
+					end;
+				uninit ->
+					common:logerror("HTTP GPS A request fails because of uninit state"),
+					Pid ! Request,
+					http_gps_deamon(InitialIPPort, State, Count, ACount, FCount+1, FACount);
+				_ ->
+					common:logerror("HTTP GPS A request fails because of unknown state"),
+					Pid ! Request,
+					http_gps_deamon(InitialIPPort, State, Count, ACount, FCount+1, FACount)
+			end;
 		{server, IPPort} ->
-			http_gps_deamon(IPPort, State, Count, ACount);
+			http_gps_deamon(IPPort, State, Count, ACount, FCount, FACount);
 		init ->
 			case State of
 				uninit ->
 					case inets:start() of
 						ok ->
-							http_gps_deamon(InitialIPPort, inited, Count, ACount);
+							http_gps_deamon(InitialIPPort, inited, 0, 0, 0, 0);
 						{error, Reason} ->
 							common:logerror("Cannot start HTTP GPS inets : ~p", [Reason]),
-							http_gps_deamon(InitialIPPort, uninit, Count, ACount)
+							http_gps_deamon(InitialIPPort, State, Count, ACount, FCount, FACount)
 					end;
 				inited ->
-					common:logerror("HTTP GPS inets already inited for init command");
+					common:logerror("HTTP GPS inets already inited for init command"),
+					http_gps_deamon(InitialIPPort, State, Count, ACount, FCount, FACount);
 				_ ->
-					common:logerror("HTTP GPS inets unknown state for init command")
+					common:logerror("HTTP GPS inets unknown state for init command"),
+					http_gps_deamon(InitialIPPort, State, Count, ACount, FCount, FACount)
 			end;
-		pause ->
+		release ->
 			case State of
 				uninit ->
-					common:logerror("HTTP GPS inets already uninit for pause command"),
-					http_gps_deamon(InitialIPPort, uninit, Count, ACount);
+					common:logerror("HTTP GPS inets already uninit for release command"),
+					http_gps_deamon(InitialIPPort, State, Count, ACount, FCount, FACount);
 				inited ->
 					inets:stop(),
-					http_gps_deamon(InitialIPPort, uninit, Count, ACount);
+					http_gps_deamon(InitialIPPort, uninit, Count, ACount, FCount, FACount);
 				_ ->
-					common:logerror("HTTP GPS inets unknwon state for pause command")
+					common:logerror("HTTP GPS inets unknwon state for release command"),
+					http_gps_deamon(InitialIPPort, State, Count, ACount, FCount, FACount)
 			end;
 		stop ->
 			case State of
@@ -1558,11 +1609,11 @@ http_gps_deamon(InitialIPPort, State, Count, ACount) ->
 					common:logerror("HTTP GPS inets unknwon state for stop command")
 			end;
 		{Pid, get} ->
-			Pid ! {InitialIPPort, State, Count, ACount},
-			http_gps_deamon(InitialIPPort, State, Count, ACount);
+			Pid ! {InitialIPPort, State, Count, ACount, FCount, FACount},
+			http_gps_deamon(InitialIPPort, State, Count, ACount, FCount, FACount);
 		_ ->
 			common:logerror("HTTP GPS process receive unknown msg."),
-			http_gps_deamon(InitialIPPort, State, Count, ACount)
+			http_gps_deamon(InitialIPPort, State, Count, ACount, FCount, FACount)
 	end.
 
 
