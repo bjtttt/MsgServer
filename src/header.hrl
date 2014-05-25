@@ -132,7 +132,9 @@
 					vdrtablepid=undefined,
 					drivertablepid=undefined,
 					lastpostablepid=undefined,
-					drivercertcode=undefined
+					drivercertcode=undefined,
+					httpgpspid=undefined,
+					encrypt=false
                  }).
 
 -record(vdrdbitem, {  authencode=undefined,		% VDRAuthenCode

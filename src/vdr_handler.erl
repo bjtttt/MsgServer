@@ -35,16 +35,21 @@ init([Sock, Addr]) ->
     [{drivertablepid, DriverTablePid}] = ets:lookup(msgservertable, drivertablepid),
     [{lastpostablepid, LastPosTablePid}] = ets:lookup(msgservertable, lastpostablepid),
     [{dboperationpid, DBOperationPid}] = ets:lookup(msgservertable, dboperationpid),
+    [{httpgpspid, HttpGpsPid}] = ets:lookup(msgservertable, httpgpspid),
     [{dbstate, DBState}] = ets:lookup(msgservertable, dbstate),
 	if
 		DBState == true ->
-		    State = #vdritem{socket=Sock, pid=Pid, dboperid=DBOperationPid, addr=Addr, msgflownum=1, errorcount=0, dbpid=DBPid, wspid=WSPid, ccpid=CCPid, linkpid=LinkPid, vdrtablepid=VDRTablePid, drivertablepid=DriverTablePid, lastpostablepid=LastPosTablePid},
+		    State = #vdritem{socket=Sock, pid=Pid, dboperid=DBOperationPid, addr=Addr, msgflownum=1, 
+							 errorcount=0, dbpid=DBPid, wspid=WSPid, ccpid=CCPid, linkpid=LinkPid, 
+							 vdrtablepid=VDRTablePid, drivertablepid=DriverTablePid, lastpostablepid=LastPosTablePid, httpgpspid=HttpGpsPid},
 			common:send_stat_err(State, conn),
 		    common:send_vdr_table_operation(VDRTablePid, {self(), insert, State, noresp}),
 		    inet:setopts(Sock, [{active, once}, {send_timeout, ?VDR_MSG_TIMEOUT}, {send_timeout_close, true}]),
 			{ok, State, ?VDR_MSG_TIMEOUT};
 		true ->
-		    State = #vdritem{socket=Sock, pid=Pid, dboperid=DBOperationPid, addr=Addr, msgflownum=1, errorcount=0, dbpid=unused, wspid=WSPid, ccpid=CCPid, linkpid=LinkPid, vdrtablepid=VDRTablePid, drivertablepid=DriverTablePid, lastpostablepid=LastPosTablePid},
+		    State = #vdritem{socket=Sock, pid=Pid, dboperid=DBOperationPid, addr=Addr, msgflownum=1, 
+							 errorcount=0, dbpid=unused, wspid=WSPid, ccpid=CCPid, linkpid=LinkPid, 
+							 vdrtablepid=VDRTablePid, drivertablepid=DriverTablePid, lastpostablepid=LastPosTablePid, httpgpspid=HttpGpsPid},
 			common:send_stat_err(State, conn),
 		    common:send_vdr_table_operation(VDRTablePid, {self(), insert, State, noresp}),
 		    inet:setopts(Sock, [{active, once}, {send_timeout, ?VDR_MSG_TIMEOUT}, {send_timeout_close, true}]),
@@ -251,6 +256,15 @@ safe_process_vdr_msg(Socket, Msg, State) ->
             {error, exception, State}
     end.
 
+convert_crytotype(CryptoType) ->
+	BVal = CryptoType band 1,
+	case BVal of
+		1 ->
+			true;
+		_ ->
+			false
+	end.
+
 %%%
 %%% This function should refer to the document on the mechanism
 %%%
@@ -265,10 +279,11 @@ safe_process_vdr_msg(Socket, Msg, State) ->
 process_vdr_data(Socket, Data, State) -> 
 	%common:loginfo("Driver ID when MSG : ~p", [State#vdritem.driverid]),
     case vdr_data_parser:process_data(State, Data) of
-        {ok, HeadInfo, Msg, NewState} ->
+        {ok, HeadInfo, Msg, NewStateOrigin} ->
 			%common:loginfo("New Driver ID when MSG : ~p", [NewState#vdritem.driverid]),
 			%common:loginfo("DEBUG : vdr_data_parser:process_data is OK"),
-            {ID, MsgIdx, Tel, _CryptoType} = HeadInfo,
+            {ID, MsgIdx, Tel, CryptoType} = HeadInfo,
+			NewState = NewStateOrigin#vdritem{encrypt=convert_crytotype(CryptoType)},
             if
                 State#vdritem.id == undefined ->
             		%common:loginfo("Unknown VDR (~p) MSG ID (~p), MSG Index (~p), MSG Tel (~p)", [NewState#vdritem.addr, ID, MsgIdx, Tel]),
@@ -1219,7 +1234,21 @@ create_time_list_and_binary(Time) when is_integer(Time) ->
 create_time_list_and_binary(_Time) ->
 	{<<"2000-01-01 00:00:00">>, "2000-01-01 00:00:00", {{2000,1,1},{0,0,0}}}.
 
-process_pos_info(ID, MsgIdx, HeadInfo, Msg, NewState) ->
+adjust_http_gps_position(Msg, NewState) ->
+	case Msg of
+        {H, AppInfo} ->
+			[AlarmSym, StateFlag, Lat, Lon, Height, Speed, Direction, Time]= H,
+			[NewLat, NewLon] = get_http_gps_lon_lat(Lat, Lon, NewState),
+			{[AlarmSym, StateFlag, NewLat, NewLon, Height, Speed, Direction, Time], AppInfo};
+		_ ->
+			Msg
+	end.
+
+process_pos_info(ID, MsgIdx, HeadInfo, MsgOrigin, NewState) ->
+	%common:loginfo("NewState : ~p", [NewState]),
+	%common:loginfo("MsgOrigin : ~p", [MsgOrigin]),
+	Msg = adjust_http_gps_position(MsgOrigin, NewState),
+	%common:loginfo("Msg : ~p", [Msg]),
 	DBPid = NewState#vdritem.dbpid,
 	if
 		DBPid == unused -> % For no db mode
@@ -1235,21 +1264,21 @@ process_pos_info(ID, MsgIdx, HeadInfo, Msg, NewState) ->
 		            PreviousAlarm = NewState#vdritem.alarm,
 		            
 		            {H, _AppInfo} = Msg,
-		            [AlarmSym, StateFlag, LatOri, LonOri, _Height, _Speed, _Direction, Time]= H,
+		            [AlarmSym, StateFlag, Lat, Lon, _Height, _Speed, _Direction, Time]= H,
 					% If LatOri =/= 0/0.0 AND LonOri =/= 0/0.0, will use LatOri and LonOri
 					% Otherwise, use NewState#vdritem.lastlon and NewState#vdritem.lastlat
-		            {Lat, Lon} = get_not_0_lat_lon(LatOri, LonOri, NewState),
+		            %{Lat, Lon} = get_not_0_lat_lon(LatOri, LonOri, NewState),
 					%
 					LonStored = NewState#vdritem.lastlon,
 					LatStored = NewState#vdritem.lastlat,
 					if
 						LonStored == 0 orelse LonStored == 0.0 orelse LatStored == 0.0 orelse LatStored == 0.0 ->
 							if
-								LatOri =/= 0 andalso LatOri =/= 0.0 andalso LonOri =/= 0 andalso LonOri =/= 0.0 ->
+								Lat =/= 0 andalso Lat =/= 0.0 andalso Lon =/= 0 andalso Lon =/= 0.0 ->
 									LastPosTablePid = NewState#vdritem.lastpostablepid,
 									VIDKey = NewState#vdritem.vehicleid,
 									SelfPid = NewState#vdritem.pid,
-									LastPosTablePid ! {SelfPid, set, [VIDKey, LonOri, LatOri]};
+									LastPosTablePid ! {SelfPid, set, [VIDKey, Lon, Lat]};
 								true ->
 									ok
 							end;
@@ -1684,7 +1713,7 @@ disconn_socket_by_vehicle_id(VehicleID) ->
 	                     '_', '_', '_', '_', '_',
                          '_', '_', '_', '_', '_',
                          '_', '_', '_', '_', '_',
-						 '_'}),
+						 '_', '_'}),
 	disconn_socket_by_id(SockList).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -2655,6 +2684,30 @@ replace_pos_app_list(Init, ID, Item) when is_list(Init),
 	end;
 replace_pos_app_list(Init, _ID, _Item) ->
 	Init.
+
+get_http_gps_lon_lat(Lat, Lon, State) ->
+	{MidLat, MidLon} = get_not_0_lat_lon(Lat, Lon, State),
+	Pid = State#vdritem.pid,
+	HttpGpsPid = State#vdritem.httpgpspid,
+	Encrypt = State#vdritem.encrypt,
+	case Encrypt of
+		1 ->
+			HttpGpsPid ! {Pid, abnormal, [MidLon/1000000.0, MidLat/1000000.0]},
+			receive
+				[FinalLon, FinalLat] ->
+					[FinalLat*1000000.0, FinalLon*1000000.0]
+			after ?PROC_RESP_TIMEOUT ->
+					[Lat, Lon]
+			end;
+		_ ->
+			HttpGpsPid ! {Pid, normal, [MidLon/1000000.0, MidLat/1000000.0]},
+			receive
+				[FinalLon, FinalLat] ->
+					[FinalLat*1000000.0, FinalLon*1000000.0]
+			after ?PROC_RESP_TIMEOUT ->
+					[Lat, Lon]
+			end
+	end.	
 
 get_not_0_lat_lon(Lat, Lon, State) ->
 	if

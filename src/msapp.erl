@@ -149,6 +149,10 @@ startserver(StartType, StartArgs) ->
 							common:loginfo("Mysql active process PID is ~p", [MysqlActivePid]),
 							common:loginfo("HTTP GPS process PID is ~p", [HttpGpsPid]),
 							%common:loginfo("DB miantain process PID is ~p", [DBMaintainPid]),
+
+							HttpGpsPid ! init,
+							%HttpGpsPid ! {self(), normal, [116.283016, 39.959856]},
+							%HttpGpsPid ! {self(), abnormal, [116.283016, 39.959856]},
 		                    
 				            common:loginfo("DB coding setting"),
 							DBPid ! {AppPid, conn, <<"set names 'utf8'">>},
@@ -226,6 +230,8 @@ startserver(StartType, StartArgs) ->
 							common:loginfo("HTTP GPS process PID is ~p", [HttpGpsPid]),
 		                    %common:loginfo("DB miantain process PID is ~p", [DBMaintainPid]),
 		                    
+							HttpGpsPid ! init,
+							
 							common:loginfo("DB coding setting"),
 				            DBPid ! {AppPid, conn, <<"set names 'utf8'">>},
 				            receive
@@ -1527,46 +1533,140 @@ add(Date, N, years) ->
 http_gps_deamon(InitialIPPort, State, Count, ACount, FCount, FACount) ->
 	receive
 		{Pid, normal, Request} ->
-			case State of
-				inited ->
-					case httpc:request("http://www.erlang.org") of
-						{ok, {{Version, 200, ReasonPhrase}, Headers, Body}} ->
+			case convertrequest(Request) of
+				{ok, SRequest} ->
+					FullRequest = lists:append(["http://", 
+											   InitialIPPort, 
+											   "/coordinate/simple?sid=15001&xys=", 
+											   SRequest, 
+											   "&resType=xml&rid=123&key=1831beb01605f760589221fdd6f2cdfb7412a767dbc0f004854457f59fb16ab863a3a1722cef553f"]),
+					case State of
+						inited ->
+							try
+								case httpc:request(FullRequest) of
+									{ok, {{_Version, 200, _ReasonPhrase}, _Headers, Body}} ->
+										BodyB = list_to_binary(Body),
+										BinParts = binary:split(BodyB, [<<"<xys>">>, <<"</xys>">>], [global]),
+										case length(BinParts) of
+											3 ->
+												[_, LonLatBinS, _] = BinParts,
+												LonLatBinL = binary:split(LonLatBinS, [<<",">>], [global]),
+												case length(LonLatBinL) of
+													2 ->
+														[LonBin, LatBin] = LonLatBinL,
+														try
+															Lon = erlang:binary_to_float(LonBin),
+															Lat = erlang:binary_to_float(LatBin),
+															Pid ! [Lon, Lat],
+															http_gps_deamon(InitialIPPort, State, Count+1, ACount, FCount, FACount)
+														catch
+															_:_ ->
+																common:logerror("HTTP GPS request fails : cannot convert longitude and latitude ~p", [Body]),
+																Pid ! Request,
+																http_gps_deamon(InitialIPPort, State, Count, ACount, FCount+1, FACount)
+														end;
+													_ ->
+														common:logerror("HTTP GPS request fails : cannot convert longitude/latitude ~p", [Body]),
+														Pid ! Request,
+														http_gps_deamon(InitialIPPort, State, Count, ACount, FCount+1, FACount)
+												end;
+											_ ->
+												common:logerror("HTTP GPS request fails : response error ~p", [Body]),
+												Pid ! Request,
+												http_gps_deamon(InitialIPPort, State, Count, ACount, FCount+1, FACount)
+										end;
+									{error, Reason} ->
+										common:logerror("HTTP GPS request fails : ~p", [Reason]),
+										Pid ! Request,
+										http_gps_deamon(InitialIPPort, State, Count, ACount, FCount+1, FACount)
+								end
+							catch
+								Oper:ExReason ->
+									common:logerror("HTTP GPS request exception : (~p) ~p", [Oper, ExReason]),
+									Pid ! Request,
+									http_gps_deamon(InitialIPPort, State, Count, ACount, FCount+1, FACount)
+							end;
+						uninit ->
+							common:logerror("HTTP GPS request fails because of uninit state"),
 							Pid ! Request,
-							http_gps_deamon(InitialIPPort, State, Count+1, ACount, FCount, FACount);
-						{error, Reason} ->
-							common:logerror("HTTP GPS request fails : ~p", [Reason]),
+							http_gps_deamon(InitialIPPort, State, Count, ACount, FCount+1, FACount);
+						_ ->
+							common:logerror("HTTP GPS request fails because of unknown state"),
 							Pid ! Request,
 							http_gps_deamon(InitialIPPort, State, Count, ACount, FCount+1, FACount)
 					end;
-				uninit ->
-					common:logerror("HTTP GPS request fails because of uninit state"),
-					Pid ! Request,
-					http_gps_deamon(InitialIPPort, State, Count, ACount, FCount+1, FACount);
-				_ ->
+				error ->
 					common:logerror("HTTP GPS request fails because of unknown state"),
 					Pid ! Request,
 					http_gps_deamon(InitialIPPort, State, Count, ACount, FCount+1, FACount)
 			end;
-		{Pid, anbormal, Request} ->
-			case State of
-				inited ->
-					case httpc:request("http://www.erlang.org") of
-						{ok, {{Version, 200, ReasonPhrase}, Headers, Body}} ->
+		{Pid, abnormal, Request} ->
+			case convertrequest(Request) of
+				{ok, SRequest} ->
+					FullRequest = lists:append(["http://", 
+											   InitialIPPort, 
+											   "/rgeocode/simple?sid=7001&region=", 
+											   SRequest, 
+											   "&poinum=1&range=3000&encode=UTF-8&resType=json&rid=$rid&roadnum=1&crossnum=0&show_near_districts=true&key=1831beb01605f760589221fdd6f2cdfb7412a767dbc0f004854457f59fb16ab863a3a1722cef553f"]),
+					case State of
+						inited ->
+							try
+								case httpc:request(FullRequest) of
+									{ok, {{_Version, 200, _ReasonPhrase}, _Headers, Body}} ->
+										BodyB = list_to_binary(Body),
+										BinParts1st = binary:split(BodyB, [<<"\"}],\"province\":{\"name\":\"">>], [global]),
+										case length(BinParts1st) of
+											2 ->
+												[BodyB1st, _] = BinParts1st,
+												BinParts = binary:split(BodyB1st, [<<"\"y\":\"">>, <<"\",\"x\":\"">>], [global]),
+												case length(BinParts) of
+													3 ->
+														[_, LatBin, LonBin] = BinParts,
+														try
+															Lon = erlang:binary_to_float(LonBin),
+															Lat = erlang:binary_to_float(LatBin),
+															Pid ! [Lon, Lat],
+															http_gps_deamon(InitialIPPort, State, Count, ACount+1, FCount, FACount)
+														catch
+															_Oper:_Ex ->
+																common:logerror("HTTP GPS request fails : cannot convert longitude and latitude ~p", [Body]),
+																Pid ! Request,
+																http_gps_deamon(InitialIPPort, State, Count, ACount, FCount, FACount+1)
+														end;
+													_ ->
+														common:logerror("HTTP GPS request fails : response error ~p", [Body]),
+														Pid ! Request,
+														http_gps_deamon(InitialIPPort, State, Count, ACount, FCount, FACount+1)
+												end;
+											_ ->
+												common:logerror("HTTP GPS request fails : response error ~p", [Body]),
+												Pid ! Request,
+												http_gps_deamon(InitialIPPort, State, Count, ACount, FCount, FACount+1)
+										end;
+									{error, Reason} ->
+										common:logerror("HTTP GPS request fails : ~p", [Reason]),
+										Pid ! Request,
+										http_gps_deamon(InitialIPPort, State, Count, ACount, FCount, FACount+1)
+								end
+							catch
+								Oper:ExReason ->
+									common:logerror("HTTP GPS request exception : (~p) ~p", [Oper, ExReason]),
+									Pid ! Request,
+									http_gps_deamon(InitialIPPort, State, Count, ACount, FCount, FACount+1)
+							end;
+						uninit ->
+							common:logerror("HTTP GPS request fails because of uninit state"),
 							Pid ! Request,
-							http_gps_deamon(InitialIPPort, State, Count+1, ACount, FCount, FACount);
-						{error, Reason} ->
-							common:logerror("HTTP GPS A request fails : ~p", [Reason]),
+							http_gps_deamon(InitialIPPort, State, Count, ACount, FCount, FACount+1);
+						_ ->
+							common:logerror("HTTP GPS request fails because of unknown state"),
 							Pid ! Request,
-							http_gps_deamon(InitialIPPort, State, Count, ACount, FCount+1, FACount)
+							http_gps_deamon(InitialIPPort, State, Count, ACount, FCount, FACount+1)
 					end;
-				uninit ->
-					common:logerror("HTTP GPS A request fails because of uninit state"),
+				error ->
+					common:logerror("HTTP GPS request fails because of unknown state"),
 					Pid ! Request,
-					http_gps_deamon(InitialIPPort, State, Count, ACount, FCount+1, FACount);
-				_ ->
-					common:logerror("HTTP GPS A request fails because of unknown state"),
-					Pid ! Request,
-					http_gps_deamon(InitialIPPort, State, Count, ACount, FCount+1, FACount)
+					http_gps_deamon(InitialIPPort, State, Count, ACount, FCount, FACount+1)
 			end;
 		{server, IPPort} ->
 			http_gps_deamon(IPPort, State, Count, ACount, FCount, FACount);
@@ -1616,6 +1716,20 @@ http_gps_deamon(InitialIPPort, State, Count, ACount, FCount, FACount) ->
 			http_gps_deamon(InitialIPPort, State, Count, ACount, FCount, FACount)
 	end.
 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%
+% Lon : Jingdu
+% Lat : Weidu
+%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+convertrequest(Request) when is_list(Request),
+							 length(Request) == 2 ->
+	[Lon, Lat] = Request,
+	SLon = erlang:float_to_list(Lon, [{decimals, 6}, compact]),
+	SLat = erlang:float_to_list(Lat, [{decimals, 6}, compact]),
+	{ok, lists:append([SLon, ",", SLat])};
+convertrequest(_Request) ->
+	error.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%% File END.
