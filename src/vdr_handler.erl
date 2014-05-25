@@ -1238,16 +1238,16 @@ adjust_http_gps_position(Msg, NewState) ->
 	case Msg of
         {H, AppInfo} ->
 			[AlarmSym, StateFlag, Lat, Lon, Height, Speed, Direction, Time]= H,
-			[NewLat, NewLon] = get_http_gps_lon_lat(Lat, Lon, NewState),
-			{[AlarmSym, StateFlag, NewLat, NewLon, Height, Speed, Direction, Time], AppInfo};
+			[NewLat, NewLon, Address] = get_http_gps_lon_lat(Lat, Lon, NewState),
+			[{[AlarmSym, StateFlag, NewLat, NewLon, Height, Speed, Direction, Time], AppInfo}, Address];
 		_ ->
-			Msg
+			[Msg, []]
 	end.
 
 process_pos_info(ID, MsgIdx, HeadInfo, MsgOrigin, NewState) ->
 	%common:loginfo("NewState : ~p", [NewState]),
 	%common:loginfo("MsgOrigin : ~p", [MsgOrigin]),
-	Msg = adjust_http_gps_position(MsgOrigin, NewState),
+	[Msg, Address] = adjust_http_gps_position(MsgOrigin, NewState),
 	%common:loginfo("Msg : ~p", [Msg]),
 	DBPid = NewState#vdritem.dbpid,
 	if
@@ -1258,17 +1258,13 @@ process_pos_info(ID, MsgIdx, HeadInfo, MsgOrigin, NewState) ->
 			
 			{ok, NewState#vdritem{msgflownum=NewFlowIdx}};
 		true ->
-		    case create_sql_from_vdr(HeadInfo, Msg, NewState) of
+		    case create_sql_from_vdr(HeadInfo, Msg, Address, NewState) of
 				{ok, Sqls} ->
 		            FlowIdx = NewState#vdritem.msgflownum,
 		            PreviousAlarm = NewState#vdritem.alarm,
 		            
 		            {H, _AppInfo} = Msg,
 		            [AlarmSym, StateFlag, Lat, Lon, _Height, _Speed, _Direction, Time]= H,
-					% If LatOri =/= 0/0.0 AND LonOri =/= 0/0.0, will use LatOri and LonOri
-					% Otherwise, use NewState#vdritem.lastlon and NewState#vdritem.lastlat
-		            %{Lat, Lon} = get_not_0_lat_lon(LatOri, LonOri, NewState),
-					%
 					LonStored = NewState#vdritem.lastlon,
 					LatStored = NewState#vdritem.lastlat,
 					if
@@ -1278,7 +1274,9 @@ process_pos_info(ID, MsgIdx, HeadInfo, MsgOrigin, NewState) ->
 									LastPosTablePid = NewState#vdritem.lastpostablepid,
 									VIDKey = NewState#vdritem.vehicleid,
 									SelfPid = NewState#vdritem.pid,
-									LastPosTablePid ! {SelfPid, set, [VIDKey, Lon, Lat]};
+									% Last Position table should be encrypted data because when it is initialized,
+									% it uses the data from the DB
+									LastPosTablePid ! {SelfPid, set, [VIDKey, Lon, Lat]};	
 								true ->
 									ok
 							end;
@@ -1290,12 +1288,10 @@ process_pos_info(ID, MsgIdx, HeadInfo, MsgOrigin, NewState) ->
 		                AlarmSym == PreviousAlarm ->
 				            MsgBody = vdr_data_processor:create_gen_resp(ID, MsgIdx, ?T_GEN_RESP_OK),
 				            NewFlowIdx = send_data_to_vdr(16#8001, NewState#vdritem.tel, FlowIdx, MsgBody, NewState),
-							
 							{ok, NewState#vdritem{msgflownum=NewFlowIdx, alarm=AlarmSym, state=StateFlag, lastlat=Lat, lastlon=Lon}};
 		                true ->
 							{TimeBin, TimeS, TimeTuple} = create_time_list_and_binary(Time),
 		                    TimeBinS = list_to_binary([<<"\"">>, TimeBin, <<"\"">>]),
-							
 							AlarmList = update_vehicle_alarm(NewState#vdritem.vehicleid, NewState#vdritem.driverid, TimeS, TimeTuple, AlarmSym, 0, MsgIdx, NewState),
 							if
 								AlarmList == NewState#vdritem.alarmlist ->
@@ -1303,21 +1299,17 @@ process_pos_info(ID, MsgIdx, HeadInfo, MsgOrigin, NewState) ->
 								AlarmList =/= NewState#vdritem.alarmlist ->
 									NewSetAlarmList = find_alarm_in_lista_not_in_listb(AlarmList, NewState#vdritem.alarmlist),
 									NewClearAlarmList = find_alarm_in_lista_not_in_listb(NewState#vdritem.alarmlist, AlarmList),
-									
 									if
 										NewState#vdritem.dboperid =/= undefined ->
 											NewState#vdritem.dboperid ! {NewState#vdritem.pid, replace, alarm, NewState#vdritem.vehicleid, AlarmList};
 										true ->
 											ok
 									end,
-									
 									send_masg_to_ws_alarm(FlowIdx, NewSetAlarmList, 1, Lat, Lon, TimeBinS, NewState),
 									send_masg_to_ws_alarm(FlowIdx, NewClearAlarmList, 0, Lat, Lon, TimeBinS, NewState)
 							end,
-							
 		                    MsgBody = vdr_data_processor:create_gen_resp(ID, MsgIdx, ?T_GEN_RESP_OK),
 		                    NewFlowIdx = send_data_to_vdr(16#8001, NewState#vdritem.tel, FlowIdx, MsgBody, NewState),
-		                    
 		                    {ok, NewState#vdritem{msgflownum=NewFlowIdx, alarm=AlarmSym, alarmlist=AlarmList, state=StateFlag, lastlat=Lat, lastlon=Lon}}
 		            end;
 		        _ ->
@@ -1967,7 +1959,7 @@ send_sql_to_db(PoolId, Msg, State) ->
 				BinOper == <<"insert into ">> ->
 					[TableName, Fields, Values] = remove_empty_item_in_binary_list(binary:split(Msg, [<<"insert into ">>, <<"(">>, <<") values(">>, <<")">>], [global]), []),
 					if
-						Fields == <<"vehicle_id, driver_id, gps_time, server_time, longitude, latitude, height, speed, direction, status_flag, alarm_flag, distance, oil, record_speed, event_man_acq, ex_speed_type, ex_speed_id, alarm_add_type, alarm_add_id, alarm_add_direct, road_alarm_id, road_alarm_time, road_alarm_result, ex_state, io_state, analog_quantity_ad0, analog_quantity_ad1, wl_signal_amp, gnss_count">> ->
+						Fields == <<"vehicle_id, driver_id, gps_time, server_time, longitude, latitude, height, speed, direction, status_flag, alarm_flag, pos_desc, distance, oil, record_speed, event_man_acq, ex_speed_type, ex_speed_id, alarm_add_type, alarm_add_id, alarm_add_direct, road_alarm_id, road_alarm_time, road_alarm_result, ex_state, io_state, analog_quantity_ad0, analog_quantity_ad1, wl_signal_amp, gnss_count">> ->
 							DBPid ! {Pid, insert, TableName, Fields, Values},
 							LinkPid ! {Pid, dbmsgstored, 1},
 				            receive
@@ -1988,7 +1980,7 @@ send_sql_to_db(PoolId, Msg, State) ->
 						BinOper1 == <<"replace into vehicle_position_last">> ->
 							[TableName1, Fields1, Values1] = remove_empty_item_in_binary_list(binary:split(Msg, [<<"replace into ">>, <<"(">>, <<") values(">>, <<")">>], [global]), []),
 							if
-								Fields1 == <<"vehicle_id, driver_id, gps_time, server_time, longitude, latitude, height, speed, direction, status_flag, alarm_flag, distance, oil, record_speed, event_man_acq, ex_speed_type, ex_speed_id, alarm_add_type, alarm_add_id, alarm_add_direct, road_alarm_id, road_alarm_time, road_alarm_result, ex_state, io_state, analog_quantity_ad0, analog_quantity_ad1, wl_signal_amp, gnss_count, is_online">> ->
+								Fields1 == <<"vehicle_id, driver_id, gps_time, server_time, longitude, latitude, height, speed, direction, status_flag, alarm_flag, pos_desc, distance, oil, record_speed, event_man_acq, ex_speed_type, ex_speed_id, alarm_add_type, alarm_add_id, alarm_add_direct, road_alarm_id, road_alarm_time, road_alarm_result, ex_state, io_state, analog_quantity_ad0, analog_quantity_ad1, wl_signal_amp, gnss_count, is_online">> ->
 									DBPid ! {Pid, replace, TableName1, Fields1, Values1},
 									LinkPid ! {Pid, dbmsgstored, 1},
 						            receive
@@ -2050,8 +2042,7 @@ send_sql_to_db_nowait(PoolId, Msg, State) ->
 				BinOper == <<"insert into ">> ->
 					[TableName, Fields, Values] = remove_empty_item_in_binary_list(binary:split(Msg, [<<"insert into ">>, <<"(">>, <<") values(">>, <<")">>], [global]), []),
 					if
-						Fields == <<"vehicle_id, driver_id, gps_time, server_time, longitude, latitude, height, speed, direction, status_flag, alarm_flag, distance, oil, record_speed, event_man_acq, ex_speed_type, ex_speed_id, alarm_add_type, alarm_add_id, alarm_add_direct, road_alarm_id, road_alarm_time, road_alarm_result, ex_state, io_state, analog_quantity_ad0, analog_quantity_ad1, wl_signal_amp, gnss_count">> ->
-						%Fields == <<"vehicle_id, driver_id, gps_time, server_time, longitude, latitude, height, speed, direction, status_flag, alarm_flag">> ->
+						Fields == <<"vehicle_id, driver_id, gps_time, server_time, longitude, latitude, height, speed, direction, status_flag, alarm_flag, pos_desc, distance, oil, record_speed, event_man_acq, ex_speed_type, ex_speed_id, alarm_add_type, alarm_add_id, alarm_add_direct, road_alarm_id, road_alarm_time, road_alarm_result, ex_state, io_state, analog_quantity_ad0, analog_quantity_ad1, wl_signal_amp, gnss_count">> ->
 							DBPid ! {Pid, insert, TableName, Fields, Values, noresp};
 						true ->
 				            DBPid ! {Pid, PoolId, Msg, noresp}
@@ -2062,7 +2053,7 @@ send_sql_to_db_nowait(PoolId, Msg, State) ->
 						BinOper1 == <<"replace into vehicle_position_last">> ->
 							[TableName1, Fields1, Values1] = remove_empty_item_in_binary_list(binary:split(Msg, [<<"replace into ">>, <<"(">>, <<") values(">>, <<")">>], [global]), []),
 							if
-								Fields1 == <<"vehicle_id, driver_id, gps_time, server_time, longitude, latitude, height, speed, direction, status_flag, alarm_flag, distance, oil, record_speed, event_man_acq, ex_speed_type, ex_speed_id, alarm_add_type, alarm_add_id, alarm_add_direct, road_alarm_id, road_alarm_time, road_alarm_result, ex_state, io_state, analog_quantity_ad0, analog_quantity_ad1, wl_signal_amp, gnss_count, is_online">> ->
+								Fields1 == <<"vehicle_id, driver_id, gps_time, server_time, longitude, latitude, height, speed, direction, status_flag, alarm_flag, pos_desc, distance, oil, record_speed, event_man_acq, ex_speed_type, ex_speed_id, alarm_add_type, alarm_add_id, alarm_add_direct, road_alarm_id, road_alarm_time, road_alarm_result, ex_state, io_state, analog_quantity_ad0, analog_quantity_ad1, wl_signal_amp, gnss_count, is_online">> ->
 									DBPid ! {Pid, replace, TableName1, Fields1, Values1, noresp};
 								true ->
 									BinOper2 = get_binary_msg_first_n_char(Msg, 25),
@@ -2139,13 +2130,16 @@ send_msg_to_ws_nowait(Msg, State) ->
             WSPid ! {State#vdritem.pid, Msg, noresp}
     end.
 
+create_sql_from_vdr(HeaderInfo, Msg, State) ->
+	create_sql_from_vdr(HeaderInfo, Msg, [], State).
+ 
 %%%         
 %%% Return :
 %%%     {ok, SQL|[SQL0, SQL1, ...]}
 %%%     {error, iderror}
 %%%     error
 %%%
-create_sql_from_vdr(HeaderInfo, Msg, State) ->
+create_sql_from_vdr(HeaderInfo, Msg, Address, State) ->
     {ID, _FlowNum, TelNum, _CryptoType} = HeaderInfo,
     case ID of
         16#1    ->
@@ -2186,9 +2180,9 @@ create_sql_from_vdr(HeaderInfo, Msg, State) ->
             {_Type, _Res} = Msg,
             {ok, ""};
         16#200 ->
-			create_pos_info_sql(Msg, State);
+			create_pos_info_sql(Msg, Address, State);
         16#201 ->
-			create_pos_info_sql(Msg, State);
+			create_pos_info_sql(Msg, Address, State);
         16#301  ->                          
             {ok, ""};
         16#302  ->
@@ -2370,7 +2364,7 @@ create_sql_from_vdr(HeaderInfo, Msg, State) ->
                                   common:integer_to_binary(EICode), <<", ">>,
 							      common:integer_to_binary(PipeId), <<", '">>,
 								  list_to_binary(FileNameDB), <<"')">>]),
-			{ok, [SQL0, SQL1]} = create_pos_info_sql(MsgBody, State),
+			{ok, [SQL0, SQL1]} = create_pos_info_sql(MsgBody, Address, State),
             {ok, [SQL, SQL0, SQL1]};
         16#802  ->
             {ok, ""};
@@ -2409,9 +2403,13 @@ get_driver_id(State) ->
 			0
 	end.
 
-create_pos_info_sql(Msg, State) ->
+%create_pos_info_sql(Msg, State) ->
+%	create_pos_info_sql(Msg, [], State).
+
+create_pos_info_sql(Msg, Address, State) ->
 	%common:loginfo("Check Driver ID : ~p", [State#vdritem.driverid]),
 	DriverID = get_driver_id(State),
+	%common:loginfo("Address : ~p", [Address]),
 	%common:loginfo("Driver ID : ~p", [DriverID]),
     case Msg of
         {H, AppInfo} ->
@@ -2450,19 +2448,22 @@ create_pos_info_sql(Msg, State) ->
             %DriverID = State#vdritem.driverid,
    			{AIKey, AIVal, AIKeyVal} = create_pos_app_sql(AppInfo),
             SQL0 = list_to_binary([<<"insert into vehicle_position_">>, DBBin,
-                                   <<"(vehicle_id, driver_id, gps_time, server_time, longitude, latitude, height, speed, direction, status_flag, alarm_flag">>, 
+								   <<"(vehicle_id, driver_id, gps_time, server_time, longitude, latitude, height, speed, direction, status_flag, alarm_flag, pos_desc">>,
 								   AIKey, <<") values(">>,
-                                  common:integer_to_binary(VehicleID), <<", ">>,
-                                  common:integer_to_binary(DriverID), <<", '">>,
-                                  TimeS, <<"', '">>,
-                                  ServerTimeS, <<"', ">>,
-                                  common:float_to_binary(Lon/1000000.0), <<", ">>,
-                                  common:float_to_binary(Lat/1000000.0), <<", ">>,
-                                  common:integer_to_binary(Height), <<", ">>,
-                                  common:float_to_binary(Speed/10.0), <<", ">>,
-                                  common:integer_to_binary(Direction), <<", ">>,
-                                  common:integer_to_binary(StateFlag), <<", ">>,
-                                  common:integer_to_binary(AlarmSym), AIVal, <<")">>]),
+                                   common:integer_to_binary(VehicleID), <<", ">>,
+                                   common:integer_to_binary(DriverID), <<", '">>,
+                                   TimeS, <<"', '">>,
+                                   ServerTimeS, <<"', ">>,
+                                   common:float_to_binary(Lon/1000000.0), <<", ">>,
+                                   common:float_to_binary(Lat/1000000.0), <<", ">>,
+                                   common:integer_to_binary(Height), <<", ">>,
+                                   common:float_to_binary(Speed/10.0), <<", ">>,
+                                   common:integer_to_binary(Direction), <<", ">>,
+                                   common:integer_to_binary(StateFlag), <<", ">>,
+                                   common:integer_to_binary(AlarmSym), <<", '">>, 
+								   list_to_binary(Address), <<"'">>,
+								   AIVal, <<")">>]),
+			%common:loginfo("SQL0 : ~p", [SQL0]),
 			if
 				Lon == 0 orelse Lon == 0.0 orelse Lat == 0 orelse Lat == 0.0 ->
 					if
@@ -2474,78 +2475,74 @@ create_pos_info_sql(Msg, State) ->
 							receive
 								{SelfPid, Info} ->
 									[LonStored, LatStored] = Info,
-						            SQL1 = list_to_binary([<<"replace into vehicle_position_last(vehicle_id, driver_id, gps_time, server_time, longitude, latitude, height, speed, direction, status_flag, alarm_flag">>, 
+						            SQL1 = list_to_binary([<<"replace into vehicle_position_last(vehicle_id, driver_id, gps_time, server_time, longitude, latitude, height, speed, direction, status_flag, alarm_flag, pos_desc">>, 
 														   AIKey, <<", is_online) values(">>,
-						                                  common:integer_to_binary(VehicleID), <<", ">>,
-						                                  common:integer_to_binary(DriverID), <<", '">>,
-						                                  TimeS, <<"', '">>,
-						                                  ServerTimeS, <<"', ">>,
-						                                  common:float_to_binary(LonStored/1000000.0), <<", ">>,
-						                                  common:float_to_binary(LatStored/1000000.0), <<", ">>,
-						                                  common:integer_to_binary(Height), <<", ">>,
-						                                  common:float_to_binary(Speed/10.0), <<", ">>,
-						                                  common:integer_to_binary(Direction), <<", ">>,
-						                                  common:integer_to_binary(StateFlag), <<", ">>,
-						                                  common:integer_to_binary(AlarmSym), AIVal, <<", 1)">>]),
+						                                   common:integer_to_binary(VehicleID), <<", ">>,
+						                                   common:integer_to_binary(DriverID), <<", '">>,
+						                                   TimeS, <<"', '">>,
+						                                   ServerTimeS, <<"', ">>,
+						                                   common:float_to_binary(LonStored/1000000.0), <<", ">>,
+						                                   common:float_to_binary(LatStored/1000000.0), <<", ">>,
+						                                   common:integer_to_binary(Height), <<", ">>,
+						                                   common:float_to_binary(Speed/10.0), <<", ">>,
+						                                   common:integer_to_binary(Direction), <<", ">>,
+						                                   common:integer_to_binary(StateFlag), <<", ">>,
+						                                   common:integer_to_binary(AlarmSym), <<", '">>, 
+														   list_to_binary(Address), <<"'">>,
+														   AIVal, <<", 1)">>]),
 						            {ok, [SQL0, SQL1]}
 							after ?PROC_RESP_TIMEOUT ->
-						            SQL1 = list_to_binary([<<"replace into vehicle_position_last(vehicle_id, driver_id, gps_time, server_time, longitude, latitude, height, speed, direction, status_flag, alarm_flag">>, 
+						            SQL1 = list_to_binary([<<"replace into vehicle_position_last(vehicle_id, driver_id, gps_time, server_time, longitude, latitude, height, speed, direction, status_flag, alarm_flag, pos_desc">>,
 														   AIKey, <<", is_online) values(">>,
-						                                  common:integer_to_binary(VehicleID), <<", ">>,
-						                                  common:integer_to_binary(DriverID), <<", '">>,
-						                                  TimeS, <<"', '">>,
-						                                  ServerTimeS, <<"', ">>,
-						                                  common:float_to_binary(0.0), <<", ">>,
-						                                  common:float_to_binary(0.0), <<", ">>,
-						                                  common:integer_to_binary(Height), <<", ">>,
-						                                  common:float_to_binary(Speed/10.0), <<", ">>,
-						                                  common:integer_to_binary(Direction), <<", ">>,
-						                                  common:integer_to_binary(StateFlag), <<", ">>,
-						                                  common:integer_to_binary(AlarmSym), AIVal, <<", 1)">>]),
+														   common:integer_to_binary(VehicleID), <<", ">>,
+						                                   common:integer_to_binary(DriverID), <<", '">>,
+						                                   TimeS, <<"', '">>,
+						                                   ServerTimeS, <<"', ">>,
+						                                   common:float_to_binary(0.0), <<", ">>,
+						                                   common:float_to_binary(0.0), <<", ">>,
+						                                   common:integer_to_binary(Height), <<", ">>,
+						                                   common:float_to_binary(Speed/10.0), <<", ">>,
+						                                   common:integer_to_binary(Direction), <<", ">>,
+						                                   common:integer_to_binary(StateFlag), <<", ">>,
+						                                   common:integer_to_binary(AlarmSym), <<", '">>, 
+														   list_to_binary(Address), <<"'">>,
+														   AIVal, <<", 1)">>]),
 						            {ok, [SQL0, SQL1]}
 							end;
-							%SQL1 = list_to_binary([<<"update vehicle_position_last set driver_id=">>, common:integer_to_binary(DriverID),
-							%					   <<", gps_time='">>, TimeS,
-							%					   <<"', server_time='">>, ServerTimeS,
-							%					   <<"', height=">>, common:integer_to_binary(Height),
-							%					   <<", speed=">>, common:float_to_binary(Speed/10.0),
-							%					   <<", direction=">>,  common:integer_to_binary(Direction),
-							%					   <<", status_flag=">>, common:integer_to_binary(StateFlag),
-							%					   <<", alarm_flag=">>, common:integer_to_binary(StateFlag),
-							%					   AIKeyVal,
-							%					   <<", is_online=1 where vehicle_id=">>, common:integer_to_binary(VehicleID)]),
-							%common:loginfo("DEBUG : ~p",[SQL1]),
-				            %{ok, [SQL0, SQL1]};
 						true ->
-				            SQL1 = list_to_binary([<<"replace into vehicle_position_last(vehicle_id, driver_id, gps_time, server_time, longitude, latitude, height, speed, direction, status_flag, alarm_flag">>, 
+				            SQL1 = list_to_binary([<<"replace into vehicle_position_last(vehicle_id, driver_id, gps_time, server_time, longitude, latitude, height, speed, direction, status_flag, alarm_flag, pos_desc">>, 
 												   AIKey, <<", is_online) values(">>,
-				                                  common:integer_to_binary(VehicleID), <<", ">>,
-				                                  common:integer_to_binary(DriverID), <<", '">>,
-				                                  TimeS, <<"', '">>,
-				                                  ServerTimeS, <<"', ">>,
-				                                  common:float_to_binary(State#vdritem.lastlon/1000000.0), <<", ">>,
-				                                  common:float_to_binary(State#vdritem.lastlat/1000000.0), <<", ">>,
-				                                  common:integer_to_binary(Height), <<", ">>,
-				                                  common:float_to_binary(Speed/10.0), <<", ">>,
-				                                  common:integer_to_binary(Direction), <<", ">>,
-				                                  common:integer_to_binary(StateFlag), <<", ">>,
-				                                  common:integer_to_binary(AlarmSym), AIVal, <<", 1)">>]),
+				                                   common:integer_to_binary(VehicleID), <<", ">>,
+				                                   common:integer_to_binary(DriverID), <<", '">>,
+				                                   TimeS, <<"', '">>,
+				                                   ServerTimeS, <<"', ">>,
+				                                   common:float_to_binary(State#vdritem.lastlon/1000000.0), <<", ">>,
+				                                   common:float_to_binary(State#vdritem.lastlat/1000000.0), <<", ">>,
+				                                   common:integer_to_binary(Height), <<", ">>,
+				                                   common:float_to_binary(Speed/10.0), <<", ">>,
+				                                   common:integer_to_binary(Direction), <<", ">>,
+				                                   common:integer_to_binary(StateFlag), <<", ">>,
+				                                   common:integer_to_binary(AlarmSym), <<", '">>, 
+												   list_to_binary(Address), <<"'">>,
+												   AIVal, <<", 1)">>]),
 				            {ok, [SQL0, SQL1]}
 					end;
 				true ->
-		            SQL1 = list_to_binary([<<"replace into vehicle_position_last(vehicle_id, driver_id, gps_time, server_time, longitude, latitude, height, speed, direction, status_flag, alarm_flag">>, 
+		            SQL1 = list_to_binary([<<"replace into vehicle_position_last(vehicle_id, driver_id, gps_time, server_time, longitude, latitude, height, speed, direction, status_flag, alarm_flag, pos_desc">>, 
 										   AIKey, <<", is_online) values(">>,
-		                                  common:integer_to_binary(VehicleID), <<", ">>,
-		                                  common:integer_to_binary(DriverID), <<", '">>,
-		                                  TimeS, <<"', '">>,
-		                                  ServerTimeS, <<"', ">>,
-		                                  common:float_to_binary(Lon/1000000.0), <<", ">>,
-		                                  common:float_to_binary(Lat/1000000.0), <<", ">>,
-		                                  common:integer_to_binary(Height), <<", ">>,
-		                                  common:float_to_binary(Speed/10.0), <<", ">>,
-		                                  common:integer_to_binary(Direction), <<", ">>,
-		                                  common:integer_to_binary(StateFlag), <<", ">>,
-		                                  common:integer_to_binary(AlarmSym), AIVal, <<", 1)">>]),
+		                                   common:integer_to_binary(VehicleID), <<", ">>,
+		                                   common:integer_to_binary(DriverID), <<", '">>,
+		                                   TimeS, <<"', '">>,
+		                                   ServerTimeS, <<"', ">>,
+		                                   common:float_to_binary(Lon/1000000.0), <<", ">>,
+		                                   common:float_to_binary(Lat/1000000.0), <<", ">>,
+		                                   common:integer_to_binary(Height), <<", ">>,
+		                                   common:float_to_binary(Speed/10.0), <<", ">>,
+		                                   common:integer_to_binary(Direction), <<", ">>,
+		                                   common:integer_to_binary(StateFlag), <<", ">>,
+		                                   common:integer_to_binary(AlarmSym), <<", '">>,
+										   list_to_binary(Address), <<"'">>,
+										   AIVal, <<", 1)">>]),
 		            {ok, [SQL0, SQL1]}
 			end;
 		_ ->
@@ -2694,18 +2691,18 @@ get_http_gps_lon_lat(Lat, Lon, State) ->
 		1 ->
 			HttpGpsPid ! {Pid, abnormal, [MidLon/1000000.0, MidLat/1000000.0]},
 			receive
-				[FinalLon, FinalLat] ->
-					[FinalLat*1000000.0, FinalLon*1000000.0]
+				[FinalLon, FinalLat, Address] ->
+					[FinalLat*1000000.0, FinalLon*1000000.0, Address]
 			after ?PROC_RESP_TIMEOUT ->
-					[Lat, Lon]
+					[Lat, Lon, []]
 			end;
 		_ ->
 			HttpGpsPid ! {Pid, normal, [MidLon/1000000.0, MidLat/1000000.0]},
 			receive
-				[FinalLon, FinalLat] ->
-					[FinalLat*1000000.0, FinalLon*1000000.0]
+				[FinalLon, FinalLat, Address] ->
+					[FinalLat*1000000.0, FinalLon*1000000.0, Address]
 			after ?PROC_RESP_TIMEOUT ->
-					[Lat, Lon]
+					[Lat, Lon, []]
 			end
 	end.	
 
