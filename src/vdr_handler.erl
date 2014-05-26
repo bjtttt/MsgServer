@@ -2684,8 +2684,9 @@ replace_pos_app_list(Init, _ID, _Item) ->
 
 get_http_gps_lon_lat(Lat, Lon, State) ->
 	{MidLat, MidLon} = get_not_0_lat_lon(Lat, Lon, State),
+	%common:loginfo("MidLat ~p, MidLon ~p, Lat ~p, Lon ~p", [MidLat, MidLon, Lat, Lon]),
 	if
-		MidLat > 54.0 orelse MidLat < 4.0 orelse MidLon > 135.0 orelse MidLon < 73.0 ->
+		MidLat > 54000000.0 orelse MidLat < 4000000.0 orelse MidLon > 135000000.0 orelse MidLon < 73000000.0 ->
 			[MidLat, MidLon, []];
 		true ->
 			Pid = State#vdritem.pid,
