@@ -1558,7 +1558,7 @@ http_gps_deamon(InitialIPPort, State, Count, ACount, FCount, FACount) ->
 											   "/coordinate/simple?sid=15001&xys=", 
 											   SRequest, 
 											   "&resType=xml&rid=123&key=1831beb01605f760589221fdd6f2cdfb7412a767dbc0f004854457f59fb16ab863a3a1722cef553f"]),
-					%common:loginfo("Position : ", [FullRequest]),
+					%common:loginfo("Normal Position : ~p", [FullRequest]),
 					case State of
 						inited ->
 							try
@@ -1584,7 +1584,7 @@ http_gps_deamon(InitialIPPort, State, Count, ACount, FCount, FACount) ->
 																							    "/rgeocode/simple?sid=7001&region=", 
 																							    SRequest2, 
 																							    "&poinum=1&range=3000&encode=UTF-8&resType=json&rid=$rid&roadnum=1&crossnum=0&show_near_districts=true&key=1831beb01605f760589221fdd6f2cdfb7412a767dbc0f004854457f59fb16ab863a3a1722cef553f"]),
-																	%common:loginfo("Address : ", [FullRequest2]),
+																	%common:loginfo("Normal Address : ~p", [FullRequest2]),
 																	try
 																		case httpc:request(FullRequest2) of
 																			{ok, {{_Version2, 200, _ReasonPhrase2}, _Headers2, Body2}} ->
@@ -1664,6 +1664,7 @@ http_gps_deamon(InitialIPPort, State, Count, ACount, FCount, FACount) ->
 											   "/rgeocode/simple?sid=7001&region=", 
 											   SRequest, 
 											   "&poinum=1&range=3000&encode=UTF-8&resType=json&rid=$rid&roadnum=1&crossnum=0&show_near_districts=true&key=1831beb01605f760589221fdd6f2cdfb7412a767dbc0f004854457f59fb16ab863a3a1722cef553f"]),
+					%common:loginfo("Abnormal Address : ~p", [FullRequest]),
 					case State of
 						inited ->
 							try

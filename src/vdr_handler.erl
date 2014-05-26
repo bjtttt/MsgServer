@@ -2684,27 +2684,32 @@ replace_pos_app_list(Init, _ID, _Item) ->
 
 get_http_gps_lon_lat(Lat, Lon, State) ->
 	{MidLat, MidLon} = get_not_0_lat_lon(Lat, Lon, State),
-	Pid = State#vdritem.pid,
-	HttpGpsPid = State#vdritem.httpgpspid,
-	Encrypt = State#vdritem.encrypt,
-	case Encrypt of
-		1 ->
-			HttpGpsPid ! {Pid, abnormal, [MidLon/1000000.0, MidLat/1000000.0]},
-			receive
-				[FinalLon, FinalLat, Address] ->
-					[FinalLat*1000000.0, FinalLon*1000000.0, Address]
-			after ?PROC_RESP_TIMEOUT ->
-					[Lat, Lon, []]
-			end;
-		_ ->
-			HttpGpsPid ! {Pid, normal, [MidLon/1000000.0, MidLat/1000000.0]},
-			receive
-				[FinalLon, FinalLat, Address] ->
-					[FinalLat*1000000.0, FinalLon*1000000.0, Address]
-			after ?PROC_RESP_TIMEOUT ->
-					[Lat, Lon, []]
+	if
+		MidLat > 54.0 orelse MidLat < 4.0 orelse MidLon > 135.0 orelse MidLon < 73.0 ->
+			[MidLat, MidLon, []];
+		true ->
+			Pid = State#vdritem.pid,
+			HttpGpsPid = State#vdritem.httpgpspid,
+			Encrypt = State#vdritem.encrypt,
+			case Encrypt of
+				1 ->
+					HttpGpsPid ! {Pid, abnormal, [MidLon/1000000.0, MidLat/1000000.0]},
+					receive
+						[FinalLon, FinalLat, Address] ->
+							[FinalLat*1000000.0, FinalLon*1000000.0, Address]
+					after ?PROC_RESP_TIMEOUT ->
+							[Lat, Lon, []]
+					end;
+				_ ->
+					HttpGpsPid ! {Pid, normal, [MidLon/1000000.0, MidLat/1000000.0]},
+					receive
+						[FinalLon, FinalLat, Address] ->
+							[FinalLat*1000000.0, FinalLon*1000000.0, Address]
+					after ?PROC_RESP_TIMEOUT ->
+							[Lat, Lon, []]
+					end
 			end
-	end.	
+	end.
 
 get_not_0_lat_lon(Lat, Lon, State) ->
 	if
