@@ -36,23 +36,21 @@ start(StartType, StartArgs) ->
 	case Len of
 		13 ->
 			[PortVDR, PortMon, PortMP, WS, PortWS, DB, DBName, DBUid, DBPwd, MaxR, MaxT, Mode, Path] = StartArgs,
-			startserver(StartType, [PortVDR, PortMon, PortMP, WS, PortWS, DB, DBName, DBUid, DBPwd, MaxR, MaxT, Mode, Path, "58.246.201.138:8081", 0]);
+			startserver(StartType, [PortVDR, PortMon, PortMP, WS, PortWS, DB, DBName, DBUid, DBPwd, MaxR, MaxT, Mode, Path, 0]);
 		14 ->
 			[PortVDR, PortMon, PortMP, WS, PortWS, DB, DBName, DBUid, DBPwd, MaxR, MaxT, Mode, Path, HttpGps] = StartArgs,
 			case HttpGps of
 				1 ->
-					startserver(StartType, [PortVDR, PortMon, PortMP, WS, PortWS, DB, DBName, DBUid, DBPwd, MaxR, MaxT, Mode, Path, "58.246.201.138:8081", 1]);
-				0 ->
-					startserver(StartType, [PortVDR, PortMon, PortMP, WS, PortWS, DB, DBName, DBUid, DBPwd, MaxR, MaxT, Mode, Path, "58.246.201.138:8081", 0]);
+					startserver(StartType, [PortVDR, PortMon, PortMP, WS, PortWS, DB, DBName, DBUid, DBPwd, MaxR, MaxT, Mode, Path, 1]);
 				_ ->
-					common:logerror("Parameter HTTPGPS error : ~p", [HttpGps])
+					startserver(StartType, [PortVDR, PortMon, PortMP, WS, PortWS, DB, DBName, DBUid, DBPwd, MaxR, MaxT, Mode, Path, 0])
 			end;
 		_ ->
 			common:logerror("Parameter count error : ~p", [Len])
 	end.
 	
 startserver(StartType, StartArgs) ->
-    [PortVDR, PortMon, PortMP, WS, PortWS, DB, DBName, DBUid, DBPwd, MaxR, MaxT, Mode, Path, HttpGpsServer, HttpGpsState] = StartArgs,
+    [PortVDR, PortMon, PortMP, WS, PortWS, DB, DBName, DBUid, DBPwd, MaxR, MaxT, Mode, Path, HttpGps] = StartArgs,
     AppPid = self(),
     ets:new(msgservertable,[set,public,named_table,{keypos,1},{read_concurrency,true},{write_concurrency,true}]),
     ets:insert(msgservertable, {portvdr, PortVDR}),
@@ -68,6 +66,7 @@ startserver(StartType, StartArgs) ->
     ets:insert(msgservertable, {maxt, MaxT}),
     ets:insert(msgservertable, {mode, Mode}),
     ets:insert(msgservertable, {path, Path}),
+	HttpGpsServer = "58.246.201.138:8081",
 	ets:insert(msgservertable, {httpgpsserver, HttpGpsServer}),
     ets:insert(msgservertable, {dbpid, undefined}),
     ets:insert(msgservertable, {wspid, undefined}),
@@ -158,7 +157,7 @@ startserver(StartType, StartArgs) ->
 							common:loginfo("HTTP GPS process PID is ~p", [HttpGpsPid]),
 							%common:loginfo("DB miantain process PID is ~p", [DBMaintainPid]),
 
-							case HttpGpsState of
+							case HttpGps of
 								1 ->
 									HttpGpsPid ! init;
 								_ ->
@@ -243,7 +242,7 @@ startserver(StartType, StartArgs) ->
 							common:loginfo("HTTP GPS process PID is ~p", [HttpGpsPid]),
 		                    %common:loginfo("DB miantain process PID is ~p", [DBMaintainPid]),
 		                    
-							case HttpGpsState of
+							case HttpGps of
 								1 ->
 									HttpGpsPid ! init;
 								_ ->
