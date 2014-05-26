@@ -1773,76 +1773,132 @@ get_full_address(Body) ->
 	FullAddressBin.
 
 get_province_name(Body) ->
-	ProvinceBins = binary:split(Body, [<<"\"province\":{\"name\":\"">>], [global]),
-	case length(ProvinceBins) of
-		2 ->
-			[_, ProvinceInfo] = ProvinceBins,
-			ProvinceInfoBins = binary:split(ProvinceInfo, [<<"\",\"ename\":\"">>], [global]),
-			Len = length(ProvinceInfoBins),
-			if
-				Len > 0 ->
-					Province = lists:nth(1, ProvinceInfoBins),
-					Province;
-				true ->
-					<<>>
-			end;
-		_ ->
+	try
+		ProvinceBinsCheck = binary:split(Body, [<<"\"province\":{\"name\":\"\"">>], [global]),
+		LenCheck = length(ProvinceBinsCheck),
+		if
+			LenCheck =/= 1 ->
+				<<>>;
+			true ->
+				ProvinceBins = binary:split(Body, [<<"\"province\":{\"name\":\"">>], [global]),
+				Len1 = length(ProvinceBins),
+				if
+					Len1 > 1 ->
+						ProvinceInfo = lists:nth(2, ProvinceBins),
+						ProvinceInfoBins = binary:split(ProvinceInfo, [<<"\",\"ename\":\"">>], [global]),
+						Len2 = length(ProvinceInfoBins),
+						if
+							Len2 > 0 ->
+								Province = lists:nth(1, ProvinceInfoBins),
+								Province;
+							true ->
+								<<>>
+						end;
+					true ->
+						<<>>
+				end
+		end
+	catch
+		_:_ ->
 			<<>>
 	end.
 
 get_city_name(Body) ->
-	CityBins = binary:split(Body, [<<"\"city\":{\"citycode\":\"">>], [global]),
-	case length(CityBins) of
-		2 ->
-			[_, CityInfo] = CityBins,
-			CityInfoBins = binary:split(CityInfo, [<<"\"name\":\"">>, <<"\",\"ename\":\"">>], [global]),
-			%common:loginfo("CityInfoBins : (~p)~n~p", [length(CityInfoBins), CityInfoBins]),
-			Len = length(CityInfoBins),
-			if
-				Len > 1 ->
-					City = lists:nth(2, CityInfoBins),
-					City;
-				true ->
-					<<>>
-			end;
-		_ ->
+	try
+		CityBins = binary:split(Body, [<<"\"city\":{\"citycode\":\"">>], [global]),
+		Len1 = length(CityBins),
+		if
+			Len1 > 1 ->
+				CityInfo = lists:nth(2, CityBins),
+				CityInfoBody = binary:split(CityInfo, [<<"}">>], [global]),
+				CityInfoPureBody = lists:nth(1, CityInfoBody),
+				CityInfoBinsCheck = binary:split(CityInfoPureBody, [<<"\"name\":\"\"">>], [global]),
+				LenCheck = length(CityInfoBinsCheck),
+				if
+					LenCheck =/= 1 ->
+						<<>>;
+					true ->
+						CityInfoBins = binary:split(CityInfo, [<<"\"name\":\"">>, <<"\",\"ename\":\"">>], [global]),
+						%common:loginfo("CityInfoBins : (~p)~n~p", [length(CityInfoBins), CityInfoBins]),
+						Len2 = length(CityInfoBins),
+						if
+							Len2 > 1 ->
+								City = lists:nth(2, CityInfoBins),
+								City;
+							true ->
+								<<>>
+						end
+				end;
+			true ->
+				<<>>
+		end
+	catch
+		_:_ ->
 			<<>>
 	end.
 
 get_district_name(Body) ->
-	DistrictBins = binary:split(Body, [<<"\"district\":{\"name\":\"">>], [global]),
-	case length(DistrictBins) of
-		2 ->
-			[_, DistrictInfo] = DistrictBins,
-			DistrictInfoBins = binary:split(DistrictInfo, [<<"\",\"ename\":\"">>], [global]),
-			Len = length(DistrictInfoBins),
-			if
-				Len > 0 ->
-					Dictrict = lists:nth(1, DistrictInfoBins),
-					Dictrict;
-				true ->
-					<<>>
-			end;
-		_ ->
+	try
+		DistrictBinsCheck = binary:split(Body, [<<"\"district\":{\"name\":\"\"">>], [global]),
+		LenCheck = length(DistrictBinsCheck),
+		if
+			LenCheck =/= 1 ->
+				<<>>;
+			true ->
+				DistrictBins = binary:split(Body, [<<"\"district\":{\"name\":\"">>], [global]),
+				Len1 = length(DistrictBins),
+				if
+					Len1 > 1 ->
+						DistrictInfo = lists:nth(2, DistrictBins),
+						DistrictInfoBins = binary:split(DistrictInfo, [<<"\",\"ename\":\"">>], [global]),
+						Len2 = length(DistrictInfoBins),
+						if
+							Len2 > 0 ->
+								Dictrict = lists:nth(1, DistrictInfoBins),
+								Dictrict;
+							true ->
+								<<>>
+						end;
+					true ->
+						<<>>
+				end
+		end
+	catch
+		_:_ ->
 			<<>>
 	end.
 
 get_road_name(Body) ->
-	RoadBins = binary:split(Body, [<<"\"roadlist\":[{\"id\":\"">>], [global]),
-	case length(RoadBins) of
-		2 ->
-			[_, RoadInfo] = RoadBins,
-			RoadInfoBins = binary:split(RoadInfo, [<<"\"name\":\"">>, <<"\",\"ename\":\"">>], [global]),
-			%common:loginfo("RoadInfoBins : (~p)~n~p", [length(RoadInfoBins), RoadInfoBins]),
-			Len = length(RoadInfoBins),
-			if
-				Len > 1 ->
-					Road = lists:nth(2, RoadInfoBins),
-					Road;
-				true ->
-					<<>>
-			end;
-		_ ->
+	try
+		RoadBins = binary:split(Body, [<<"\"roadlist\":[{\"id\":\"">>], [global]),
+		Len1 = length(RoadBins),
+		if
+			Len1 > 1 ->
+				RoadInfo = lists:nth(2, RoadBins),
+				RoadInfoBody = binary:split(RoadInfo, [<<"}]">>], [global]),
+				RoadInfoPureBody = lists:nth(1, RoadInfoBody),
+				RoadInfoBinsCheck = binary:split(RoadInfoPureBody, [<<"\"name\":\"\"">>], [global]),
+				LenCheck = length(RoadInfoBinsCheck),
+				if
+					LenCheck =/= 1->
+						<<>>;
+					true ->
+						RoadInfoBins = binary:split(RoadInfo, [<<"\"name\":\"">>, <<"\",\"ename\":\"">>], [global]),
+						%common:loginfo("RoadInfoBins : (~p)~n~p", [length(RoadInfoBins), RoadInfoBins]),
+						Len = length(RoadInfoBins),
+						if
+							Len > 1 ->
+								Road = lists:nth(2, RoadInfoBins),
+								Road;
+							true ->
+								<<>>
+						end
+				end;
+			true ->
+				<<>>
+		end
+	catch
+		_:_ ->
 			<<>>
 	end.
 
