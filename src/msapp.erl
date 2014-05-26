@@ -1643,7 +1643,7 @@ http_gps_deamon(InitialIPPort, State, Count, ACount, FCount, FACount) ->
 									http_gps_deamon(InitialIPPort, State, Count, ACount, FCount+1, FACount)
 							end;
 						uninit ->
-							common:logerror("HTTP GPS request fails because of uninit state"),
+							%common:logerror("HTTP GPS request fails because of uninit state"),
 							Pid ! [LonReq, LatReq, []],
 							http_gps_deamon(InitialIPPort, State, Count, ACount, FCount+1, FACount);
 						_ ->
@@ -1692,7 +1692,7 @@ http_gps_deamon(InitialIPPort, State, Count, ACount, FCount, FACount) ->
 									http_gps_deamon(InitialIPPort, State, Count, ACount, FCount, FACount+1)
 							end;
 						uninit ->
-							common:logerror("HTTP GPS address request fails because of uninit state"),
+							%common:logerror("HTTP GPS address request fails because of uninit state"),
 							Pid ! [LonReq, LatReq, []],
 							http_gps_deamon(InitialIPPort, State, Count, ACount, FCount, FACount+1);
 						_ ->
