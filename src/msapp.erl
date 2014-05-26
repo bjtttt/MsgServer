@@ -45,7 +45,7 @@ start(StartType, StartArgs) ->
 				0 ->
 					startserver(StartType, [PortVDR, PortMon, PortMP, WS, PortWS, DB, DBName, DBUid, DBPwd, MaxR, MaxT, Mode, Path, "58.246.201.138:8081", 0]);
 				_ ->
-					startserver(StartType, [PortVDR, PortMon, PortMP, WS, PortWS, DB, DBName, DBUid, DBPwd, MaxR, MaxT, Mode, Path, HttpGps, 1])
+					common:logerror("Parameter HTTPGPS error : ~p", [HttpGps])
 			end;
 		_ ->
 			common:logerror("Parameter count error : ~p", [Len])
