@@ -131,7 +131,7 @@ startserver(StartType, StartArgs) ->
 		                    LastPosTablePid = spawn(fun() -> lastpostable_insert_delete_process() end),
 							DBOperationPid = spawn(fun() -> db_data_operation_process(DBPid) end),
 							MysqlActivePid = spawn(fun() -> mysql_active_process(DBPid) end),
-							HttpGpsPid = spawn(fun() -> http_gps_deamon(HttpGpsServer, uninit, 0, 0, 0, 0) end),
+							%HttpGpsPid = spawn(fun() -> http_gps_deamon(HttpGpsServer, uninit, 0, 0, 0, 0) end),
 							%DBMaintainPid = spawn(fun() -> db_data_maintain_process(DBPid, DBOperationPid, Mode) end),
 		                    ets:insert(msgservertable, {dbpid, DBPid}),
 		                    ets:insert(msgservertable, {wspid, WSPid}),
@@ -143,7 +143,7 @@ startserver(StartType, StartArgs) ->
 		                    ets:insert(msgservertable, {lastpostablepid, LastPosTablePid}),
 							ets:insert(msgservertable, {dboperationpid, DBOperationPid}),
 							ets:insert(msgservertable, {mysqlactivepid, MysqlActivePid}),
-							ets:insert(msgservertable, {httpgpspid, HttpGpsPid}),
+							%ets:insert(msgservertable, {httpgpspid, HttpGpsPid}),
 		                    %ets:insert(msgservertable, {dbmaintainpid, VdrTablePid}),
 		                    common:loginfo("WS client process PID is ~p", [WSPid]),
 		                    common:loginfo("DB client process PID is ~p", [DBPid]),
@@ -154,15 +154,15 @@ startserver(StartType, StartArgs) ->
 		                    common:loginfo("Last pos table processor process PID is ~p", [LastPosTablePid]),
 							common:loginfo("DB operation process PID is ~p", [DBOperationPid]),
 							common:loginfo("Mysql active process PID is ~p", [MysqlActivePid]),
-							common:loginfo("HTTP GPS process PID is ~p", [HttpGpsPid]),
+							%common:loginfo("HTTP GPS process PID is ~p", [HttpGpsPid]),
 							%common:loginfo("DB miantain process PID is ~p", [DBMaintainPid]),
 
-							case HttpGps of
-								1 ->
-									HttpGpsPid ! init;
-								_ ->
-									ok
-							end,
+							%case HttpGps of
+							%	1 ->
+							%		HttpGpsPid ! init;
+							%	_ ->
+							%		ok
+							%end,
 							%HttpGpsPid ! {self(), normal, [116.283016, 39.959856]},
 							%HttpGpsPid ! {self(), abnormal, [116.283016, 39.959856]},
 		                    
@@ -191,6 +191,15 @@ startserver(StartType, StartArgs) ->
 												                    receive
 												                        created ->
 												                            common:loginfo("Code convertor table is created"),
+																			HttpGpsPid = spawn(fun() -> http_gps_deamon(HttpGpsServer, CCPid, uninit, 0, 0, 0, 0) end),
+																			ets:insert(msgservertable, {httpgpspid, HttpGpsPid}),
+																			common:loginfo("HTTP GPS process PID is ~p", [HttpGpsPid]),
+																			case HttpGps of
+																				1 ->
+																					HttpGpsPid ! init;
+																				_ ->
+																					ok
+																			end,
 												                            {ok, AppPid}
 												                        after ?TIMEOUT_CC_INIT_PROCESS ->
 												                            {error, "ERROR : code convertor table is timeout"}
@@ -218,7 +227,7 @@ startserver(StartType, StartArgs) ->
 		                    LastPosTablePid = spawn(fun() -> lastpostable_insert_delete_process() end),
 							DBOperationPid = spawn(fun() -> db_data_operation_process(DBPid) end),
 							MysqlActivePid = spawn(fun() -> mysql_active_process(DBPid) end),
-							HttpGpsPid = spawn(fun() -> http_gps_deamon(HttpGpsServer, uninit, 0, 0, 0, 0) end),
+							%HttpGpsPid = spawn(fun() -> http_gps_deamon(HttpGpsServer, uninit, 0, 0, 0, 0) end),
 							%DBMaintainPid = spawn(fun() -> db_data_maintain_process(DBPid, DBOperationPid, Mode) end),
 		                    ets:insert(msgservertable, {dbpid, DBPid}),
 		                    ets:insert(msgservertable, {linkpid, LinkPid}),
@@ -229,7 +238,7 @@ startserver(StartType, StartArgs) ->
 		                    ets:insert(msgservertable, {lastpostablepid, LastPosTablePid}),
 							ets:insert(msgservertable, {dboperationpid, DBOperationPid}),
 							ets:insert(msgservertable, {mysqlactivepid, MysqlActivePid}),
-							ets:insert(msgservertable, {httpgpspid, HttpGpsPid}),
+							%ets:insert(msgservertable, {httpgpspid, HttpGpsPid}),
 							%ets:insert(msgservertable, {dbmaintainpid, DBMaintainPid}),
 		                    common:loginfo("DB client process PID is ~p", [DBPid]),
 		                    common:loginfo("DB table deamon process PID is ~p", [DBTablePid]),
@@ -239,15 +248,15 @@ startserver(StartType, StartArgs) ->
 		                    common:loginfo("Last pos table processor process PID is ~p", [LastPosTablePid]),
 		                    common:loginfo("DB operation process PID is ~p", [DBOperationPid]),
 							common:loginfo("Mysql active process PID is ~p", [MysqlActivePid]),
-							common:loginfo("HTTP GPS process PID is ~p", [HttpGpsPid]),
+							%common:loginfo("HTTP GPS process PID is ~p", [HttpGpsPid]),
 		                    %common:loginfo("DB miantain process PID is ~p", [DBMaintainPid]),
 		                    
-							case HttpGps of
-								1 ->
-									HttpGpsPid ! init;
-								_ ->
-									ok
-							end,
+							%case HttpGps of
+							%	1 ->
+							%		HttpGpsPid ! init;
+							%	_ ->
+							%		ok
+							%end,
 							
 							common:loginfo("DB coding setting"),
 				            DBPid ! {AppPid, conn, <<"set names 'utf8'">>},
@@ -274,6 +283,15 @@ startserver(StartType, StartArgs) ->
 												                    receive
 												                        created ->
 												                            common:loginfo("Code convertor table is created"),
+																			HttpGpsPid = spawn(fun() -> http_gps_deamon(HttpGpsServer, CCPid, uninit, 0, 0, 0, 0) end),
+																			ets:insert(msgservertable, {httpgpspid, HttpGpsPid}),
+																			common:loginfo("HTTP GPS process PID is ~p", [HttpGpsPid]),
+																			case HttpGps of
+																				1 ->
+																					HttpGpsPid ! init;
+																				_ ->
+																					ok
+																			end,
 												                            {ok, AppPid}
 												                        after ?TIMEOUT_CC_INIT_PROCESS ->
 												                            {error, "ERROR : code convertor table is timeout"}
@@ -1547,7 +1565,7 @@ add(Date, N, years) ->
     add(Date, 12*N, months).
      
 
-http_gps_deamon(InitialIPPort, State, Count, ACount, FCount, FACount) ->
+http_gps_deamon(InitialIPPort, CCPid, State, Count, ACount, FCount, FACount) ->
 	receive
 		{Pid, normal, Request} ->
 			[LonReq, LatReq] = Request,
@@ -1589,7 +1607,7 @@ http_gps_deamon(InitialIPPort, State, Count, ACount, FCount, FACount) ->
 																		case httpc:request(FullRequest2) of
 																			{ok, {{_Version2, 200, _ReasonPhrase2}, _Headers2, Body2}} ->
 																				BodyB2 = list_to_binary(Body2),
-																				FullAddrBin2 = get_full_address(BodyB2),
+																				FullAddrBin2 = get_full_address(BodyB2, CCPid),
 																				case FullAddrBin2 of
 																					<<>> ->
 																						Pid ! [Lon, Lat, []];
@@ -1597,63 +1615,63 @@ http_gps_deamon(InitialIPPort, State, Count, ACount, FCount, FACount) ->
 																						FullAddr = binary_to_list(FullAddrBin2),
 																						Pid ! [Lon, Lat, FullAddr]
 																				end,
-																				http_gps_deamon(InitialIPPort, State, Count+1, ACount, FCount, FACount);
+																				http_gps_deamon(InitialIPPort, CCPid, State, Count+1, ACount, FCount, FACount);
 																			{error, Reason2} ->
 																				common:logerror("HTTP GPS address request fails : ~p", [Reason2]),
 																				Pid ! [Lon, Lat, []],
-																				http_gps_deamon(InitialIPPort, State, Count, ACount, FCount+1, FACount)
+																				http_gps_deamon(InitialIPPort, CCPid, State, Count, ACount, FCount+1, FACount)
 																		end
 																	catch
 																		Oper2:ExReason2 ->
 																			common:logerror("HTTP GPS address request exception : (~p) ~p", [Oper2, ExReason2]),
 																			Pid ! [Lon, Lat, []],
-																			http_gps_deamon(InitialIPPort, State, Count, ACount, FCount+1, FACount)
+																			http_gps_deamon(InitialIPPort, CCPid, State, Count, ACount, FCount+1, FACount)
 																	end;
 																error ->
 																	common:logerror("HTTP GPS address request fails because of conversion error"),
 																	Pid ! [Lon, Lat, []],
-																	http_gps_deamon(InitialIPPort, State, Count, ACount, FCount+1, FACount)
+																	http_gps_deamon(InitialIPPort, CCPid, State, Count, ACount, FCount+1, FACount)
 															end
 														catch
 															_:_ ->
 																common:logerror("HTTP GPS request fails : cannot convert longitude and latitude ~p", [Body]),
 																Pid ! [LonReq, LatReq, []],
-																http_gps_deamon(InitialIPPort, State, Count, ACount, FCount+1, FACount)
+																http_gps_deamon(InitialIPPort, CCPid, State, Count, ACount, FCount+1, FACount)
 														end;
 													_ ->
 														common:logerror("HTTP GPS request fails : cannot convert longitude/latitude ~p", [Body]),
 														Pid ! [LonReq, LatReq, []],
-														http_gps_deamon(InitialIPPort, State, Count, ACount, FCount+1, FACount)
+														http_gps_deamon(InitialIPPort, CCPid, State, Count, ACount, FCount+1, FACount)
 												end;
 											_ ->
 												common:logerror("HTTP GPS request fails : response error ~p", [Body]),
 												Pid ! [LonReq, LatReq, []],
-												http_gps_deamon(InitialIPPort, State, Count, ACount, FCount+1, FACount)
+												http_gps_deamon(InitialIPPort, CCPid, State, Count, ACount, FCount+1, FACount)
 										end;
 									{error, Reason} ->
 										common:logerror("HTTP GPS request fails : ~p", [Reason]),
 										Pid ! [LonReq, LatReq, []],
-										http_gps_deamon(InitialIPPort, State, Count, ACount, FCount+1, FACount)
+										http_gps_deamon(InitialIPPort, CCPid, State, Count, ACount, FCount+1, FACount)
 								end
 							catch
 								Oper:ExReason ->
 									common:logerror("HTTP GPS request exception : (~p) ~p", [Oper, ExReason]),
 									Pid ! [LonReq, LatReq, []],
-									http_gps_deamon(InitialIPPort, State, Count, ACount, FCount+1, FACount)
+									http_gps_deamon(InitialIPPort, CCPid, State, Count, ACount, FCount+1, FACount)
 							end;
 						uninit ->
 							%common:logerror("HTTP GPS request fails because of uninit state"),
 							Pid ! [LonReq, LatReq, []],
-							http_gps_deamon(InitialIPPort, State, Count, ACount, FCount+1, FACount);
+							http_gps_deamon(InitialIPPort, CCPid, State, Count, ACount, FCount+1, FACount);
 						_ ->
 							common:logerror("HTTP GPS request fails because of unknown state"),
 							Pid ! [LonReq, LatReq, []],
-							http_gps_deamon(InitialIPPort, State, Count, ACount, FCount+1, FACount)
+							http_gps_deamon(InitialIPPort, CCPid, State, Count, ACount, FCount+1, FACount)
 					end;
 				error ->
 					common:logerror("HTTP GPS request fails because of unknown state"),
 					Pid ! [LonReq, LatReq, []],
-					http_gps_deamon(InitialIPPort, State, Count, ACount, FCount+1, FACount)
+					http_gps_deamon(InitialIPPort, State, CCPid, Count, ACount, FCount+1, FACount)
 			end;
 		{Pid, abnormal, Request} ->
 			[LonReq, LatReq] = Request,
@@ -1671,7 +1689,7 @@ http_gps_deamon(InitialIPPort, State, Count, ACount, FCount, FACount) ->
 								case httpc:request(FullRequest) of
 									{ok, {{_Version, 200, _ReasonPhrase}, _Headers, Body}} ->
 										BodyB = list_to_binary(Body),
-										FullAddrBin = get_full_address(BodyB),
+										FullAddrBin = get_full_address(BodyB, CCPid),
 										case FullAddrBin of
 											<<>> ->
 												Pid ! [LonReq, LatReq, []];
@@ -1679,62 +1697,62 @@ http_gps_deamon(InitialIPPort, State, Count, ACount, FCount, FACount) ->
 												FullAddr = binary_to_list(FullAddrBin),
 												Pid ! [LonReq, LatReq, FullAddr]
 										end,
-										http_gps_deamon(InitialIPPort, State, Count, ACount+1, FCount, FACount);
+										http_gps_deamon(InitialIPPort, CCPid, State, Count, ACount+1, FCount, FACount);
 									{error, Reason} ->
 										common:logerror("HTTP GPS address request fails : ~p", [Reason]),
 										Pid ! [LonReq, LatReq, []],
-										http_gps_deamon(InitialIPPort, State, Count, ACount, FCount, FACount+1)
+										http_gps_deamon(InitialIPPort, CCPid, State, Count, ACount, FCount, FACount+1)
 								end
 							catch
 								Oper:ExReason ->
 									common:logerror("HTTP GPS address request exception : (~p) ~p", [Oper, ExReason]),
 									Pid ! [LonReq, LatReq, []],
-									http_gps_deamon(InitialIPPort, State, Count, ACount, FCount, FACount+1)
+									http_gps_deamon(InitialIPPort, CCPid, State, Count, ACount, FCount, FACount+1)
 							end;
 						uninit ->
 							%common:logerror("HTTP GPS address request fails because of uninit state"),
 							Pid ! [LonReq, LatReq, []],
-							http_gps_deamon(InitialIPPort, State, Count, ACount, FCount, FACount+1);
+							http_gps_deamon(InitialIPPort, CCPid, State, Count, ACount, FCount, FACount+1);
 						_ ->
 							common:logerror("HTTP GPS request fails because of unknown state"),
 							Pid ! [LonReq, LatReq, []],
-							http_gps_deamon(InitialIPPort, State, Count, ACount, FCount, FACount+1)
+							http_gps_deamon(InitialIPPort, CCPid, State, Count, ACount, FCount, FACount+1)
 					end;
 				error ->
 					common:logerror("HTTP GPS address request fails because of conversion error"),
 					Pid ! [LonReq, LatReq, []],
-					http_gps_deamon(InitialIPPort, State, Count, ACount, FCount, FACount+1)
+					http_gps_deamon(InitialIPPort, CCPid, State, Count, ACount, FCount, FACount+1)
 			end;
 		{server, IPPort} ->
-			http_gps_deamon(IPPort, State, Count, ACount, FCount, FACount);
+			http_gps_deamon(IPPort, CCPid, State, Count, ACount, FCount, FACount);
 		init ->
 			case State of
 				uninit ->
 					case inets:start() of
 						ok ->
-							http_gps_deamon(InitialIPPort, inited, 0, 0, 0, 0);
+							http_gps_deamon(InitialIPPort, CCPid, inited, 0, 0, 0, 0);
 						{error, Reason} ->
 							common:logerror("Cannot start HTTP GPS inets : ~p", [Reason]),
-							http_gps_deamon(InitialIPPort, State, Count, ACount, FCount, FACount)
+							http_gps_deamon(InitialIPPort, CCPid, State, Count, ACount, FCount, FACount)
 					end;
 				inited ->
 					common:logerror("HTTP GPS inets already inited for init command"),
-					http_gps_deamon(InitialIPPort, State, Count, ACount, FCount, FACount);
+					http_gps_deamon(InitialIPPort, CCPid, State, Count, ACount, FCount, FACount);
 				_ ->
 					common:logerror("HTTP GPS inets unknown state for init command"),
-					http_gps_deamon(InitialIPPort, State, Count, ACount, FCount, FACount)
+					http_gps_deamon(InitialIPPort, CCPid, State, Count, ACount, FCount, FACount)
 			end;
 		release ->
 			case State of
 				uninit ->
 					common:logerror("HTTP GPS inets already uninit for release command"),
-					http_gps_deamon(InitialIPPort, State, Count, ACount, FCount, FACount);
+					http_gps_deamon(InitialIPPort, CCPid, State, Count, ACount, FCount, FACount);
 				inited ->
 					inets:stop(),
-					http_gps_deamon(InitialIPPort, uninit, Count, ACount, FCount, FACount);
+					http_gps_deamon(InitialIPPort, CCPid, uninit, Count, ACount, FCount, FACount);
 				_ ->
 					common:logerror("HTTP GPS inets unknwon state for release command"),
-					http_gps_deamon(InitialIPPort, State, Count, ACount, FCount, FACount)
+					http_gps_deamon(InitialIPPort, CCPid, State, Count, ACount, FCount, FACount)
 			end;
 		stop ->
 			case State of
@@ -1747,10 +1765,10 @@ http_gps_deamon(InitialIPPort, State, Count, ACount, FCount, FACount) ->
 			end;
 		{Pid, get} ->
 			Pid ! {InitialIPPort, State, Count, ACount, FCount, FACount},
-			http_gps_deamon(InitialIPPort, State, Count, ACount, FCount, FACount);
+			http_gps_deamon(InitialIPPort, CCPid, State, Count, ACount, FCount, FACount);
 		_ ->
 			common:logerror("HTTP GPS process receive unknown msg."),
-			http_gps_deamon(InitialIPPort, State, Count, ACount, FCount, FACount)
+			http_gps_deamon(InitialIPPort, CCPid, State, Count, ACount, FCount, FACount)
 	end.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -1759,20 +1777,32 @@ http_gps_deamon(InitialIPPort, State, Count, ACount, FCount, FACount) ->
 % Return binary address
 %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-get_full_address(Body) ->
+get_full_address(Body, CCPid) ->
+	Pid = self(),
 	%common:loginfo("Body : ~p", [Body]),
-	Province = get_province_name(Body),
+	Province = get_province_name(Body, Pid, CCPid),
 	%common:loginfo("Province : ~p", [Province]),
-	City = get_city_name(Body),
+	City = get_city_name(Body, Pid, CCPid),
 	%common:loginfo("City : ~p", [City]),
-	District = get_district_name(Body),
+	District = get_district_name(Body, Pid, CCPid),
 	%common:loginfo("District : ~p", [District]),
-	Road = get_road_name(Body),
+	Road = get_road_name(Body, Pid, CCPid),
 	%common:loginfo("Road : ~p", [Road]),
-	FullAddressBin = list_to_binary([Province, City, District, Road]),
-	FullAddressBin.
+	%list_to_binary([Province, City, District, Road]).
+	Address = list_to_binary([Province, City, District, Road]),
+	%common:loginfo("Address : (Binary ~p, List ~p) ~p", [is_binary(Address), is_list(Address), Address]),
+	Address.
+	%CCPid ! {Pid, utf8togbk, Address},
+	%receive
+	%	AddressNew ->
+	%		common:loginfo("New Address : (Binary ~p, List ~p) ~p", [is_binary(AddressNew), is_list(AddressNew), AddressNew]),
+	%		list_to_binary(AddressNew)
+	%after ?TIMEOUT_CC_PROCESS ->
+	%		common:loginfo("Address : (Binary ~p, List ~p) ~p", [is_binary(Address), is_list(Address), Address]),
+	%		list_to_binary(Address)
+	%end.
 
-get_province_name(Body) ->
+get_province_name(Body, Pid, CCPid) ->
 	try
 		ProvinceBinsCheck = binary:split(Body, [<<"\"province\":{\"name\":\"\"">>], [global]),
 		LenCheck = length(ProvinceBinsCheck),
@@ -1789,8 +1819,17 @@ get_province_name(Body) ->
 						Len2 = length(ProvinceInfoBins),
 						if
 							Len2 > 0 ->
-								Province = lists:nth(1, ProvinceInfoBins),
-								Province;
+								lists:nth(1, ProvinceInfoBins);
+								%Province = lists:nth(1, ProvinceInfoBins),
+								%CCPid ! {Pid, utf8togbk, Province},
+								%receive
+								%	ProvinceNew ->
+								%		common:loginfo("Province New : (Binary ~p, List ~p) ~p", [is_binary(ProvinceNew), is_list(ProvinceNew), ProvinceNew]),
+								%		list_to_binary(ProvinceNew)
+								%after ?TIMEOUT_CC_PROCESS ->
+								%		common:loginfo("Province : (Binary ~p, List ~p) ~p", [is_binary(Province), is_list(Province), Province]),
+								%		list_to_binary(Province)
+								%end;
 							true ->
 								<<>>
 						end;
@@ -1803,7 +1842,7 @@ get_province_name(Body) ->
 			<<>>
 	end.
 
-get_city_name(Body) ->
+get_city_name(Body, Pid, CCPid) ->
 	try
 		CityBins = binary:split(Body, [<<"\"city\":{\"citycode\":\"">>], [global]),
 		Len1 = length(CityBins),
@@ -1823,8 +1862,17 @@ get_city_name(Body) ->
 						Len2 = length(CityInfoBins),
 						if
 							Len2 > 1 ->
-								City = lists:nth(2, CityInfoBins),
-								City;
+								lists:nth(2, CityInfoBins);
+								%City = lists:nth(2, CityInfoBins),
+								%CCPid ! {Pid, utf8togbk, City},
+								%receive
+								%	CityNew ->
+								%		common:loginfo("City New : (Binary ~p, List ~p) ~p", [is_binary(CityNew), is_list(CityNew), CityNew]),
+								%		list_to_binary(CityNew)
+								%after ?TIMEOUT_CC_PROCESS ->
+								%		common:loginfo("City : (Binary ~p, List ~p) ~p", [is_binary(City), is_list(City), City]),
+								%		list_to_binary(City)
+								%end;
 							true ->
 								<<>>
 						end
@@ -1837,7 +1885,7 @@ get_city_name(Body) ->
 			<<>>
 	end.
 
-get_district_name(Body) ->
+get_district_name(Body, Pid, CCPid) ->
 	try
 		DistrictBinsCheck = binary:split(Body, [<<"\"district\":{\"name\":\"\"">>], [global]),
 		LenCheck = length(DistrictBinsCheck),
@@ -1854,8 +1902,17 @@ get_district_name(Body) ->
 						Len2 = length(DistrictInfoBins),
 						if
 							Len2 > 0 ->
-								Dictrict = lists:nth(1, DistrictInfoBins),
-								Dictrict;
+								lists:nth(1, DistrictInfoBins);
+								%Dictrict = lists:nth(1, DistrictInfoBins),
+								%CCPid ! {Pid, utf8togbk, Dictrict},
+								%receive
+								%	DictrictNew ->
+								%		common:loginfo("Dictrict New : (Binary ~p, List ~p) ~p", [is_binary(DictrictNew), is_list(DictrictNew), DictrictNew]),
+								%		list_to_binary(DictrictNew)
+								%after ?TIMEOUT_CC_PROCESS ->
+								%		common:loginfo("Dictrict : (Binary ~p, List ~p) ~p", [is_binary(Dictrict), is_list(Dictrict), Dictrict]),
+								%		list_to_binary(Dictrict)
+								%end;
 							true ->
 								<<>>
 						end;
@@ -1868,7 +1925,7 @@ get_district_name(Body) ->
 			<<>>
 	end.
 
-get_road_name(Body) ->
+get_road_name(Body, Pid, CCPid) ->
 	try
 		RoadBins = binary:split(Body, [<<"\"roadlist\":[{\"id\":\"">>], [global]),
 		Len1 = length(RoadBins),
@@ -1888,8 +1945,17 @@ get_road_name(Body) ->
 						Len = length(RoadInfoBins),
 						if
 							Len > 1 ->
-								Road = lists:nth(2, RoadInfoBins),
-								Road;
+								lists:nth(2, RoadInfoBins);
+								%Road = lists:nth(2, RoadInfoBins),
+								%CCPid ! {Pid, utf8togbk, Road},
+								%receive
+								%	RoadNew ->
+								%		common:loginfo("Road New : (Binary ~p, List ~p) ~p", [is_binary(RoadNew), is_list(RoadNew), RoadNew]),
+								%		list_to_binary(RoadNew)
+								%after ?TIMEOUT_CC_PROCESS ->
+								%		common:loginfo("Road : (Binary ~p, List ~p) ~p", [is_binary(Road), is_list(Road), Road]),
+								%		list_to_binary(Road)
+								%end;
 							true ->
 								<<>>
 						end
