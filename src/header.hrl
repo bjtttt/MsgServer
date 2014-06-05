@@ -200,7 +200,8 @@
 
 -record(driverinfo, {	driverid=undefined,
 						licno=undefined,
-						certcode=undefined
+						certcode=undefined,
+						online=false
 					 }).
 
 -record(lastposinfo, {	vehicleid=undefined,

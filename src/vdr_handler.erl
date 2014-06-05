@@ -482,6 +482,7 @@ process_vdr_data(Socket, Data, State) ->
                                         VehicleID == undefined orelse VehicleCode==undefined ->
                                             {error, autherror, NewState};
                                         true ->
+											CertCode = get_driver_cc_by_driver_id(NewState, DriverID),
 											disconn_socket_by_vehicle_id(VehicleID),
                                             SockVdrList = ets:lookup(vdrtable, Socket),
                                             case length(SockVdrList) of
@@ -504,6 +505,7 @@ process_vdr_data(Socket, Data, State) ->
                                                                                                   vehicleid=VehicleID,
                                                                                                   vehiclecode=binary_to_list(VehicleCode),
 																					              driverid=DriverID,
+																								  drivercertcode=CertCode,
                                                                                                   msgflownum=NewFlowIdx, msg2vdr=[], msg=[], req=[],
 																					              alarm=0, alarmlist=Alarms, state=0, statelist=[], tel=Tel},
                                                                     VDRTablePid = NewState#vdritem.vdrtablepid,
@@ -530,6 +532,7 @@ process_vdr_data(Socket, Data, State) ->
                                                                                                   vehicleid=VehicleID,
                                                                                                   vehiclecode=binary_to_list(VehicleCode),
 																					              driverid=DriverID,
+																								  drivercertcode=CertCode,
                                                                                                   msgflownum=NewFlowIdx, msg2vdr=[], msg=[], req=[],
 																					              alarm=0, alarmlist=[], state=0, statelist=[], tel=Tel},
                                                                     VDRTablePid = NewState#vdritem.vdrtablepid,
@@ -941,6 +944,7 @@ process_vdr_data(Socket, Data, State) ->
 									if
 										MsgLength == 2 ->
 											%common:loginfo("Delete Driver ID, Certificate Code"),
+											DriverTablePid ! {SelfPid, offwork, NewState#vdritem.drivercertcode},
 											{ok, NewState#vdritem{msgflownum=NewFlowIdx,driverid=undefined,drivercertcode=undefined}};
 										MsgLength == 9 ->
 											%if
@@ -954,6 +958,7 @@ process_vdr_data(Socket, Data, State) ->
 															{ok, NewState#vdritem{msgflownum=NewFlowIdx}};
 														true ->
 															%common:loginfo("New Driver ID : ~p, Certificate Code : ~p", [NewDriverID, C1]),
+															DriverTablePid ! {SelfPid, onwork, C1},
 															{ok, NewState#vdritem{msgflownum=NewFlowIdx,driverid=NewDriverID,drivercertcode=C1}}
 													end
 											after ?PROC_RESP_TIMEOUT ->
@@ -2410,6 +2415,39 @@ get_driver_cert_code(State) ->
 			"";
 		_ ->
 			CertCode
+	end.
+
+get_driver_cc_by_driver_id(State, DriverID) ->
+	DriverTablePid = State#vdritem.drivertablepid,
+	Pid = State#vdritem.pid,
+	DriverID = State#vdritem.driverid,
+	IsInt = is_integer(DriverID),
+	if
+		IsInt == true ->
+			DriverTablePid ! {Pid, getcc, DriverID},
+			receive
+				{Pid, CertCode} ->
+					case CertCode of
+						[] ->
+							undefined;
+						_ ->
+							CertCode
+					end
+			after ?PROC_RESP_TIMEOUT ->
+					undefined
+			end;
+		true ->
+			undefined
+	end.
+
+set_driver_onoffwork(State, CertCode, WorkState) ->
+	DriverTablePid = State#vdritem.drivertablepid,
+	Pid = State#vdritem.pid,
+	if
+		WorkState == true orelse WorkState == false ->
+			DriverTablePid ! {Pid, WorkState, CertCode};
+		true ->
+			ok
 	end.
 
 %create_pos_info_sql(Msg, State) ->

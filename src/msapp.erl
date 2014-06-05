@@ -496,7 +496,8 @@ do_init_drivertable(DriverResult) when is_list(DriverResult),
 	{<<"driver">>, <<"certificate_code">>, CertCode} = vdr_handler:get_record_field(<<"driver">>, H, <<"certificate_code">>),
 	DriverItem = #driverinfo{driverid=ID, 
 							 licno=LicNo, 
-							 certcode=CertCode},
+							 certcode=CertCode,
+							 online=false},
 	%common:loginfo("Driver : ~p", [DriverItem]),
 	ets:insert(drivertable, DriverItem),
 	do_init_drivertable(T);
@@ -843,7 +844,7 @@ drivertable_insert_delete_process() ->
 			if
 				IsInt == true ->
 				    DriverInfos = ets:match(drivertable, {'$1',
-														  DriverID, '_', '_'}),
+														  DriverID, '_', '_', '_'}),
 		    		DriverInfosCount = length(DriverInfos),
 					if
 						DriverInfosCount > 0 ->
@@ -855,6 +856,115 @@ drivertable_insert_delete_process() ->
 					Pid ! {Pid, 0}
 			end,					
 			drivertable_insert_delete_process();
+		{Pid, onwork, CertCode} ->
+			IsList = is_list(CertCode),
+			if
+				IsList == true ->
+					try
+						CertCodeBin = erlang:list_to_binary(CertCode),
+					    DriverInfos = ets:match(drivertable, {'_',
+															  '$1', '$2', CertCodeBin, '_'}),
+			    		DriverInfosCount = length(DriverInfos),
+						if
+							DriverInfosCount == 1 ->
+								[[DriverID, LicNo]] = DriverInfos,
+								DriverInfoItem = #driverinfo{driverid=DriverID, licno=LicNo, certcode=CertCodeBin, online=true},
+								ets:insert(drivertable, DriverInfoItem);
+							true ->
+								common:loginfo("Get > 1 driver item by certificate_code ~p", [CertCode])
+						end
+					catch
+						_:_ ->
+							common:loginfo("Exception when getting driver item by certificate_code ~p", [CertCode])
+					end;
+				true ->
+					IsBin = is_binary(CertCode),
+					if
+						IsBin == true ->
+						    DriverInfos = ets:match(drivertable, {'_',
+																  '$1', '$2', CertCode, '_'}),
+				    		DriverInfosCount = length(DriverInfos),
+							if
+								DriverInfosCount == 1 ->
+									[[DriverID, LicNo]] = DriverInfos,
+									DriverInfoItem = #driverinfo{driverid=DriverID, licno=LicNo, certcode=CertCode, online=true},
+									ets:insert(drivertable, DriverInfoItem);
+								true ->
+									common:loginfo("Get > 1 driver item by certificate_code ~p", [CertCode])
+							end;
+						true ->
+							common:loginfo("Cannot get driver item by certificate_code ~p", [CertCode])
+					end
+			end,					
+			drivertable_insert_delete_process();
+		{Pid, offwork, CertCode} ->
+			IsList = is_list(CertCode),
+			if
+				IsList == true ->
+					try
+						CertCodeBin = erlang:list_to_binary(CertCode),
+					    DriverInfos = ets:match(drivertable, {'_',
+															  '$1', '$2', CertCodeBin, '_'}),
+			    		DriverInfosCount = length(DriverInfos),
+						if
+							DriverInfosCount == 1 ->
+								[[DriverID, LicNo]] = DriverInfos,
+								DriverInfoItem = #driverinfo{driverid=DriverID, licno=LicNo, certcode=CertCodeBin, online=false},
+								ets:insert(drivertable, DriverInfoItem);
+							true ->
+								common:loginfo("Get > 1 driver item by certificate_code ~p", [CertCode])
+						end
+					catch
+						_:_ ->
+							common:loginfo("Exception when getting driver item by certificate_code ~p", [CertCode])
+					end;
+				true ->
+					IsBin = is_binary(CertCode),
+					if
+						IsBin == true ->
+						    DriverInfos = ets:match(drivertable, {'_',
+																  '$1', '$2', CertCode, '_'}),
+				    		DriverInfosCount = length(DriverInfos),
+							if
+								DriverInfosCount == 1 ->
+									[[DriverID, LicNo]] = DriverInfos,
+									DriverInfoItem = #driverinfo{driverid=DriverID, licno=LicNo, certcode=CertCode, online=false},
+									ets:insert(drivertable, DriverInfoItem);
+								true ->
+									common:loginfo("Get > 1 driver item by certificate_code ~p", [CertCode])
+							end;
+						true ->
+							common:loginfo("Cannot get driver item by certificate_code ~p", [CertCode])
+					end
+			end,					
+			drivertable_insert_delete_process();
+		{Pid, getcc, DriverID} ->
+			IsInt = is_integer(DriverID),
+			if
+				IsInt == true ->
+				    DriverInfos = ets:match(drivertable, {'_',
+														  DriverID, '_', '$1', '$2'}),
+		    		DriverInfosCount = length(DriverInfos),
+					if
+						DriverInfosCount == 1 ->
+							[[CertCodeBin, WorkState]] = DriverInfos,
+							%common:loginfo("Get certificate_code ~p by driver id ~p", [CertCodeBin, DriverID]),
+							if
+								WorkState == true ->
+									Pid ! {Pid, erlang:binary_to_list(CertCodeBin)};
+								true ->
+									common:loginfo("Don't return certificate_code ~p by driver id ~p because of offwork", [CertCodeBin, DriverID]),
+									Pid ! {Pid, []}
+							end;
+						true ->
+							common:loginfo("Get > 1 certificate_code by driver id ~p", [DriverID]),
+							Pid ! {Pid, []}
+					end;
+				true ->
+					common:loginfo("Get > 1 certificate_code by driver id ~p", [DriverID]),
+					Pid ! {Pid, []}
+			end,					
+			drivertable_insert_delete_process();
 		{Pid, checkcc, CertCode} ->
 			IsList = is_list(CertCode),
 			if
@@ -862,38 +972,44 @@ drivertable_insert_delete_process() ->
 					try
 						CertCodeBin = erlang:list_to_binary(CertCode),
 					    DriverInfos = ets:match(drivertable, {'$1',
-															  '_', '_', CertCodeBin}),
+															  '_', '_', CertCodeBin, '_'}),
 			    		DriverInfosCount = length(DriverInfos),
 						if
-							DriverInfosCount > 0 ->
+							DriverInfosCount == 1 ->
 								Pid ! {Pid, 1};
 							true ->
+								common:loginfo("Get > 1 driver item by certificate_code ~p", [CertCode]),
 								Pid ! {Pid, 0}
 						end
 					catch
 						_:_ ->
+							common:loginfo("Exception when getting driver id by certificate_code ~p", [CertCode]),
 							Pid ! {Pid, 0}
 					end;
 				true ->
 					IsBin = is_binary(CertCode),
 					if
 						IsBin == true ->
-					    DriverInfos = ets:match(drivertable, {'$1',
-															  '_', '_', CertCode}),
-			    		DriverInfosCount = length(DriverInfos),
-						if
-							DriverInfosCount > 0 ->
-								Pid ! {Pid, 1};
-							true ->
-								Pid ! {Pid, 0}
-						end
+						    DriverInfos = ets:match(drivertable, {'$1',
+																  '_', '_', CertCode, '_'}),
+				    		DriverInfosCount = length(DriverInfos),
+							if
+								DriverInfosCount == 0 ->
+									Pid ! {Pid, 1};
+								true ->
+									common:loginfo("Get > 1 driver item by certificate_code ~p", [CertCode]),
+									Pid ! {Pid, 0}
+							end;
+						true ->
+							common:loginfo("Cannot get driver item by certificate_code ~p", [CertCode]),
+							Pid ! {Pid, 0}
 					end
 			end,					
 			drivertable_insert_delete_process();
 		{Pid, insert, DriverInfo} ->
 			common:loginfo("Insert driver info : ~p", [DriverInfo]),
 			[DriverID, LicNo, CertCode] = DriverInfo,
-			DriverInfoItem = #driverinfo{driverid=DriverID, licno=LicNo, certcode=CertCode},
+			DriverInfoItem = #driverinfo{driverid=DriverID, licno=LicNo, certcode=CertCode, online=true},
 			ets:insert(drivertable, DriverInfoItem),
 			drivertable_insert_delete_process();
 		{Pid, get, CertCode} ->
@@ -903,35 +1019,41 @@ drivertable_insert_delete_process() ->
 					try
 						CertCodeBin = erlang:list_to_binary(CertCode),
 					    DriverInfos = ets:match(drivertable, {'_',
-															  '$1', '_', CertCodeBin}),
+															  '$1', '_', CertCodeBin, '_'}),
 			    		DriverInfosCount = length(DriverInfos),
 						if
 							DriverInfosCount == 1 ->
 								[[DriverID]] = DriverInfos,
-								common:loginfo("Get driver id ~p by certificate_code ~p", [DriverID, CertCode]),
+								%common:loginfo("Get driver id ~p by certificate_code ~p", [DriverID, CertCode]),
 								Pid ! {Pid, DriverID};
 							true ->
+								common:loginfo("Get > 1 driver id by certificate_code ~p", [CertCode]),
 								Pid ! {Pid, 0}
 						end
 					catch
 						_:_ ->
+							common:loginfo("Exception when gettin driver id by certificate_code ~p", [CertCode]),
 							Pid ! {Pid, 0}
 					end;
 				true ->
 					IsBin = is_binary(CertCode),
 					if
 						IsBin == true ->
-					    DriverInfos = ets:match(drivertable, {'_',
-															  '$1', '_', CertCode}),
-			    		DriverInfosCount = length(DriverInfos),
-						if
-							DriverInfosCount > 0 ->
-								[[DriverID]] = DriverInfos,
-								common:loginfo("Get driver id ~p by certificate_code ~p", [DriverID, CertCode]),
-								Pid ! {Pid, DriverID};
-							true ->
-								Pid ! {Pid, 0}
-						end
+						    DriverInfos = ets:match(drivertable, {'_',
+																  '$1', '_', CertCode, '_'}),
+				    		DriverInfosCount = length(DriverInfos),
+							if
+								DriverInfosCount == 1 ->
+									[[DriverID]] = DriverInfos,
+									%common:loginfo("Get driver id ~p by certificate_code ~p", [DriverID, CertCode]),
+									Pid ! {Pid, DriverID};
+								true ->
+									common:loginfo("Get > 1 driver id by certificate_code ~p", [CertCode]),
+									Pid ! {Pid, 0}
+							end;
+						true ->
+							common:loginfo("Cannot get driver id by certificate_code ~p", [CertCode]),
+							Pid ! {Pid, 0}
 					end
 			end,					
 			drivertable_insert_delete_process();
