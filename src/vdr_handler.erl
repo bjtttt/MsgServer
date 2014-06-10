@@ -483,6 +483,7 @@ process_vdr_data(Socket, Data, State) ->
                                             {error, autherror, NewState};
                                         true ->
 											CertCode = get_driver_cc_by_driver_id(NewState, DriverID),
+											%common:loginfo("Get certificate code ~p by driver id ~p", [CertCode, DriverID]),
 											disconn_socket_by_vehicle_id(VehicleID),
                                             SockVdrList = ets:lookup(vdrtable, Socket),
                                             case length(SockVdrList) of
