@@ -100,7 +100,7 @@
 -record(vdritem, {  socket=undefined, 
                     id=undefined,               % DB VDR ID, only valid in DB table
                     serialno=undefined,         % Actual VDR ID
-                    auth=undefined,             % Actual VDR authen code
+                    auth=undefined,             % Actual VDR authen code, is binary
                     vehicleid=undefined,        % DB vechile ID, only valid in DB table
                     vehiclecode=undefined,      % Actual vehicle code
                     driverid=undefined,         % DB driver ID, only valid in DB table
@@ -201,7 +201,8 @@
 -record(driverinfo, {	driverid=undefined,
 						licno=undefined,
 						certcode=undefined,
-						online=false
+						online=false,
+						vdrauthcode=undefined
 					 }).
 
 -record(lastposinfo, {	vehicleid=undefined,

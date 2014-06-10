@@ -391,6 +391,11 @@ init_vdrdbtable_once(Result) ->
 			end
 	end.
 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%
+% DriverID will always be undefined
+%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 do_init_vdrdbtable_once(Result) when is_list(Result),
 								length(Result) > 0 ->
 	[H|T] = Result,
@@ -844,7 +849,7 @@ drivertable_insert_delete_process() ->
 			if
 				IsInt == true ->
 				    DriverInfos = ets:match(drivertable, {'$1',
-														  DriverID, '_', '_', '_'}),
+														  DriverID, '_', '_', '_', '_'}),
 		    		DriverInfosCount = length(DriverInfos),
 					if
 						DriverInfosCount > 0 ->
@@ -863,7 +868,7 @@ drivertable_insert_delete_process() ->
 					try
 						CertCodeBin = erlang:list_to_binary(CertCode),
 					    DriverInfos = ets:match(drivertable, {'_',
-															  '$1', '$2', CertCodeBin, '_'}),
+															  '$1', '$2', CertCodeBin, '_', '_'}),
 			    		DriverInfosCount = length(DriverInfos),
 						if
 							DriverInfosCount == 1 ->
@@ -882,7 +887,7 @@ drivertable_insert_delete_process() ->
 					if
 						IsBin == true ->
 						    DriverInfos = ets:match(drivertable, {'_',
-																  '$1', '$2', CertCode, '_'}),
+																  '$1', '$2', CertCode, '_', '_'}),
 				    		DriverInfosCount = length(DriverInfos),
 							if
 								DriverInfosCount == 1 ->
@@ -904,12 +909,12 @@ drivertable_insert_delete_process() ->
 					try
 						CertCodeBin = erlang:list_to_binary(CertCode),
 					    DriverInfos = ets:match(drivertable, {'_',
-															  '$1', '$2', CertCodeBin, '_'}),
+															  '$1', '$2', CertCodeBin, '_', '_'}),
 			    		DriverInfosCount = length(DriverInfos),
 						if
 							DriverInfosCount == 1 ->
 								[[DriverID, LicNo]] = DriverInfos,
-								DriverInfoItem = #driverinfo{driverid=DriverID, licno=LicNo, certcode=CertCodeBin, online=false},
+								DriverInfoItem = #driverinfo{driverid=DriverID, licno=LicNo, certcode=CertCodeBin, online=false, vdrauthcode=undefined},
 								ets:insert(drivertable, DriverInfoItem);
 							true ->
 								common:loginfo("Get > 1 driver item by certificate_code ~p", [CertCode])
@@ -923,7 +928,7 @@ drivertable_insert_delete_process() ->
 					if
 						IsBin == true ->
 						    DriverInfos = ets:match(drivertable, {'_',
-																  '$1', '$2', CertCode, '_'}),
+																  '$1', '$2', CertCode, '_', '_'}),
 				    		DriverInfosCount = length(DriverInfos),
 							if
 								DriverInfosCount == 1 ->
@@ -943,7 +948,7 @@ drivertable_insert_delete_process() ->
 			if
 				IsInt == true ->
 				    DriverInfos = ets:match(drivertable, {'_',
-														  DriverID, '_', '$1', '$2'}),
+														  DriverID, '_', '$1', '$2', '_'}),
 		    		DriverInfosCount = length(DriverInfos),
 					if
 						DriverInfosCount == 1 ->
@@ -972,7 +977,7 @@ drivertable_insert_delete_process() ->
 					try
 						CertCodeBin = erlang:list_to_binary(CertCode),
 					    DriverInfos = ets:match(drivertable, {'$1',
-															  '_', '_', CertCodeBin, '_'}),
+															  '_', '_', CertCodeBin, '_', '_'}),
 			    		DriverInfosCount = length(DriverInfos),
 						if
 							DriverInfosCount == 1 ->
@@ -991,7 +996,7 @@ drivertable_insert_delete_process() ->
 					if
 						IsBin == true ->
 						    DriverInfos = ets:match(drivertable, {'$1',
-																  '_', '_', CertCode, '_'}),
+																  '_', '_', CertCode, '_', '_'}),
 				    		DriverInfosCount = length(DriverInfos),
 							if
 								DriverInfosCount == 0 ->
@@ -1007,10 +1012,71 @@ drivertable_insert_delete_process() ->
 			end,					
 			drivertable_insert_delete_process();
 		{Pid, insert, DriverInfo} ->
-			common:loginfo("Insert driver info : ~p", [DriverInfo]),
-			[DriverID, LicNo, CertCode] = DriverInfo,
-			DriverInfoItem = #driverinfo{driverid=DriverID, licno=LicNo, certcode=CertCode, online=true},
+			%common:loginfo("Insert driver info : ~p", [DriverInfo]),
+			[DriverID, LicNo, CertCode, VDRAuthCode] = DriverInfo,
+			DriverInfoItem = #driverinfo{driverid=DriverID, licno=LicNo, certcode=CertCode, online=true, vdrauthcode=VDRAuthCode},
 			ets:insert(drivertable, DriverInfoItem),
+			drivertable_insert_delete_process();
+		{Pid, updatevdr, CertCodeVDRAuthCode} ->
+			%common:loginfo("Insert driver info : ~p", [DriverInfo]),
+			[CertCode, VDRAuthCode] = CertCodeVDRAuthCode,
+			IsList = is_list(CertCode),
+			if
+				IsList == true ->
+					try
+						CertCodeBin = erlang:list_to_binary(CertCode),
+					    DriverInfos = ets:match(drivertable, {'_',
+															  '$1', '$2', CertCodeBin, '$3', '_'}),
+			    		DriverInfosCount = length(DriverInfos),
+						if
+							DriverInfosCount == 1 ->
+								[[DriverID, LicNo, Online]] = DriverInfos,
+								DriverInfoItem = #driverinfo{driverid=DriverID, licno=LicNo, certcode=CertCodeBin, online=Online, vdrauthcode=VDRAuthCode},
+								ets:insert(drivertable, DriverInfoItem);
+							true ->
+								common:loginfo("Get > 1 driver item by certificate_code ~p", [CertCode])
+						end
+					catch
+						_:_ ->
+							common:loginfo("Exception when getting driver id by certificate_code ~p", [CertCode])
+					end;
+				true ->
+					IsBin = is_binary(CertCode),
+					if
+						IsBin == true ->
+						    DriverInfos = ets:match(drivertable, {'_',
+																  '$1', '$2', CertCode, '$3', '_'}),
+				    		DriverInfosCount = length(DriverInfos),
+							if
+								DriverInfosCount == 1 ->
+									[[DriverID, LicNo, Online]] = DriverInfos,
+									DriverInfoItem = #driverinfo{driverid=DriverID, licno=LicNo, certcode=CertCode, online=Online, vdrauthcode=VDRAuthCode},
+									ets:insert(drivertable, DriverInfoItem);
+								true ->
+									common:loginfo("Get > 1 driver item by certificate_code ~p", [CertCode])
+							end;
+						true ->
+							common:loginfo("Cannot get driver item by certificate_code ~p", [CertCode])
+					end
+			end,					
+			drivertable_insert_delete_process();
+		{Pid, getccbyvdr, VDRAuthCode} ->
+		    DriverInfos = ets:match(drivertable, {'_',
+												  '_', '_', '$1', '_', VDRAuthCode}),
+    		DriverInfosCount = length(DriverInfos),
+			if
+				DriverInfosCount == 1 ->
+					[[CertCodeBin]] = DriverInfos,
+					if
+						CertCodeBin == undefined ->
+							Pid ! {Pid, []};
+						true ->
+							Pid ! {Pid, erlang:binary_to_list(CertCodeBin)}
+					end;
+				true ->
+					common:loginfo("Get ~p certificate code by vdr_auth_code ~p", [DriverInfosCount, VDRAuthCode]),
+					Pid ! {Pid, []}
+			end,
 			drivertable_insert_delete_process();
 		{Pid, get, CertCode} ->
 			IsList = is_list(CertCode),
@@ -1019,7 +1085,7 @@ drivertable_insert_delete_process() ->
 					try
 						CertCodeBin = erlang:list_to_binary(CertCode),
 					    DriverInfos = ets:match(drivertable, {'_',
-															  '$1', '_', CertCodeBin, '_'}),
+															  '$1', '_', CertCodeBin, '_', '_'}),
 			    		DriverInfosCount = length(DriverInfos),
 						if
 							DriverInfosCount == 1 ->
@@ -1027,7 +1093,7 @@ drivertable_insert_delete_process() ->
 								%common:loginfo("Get driver id ~p by certificate_code ~p", [DriverID, CertCode]),
 								Pid ! {Pid, DriverID};
 							true ->
-								common:loginfo("Get > 1 driver id by certificate_code ~p", [CertCode]),
+								common:loginfo("Get ~p driver id by certificate_code ~p", [DriverInfosCount, CertCode]),
 								Pid ! {Pid, 0}
 						end
 					catch
@@ -1040,7 +1106,7 @@ drivertable_insert_delete_process() ->
 					if
 						IsBin == true ->
 						    DriverInfos = ets:match(drivertable, {'_',
-																  '$1', '_', CertCode, '_'}),
+																  '$1', '_', CertCode, '_', '_'}),
 				    		DriverInfosCount = length(DriverInfos),
 							if
 								DriverInfosCount == 1 ->
@@ -1048,7 +1114,7 @@ drivertable_insert_delete_process() ->
 									%common:loginfo("Get driver id ~p by certificate_code ~p", [DriverID, CertCode]),
 									Pid ! {Pid, DriverID};
 								true ->
-									common:loginfo("Get > 1 driver id by certificate_code ~p", [CertCode]),
+									common:loginfo("Get ~p driver id by certificate_code ~p", [DriverInfosCount, CertCode]),
 									Pid ! {Pid, 0}
 							end;
 						true ->

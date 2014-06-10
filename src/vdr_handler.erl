@@ -477,12 +477,14 @@ process_vdr_data(Socket, Data, State) ->
 								{ok, VDRDBItem} ->
 									%common:loginfo("Local authen passes"),
 									%common:loginfo("VDR DB Item : ~p", [VDRDBItem]),
+									% DriverID is undefined because DB is designed in thisway
 									{vdrdbitem, VDRAuthenCode, VDRID, VDRSerialNo, VehicleCode, VehicleID, DriverID} = VDRDBItem,
                                     if
                                         VehicleID == undefined orelse VehicleCode==undefined ->
                                             {error, autherror, NewState};
                                         true ->
-											CertCode = get_driver_cc_by_driver_id(NewState, DriverID),
+											%CertCode = get_driver_cc_by_driver_id(NewState, DriverID),
+											CertCode = get_driver_cc_by_vdr_auth_code(NewState, VDRAuthenCode),
 											%common:loginfo("Get certificate code ~p by driver id ~p", [CertCode, DriverID]),
 											disconn_socket_by_vehicle_id(VehicleID),
                                             SockVdrList = ets:lookup(vdrtable, Socket),
@@ -878,6 +880,7 @@ process_vdr_data(Socket, Data, State) ->
 									
 									MsgLength = tuple_size(Msg),
 									DriverTablePid = NewState#vdritem.drivertablepid,
+									VDRAuthCode = NewState#vdritem.auth,
 									SelfPid = NewState#vdritem.pid,
 									%common:loginfo("0x702 message body (~p) : ~p", [MsgLength, Msg]),
 									if
@@ -914,7 +917,7 @@ process_vdr_data(Socket, Data, State) ->
 																					{Pid, NewDriverInfoCount} ->
 																						if
 																							NewDriverInfoCount == 0 ->
-																								DriverTablePid ! {SelfPid, insert, [DriverID, LicNo, CertCode]};
+																								DriverTablePid ! {SelfPid, insert, [DriverID, LicNo, CertCode, VDRAuthCode]};
 																							true ->
 																								common:logerror("Message server get duplicated driver info with id(~p) from driver table for certificate_code : ~p", [DriverID, C])
 																						end
@@ -2461,6 +2464,22 @@ get_driver_cc_by_driver_id(State, DriverID) ->
 					undefined
 			end;
 		true ->
+			undefined
+	end.
+
+get_driver_cc_by_vdr_auth_code(State, VDRAuthCode) ->
+	DriverTablePid = State#vdritem.drivertablepid,
+	Pid = State#vdritem.pid,
+	DriverTablePid ! {Pid, getccbyvdr, VDRAuthCode},
+	receive
+		{Pid, CertCode} ->
+			case CertCode of
+				[] ->
+					undefined;
+				_ ->
+					CertCode
+			end
+	after ?PROC_RESP_TIMEOUT ->
 			undefined
 	end.
 
