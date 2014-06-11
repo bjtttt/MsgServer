@@ -191,7 +191,7 @@ startserver(StartType, StartArgs) ->
 												                    receive
 												                        created ->
 												                            common:loginfo("Code convertor table is created"),
-																			HttpGpsPid = spawn(fun() -> http_gps_deamon(HttpGpsServer, CCPid, uninit, 0, 0, 0, 0) end),
+																			HttpGpsPid = spawn(fun() -> http_gps_deamon(HttpGpsServer, uninit, 0, 0, 0, 0) end),
 																			ets:insert(msgservertable, {httpgpspid, HttpGpsPid}),
 																			common:loginfo("HTTP GPS process PID is ~p", [HttpGpsPid]),
 																			case HttpGps of
@@ -283,7 +283,7 @@ startserver(StartType, StartArgs) ->
 												                    receive
 												                        created ->
 												                            common:loginfo("Code convertor table is created"),
-																			HttpGpsPid = spawn(fun() -> http_gps_deamon(HttpGpsServer, CCPid, uninit, 0, 0, 0, 0) end),
+																			HttpGpsPid = spawn(fun() -> http_gps_deamon(HttpGpsServer, uninit, 0, 0, 0, 0) end),
 																			ets:insert(msgservertable, {httpgpspid, HttpGpsPid}),
 																			common:loginfo("HTTP GPS process PID is ~p", [HttpGpsPid]),
 																			case HttpGps of
@@ -501,8 +501,7 @@ do_init_drivertable(DriverResult) when is_list(DriverResult),
 	{<<"driver">>, <<"certificate_code">>, CertCode} = vdr_handler:get_record_field(<<"driver">>, H, <<"certificate_code">>),
 	DriverItem = #driverinfo{driverid=ID, 
 							 licno=LicNo, 
-							 certcode=CertCode,
-							 online=false},
+							 certcode=CertCode},
 	%common:loginfo("Driver : ~p", [DriverItem]),
 	ets:insert(drivertable, DriverItem),
 	do_init_drivertable(T);
@@ -844,284 +843,73 @@ drivertable_insert_delete_process() ->
 	receive
 		stop ->
 			common:loginfo("Driver table insert/delete process stops.");
-		{Pid, checkdid, DriverID} ->
-			IsInt = is_integer(DriverID),
+		{_Pid, chkinsdriverinfo, {DriverID, LicNo, CertCode, VDRAuthCode}} ->		% Check and insert
 			if
-				IsInt == true ->
-				    DriverInfos = ets:match(drivertable, {'$1',
-														  DriverID, '_', '_', '_', '_'}),
-		    		DriverInfosCount = length(DriverInfos),
-					if
-						DriverInfosCount > 0 ->
-							Pid ! {Pid, 1};
-						true ->
-							Pid ! {Pid, 0}
-					end;
+				DriverID == undefined ->
+					common:loginfo("Cannot get driver item by driver undefined id");
 				true ->
-					Pid ! {Pid, 0}
-			end,					
-			drivertable_insert_delete_process();
-		{Pid, onwork, CertCode} ->
-			IsList = is_list(CertCode),
-			if
-				IsList == true ->
-					try
-						CertCodeBin = erlang:list_to_binary(CertCode),
-					    DriverInfos = ets:match(drivertable, {'_',
-															  '$1', '$2', CertCodeBin, '_', '_'}),
-			    		DriverInfosCount = length(DriverInfos),
-						if
-							DriverInfosCount == 1 ->
-								[[DriverID, LicNo]] = DriverInfos,
-								DriverInfoItem = #driverinfo{driverid=DriverID, licno=LicNo, certcode=CertCodeBin, online=true},
-								ets:insert(drivertable, DriverInfoItem);
-							true ->
-								common:loginfo("Get > 1 driver item by certificate_code ~p", [CertCode])
-						end
-					catch
-						_:_ ->
-							common:loginfo("Exception when getting driver item by certificate_code ~p", [CertCode])
-					end;
-				true ->
-					IsBin = is_binary(CertCode),
+					DriverInfos = ets:match(drivertable, {'$1',
+														  DriverID, '_', '_', '_'}),
+					DriverInfosCount = length(DriverInfos),
 					if
-						IsBin == true ->
-						    DriverInfos = ets:match(drivertable, {'_',
-																  '$1', '$2', CertCode, '_', '_'}),
-				    		DriverInfosCount = length(DriverInfos),
-							if
-								DriverInfosCount == 1 ->
-									[[DriverID, LicNo]] = DriverInfos,
-									DriverInfoItem = #driverinfo{driverid=DriverID, licno=LicNo, certcode=CertCode, online=true},
-									ets:insert(drivertable, DriverInfoItem);
-								true ->
-									common:loginfo("Get > 1 driver item by certificate_code ~p", [CertCode])
-							end;
+						DriverInfosCount == 0 orelse DriverInfosCount == 1 ->
+							DriverInfoItem = #driverinfo{driverid=DriverID, licno=LicNo, certcode=CertCode, vdrauthcode=VDRAuthCode},
+							common:loginfo("Insert new driver item : ~p", [DriverInfoItem]),
+							ets:insert(drivertable, DriverInfoItem);
 						true ->
-							common:loginfo("Cannot get driver item by certificate_code ~p", [CertCode])
+							ets:delete(drivertable, DriverID),
+							DriverInfoItem = #driverinfo{driverid=DriverID, licno=LicNo, certcode=CertCode, vdrauthcode=VDRAuthCode},
+							common:loginfo("Get ~p driver item by driver id ~p and re-create a new driver item : ~p", [DriverInfosCount, DriverID, DriverInfoItem]),
+							ets:insert(drivertable, DriverInfoItem)
 					end
-			end,					
+			end,
 			drivertable_insert_delete_process();
-		{Pid, offwork, CertCode} ->
-			IsList = is_list(CertCode),
+		{_Pid, offwork, CertCode} ->
+		    DriverInfos = ets:match(drivertable, {'_',
+												  '$1', '$2', CertCode, '_'}),
+    		DriverInfosCount = length(DriverInfos),
 			if
-				IsList == true ->
-					try
-						CertCodeBin = erlang:list_to_binary(CertCode),
-					    DriverInfos = ets:match(drivertable, {'_',
-															  '$1', '$2', CertCodeBin, '_', '_'}),
-			    		DriverInfosCount = length(DriverInfos),
-						if
-							DriverInfosCount == 1 ->
-								[[DriverID, LicNo]] = DriverInfos,
-								DriverInfoItem = #driverinfo{driverid=DriverID, licno=LicNo, certcode=CertCodeBin, online=false, vdrauthcode=undefined},
-								ets:insert(drivertable, DriverInfoItem);
-							true ->
-								common:loginfo("Get > 1 driver item by certificate_code ~p", [CertCode])
-						end
-					catch
-						_:_ ->
-							common:loginfo("Exception when getting driver item by certificate_code ~p", [CertCode])
-					end;
+				DriverInfosCount == 1 ->
+					[[DriverID, LicNo]] = DriverInfos,
+					DriverInfoItem = #driverinfo{driverid=DriverID, licno=LicNo, certcode=CertCode},
+					ets:insert(drivertable, DriverInfoItem);
 				true ->
-					IsBin = is_binary(CertCode),
-					if
-						IsBin == true ->
-						    DriverInfos = ets:match(drivertable, {'_',
-																  '$1', '$2', CertCode, '_', '_'}),
-				    		DriverInfosCount = length(DriverInfos),
-							if
-								DriverInfosCount == 1 ->
-									[[DriverID, LicNo]] = DriverInfos,
-									DriverInfoItem = #driverinfo{driverid=DriverID, licno=LicNo, certcode=CertCode, online=false},
-									ets:insert(drivertable, DriverInfoItem);
-								true ->
-									common:loginfo("Get > 1 driver item by certificate_code ~p", [CertCode])
-							end;
-						true ->
-							common:loginfo("Cannot get driver item by certificate_code ~p", [CertCode])
-					end
+					common:loginfo("Get ~p driver item by certificate_code ~p", [DriverInfosCount, CertCode])
 			end,					
 			drivertable_insert_delete_process();
-		{Pid, getcc, DriverID} ->
-			IsInt = is_integer(DriverID),
+		{Pid, checkcc, {CertCode, VDRAuthCode}} ->		% CertCode must be binary
+		    DriverInfos = ets:match(drivertable, {'_',
+												  '$1', '$2', CertCode, '_'}),
+    		DriverInfosCount = length(DriverInfos),
 			if
-				IsInt == true ->
-				    DriverInfos = ets:match(drivertable, {'_',
-														  DriverID, '_', '$1', '$2', '_'}),
-		    		DriverInfosCount = length(DriverInfos),
-					if
-						DriverInfosCount == 1 ->
-							[[CertCodeBin, WorkState]] = DriverInfos,
-							%common:loginfo("Get certificate_code ~p by driver id ~p", [CertCodeBin, DriverID]),
-							if
-								WorkState == true ->
-									Pid ! {Pid, erlang:binary_to_list(CertCodeBin)};
-								true ->
-									common:loginfo("Don't return certificate_code ~p by driver id ~p because of offwork", [CertCodeBin, DriverID]),
-									Pid ! {Pid, []}
-							end;
-						true ->
-							common:loginfo("Get > 1 certificate_code by driver id ~p", [DriverID]),
-							Pid ! {Pid, []}
-					end;
+				DriverInfosCount == 1 ->
+					[[DriverID, LicNoRec]] = DriverInfos,
+					DriverInfoItem = #driverinfo{driverid=DriverID, licno=LicNoRec, certcode=CertCode, vdrauthcode=VDRAuthCode},
+					common:loginfo("Change driver item online state : ~p", [DriverInfoItem]),
+					ets:insert(drivertable, DriverInfoItem),
+					Pid ! {Pid, {DriverInfosCount, DriverID}};
 				true ->
-					common:loginfo("Get > 1 certificate_code by driver id ~p", [DriverID]),
-					Pid ! {Pid, []}
-			end,					
-			drivertable_insert_delete_process();
-		{Pid, checkcc, CertCode} ->
-			IsList = is_list(CertCode),
-			if
-				IsList == true ->
-					try
-						CertCodeBin = erlang:list_to_binary(CertCode),
-					    DriverInfos = ets:match(drivertable, {'$1',
-															  '_', '_', CertCodeBin, '_', '_'}),
-			    		DriverInfosCount = length(DriverInfos),
-						if
-							DriverInfosCount == 1 ->
-								Pid ! {Pid, 1};
-							true ->
-								common:loginfo("Get > 1 driver item by certificate_code ~p", [CertCode]),
-								Pid ! {Pid, 0}
-						end
-					catch
-						_:_ ->
-							common:loginfo("Exception when getting driver id by certificate_code ~p", [CertCode]),
-							Pid ! {Pid, 0}
-					end;
-				true ->
-					IsBin = is_binary(CertCode),
-					if
-						IsBin == true ->
-						    DriverInfos = ets:match(drivertable, {'$1',
-																  '_', '_', CertCode, '_', '_'}),
-				    		DriverInfosCount = length(DriverInfos),
-							if
-								DriverInfosCount == 0 ->
-									Pid ! {Pid, 1};
-								true ->
-									common:loginfo("Get > 1 driver item by certificate_code ~p", [CertCode]),
-									Pid ! {Pid, 0}
-							end;
-						true ->
-							common:loginfo("Cannot get driver item by certificate_code ~p", [CertCode]),
-							Pid ! {Pid, 0}
-					end
-			end,					
-			drivertable_insert_delete_process();
-		{Pid, insert, DriverInfo} ->
-			%common:loginfo("Insert driver info : ~p", [DriverInfo]),
-			[DriverID, LicNo, CertCode, VDRAuthCode] = DriverInfo,
-			DriverInfoItem = #driverinfo{driverid=DriverID, licno=LicNo, certcode=CertCode, online=true, vdrauthcode=VDRAuthCode},
-			ets:insert(drivertable, DriverInfoItem),
-			drivertable_insert_delete_process();
-		{Pid, updatevdr, CertCodeVDRAuthCode} ->
-			%common:loginfo("Insert driver info : ~p", [DriverInfo]),
-			[CertCode, VDRAuthCode] = CertCodeVDRAuthCode,
-			IsList = is_list(CertCode),
-			if
-				IsList == true ->
-					try
-						CertCodeBin = erlang:list_to_binary(CertCode),
-					    DriverInfos = ets:match(drivertable, {'_',
-															  '$1', '$2', CertCodeBin, '$3', '_'}),
-			    		DriverInfosCount = length(DriverInfos),
-						if
-							DriverInfosCount == 1 ->
-								[[DriverID, LicNo, Online]] = DriverInfos,
-								DriverInfoItem = #driverinfo{driverid=DriverID, licno=LicNo, certcode=CertCodeBin, online=Online, vdrauthcode=VDRAuthCode},
-								ets:insert(drivertable, DriverInfoItem);
-							true ->
-								common:loginfo("Get > 1 driver item by certificate_code ~p", [CertCode])
-						end
-					catch
-						_:_ ->
-							common:loginfo("Exception when getting driver id by certificate_code ~p", [CertCode])
-					end;
-				true ->
-					IsBin = is_binary(CertCode),
-					if
-						IsBin == true ->
-						    DriverInfos = ets:match(drivertable, {'_',
-																  '$1', '$2', CertCode, '$3', '_'}),
-				    		DriverInfosCount = length(DriverInfos),
-							if
-								DriverInfosCount == 1 ->
-									[[DriverID, LicNo, Online]] = DriverInfos,
-									DriverInfoItem = #driverinfo{driverid=DriverID, licno=LicNo, certcode=CertCode, online=Online, vdrauthcode=VDRAuthCode},
-									ets:insert(drivertable, DriverInfoItem);
-								true ->
-									common:loginfo("Get > 1 driver item by certificate_code ~p", [CertCode])
-							end;
-						true ->
-							common:loginfo("Cannot get driver item by certificate_code ~p", [CertCode])
-					end
-			end,					
+					common:loginfo("Get ~p driver item by certificate_code ~p", [CertCode]),
+					Pid ! {Pid, {DriverInfosCount, undefined}}
+			end,
 			drivertable_insert_delete_process();
 		{Pid, getccbyvdr, VDRAuthCode} ->
 		    DriverInfos = ets:match(drivertable, {'_',
-												  '_', '_', '$1', '_', VDRAuthCode}),
+												  '_', '_', '$1', VDRAuthCode}),
     		DriverInfosCount = length(DriverInfos),
 			if
 				DriverInfosCount == 1 ->
 					[[CertCodeBin]] = DriverInfos,
 					if
 						CertCodeBin == undefined ->
-							Pid ! {Pid, []};
+							Pid ! {Pid, <<"">>};
 						true ->
-							Pid ! {Pid, erlang:binary_to_list(CertCodeBin)}
+							Pid ! {Pid, CertCodeBin}
 					end;
 				true ->
 					common:loginfo("Get ~p certificate code by vdr_auth_code ~p", [DriverInfosCount, VDRAuthCode]),
-					Pid ! {Pid, []}
+					Pid ! {Pid, <<"">>}
 			end,
-			drivertable_insert_delete_process();
-		{Pid, get, CertCode} ->
-			IsList = is_list(CertCode),
-			if
-				IsList == true ->
-					try
-						CertCodeBin = erlang:list_to_binary(CertCode),
-					    DriverInfos = ets:match(drivertable, {'_',
-															  '$1', '_', CertCodeBin, '_', '_'}),
-			    		DriverInfosCount = length(DriverInfos),
-						if
-							DriverInfosCount == 1 ->
-								[[DriverID]] = DriverInfos,
-								%common:loginfo("Get driver id ~p by certificate_code ~p", [DriverID, CertCode]),
-								Pid ! {Pid, DriverID};
-							true ->
-								common:loginfo("Get ~p driver id by certificate_code ~p", [DriverInfosCount, CertCode]),
-								Pid ! {Pid, 0}
-						end
-					catch
-						_:_ ->
-							common:loginfo("Exception when gettin driver id by certificate_code ~p", [CertCode]),
-							Pid ! {Pid, 0}
-					end;
-				true ->
-					IsBin = is_binary(CertCode),
-					if
-						IsBin == true ->
-						    DriverInfos = ets:match(drivertable, {'_',
-																  '$1', '_', CertCode, '_', '_'}),
-				    		DriverInfosCount = length(DriverInfos),
-							if
-								DriverInfosCount == 1 ->
-									[[DriverID]] = DriverInfos,
-									%common:loginfo("Get driver id ~p by certificate_code ~p", [DriverID, CertCode]),
-									Pid ! {Pid, DriverID};
-								true ->
-									common:loginfo("Get ~p driver id by certificate_code ~p", [DriverInfosCount, CertCode]),
-									Pid ! {Pid, 0}
-							end;
-						true ->
-							common:loginfo("Cannot get driver id by certificate_code ~p", [CertCode]),
-							Pid ! {Pid, 0}
-					end
-			end,					
 			drivertable_insert_delete_process();
 		{Pid, count} ->
 			Count = ets:info(drivertable,size),
@@ -1148,7 +936,7 @@ lastpostable_insert_delete_process() ->
 					Pid ! {Pid, [0.0, 0.0]}
 			end,
 			lastpostable_insert_delete_process();
-		{Pid, set, Info} ->
+		{_Pid, set, Info} ->
 			[VID, Lon, Lat] = Info,
 		    Infos = ets:match(lastpostable, {'$1', 
 											VID, '_', '_'}),
@@ -1305,7 +1093,7 @@ code_convertor_process() ->
                 %common:loginfo("CC process ~p : source GBK from ~p : ~p", [self(), Pid, Src]),
                 Value = code_convertor:to_utf8(Src),
                 %common:loginfo("CC process ~p : dest UTF8 : ~p", [self(), Value]),
-                Pid ! code_convertor:to_utf8(Src)
+                Pid ! Value
             catch
                 _:_ ->
                     common:logerror("CC process ~p : EXCEPTION when converting GBK to UTF8 : ~p", [self(), Src]),
@@ -1317,7 +1105,7 @@ code_convertor_process() ->
                 %common:loginfo("CC process ~p : source GBK from ~p : ~p", [self(), Pid, Src]),
                 Value = code_convertor:to_utf8(Src),
                 %common:loginfo("CC process ~p : dest UTF8 : ~p", [self(), Value]),
-                Pid ! code_convertor:to_utf8(Src)
+                Pid ! Value
             catch
                 _:_ ->
                     common:logerror("CC process ~p : EXCEPTION when converting GBK to UTF8 : ~p", [self(), Src]),
@@ -1352,9 +1140,9 @@ code_convertor_process() ->
             ok;
 		{Pid, Msg} ->
 			%common:loginfo("CC process ~p : unknown message from ~p : ~p", [self(), Pid, Msg]),
-			Pid ! msg,
+			Pid ! Msg,
 			code_convertor_process();
-		UnknownMsg ->
+		_UnknownMsg ->
 			%common:loginfo("CC process ~p : unknown message : ~p", [self(), UnknownMsg]),
 			code_convertor_process()
 	%after ?CC_PID_TIMEOUT ->
@@ -1753,7 +1541,7 @@ add(Date, N, years) ->
     add(Date, 12*N, months).
      
 
-http_gps_deamon(InitialIPPort, CCPid, State, Count, ACount, FCount, FACount) ->
+http_gps_deamon(InitialIPPort, State, Count, ACount, FCount, FACount) ->
 	receive
 		{Pid, normal, Request} ->
 			[LonReq, LatReq] = Request,
@@ -1795,7 +1583,7 @@ http_gps_deamon(InitialIPPort, CCPid, State, Count, ACount, FCount, FACount) ->
 																		case httpc:request(FullRequest2) of
 																			{ok, {{_Version2, 200, _ReasonPhrase2}, _Headers2, Body2}} ->
 																				BodyB2 = list_to_binary(Body2),
-																				FullAddrBin2 = get_full_address(BodyB2, CCPid),
+																				FullAddrBin2 = get_full_address(BodyB2),
 																				case FullAddrBin2 of
 																					<<>> ->
 																						Pid ! [Lon, Lat, []];
@@ -1803,63 +1591,63 @@ http_gps_deamon(InitialIPPort, CCPid, State, Count, ACount, FCount, FACount) ->
 																						FullAddr = binary_to_list(FullAddrBin2),
 																						Pid ! [Lon, Lat, FullAddr]
 																				end,
-																				http_gps_deamon(InitialIPPort, CCPid, State, Count+1, ACount, FCount, FACount);
+																				http_gps_deamon(InitialIPPort, State, Count+1, ACount, FCount, FACount);
 																			{error, Reason2} ->
 																				common:logerror("HTTP GPS address request fails : ~p", [Reason2]),
 																				Pid ! [Lon, Lat, []],
-																				http_gps_deamon(InitialIPPort, CCPid, State, Count, ACount, FCount+1, FACount)
+																				http_gps_deamon(InitialIPPort, State, Count, ACount, FCount+1, FACount)
 																		end
 																	catch
 																		Oper2:ExReason2 ->
 																			common:logerror("HTTP GPS address request exception : (~p) ~p", [Oper2, ExReason2]),
 																			Pid ! [Lon, Lat, []],
-																			http_gps_deamon(InitialIPPort, CCPid, State, Count, ACount, FCount+1, FACount)
+																			http_gps_deamon(InitialIPPort, State, Count, ACount, FCount+1, FACount)
 																	end;
 																error ->
 																	common:logerror("HTTP GPS address request fails because of conversion error"),
 																	Pid ! [Lon, Lat, []],
-																	http_gps_deamon(InitialIPPort, CCPid, State, Count, ACount, FCount+1, FACount)
+																	http_gps_deamon(InitialIPPort, State, Count, ACount, FCount+1, FACount)
 															end
 														catch
 															_:_ ->
 																common:logerror("HTTP GPS request fails : cannot convert longitude and latitude ~p", [Body]),
 																Pid ! [LonReq, LatReq, []],
-																http_gps_deamon(InitialIPPort, CCPid, State, Count, ACount, FCount+1, FACount)
+																http_gps_deamon(InitialIPPort, State, Count, ACount, FCount+1, FACount)
 														end;
 													_ ->
 														common:logerror("HTTP GPS request fails : cannot convert longitude/latitude ~p", [Body]),
 														Pid ! [LonReq, LatReq, []],
-														http_gps_deamon(InitialIPPort, CCPid, State, Count, ACount, FCount+1, FACount)
+														http_gps_deamon(InitialIPPort, State, Count, ACount, FCount+1, FACount)
 												end;
 											_ ->
 												common:logerror("HTTP GPS request fails : response error ~p", [Body]),
 												Pid ! [LonReq, LatReq, []],
-												http_gps_deamon(InitialIPPort, CCPid, State, Count, ACount, FCount+1, FACount)
+												http_gps_deamon(InitialIPPort, State, Count, ACount, FCount+1, FACount)
 										end;
 									{error, Reason} ->
 										common:logerror("HTTP GPS request fails : ~p", [Reason]),
 										Pid ! [LonReq, LatReq, []],
-										http_gps_deamon(InitialIPPort, CCPid, State, Count, ACount, FCount+1, FACount)
+										http_gps_deamon(InitialIPPort, State, Count, ACount, FCount+1, FACount)
 								end
 							catch
 								Oper:ExReason ->
 									common:logerror("HTTP GPS request exception : (~p) ~p", [Oper, ExReason]),
 									Pid ! [LonReq, LatReq, []],
-									http_gps_deamon(InitialIPPort, CCPid, State, Count, ACount, FCount+1, FACount)
+									http_gps_deamon(InitialIPPort, State, Count, ACount, FCount+1, FACount)
 							end;
 						uninit ->
 							%common:logerror("HTTP GPS request fails because of uninit state"),
 							Pid ! [LonReq, LatReq, []],
-							http_gps_deamon(InitialIPPort, CCPid, State, Count, ACount, FCount+1, FACount);
+							http_gps_deamon(InitialIPPort, State, Count, ACount, FCount+1, FACount);
 						_ ->
 							common:logerror("HTTP GPS request fails because of unknown state"),
 							Pid ! [LonReq, LatReq, []],
-							http_gps_deamon(InitialIPPort, CCPid, State, Count, ACount, FCount+1, FACount)
+							http_gps_deamon(InitialIPPort, State, Count, ACount, FCount+1, FACount)
 					end;
 				error ->
 					common:logerror("HTTP GPS request fails because of unknown state"),
 					Pid ! [LonReq, LatReq, []],
-					http_gps_deamon(InitialIPPort, State, CCPid, Count, ACount, FCount+1, FACount)
+					http_gps_deamon(InitialIPPort, State, Count, ACount, FCount+1, FACount)
 			end;
 		{Pid, abnormal, Request} ->
 			[LonReq, LatReq] = Request,
@@ -1877,7 +1665,7 @@ http_gps_deamon(InitialIPPort, CCPid, State, Count, ACount, FCount, FACount) ->
 								case httpc:request(FullRequest) of
 									{ok, {{_Version, 200, _ReasonPhrase}, _Headers, Body}} ->
 										BodyB = list_to_binary(Body),
-										FullAddrBin = get_full_address(BodyB, CCPid),
+										FullAddrBin = get_full_address(BodyB),
 										case FullAddrBin of
 											<<>> ->
 												Pid ! [LonReq, LatReq, []];
@@ -1885,62 +1673,62 @@ http_gps_deamon(InitialIPPort, CCPid, State, Count, ACount, FCount, FACount) ->
 												FullAddr = binary_to_list(FullAddrBin),
 												Pid ! [LonReq, LatReq, FullAddr]
 										end,
-										http_gps_deamon(InitialIPPort, CCPid, State, Count, ACount+1, FCount, FACount);
+										http_gps_deamon(InitialIPPort, State, Count, ACount+1, FCount, FACount);
 									{error, Reason} ->
 										common:logerror("HTTP GPS address request fails : ~p", [Reason]),
 										Pid ! [LonReq, LatReq, []],
-										http_gps_deamon(InitialIPPort, CCPid, State, Count, ACount, FCount, FACount+1)
+										http_gps_deamon(InitialIPPort, State, Count, ACount, FCount, FACount+1)
 								end
 							catch
 								Oper:ExReason ->
 									common:logerror("HTTP GPS address request exception : (~p) ~p", [Oper, ExReason]),
 									Pid ! [LonReq, LatReq, []],
-									http_gps_deamon(InitialIPPort, CCPid, State, Count, ACount, FCount, FACount+1)
+									http_gps_deamon(InitialIPPort, State, Count, ACount, FCount, FACount+1)
 							end;
 						uninit ->
 							%common:logerror("HTTP GPS address request fails because of uninit state"),
 							Pid ! [LonReq, LatReq, []],
-							http_gps_deamon(InitialIPPort, CCPid, State, Count, ACount, FCount, FACount+1);
+							http_gps_deamon(InitialIPPort, State, Count, ACount, FCount, FACount+1);
 						_ ->
 							common:logerror("HTTP GPS request fails because of unknown state"),
 							Pid ! [LonReq, LatReq, []],
-							http_gps_deamon(InitialIPPort, CCPid, State, Count, ACount, FCount, FACount+1)
+							http_gps_deamon(InitialIPPort, State, Count, ACount, FCount, FACount+1)
 					end;
 				error ->
 					common:logerror("HTTP GPS address request fails because of conversion error"),
 					Pid ! [LonReq, LatReq, []],
-					http_gps_deamon(InitialIPPort, CCPid, State, Count, ACount, FCount, FACount+1)
+					http_gps_deamon(InitialIPPort, State, Count, ACount, FCount, FACount+1)
 			end;
 		{server, IPPort} ->
-			http_gps_deamon(IPPort, CCPid, State, Count, ACount, FCount, FACount);
+			http_gps_deamon(IPPort, State, Count, ACount, FCount, FACount);
 		init ->
 			case State of
 				uninit ->
 					case inets:start() of
 						ok ->
-							http_gps_deamon(InitialIPPort, CCPid, inited, 0, 0, 0, 0);
+							http_gps_deamon(InitialIPPort, inited, 0, 0, 0, 0);
 						{error, Reason} ->
 							common:logerror("Cannot start HTTP GPS inets : ~p", [Reason]),
-							http_gps_deamon(InitialIPPort, CCPid, State, Count, ACount, FCount, FACount)
+							http_gps_deamon(InitialIPPort, State, Count, ACount, FCount, FACount)
 					end;
 				inited ->
 					common:logerror("HTTP GPS inets already inited for init command"),
-					http_gps_deamon(InitialIPPort, CCPid, State, Count, ACount, FCount, FACount);
+					http_gps_deamon(InitialIPPort, State, Count, ACount, FCount, FACount);
 				_ ->
 					common:logerror("HTTP GPS inets unknown state for init command"),
-					http_gps_deamon(InitialIPPort, CCPid, State, Count, ACount, FCount, FACount)
+					http_gps_deamon(InitialIPPort, State, Count, ACount, FCount, FACount)
 			end;
 		release ->
 			case State of
 				uninit ->
 					common:logerror("HTTP GPS inets already uninit for release command"),
-					http_gps_deamon(InitialIPPort, CCPid, State, Count, ACount, FCount, FACount);
+					http_gps_deamon(InitialIPPort, State, Count, ACount, FCount, FACount);
 				inited ->
 					inets:stop(),
-					http_gps_deamon(InitialIPPort, CCPid, uninit, Count, ACount, FCount, FACount);
+					http_gps_deamon(InitialIPPort, uninit, Count, ACount, FCount, FACount);
 				_ ->
 					common:logerror("HTTP GPS inets unknwon state for release command"),
-					http_gps_deamon(InitialIPPort, CCPid, State, Count, ACount, FCount, FACount)
+					http_gps_deamon(InitialIPPort, State, Count, ACount, FCount, FACount)
 			end;
 		stop ->
 			case State of
@@ -1953,10 +1741,10 @@ http_gps_deamon(InitialIPPort, CCPid, State, Count, ACount, FCount, FACount) ->
 			end;
 		{Pid, get} ->
 			Pid ! {InitialIPPort, State, Count, ACount, FCount, FACount},
-			http_gps_deamon(InitialIPPort, CCPid, State, Count, ACount, FCount, FACount);
+			http_gps_deamon(InitialIPPort, State, Count, ACount, FCount, FACount);
 		_ ->
 			common:logerror("HTTP GPS process receive unknown msg."),
-			http_gps_deamon(InitialIPPort, CCPid, State, Count, ACount, FCount, FACount)
+			http_gps_deamon(InitialIPPort, State, Count, ACount, FCount, FACount)
 	end.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -1965,16 +1753,16 @@ http_gps_deamon(InitialIPPort, CCPid, State, Count, ACount, FCount, FACount) ->
 % Return binary address
 %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-get_full_address(Body, CCPid) ->
-	Pid = self(),
+get_full_address(Body) ->
+	%Pid = self(),
 	%common:loginfo("Body : ~p", [Body]),
-	Province = get_province_name(Body, Pid, CCPid),
+	Province = get_province_name(Body),
 	%common:loginfo("Province : ~p", [Province]),
-	City = get_city_name(Body, Pid, CCPid),
+	City = get_city_name(Body),
 	%common:loginfo("City : ~p", [City]),
-	District = get_district_name(Body, Pid, CCPid),
+	District = get_district_name(Body),
 	%common:loginfo("District : ~p", [District]),
-	Road = get_road_name(Body, Pid, CCPid),
+	Road = get_road_name(Body),
 	%common:loginfo("Road : ~p", [Road]),
 	%list_to_binary([Province, City, District, Road]).
 	Address = list_to_binary([Province, City, District, Road]),
@@ -1990,7 +1778,7 @@ get_full_address(Body, CCPid) ->
 	%		list_to_binary(Address)
 	%end.
 
-get_province_name(Body, Pid, CCPid) ->
+get_province_name(Body) ->
 	try
 		ProvinceBinsCheck = binary:split(Body, [<<"\"province\":{\"name\":\"\"">>], [global]),
 		LenCheck = length(ProvinceBinsCheck),
@@ -2030,7 +1818,7 @@ get_province_name(Body, Pid, CCPid) ->
 			<<>>
 	end.
 
-get_city_name(Body, Pid, CCPid) ->
+get_city_name(Body) ->
 	try
 		CityBins = binary:split(Body, [<<"\"city\":{\"citycode\":\"">>], [global]),
 		Len1 = length(CityBins),
@@ -2073,7 +1861,7 @@ get_city_name(Body, Pid, CCPid) ->
 			<<>>
 	end.
 
-get_district_name(Body, Pid, CCPid) ->
+get_district_name(Body) ->
 	try
 		DistrictBinsCheck = binary:split(Body, [<<"\"district\":{\"name\":\"\"">>], [global]),
 		LenCheck = length(DistrictBinsCheck),
@@ -2113,7 +1901,7 @@ get_district_name(Body, Pid, CCPid) ->
 			<<>>
 	end.
 
-get_road_name(Body, Pid, CCPid) ->
+get_road_name(Body) ->
 	try
 		RoadBins = binary:split(Body, [<<"\"roadlist\":[{\"id\":\"">>], [global]),
 		Len1 = length(RoadBins),

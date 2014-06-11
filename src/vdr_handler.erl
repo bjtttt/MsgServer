@@ -483,8 +483,8 @@ process_vdr_data(Socket, Data, State) ->
                                         VehicleID == undefined orelse VehicleCode==undefined ->
                                             {error, autherror, NewState};
                                         true ->
-											%CertCode = get_driver_cc_by_driver_id(NewState, DriverID),
-											CertCode = get_driver_cc_by_vdr_auth_code(NewState, VDRAuthenCode),
+											CertCodeBin = get_driver_cc_by_vdr_auth_code(NewState, VDRAuthenCode),
+											CertCode = common:get_list_from_binary(CertCodeBin),
 											%common:loginfo("Get certificate code ~p by driver id ~p", [CertCode, DriverID]),
 											disconn_socket_by_vehicle_id(VehicleID),
                                             SockVdrList = ets:lookup(vdrtable, Socket),
@@ -877,6 +877,11 @@ process_vdr_data(Socket, Data, State) ->
                             case create_sql_from_vdr(HeadInfo, Msg, NewState) of
 								{ok, Sql} ->
 									send_sql_to_db_nowait(conn, Sql, NewState),
+
+		                            FlowIdx = NewState#vdritem.msgflownum,
+		                            MsgBody = vdr_data_processor:create_gen_resp(ID, MsgIdx, ?T_GEN_RESP_OK),
+		                            %common:loginfo("~p sends VDR driver info update response (ok) : ~p", [NewState#vdritem.pid, MsgBody]),
+		                            NewFlowIdx = send_data_to_vdr(16#8001, Tel, FlowIdx, MsgBody, NewState),
 									
 									MsgLength = tuple_size(Msg),
 									DriverTablePid = NewState#vdritem.drivertablepid,
@@ -887,90 +892,48 @@ process_vdr_data(Socket, Data, State) ->
 										MsgLength == 9 ->
 											{_DrvState, _Time, _IcReadResult, _NameLen, _N, C, _OrgLen, _O, _Validity} = Msg,
 											%common:loginfo("Certificate Code : ~p", [C]),
-											DriverTablePid ! {SelfPid, checkcc, C},
+											CBin = common:get_binary_from_list(C),
+											DriverTablePid ! {SelfPid, checkcc, {CBin, VDRAuthCode}},
 											receive
-												{Pid, DriverInfoCount} ->
-													%common:loginfo("Driver Info count : ~p", [DriverInfoCount]),
+												{_Pid, {DriverInfoCount, DriverIDCC}} ->
+													%common:loginfo("Driver item count : ~p", [DriverInfoCount]),
 													if
-														DriverInfoCount > 0 ->
-															ok;
+														DriverInfoCount == 1 ->
+															{ok, NewState#vdritem{msgflownum=NewFlowIdx,driverid=DriverIDCC,drivercertcode=CBin}};
 														true ->
-															DriverSql = list_to_binary([<<"select * from driver where certificate_code='">>, list_to_binary(C), <<"'">>]),
+															DriverSql = list_to_binary([<<"select * from driver where certificate_code='">>, common:get_binary_from_list(C), <<"'">>]),
 															%common:loginfo("0x702 - Driver table query SQL : ~p", [DriverSql]),
 															DriverSqlResult = send_sql_to_db(conn, DriverSql , NewState),
 															case vdr_handler:extract_db_resp(DriverSqlResult) of
 																error ->
-																	common:logerror("Message server cannot read driver table");
+																	common:logerror("Message server cannot read driver table"),
+																	{ok, NewState#vdritem{msgflownum=NewFlowIdx,driverid=DriverIDCC,drivercertcode=CBin}};
 																{ok, empty} ->
-																    common:logerror("Message server get no driver info from driver table for certificate_code : ~p", [C]);
+																    common:logerror("Message server get no driver info from driver table for certificate_code : ~p", [C]),
+																	{ok, NewState#vdritem{msgflownum=NewFlowIdx,driverid=DriverIDCC,drivercertcode=CBin}};
 																{ok, Records} ->
 																	RecordCount = length(Records),
 																	if
 																		RecordCount == 1 ->
 																			[Record] = Records,
-																			try
-																				{<<"driver">>, <<"id">>, DriverID} = vdr_handler:get_record_field(<<"driver">>, Record, <<"id">>),
-																				{<<"driver">>, <<"license_no">>, LicNo} = vdr_handler:get_record_field(<<"driver">>, Record, <<"license_no">>),
-																				{<<"driver">>, <<"certificate_code">>, CertCode} = vdr_handler:get_record_field(<<"driver">>, Record, <<"certificate_code">>),
-																				DriverTablePid ! {SelfPid, checkdid, DriverID},
-																				receive
-																					{Pid, NewDriverInfoCount} ->
-																						if
-																							NewDriverInfoCount == 0 ->
-																								DriverTablePid ! {SelfPid, insert, [DriverID, LicNo, CertCode, VDRAuthCode]};
-																							true ->
-																								common:logerror("Message server get duplicated driver info with id(~p) from driver table for certificate_code : ~p", [DriverID, C])
-																						end
-																				after ?PROC_RESP_TIMEOUT ->
-																						common:logerror("Message server cannot get driver info count with id(~p) from driver table for certificate_code : ~p", [DriverID, C])
-																				end
-																			catch
-																				_:Msg ->
-																					common:logerror("Message server fails to get driver info from driver table for certificate_code (~p) : ~p", [C, Msg])
-																			end;
+																			{<<"driver">>, <<"id">>, DriverID} = vdr_handler:get_record_field(<<"driver">>, Record, <<"id">>),
+																			{<<"driver">>, <<"license_no">>, LicNo} = vdr_handler:get_record_field(<<"driver">>, Record, <<"license_no">>),
+																			{<<"driver">>, <<"certificate_code">>, CertCode} = vdr_handler:get_record_field(<<"driver">>, Record, <<"certificate_code">>),
+																			DriverTablePid ! {SelfPid, chkinsdriverinfo, {DriverID, LicNo, CertCode, VDRAuthCode}},
+																			{ok, NewState#vdritem{msgflownum=NewFlowIdx,driverid=DriverID,drivercertcode=CertCode}};
 																		true ->
-																    		common:logerror("Message server get ~p driver info from driver table for certificate_code : ~p", [RecordCount, C])
+																    		common:logerror("Message server get ~p driver info from driver table for certificate_code : ~p", [RecordCount, C]),
+																			{ok, NewState#vdritem{msgflownum=NewFlowIdx,driverid=DriverIDCC,drivercertcode=CBin}}
 																	end
 															end
 													end
 											after ?PROC_RESP_TIMEOUT ->
-													common:logerror("Message server fails to get driver info from driver table for certificate_code (~p) : timeout", [C])
+													common:logerror("Message server fails to get driver info from driver table for certificate_code (~p) : timeout", [C]),
+													{ok, NewState#vdritem{msgflownum=NewFlowIdx,driverid=undefined,drivercertcode=CBin}}
 											end;
-										true ->
-											ok
-									end,
-                                                        
-		                            FlowIdx = NewState#vdritem.msgflownum,
-		                            MsgBody = vdr_data_processor:create_gen_resp(ID, MsgIdx, ?T_GEN_RESP_OK),
-		                            %common:loginfo("~p sends VDR driver info update response (ok) : ~p", [NewState#vdritem.pid, MsgBody]),
-		                            NewFlowIdx = send_data_to_vdr(16#8001, Tel, FlowIdx, MsgBody, NewState),
-		
-									if
 										MsgLength == 2 ->
-											%common:loginfo("Delete Driver ID, Certificate Code"),
 											DriverTablePid ! {SelfPid, offwork, NewState#vdritem.drivercertcode},
 											{ok, NewState#vdritem{msgflownum=NewFlowIdx,driverid=undefined,drivercertcode=undefined}};
-										MsgLength == 9 ->
-											%if
-											%	NewState#vdritem.driverid == undefined orelse NewState#vdritem.driverid < 1 ->
-											{_DrvState1, _Time1, _IcReadResult1, _NameLen1, _N1, C1, _OrgLen1, _O1, _Validity1} = Msg,
-											DriverTablePid ! {SelfPid, get, C1},
-											receive
-												{SelfPid, NewDriverID} ->
-													if
-														NewDriverID == undefined orelse NewDriverID < 0 ->
-															{ok, NewState#vdritem{msgflownum=NewFlowIdx}};
-														true ->
-															%common:loginfo("New Driver ID : ~p, Certificate Code : ~p", [NewDriverID, C1]),
-															DriverTablePid ! {SelfPid, onwork, C1},
-															{ok, NewState#vdritem{msgflownum=NewFlowIdx,driverid=NewDriverID,drivercertcode=C1}}
-													end
-											after ?PROC_RESP_TIMEOUT ->
-													{ok, NewState#vdritem{msgflownum=NewFlowIdx}}
-											end;
-											%	true ->
-											%		{ok, NewState#vdritem{msgflownum=NewFlowIdx}}
-											%end;
 										true ->
 											{ok, NewState#vdritem{msgflownum=NewFlowIdx}}
 									end;		                            
@@ -2144,22 +2107,7 @@ get_certcode_bin_for_sql(CertCode) ->
 		CertCode == undefined ->
 			<<"">>;
 		true ->
-			IsBin = erlang:is_binary(CertCode),
-			if
-				IsBin == true ->
-					CertCode;
-				true ->
-					IsList = erlang:is_list(CertCode),
-					if
-						IsList == true ->
-							try
-								erlang:list_to_binary(CertCode)
-							catch
-								_:_ ->
-									<<"">>
-							end
-					end
-			end
+			CertCode
 	end.
 
 create_sql_from_vdr(HeaderInfo, Msg, State) ->
@@ -2412,29 +2360,6 @@ create_sql_from_vdr(HeaderInfo, Msg, Address, State) ->
             {error, iderror}
     end.
 
-get_driver_id(State) ->
-	DriverTablePid = State#vdritem.drivertablepid,
-	Pid = State#vdritem.pid,
-	DriverID = State#vdritem.driverid,
-	IsInt = is_integer(DriverID),
-	if
-		IsInt == true ->
-			DriverTablePid ! {Pid, checkdid, DriverID},
-			receive
-				{Pid, Count} ->
-					if
-						Count > 0 ->
-							DriverID;
-						true ->
-							0
-					end
-			after ?PROC_RESP_TIMEOUT ->
-					0
-			end;
-		true ->
-			0
-	end.
-
 get_driver_cert_code(State) ->
 	CertCode = State#vdritem.drivercertcode,
 	case CertCode of
@@ -2444,29 +2369,6 @@ get_driver_cert_code(State) ->
 			CertCode
 	end.
 
-get_driver_cc_by_driver_id(State, DriverID) ->
-	DriverTablePid = State#vdritem.drivertablepid,
-	Pid = State#vdritem.pid,
-	DriverID = State#vdritem.driverid,
-	IsInt = is_integer(DriverID),
-	if
-		IsInt == true ->
-			DriverTablePid ! {Pid, getcc, DriverID},
-			receive
-				{Pid, CertCode} ->
-					case CertCode of
-						[] ->
-							undefined;
-						_ ->
-							CertCode
-					end
-			after ?PROC_RESP_TIMEOUT ->
-					undefined
-			end;
-		true ->
-			undefined
-	end.
-
 get_driver_cc_by_vdr_auth_code(State, VDRAuthCode) ->
 	DriverTablePid = State#vdritem.drivertablepid,
 	Pid = State#vdritem.pid,
@@ -2474,7 +2376,7 @@ get_driver_cc_by_vdr_auth_code(State, VDRAuthCode) ->
 	receive
 		{Pid, CertCode} ->
 			case CertCode of
-				[] ->
+				<<"">> ->
 					undefined;
 				_ ->
 					CertCode
@@ -2483,25 +2385,11 @@ get_driver_cc_by_vdr_auth_code(State, VDRAuthCode) ->
 			undefined
 	end.
 
-set_driver_onoffwork(State, CertCode, WorkState) ->
-	DriverTablePid = State#vdritem.drivertablepid,
-	Pid = State#vdritem.pid,
-	if
-		WorkState == true orelse WorkState == false ->
-			DriverTablePid ! {Pid, WorkState, CertCode};
-		true ->
-			ok
-	end.
-
 %create_pos_info_sql(Msg, State) ->
 %	create_pos_info_sql(Msg, [], State).
 
 create_pos_info_sql(Msg, Address, State) ->
-	%common:loginfo("Check Driver ID : ~p", [State#vdritem.driverid]),
-	%DriverID = get_driver_id(State),
 	CertCode = get_driver_cert_code(State),
-	%common:loginfo("Address : ~p", [Address]),
-	%common:loginfo("Driver ID : ~p", [DriverID]),
     case Msg of
         {H, AppInfo} ->
 			[AlarmSym, StateFlag, Lat, Lon, Height, Speed, Direction, Time]= H,
@@ -2536,8 +2424,7 @@ create_pos_info_sql(Msg, Address, State) ->
             ServerSecondS = common:integer_to_binary(ServerSecond),
             ServerTimeS = list_to_binary([ServerYearS, <<"-">>, ServerMonthS, <<"-">>, ServerDayS, <<" ">>, ServerHourS, <<":">>, ServerMinuteS, <<":">>, ServerSecondS]),
             VehicleID = State#vdritem.vehicleid,
-            %DriverID = State#vdritem.driverid,
-   			{AIKey, AIVal, AIKeyVal} = create_pos_app_sql(AppInfo),
+   			{AIKey, AIVal, _AIKeyVal} = create_pos_app_sql(AppInfo),
             SQL0 = list_to_binary([<<"insert into vehicle_position_">>, DBBin,
 								   <<"(vehicle_id, certificate_code, gps_time, server_time, longitude, latitude, height, speed, direction, status_flag, alarm_flag, pos_desc">>,
 								   AIKey, <<") values(">>,

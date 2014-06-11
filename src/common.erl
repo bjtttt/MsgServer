@@ -33,7 +33,9 @@
 		 get_str_bin_to_bin_list/1,
 		 send_stat_err/2,
 		 send_stat_err_server/2,
-		 send_vdr_table_operation/2]).
+		 send_vdr_table_operation/2,
+		 get_binary_from_list/1,
+		 get_list_from_binary/1]).
 
 -export([set_sockopt/3]).
 
@@ -893,6 +895,29 @@ send_stat_err_server(State, Type) ->
 			end
 	end.
 
+get_binary_from_list(List) when is_list(List) ->
+	try
+		erlang:list_to_binary(List)
+	catch
+		_:_ ->
+			<<"">>
+	end;
+get_binary_from_list(List) when is_binary(List) ->
+	List;
+get_binary_from_list(_List) ->
+	<<"">>.
+
+get_list_from_binary(Binary) when is_binary(Binary) ->
+	try
+		erlang:binary_to_list(Binary)
+	catch
+		_:_ ->
+			[]
+	end;
+get_list_from_binary(Binary) when is_list(Binary) ->
+	Binary;
+get_list_from_binary(_Binary) ->
+	[].
 
 
 

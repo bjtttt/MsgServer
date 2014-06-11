@@ -201,7 +201,6 @@
 -record(driverinfo, {	driverid=undefined,
 						licno=undefined,
 						certcode=undefined,
-						online=false,
 						vdrauthcode=undefined
 					 }).
 
