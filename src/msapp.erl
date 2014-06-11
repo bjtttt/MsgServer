@@ -889,7 +889,7 @@ drivertable_insert_delete_process() ->
 					ets:insert(drivertable, DriverInfoItem),
 					Pid ! {Pid, {DriverInfosCount, DriverID}};
 				true ->
-					common:loginfo("Get ~p driver item by certificate_code ~p", [CertCode]),
+					common:loginfo("Get ~p driver item by certificate_code ~p", [DriverInfosCount, CertCode]),
 					Pid ! {Pid, {DriverInfosCount, undefined}}
 			end,
 			drivertable_insert_delete_process();

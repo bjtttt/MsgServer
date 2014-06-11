@@ -483,8 +483,9 @@ process_vdr_data(Socket, Data, State) ->
                                         VehicleID == undefined orelse VehicleCode==undefined ->
                                             {error, autherror, NewState};
                                         true ->
-											CertCodeBin = get_driver_cc_by_vdr_auth_code(NewState, VDRAuthenCode),
-											CertCode = common:get_list_from_binary(CertCodeBin),
+											%common:loginfo("VDR Auth Code : ~p", [VDRAuthenCode]),
+											CertCode = get_driver_cc_by_vdr_auth_code(NewState, VDRAuthenCode),
+											%CertCode = common:get_list_from_binary(CertCodeBin),
 											%common:loginfo("Get certificate code ~p by driver id ~p", [CertCode, DriverID]),
 											disconn_socket_by_vehicle_id(VehicleID),
                                             SockVdrList = ets:lookup(vdrtable, Socket),
@@ -885,7 +886,7 @@ process_vdr_data(Socket, Data, State) ->
 									
 									MsgLength = tuple_size(Msg),
 									DriverTablePid = NewState#vdritem.drivertablepid,
-									VDRAuthCode = NewState#vdritem.auth,
+									VDRAuthCode = common:get_binary_from_list(NewState#vdritem.auth),
 									SelfPid = NewState#vdritem.pid,
 									%common:loginfo("0x702 message body (~p) : ~p", [MsgLength, Msg]),
 									if
@@ -2102,7 +2103,7 @@ send_msg_to_ws_nowait(Msg, State) ->
             WSPid ! {State#vdritem.pid, Msg, noresp}
     end.
 
-get_certcode_bin_for_sql(CertCode) ->
+get_certcode_for_sql(CertCode) ->
 	if
 		CertCode == undefined ->
 			<<"">>;
@@ -2197,7 +2198,7 @@ create_sql_from_vdr(HeaderInfo, Msg, Address, State) ->
 			            TimeS = list_to_binary([YearS, <<"-">>, MonthS, <<"-">>, DayS, <<" ">>, HourS, <<":">>, MinuteS, <<":">>, SecondS]),
 			            SQL = list_to_binary([<<"insert into driver_record(vehicle_id, certificate_code, ontime, type) values(">>,
 											  common:integer_to_binary(State#vdritem.vehicleid), <<", '">>,
-											  get_certcode_bin_for_sql(State#vdritem.drivercertcode), <<"', '">>,
+											  get_certcode_for_sql(State#vdritem.drivercertcode), <<"', '">>,
 											  TimeS, <<"', ">>,
 											  common:integer_to_binary(DrvState), <<")">>]),
 			            {ok, SQL};
@@ -2219,7 +2220,7 @@ create_sql_from_vdr(HeaderInfo, Msg, Address, State) ->
 			            TimeS = list_to_binary([YearS, <<"-">>, MonthS, <<"-">>, DayS, <<" ">>, HourS, <<":">>, MinuteS, <<":">>, SecondS]),
 			            SQL = list_to_binary([<<"insert into driver_record(vehicle_id, certificate_code, ontime, status, type) values(">>,
 											  common:integer_to_binary(State#vdritem.vehicleid), <<", '">>,
-											  get_certcode_bin_for_sql(State#vdritem.drivercertcode), <<"', '">>,
+											  get_certcode_for_sql(State#vdritem.drivercertcode), <<"', '">>,
 											  TimeS, <<"', ">>,
 											  common:integer_to_binary(IcReadResult), <<", ">>,
 											  common:integer_to_binary(DrvState), <<")">>]),
