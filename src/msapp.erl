@@ -885,7 +885,7 @@ drivertable_insert_delete_process() ->
 				DriverInfosCount == 1 ->
 					[[DriverID, LicNoRec]] = DriverInfos,
 					DriverInfoItem = #driverinfo{driverid=DriverID, licno=LicNoRec, certcode=CertCode, vdrauthcode=VDRAuthCode},
-					common:loginfo("Change driver item online state : ~p", [DriverInfoItem]),
+					%common:loginfo("Change driver item online state : ~p", [DriverInfoItem]),
 					ets:insert(drivertable, DriverInfoItem),
 					Pid ! {Pid, {DriverInfosCount, DriverID}};
 				true ->
