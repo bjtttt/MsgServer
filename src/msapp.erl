@@ -1755,7 +1755,7 @@ http_gps_deamon(InitialIPPort, State, Count, ACount, FCount, FACount) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 get_full_address(Body) ->
 	%Pid = self(),
-	%common:loginfo("Body : ~p", [Body]),
+	common:loginfo("Body : ~p", [Body]),
 	Province = get_province_name(Body),
 	%common:loginfo("Province : ~p", [Province]),
 	City = get_city_name(Body),
@@ -1765,17 +1765,30 @@ get_full_address(Body) ->
 	Road = get_road_name(Body),
 	%common:loginfo("Road : ~p", [Road]),
 	BuildingAddress = get_building_address(Body),
-	%common:loginfo("Road : ~p", [Road]),
+	%common:loginfo("BuildingAddress : ~p", [BuildingAddress]),
 	BuildingName = get_building_name(Body),
-	%common:loginfo("Road : ~p", [Road]),
+	%common:loginfo("BuildingName : ~p", [BuildingName]),
 	BuildingDirection = get_building_direction(Body),
-	%common:loginfo("Road : ~p", [Road]),
+	%common:loginfo("BuildingDirection : ~p", [BuildingDirection]),
 	BuildingDistance = get_building_distance(Body),
-	%common:loginfo("Road : ~p", [Road]),
+	%common:loginfo("BuildingDistance : ~p", [BuildingDistance]),
 	%list_to_binary([Province, City, District, Road]).
-	Address = list_to_binary([Province, City, District, Road, BuildingAddress, BuildingName, BuildingDirection, BuildingDistance]),
+	if
+		BuildingDirection == <<"">> orelse BuildingDistance == <<"">> ->
+			Address = list_to_binary([Province, City, District, Road, BuildingAddress, BuildingName]),
+			Address1 = binary:replace(Address, <<"(">>, <<"[">>, [global]),
+			Address2 = binary:replace(Address1, <<")">>, <<"]">>, [global]),
+			%common:loginfo("Address : (Binary ~p, List ~p) ~p", [is_binary(Address2), is_list(Address2), Address2]),
+			Address2;
+		true ->
+			Address = list_to_binary([Province, City, District, Road, BuildingAddress, BuildingName, BuildingDirection, BuildingDistance]),
+			Address1 = binary:replace(Address, <<"(">>, <<"[">>, [global]),
+			Address2 = binary:replace(Address1, <<")">>, <<"]">>, [global]),
+			%common:loginfo("Address : (Binary ~p, List ~p) ~p", [is_binary(Address2), is_list(Address2), Address2]),
+			Address2
+	end.
 	%common:loginfo("Address : (Binary ~p, List ~p) ~p", [is_binary(Address), is_list(Address), Address]),
-	Address.
+	%Address.
 	%CCPid ! {Pid, utf8togbk, Address},
 	%receive
 	%	AddressNew ->
@@ -1792,7 +1805,7 @@ get_province_name(Body) ->
 		LenCheck = length(ProvinceBinsCheck),
 		if
 			LenCheck =/= 1 ->
-				<<>>;
+				<<"">>;
 			true ->
 				ProvinceBins = binary:split(Body, [<<"\"province\":{\"name\":\"">>], [global]),
 				Len1 = length(ProvinceBins),
@@ -1815,15 +1828,15 @@ get_province_name(Body) ->
 								%		list_to_binary(Province)
 								%end;
 							true ->
-								<<>>
+								<<"">>
 						end;
 					true ->
-						<<>>
+						<<"">>
 				end
 		end
 	catch
 		_:_ ->
-			<<>>
+			<<"">>
 	end.
 
 get_city_name(Body) ->
@@ -1839,7 +1852,7 @@ get_city_name(Body) ->
 				LenCheck = length(CityInfoBinsCheck),
 				if
 					LenCheck =/= 1 ->
-						<<>>;
+						<<"">>;
 					true ->
 						CityInfoBins = binary:split(CityInfo, [<<"\"name\":\"">>, <<"\",\"ename\":\"">>], [global]),
 						%common:loginfo("CityInfoBins : (~p)~n~p", [length(CityInfoBins), CityInfoBins]),
@@ -1858,15 +1871,15 @@ get_city_name(Body) ->
 								%		list_to_binary(City)
 								%end;
 							true ->
-								<<>>
+								<<"">>
 						end
 				end;
 			true ->
-				<<>>
+				<<"">>
 		end
 	catch
 		_:_ ->
-			<<>>
+			<<"">>
 	end.
 
 get_district_name(Body) ->
@@ -1875,7 +1888,7 @@ get_district_name(Body) ->
 		LenCheck = length(DistrictBinsCheck),
 		if
 			LenCheck =/= 1 ->
-				<<>>;
+				<<"">>;
 			true ->
 				DistrictBins = binary:split(Body, [<<"\"district\":{\"name\":\"">>], [global]),
 				Len1 = length(DistrictBins),
@@ -1898,15 +1911,15 @@ get_district_name(Body) ->
 								%		list_to_binary(Dictrict)
 								%end;
 							true ->
-								<<>>
+								<<"">>
 						end;
 					true ->
-						<<>>
+						<<"">>
 				end
 		end
 	catch
 		_:_ ->
-			<<>>
+			<<"">>
 	end.
 
 get_road_name(Body) ->
@@ -1922,7 +1935,7 @@ get_road_name(Body) ->
 				LenCheck = length(RoadInfoBinsCheck),
 				if
 					LenCheck =/= 1->
-						<<>>;
+						<<"">>;
 					true ->
 						RoadInfoBins = binary:split(RoadInfo, [<<"\"name\":\"">>, <<"\",\"ename\":\"">>], [global]),
 						%common:loginfo("RoadInfoBins : (~p)~n~p", [length(RoadInfoBins), RoadInfoBins]),
@@ -1941,15 +1954,15 @@ get_road_name(Body) ->
 								%		list_to_binary(Road)
 								%end;
 							true ->
-								<<>>
+								<<"">>
 						end
 				end;
 			true ->
-				<<>>
+				<<"">>
 		end
 	catch
 		_:_ ->
-			<<>>
+			<<"">>
 	end.
 
 get_building_address(Body) ->
@@ -1961,38 +1974,20 @@ get_building_address(Body) ->
 				RoadInfo = lists:nth(2, RoadBins),
 				RoadInfoBody = binary:split(RoadInfo, [<<"}]">>], [global]),
 				RoadInfoPureBody = lists:nth(1, RoadInfoBody),
-				RoadInfoBinsCheck = binary:split(RoadInfoPureBody, [<<"\"address\":\"\"">>], [global]),
+				RoadInfoBinsCheck = binary:split(RoadInfoPureBody, [<<"\"address\":\"">>, <<"\",\"direction\":\"">>], [global]),
 				LenCheck = length(RoadInfoBinsCheck),
 				if
-					LenCheck =/= 1->
-						<<>>;
+					LenCheck =/= 3->
+						<<"">>;
 					true ->
-						RoadInfoBins = binary:split(RoadInfo, [<<"\"address\":\"">>, <<"\",\"direction\":\"">>], [global]),
-						%common:loginfo("RoadInfoBins : (~p)~n~p", [length(RoadInfoBins), RoadInfoBins]),
-						Len = length(RoadInfoBins),
-						if
-							Len > 1 ->
-								lists:nth(2, RoadInfoBins);
-								%Road = lists:nth(2, RoadInfoBins),
-								%CCPid ! {Pid, utf8togbk, Road},
-								%receive
-								%	RoadNew ->
-								%		common:loginfo("Road New : (Binary ~p, List ~p) ~p", [is_binary(RoadNew), is_list(RoadNew), RoadNew]),
-								%		list_to_binary(RoadNew)
-								%after ?TIMEOUT_CC_PROCESS ->
-								%		common:loginfo("Road : (Binary ~p, List ~p) ~p", [is_binary(Road), is_list(Road), Road]),
-								%		list_to_binary(Road)
-								%end;
-							true ->
-								<<>>
-						end
+						lists:nth(2, RoadInfoBinsCheck)
 				end;
 			true ->
-				<<>>
+				<<"">>
 		end
 	catch
 		_:_ ->
-			<<>>
+			<<"">>
 	end.
 
 get_building_name(Body) ->
@@ -2004,38 +1999,20 @@ get_building_name(Body) ->
 				RoadInfo = lists:nth(2, RoadBins),
 				RoadInfoBody = binary:split(RoadInfo, [<<"}]">>], [global]),
 				RoadInfoPureBody = lists:nth(1, RoadInfoBody),
-				RoadInfoBinsCheck = binary:split(RoadInfoPureBody, [<<"\"name\":\"">>], [global]),
+				RoadInfoBinsCheck = binary:split(RoadInfoPureBody, [<<"\"name\":\"">>, <<"\",\"type\":\"">>], [global]),
 				LenCheck = length(RoadInfoBinsCheck),
 				if
-					LenCheck =/= 1->
-						<<>>;
+					LenCheck =/= 3->
+						<<"">>;
 					true ->
-						RoadInfoBins = binary:split(RoadInfo, [<<"\"name\":\"">>, <<"\",\"type\":\"">>], [global]),
-						%common:loginfo("RoadInfoBins : (~p)~n~p", [length(RoadInfoBins), RoadInfoBins]),
-						Len = length(RoadInfoBins),
-						if
-							Len > 1 ->
-								lists:nth(2, RoadInfoBins);
-								%Road = lists:nth(2, RoadInfoBins),
-								%CCPid ! {Pid, utf8togbk, Road},
-								%receive
-								%	RoadNew ->
-								%		common:loginfo("Road New : (Binary ~p, List ~p) ~p", [is_binary(RoadNew), is_list(RoadNew), RoadNew]),
-								%		list_to_binary(RoadNew)
-								%after ?TIMEOUT_CC_PROCESS ->
-								%		common:loginfo("Road : (Binary ~p, List ~p) ~p", [is_binary(Road), is_list(Road), Road]),
-								%		list_to_binary(Road)
-								%end;
-							true ->
-								<<>>
-						end
+						lists:nth(2, RoadInfoBinsCheck)
 				end;
 			true ->
-				<<>>
+				<<"">>
 		end
 	catch
 		_:_ ->
-			<<>>
+			<<"">>
 	end.
 
 get_building_direction(Body) ->
@@ -2047,58 +2024,48 @@ get_building_direction(Body) ->
 				RoadInfo = lists:nth(2, RoadBins),
 				RoadInfoBody = binary:split(RoadInfo, [<<"}]">>], [global]),
 				RoadInfoPureBody = lists:nth(1, RoadInfoBody),
-				RoadInfoBinsCheck = binary:split(RoadInfoPureBody, [<<"\"direction\":\"">>], [global]),
+				RoadInfoBinsCheck = binary:split(RoadInfoPureBody, [<<"\"direction\":\"">>, <<"\",\"tel\":\"">>], [global]),
 				LenCheck = length(RoadInfoBinsCheck),
 				if
-					LenCheck =/= 1->
-						<<>>;
+					LenCheck =/= 3->
+						<<"">>;
 					true ->
-						RoadInfoBins = binary:split(RoadInfo, [<<"\"direction\":\"">>, <<"\",\"tel\":\"">>], [global]),
-						%common:loginfo("RoadInfoBins : (~p)~n~p", [length(RoadInfoBins), RoadInfoBins]),
-						Len = length(RoadInfoBins),
-						if
-							Len > 1 ->
-								Direction = lists:nth(2, RoadInfoBins),
-								case Direction of
-									<<"East">> ->
-										<<"东">>;
-									<<"South">> ->
-										<<"南">>;
-									<<"West">> ->
-										<<"西">>;
-									<<"North">> ->
-										<<"北">>;
-									<<"SouthEast">> ->
-										<<"东南">>;
-									<<"SouthWest">> ->
-										<<"西南">>;
-									<<"NorthEast">> ->
-										<<"东北">>;
-									<<"NorthWest">> ->
-										<<"西北">>;
-									_ ->
-										Direction
-								end;
-								%Road = lists:nth(2, RoadInfoBins),
-								%CCPid ! {Pid, utf8togbk, Road},
-								%receive
-								%	RoadNew ->
-								%		common:loginfo("Road New : (Binary ~p, List ~p) ~p", [is_binary(RoadNew), is_list(RoadNew), RoadNew]),
-								%		list_to_binary(RoadNew)
-								%after ?TIMEOUT_CC_PROCESS ->
-								%		common:loginfo("Road : (Binary ~p, List ~p) ~p", [is_binary(Road), is_list(Road), Road]),
-								%		list_to_binary(Road)
-								%end;
-							true ->
-								<<>>
+						Direction = lists:nth(2, RoadInfoBinsCheck),
+						case Direction of
+							<<"East">> ->
+								<<"东">>;
+							<<"South">> ->
+								<<"南">>;
+							<<"West">> ->
+								<<"西">>;
+							<<"North">> ->
+								<<"北">>;
+							<<"SouthEast">> ->
+								<<"东南">>;
+							<<"EastSouth">> ->
+								<<"东南">>;
+							<<"SouthWest">> ->
+								<<"西南">>;
+							<<"WestSouth">> ->
+								<<"西南">>;
+							<<"NorthEast">> ->
+								<<"东北">>;
+							<<"EastNorth">> ->
+								<<"东北">>;
+							<<"NorthWest">> ->
+								<<"西北">>;
+							<<"WestNorth">> ->
+								<<"西北">>;
+							_ ->
+								Direction
 						end
 				end;
 			true ->
-				<<>>
+				<<"">>
 		end
 	catch
 		_:_ ->
-			<<>>
+			<<"">>
 	end.
 
 get_building_distance(Body) ->
@@ -2110,46 +2077,28 @@ get_building_distance(Body) ->
 				RoadInfo = lists:nth(2, RoadBins),
 				RoadInfoBody = binary:split(RoadInfo, [<<"}]">>], [global]),
 				RoadInfoPureBody = lists:nth(1, RoadInfoBody),
-				RoadInfoBinsCheck = binary:split(RoadInfoPureBody, [<<"\"distance\":\"">>], [global]),
+				RoadInfoBinsCheck = binary:split(RoadInfoPureBody, [<<"\",\"typecode\":\"">>], [global]),
 				LenCheck = length(RoadInfoBinsCheck),
 				if
-					LenCheck =/= 1->
-						<<>>;
+					LenCheck =/= 2->
+						<<"">>;
 					true ->
-						RoadInfoBins = binary:split(RoadInfo, [<<"\"distance\":\"">>, <<"\",\"typecode\":\"">>], [global]),
-						%common:loginfo("RoadInfoBins : (~p)~n~p", [length(RoadInfoBins), RoadInfoBins]),
-						Len = length(RoadInfoBins),
+						Distance = lists:nth(1, RoadInfoBinsCheck),
+						DistanceBins = binary:split(Distance, [<<".">>], [global]),
+						LenDistanceBins = length(DistanceBins),
 						if
-							Len > 1 ->
-								Distance = lists:nth(1, RoadInfoBins),
-								DistanceBins = binary:split(Distance, [<<".">>], [global]),
-								LenDistanceBins = length(DistanceBins),
-								if
-									LenDistanceBins > 1 ->
-										erlang:list_to_binary([lists:nth(1, DistanceBins), <<"米">>]);
-									true ->
-										erlang:list_to_binary([Distance, <<"米">>])
-								end;
-								%Road = lists:nth(2, RoadInfoBins),
-								%CCPid ! {Pid, utf8togbk, Road},
-								%receive
-								%	RoadNew ->
-								%		common:loginfo("Road New : (Binary ~p, List ~p) ~p", [is_binary(RoadNew), is_list(RoadNew), RoadNew]),
-								%		list_to_binary(RoadNew)
-								%after ?TIMEOUT_CC_PROCESS ->
-								%		common:loginfo("Road : (Binary ~p, List ~p) ~p", [is_binary(Road), is_list(Road), Road]),
-								%		list_to_binary(Road)
-								%end;
+							LenDistanceBins > 1 ->
+								erlang:list_to_binary([lists:nth(1, DistanceBins), <<"米">>]);
 							true ->
-								<<>>
+								erlang:list_to_binary([Distance, <<"米">>])
 						end
 				end;
 			true ->
-				<<>>
+				<<"">>
 		end
 	catch
 		_:_ ->
-			<<>>
+			<<"">>
 	end.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
