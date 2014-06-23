@@ -1755,7 +1755,7 @@ http_gps_deamon(InitialIPPort, State, Count, ACount, FCount, FACount) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 get_full_address(Body) ->
 	%Pid = self(),
-	common:loginfo("Body : ~p", [Body]),
+	%common:loginfo("Body : ~p", [Body]),
 	Province = get_province_name(Body),
 	%common:loginfo("Province : ~p", [Province]),
 	City = get_city_name(Body),
