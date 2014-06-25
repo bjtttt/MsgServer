@@ -34,23 +34,20 @@
 start(StartType, StartArgs) ->
 	Len = length(StartArgs),
 	case Len of
-		13 ->
-			[PortVDR, PortMon, PortMP, WS, PortWS, DB, DBName, DBUid, DBPwd, MaxR, MaxT, Mode, Path] = StartArgs,
-			startserver(StartType, [PortVDR, PortMon, PortMP, WS, PortWS, DB, DBName, DBUid, DBPwd, MaxR, MaxT, Mode, Path, 0]);
 		14 ->
-			[PortVDR, PortMon, PortMP, WS, PortWS, DB, DBName, DBUid, DBPwd, MaxR, MaxT, Mode, Path, HttpGps] = StartArgs,
-			case HttpGps of
-				1 ->
-					startserver(StartType, [PortVDR, PortMon, PortMP, WS, PortWS, DB, DBName, DBUid, DBPwd, MaxR, MaxT, Mode, Path, 1]);
-				_ ->
-					startserver(StartType, [PortVDR, PortMon, PortMP, WS, PortWS, DB, DBName, DBUid, DBPwd, MaxR, MaxT, Mode, Path, 0])
-			end;
+			startserver(StartType, StartArgs);
 		_ ->
 			common:logerror("Parameter count error : ~p", [Len])
 	end.
-	
+
+init_httpgps_state(HttpGpsServer) when is_list(HttpGpsServer),
+									   length(HttpGpsServer) > 0 ->
+	1;
+init_httpgps_state(_HttpGpsServer) ->
+	0.
+
 startserver(StartType, StartArgs) ->
-    [PortVDR, PortMon, PortMP, WS, PortWS, DB, DBName, DBUid, DBPwd, MaxR, MaxT, Mode, Path, HttpGps] = StartArgs,
+    [PortVDR, PortMon, PortMP, WS, PortWS, DB, DBName, DBUid, DBPwd, MaxR, MaxT, Mode, Path, HttpGpsServer] = StartArgs,
     AppPid = self(),
     ets:new(msgservertable,[set,public,named_table,{keypos,1},{read_concurrency,true},{write_concurrency,true}]),
     ets:insert(msgservertable, {portvdr, PortVDR}),
@@ -66,7 +63,8 @@ startserver(StartType, StartArgs) ->
     ets:insert(msgservertable, {maxt, MaxT}),
     ets:insert(msgservertable, {mode, Mode}),
     ets:insert(msgservertable, {path, Path}),
-	HttpGpsServer = "58.246.201.138:8081",
+	%HttpGpsServer = "58.246.201.138:8081",
+	HttpGps = init_httpgps_state(HttpGpsServer),
 	ets:insert(msgservertable, {httpgpsserver, HttpGpsServer}),
     ets:insert(msgservertable, {dbpid, undefined}),
     ets:insert(msgservertable, {wspid, undefined}),
