@@ -42,8 +42,10 @@ start(StartType, StartArgs) ->
 
 init_httpgps_state(HttpGpsServer) when is_list(HttpGpsServer),
 									   length(HttpGpsServer) > 0 ->
+	common:logerror("HTTP GPS service is enabled : ~p", [HttpGpsServer]),
 	1;
-init_httpgps_state(_HttpGpsServer) ->
+init_httpgps_state(HttpGpsServer) ->
+	common:logerror("HTTP GPS service is disabled : ~p", [HttpGpsServer]),
 	0.
 
 startserver(StartType, StartArgs) ->
