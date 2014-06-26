@@ -1591,7 +1591,7 @@ update_vehicle_alarm(VehicleID, _DriverID, TimeS, TimeTuple, Alarm, Index, MsgId
     AlarmList = State#vdritem.alarmlist,
     Flag = 1 bsl Index,
     BitState = Alarm band Flag,
-	[ID, AreaLineType, AreaLineID, AreaLineOper] = AreaLineAlarm,
+	[AreaLineType, AreaLineID, AreaLineOper] = AreaLineAlarm,
     if
         BitState == Flag ->
             AlarmEntry = get_alarm_item(Index, AlarmList),
