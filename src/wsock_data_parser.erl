@@ -221,6 +221,78 @@ do_process_data(Data) ->
                                 true ->
                                     {error, length_error}
                             end;
+                        16#8105 ->
+                            if
+                                Len == 4 ->
+                                    {"SN", SN} = get_specific_entry(Content, "SN"),
+                                    {"LIST", List} = get_specific_entry(Content, "LIST"),
+                                    {"DATA", {obj, DATA}} = get_specific_entry(Content, "DATA"),
+                                    VIDList = get_same_key_list(List),
+                                    DataLen = length(DATA),
+                                    if
+                                        DataLen == 1 ->
+                                            {"CMD", CMD} = get_specific_entry(DATA, "CMD"),
+                                            {ok, Mid, [SN, VIDList, {CMD}]};
+                                        DataLen == 2 ->
+                                            {"CMD", CMD} = get_specific_entry(DATA, "CMD"),
+                                            {"PARAM", PARAM} = get_specific_entry(DATA, "PARAM"),
+                                            {ok, Mid, [SN, VIDList, {CMD, PARAM}]};
+                                        true ->
+                                            {error, format_error}
+                                    end;
+                                true ->
+                                    {error, length_error}
+                            end;
+						16#8108 ->
+							if
+								Len == 4 ->
+                                    {"SN", SN} = get_specific_entry(Content, "SN"),
+                                    {"LIST", List} = get_specific_entry(Content, "LIST"),
+                                    {"DATA", {obj, DATA}} = get_specific_entry(Content, "DATA"),
+                                    VIDList = get_same_key_list(List),
+                                    DataLen = length(DATA),
+                                    if
+                                        DataLen == 3 ->
+                                            {"TYPE", TYPE} = get_specific_entry(DATA, "TYPE"),
+                                            {"VERSION", VERSION} = get_specific_entry(DATA, "VERSION"),
+                                            {"PID", PID} = get_specific_entry(DATA, "PID"),
+                                            {ok, Mid, [SN, VIDList, [TYPE, VERSION, PID]]};
+                                        true ->
+                                            {error, format_error}
+                                    end;
+								true ->
+									{error, length_error}
+							end;
+                        16#8201 ->
+                            if
+                                Len == 4 ->
+                                    {"SN", SN} = get_specific_entry(Content, "SN"),
+                                    {"LIST", List} = get_specific_entry(Content, "LIST"),
+                                    VIDList = get_same_key_list(List),
+                                    %{"DATA", Data} = get_specific_entry(Content, "DATA"),
+                                    {ok, Mid, [SN, VIDList]};
+                                true ->
+                                    {error, length_error}
+                            end;
+                        16#8202 ->
+                            if
+                                Len == 4 ->
+                                    {"SN", SN} = get_specific_entry(Content, "SN"),
+                                    {"LIST", List} = get_specific_entry(Content, "LIST"),
+                                    {"DATA", {obj, DATA}} = get_specific_entry(Content, "DATA"),
+                                    VIDList = get_same_key_list(List),
+                                    DataLen = length(DATA),
+                                    if
+                                        DataLen == 2 ->
+                                            {"INTERVAL", INTERVAL} = get_specific_entry(DATA, "INTERVAL"),
+                                            {"LENGTH", LENGTH} = get_specific_entry(DATA, "LENGTH"),
+                                            {ok, Mid, [SN, VIDList, [INTERVAL, LENGTH]]};
+                                        true ->
+                                            {error, format_error}
+                                    end;
+                                true ->
+                                    {error, length_error}
+                            end;
                         16#8203 ->
                             if
                                 Len == 4 ->
@@ -236,6 +308,103 @@ do_process_data(Data) ->
                                             {"ASN", ASN} = get_specific_entry(DATA, "ASN"),
                                             {"TYPE", TYPE} = get_specific_entry(DATA, "TYPE"),
                                             {ok, Mid, [SN, VIDList, [ASN, TYPE]]};
+                                        true ->
+                                            {error, format_error}
+                                    end;
+                                true ->
+                                    {error, length_error}
+                            end;
+                        16#8300 ->
+                            if
+                                Len == 4 ->
+                                    {"LIST", List} = get_specific_entry(Content, "LIST"),
+                                    {"SN", SN} = get_specific_entry(Content, "SN"),
+                                    {"DATA", {obj, DATA}} = get_specific_entry(Content, "DATA"),
+                                    VIDList = get_same_key_list(List),
+                                    DataLen = length(DATA),
+                                    if
+                                        DataLen == 2 ->
+                                            {"FLAG", FLAG} = get_specific_entry(DATA, "FLAG"),
+                                            {"TEXT", TEXT} = get_specific_entry(DATA, "TEXT"),
+                                            {ok, Mid, [SN, VIDList, [FLAG, TEXT]]};
+                                        true ->
+                                            {error, format_error}
+                                    end;
+                                true ->
+                                    {error, length_error}
+                            end;
+                        16#8302 ->
+                            if
+                                Len == 4 ->
+                                    {"LIST", List} = get_specific_entry(Content, "LIST"),
+                                    {"SN", SN} = get_specific_entry(Content, "SN"),
+                                    {"DATA", {obj, DATA}} = get_specific_entry(Content, "DATA"),
+                                    VIDList = get_same_key_list(List),
+                                    DataLen = length(DATA),
+                                    if
+                                        DataLen == 3 ->
+                                            {"FLAG", FLAG} = get_specific_entry(DATA, "FLAG"),
+                                            {"QUES", QUES} = get_specific_entry(DATA, "QUES"),
+                                            {"ALIST", ALIST} = get_specific_entry(DATA, "ALIST"),
+                                            IDAns = get_answer_list(ALIST),
+                                            {ok, Mid, [SN, VIDList, [FLAG, QUES, IDAns]]};
+                                        true ->
+                                            {error, format_error}
+                                    end;
+                                true ->
+                                    {error, length_error}
+                            end;
+                        16#8400 ->
+                            if
+                                Len == 4 ->
+                                    {"SN", SN} = get_specific_entry(Content, "SN"),
+                                    {"LIST", List} = get_specific_entry(Content, "LIST"),
+                                    {"DATA", {obj, DATA}} = get_specific_entry(Content, "DATA"),
+                                    VIDList = get_same_key_list(List),
+                                    DataLen = length(DATA),
+                                    if
+                                        DataLen == 2 ->
+                                            {"FLAG", FLAG} = get_specific_entry(DATA, "FLAG"),
+                                            {"PHONE", PHONE} = get_specific_entry(DATA, "PHONE"),
+                                            {ok, Mid, [SN, VIDList, [FLAG, PHONE]]};
+                                        true ->
+                                            {error, format_error}
+                                    end;
+                                true ->
+                                    {error, length_error}
+                            end;
+                        16#8401 ->
+                            if
+                                Len == 4 ->
+                                    {"SN", SN} = get_specific_entry(Content, "SN"),
+                                    {"LIST", List} = get_specific_entry(Content, "LIST"),
+                                    {"DATA", {obj, DATA}} = get_specific_entry(Content, "DATA"),
+                                    VIDList = get_same_key_list(List),
+                                    DataLen = length(DATA),
+                                    if
+                                        DataLen == 2 ->
+                                            {"TYPE", TYPE} = get_specific_entry(DATA, "TYPE"),
+                                            {"LIST", LIST} = get_specific_entry(DATA, "LIST"),
+                                            PhoneNameList = get_phone_name_list(LIST),
+                                            {ok, Mid, [SN, VIDList, [TYPE, PhoneNameList]]};
+                                        true ->
+                                            {error, format_error}
+                                    end;
+                                true ->
+                                    {error, length_error}
+                            end;
+                        16#8500 ->
+                            if
+                                Len == 4 ->
+                                    {"SN", SN} = get_specific_entry(Content, "SN"),
+                                    {"LIST", List} = get_specific_entry(Content, "LIST"),
+                                    {"DATA", {obj, DATA}} = get_specific_entry(Content, "DATA"),
+                                    VIDList = get_same_key_list(List),
+                                    DataLen = length(DATA),
+                                    if
+                                        DataLen == 1 ->
+                                            {"FLAG", FLAG} = get_specific_entry(DATA, "FLAG"),
+                                            {ok, Mid, [SN, VIDList, FLAG]};
                                         true ->
                                             {error, format_error}
                                     end;
@@ -451,164 +620,6 @@ do_process_data(Data) ->
                                 true ->
                                     {error, length_error}
                             end;
-                        16#8105 ->
-                            if
-                                Len == 4 ->
-                                    {"SN", SN} = get_specific_entry(Content, "SN"),
-                                    {"LIST", List} = get_specific_entry(Content, "LIST"),
-                                    {"DATA", {obj, DATA}} = get_specific_entry(Content, "DATA"),
-                                    VIDList = get_same_key_list(List),
-                                    DataLen = length(DATA),
-                                    if
-                                        DataLen == 1 ->
-                                            {"CMD", CMD} = get_specific_entry(DATA, "CMD"),
-                                            {ok, Mid, [SN, VIDList, {CMD}]};
-                                        DataLen == 2 ->
-                                            {"CMD", CMD} = get_specific_entry(DATA, "CMD"),
-                                            {"PARAM", PARAM} = get_specific_entry(DATA, "PARAM"),
-                                            {ok, Mid, [SN, VIDList, {CMD, PARAM}]};
-                                        true ->
-                                            {error, format_error}
-                                    end;
-                                true ->
-                                    {error, length_error}
-                            end;
-						16#8108 ->
-							if
-								Len == 4 ->
-                                    {"SN", SN} = get_specific_entry(Content, "SN"),
-                                    {"LIST", List} = get_specific_entry(Content, "LIST"),
-                                    {"DATA", {obj, DATA}} = get_specific_entry(Content, "DATA"),
-                                    VIDList = get_same_key_list(List),
-                                    DataLen = length(DATA),
-                                    if
-                                        DataLen == 3 ->
-                                            {"TYPE", TYPE} = get_specific_entry(DATA, "TYPE"),
-                                            {"VERSION", VERSION} = get_specific_entry(DATA, "VERSION"),
-                                            {"PID", PID} = get_specific_entry(DATA, "PID"),
-                                            {ok, Mid, [SN, VIDList, [TYPE, VERSION, PID]]};
-                                        true ->
-                                            {error, format_error}
-                                    end;
-								true ->
-									{error, length_error}
-							end;
-                        16#8202 ->
-                            if
-                                Len == 4 ->
-                                    {"SN", SN} = get_specific_entry(Content, "SN"),
-                                    {"LIST", List} = get_specific_entry(Content, "LIST"),
-                                    {"DATA", {obj, DATA}} = get_specific_entry(Content, "DATA"),
-                                    VIDList = get_same_key_list(List),
-                                    DataLen = length(DATA),
-                                    if
-                                        DataLen == 2 ->
-                                            {"INTERVAL", INTERVAL} = get_specific_entry(DATA, "INTERVAL"),
-                                            {"LENGTH", LENGTH} = get_specific_entry(DATA, "LENGTH"),
-                                            {ok, Mid, [SN, VIDList, [INTERVAL, LENGTH]]};
-                                        true ->
-                                            {error, format_error}
-                                    end;
-                                true ->
-                                    {error, length_error}
-                            end;
-                        16#8300 ->
-                            if
-                                Len == 4 ->
-                                    {"LIST", List} = get_specific_entry(Content, "LIST"),
-                                    {"SN", SN} = get_specific_entry(Content, "SN"),
-                                    {"DATA", {obj, DATA}} = get_specific_entry(Content, "DATA"),
-                                    VIDList = get_same_key_list(List),
-                                    DataLen = length(DATA),
-                                    if
-                                        DataLen == 2 ->
-                                            {"FLAG", FLAG} = get_specific_entry(DATA, "FLAG"),
-                                            {"TEXT", TEXT} = get_specific_entry(DATA, "TEXT"),
-                                            {ok, Mid, [SN, VIDList, [FLAG, TEXT]]};
-                                        true ->
-                                            {error, format_error}
-                                    end;
-                                true ->
-                                    {error, length_error}
-                            end;
-                        16#8302 ->
-                            if
-                                Len == 4 ->
-                                    {"LIST", List} = get_specific_entry(Content, "LIST"),
-                                    {"SN", SN} = get_specific_entry(Content, "SN"),
-                                    {"DATA", {obj, DATA}} = get_specific_entry(Content, "DATA"),
-                                    VIDList = get_same_key_list(List),
-                                    DataLen = length(DATA),
-                                    if
-                                        DataLen == 3 ->
-                                            {"FLAG", FLAG} = get_specific_entry(DATA, "FLAG"),
-                                            {"QUES", QUES} = get_specific_entry(DATA, "QUES"),
-                                            {"ALIST", ALIST} = get_specific_entry(DATA, "ALIST"),
-                                            IDAns = get_answer_list(ALIST),
-                                            {ok, Mid, [SN, VIDList, [FLAG, QUES, IDAns]]};
-                                        true ->
-                                            {error, format_error}
-                                    end;
-                                true ->
-                                    {error, length_error}
-                            end;
-                        16#8400 ->
-                            if
-                                Len == 4 ->
-                                    {"SN", SN} = get_specific_entry(Content, "SN"),
-                                    {"LIST", List} = get_specific_entry(Content, "LIST"),
-                                    {"DATA", {obj, DATA}} = get_specific_entry(Content, "DATA"),
-                                    VIDList = get_same_key_list(List),
-                                    DataLen = length(DATA),
-                                    if
-                                        DataLen == 2 ->
-                                            {"FLAG", FLAG} = get_specific_entry(DATA, "FLAG"),
-                                            {"PHONE", PHONE} = get_specific_entry(DATA, "PHONE"),
-                                            {ok, Mid, [SN, VIDList, [FLAG, PHONE]]};
-                                        true ->
-                                            {error, format_error}
-                                    end;
-                                true ->
-                                    {error, length_error}
-                            end;
-                        16#8401 ->
-                            if
-                                Len == 4 ->
-                                    {"SN", SN} = get_specific_entry(Content, "SN"),
-                                    {"LIST", List} = get_specific_entry(Content, "LIST"),
-                                    {"DATA", {obj, DATA}} = get_specific_entry(Content, "DATA"),
-                                    VIDList = get_same_key_list(List),
-                                    DataLen = length(DATA),
-                                    if
-                                        DataLen == 2 ->
-                                            {"TYPE", TYPE} = get_specific_entry(DATA, "TYPE"),
-                                            {"LIST", LIST} = get_specific_entry(DATA, "LIST"),
-                                            PhoneNameList = get_phone_name_list(LIST),
-                                            {ok, Mid, [SN, VIDList, [TYPE, PhoneNameList]]};
-                                        true ->
-                                            {error, format_error}
-                                    end;
-                                true ->
-                                    {error, length_error}
-                            end;
-                        16#8500 ->
-                            if
-                                Len == 4 ->
-                                    {"SN", SN} = get_specific_entry(Content, "SN"),
-                                    {"LIST", List} = get_specific_entry(Content, "LIST"),
-                                    {"DATA", {obj, DATA}} = get_specific_entry(Content, "DATA"),
-                                    VIDList = get_same_key_list(List),
-                                    DataLen = length(DATA),
-                                    if
-                                        DataLen == 1 ->
-                                            {"FLAG", FLAG} = get_specific_entry(DATA, "FLAG"),
-                                            {ok, Mid, [SN, VIDList, FLAG]};
-                                        true ->
-                                            {error, format_error}
-                                    end;
-                                true ->
-                                    {error, length_error}
-                            end;
                         16#8801 ->
                             if
                                 Len == 4 ->
@@ -726,8 +737,12 @@ connect_ws_to_vdr(Msg) ->
                     end;
                 16#8104 ->
                     [SN, VIDList] = Res,
-                    update_vdrs_ws2vdr_msg_id_flowidx(16#8103, SN, VIDList, null),
-                    send_msg_to_vdrs(16#8103, VIDList, <<>>);
+                    update_vdrs_ws2vdr_msg_id_flowidx(16#8104, SN, VIDList, null),
+                    send_msg_to_vdrs(16#8104, VIDList, <<>>);
+                16#8201 ->
+                    [SN, VIDList] = Res,
+                    update_vdrs_ws2vdr_msg_id_flowidx(16#8201, SN, VIDList, null),
+                    send_msg_to_vdrs(16#8201, VIDList, <<>>);
                 16#8203 ->
 					%[SN, VIDList, DataList] = Res,
                     [SN, VIDList, [ASN, TYPE]] = Res,
