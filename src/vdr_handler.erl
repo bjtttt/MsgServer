@@ -1558,7 +1558,7 @@ update_vehicle_alarm(VehicleID, DriverID, TimeS, TimeTuple, Alarm, Index, MsgIdx
                                                 common:integer_to_binary(AreaLineType), <<",">>,
                                                 common:integer_to_binary(AreaLineOper), <<")">>]),
                     send_sql_to_db_nowait(conn, UpdateSql, State),
-                    NewAlarmList = lists:merge(AlarmList,[{alarmitem, VehicleID, Index, TimeTuple}]),
+                    NewAlarmList = lists:merge(AlarmList,[{alarmitem, VehicleID, Index, TimeS}]),%TimeTuple}]),
                     update_vehicle_alarm(VehicleID, DriverID, TimeS, TimeTuple, Alarm, Index+1, MsgIdx, State#vdritem{alarmlist=NewAlarmList}, AreaLineAlarm);
                 true ->
                     update_vehicle_alarm(VehicleID, DriverID, TimeS, TimeTuple, Alarm, Index+1, MsgIdx, State, AreaLineAlarm)
@@ -1606,7 +1606,7 @@ update_vehicle_alarm(VehicleID, _DriverID, TimeS, TimeTuple, Alarm, Index, MsgId
                                                 common:integer_to_binary(AreaLineType), <<",">>,
                                                 common:integer_to_binary(AreaLineOper), <<")">>]),
                     send_sql_to_db_nowait(conn, UpdateSql, State),
-                    NewAlarmList = lists:merge(AlarmList,[{alarmitem, VehicleID, Index, TimeTuple}]),
+                    NewAlarmList = lists:merge(AlarmList,[{alarmitem, VehicleID, Index, TimeS}]),%TimeTuple}]),
                     update_vehicle_alarm(VehicleID, _DriverID, TimeS, TimeTuple, Alarm, Index+1, MsgIdx, State#vdritem{alarmlist=NewAlarmList}, AreaLineAlarm);
                 true ->
                     update_vehicle_alarm(VehicleID, _DriverID, TimeS, TimeTuple, Alarm, Index+1, MsgIdx, State, AreaLineAlarm)
