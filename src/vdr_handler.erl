@@ -788,7 +788,33 @@ process_vdr_data(Socket, Data, State) ->
                         16#201 ->
                             case Msg of
 								{_RespFlowIdx, PosInfo} ->
-		                            process_pos_info(ID, MsgIdx, HeadInfo, PosInfo, NewState);
+		                            VehicleID = NewState#vdritem.vehicleid,                            
+		
+		                            [VDRItem] = ets:lookup(vdrtable, Socket),
+		                            MsgList = VDRItem#vdritem.msgws2vdr,
+									common:loginfo("Stored MSG from WS to VDR stored in GW : ~p", [MsgList]),
+		
+		                            TargetList = [{WSID, WSFlowIdx, WSValue} || {WSID, WSFlowIdx, WSValue} <- MsgList, WSID == 16#8201],
+		                            case length(TargetList) of
+		                                1 ->
+		                                    [{16#8201, TargetWSFlowIdx, _WSValue}] = TargetList,
+                                            {ok, WSUpdate} = wsock_data_parser:create_gen_resp(TargetWSFlowIdx,
+                                                                                               16#8201,
+                                                                                               [VehicleID],
+                                                                                               0),
+                                            %common:loginfo("Gateway receives VDR (~p) response to WS request ~p : ~p", [NewState#vdritem.addr, RespID, WSUpdate]),
+                                            send_msg_to_ws_nowait(WSUpdate, NewState);
+		                                ItemCount ->
+		                                    common:logerror("(FATAL) vdritem.msgws2vdr has ~p item(s) for wsid ~p", [ItemCount, 16#8201])
+		                            end,
+		                                    
+		                            NewMsgList = [{WSID, WSFlowIdx, WSValue} || {WSID, WSFlowIdx, WSValue} <- MsgList, WSID =/= 16#8201],
+									common:loginfo("New stored MSG from WS to VDR stored in GW : ~p", [NewMsgList]),
+		                            VDRTablePid = VDRItem#vdritem.vdrtablepid,
+		                            NewVDRItem = VDRItem#vdritem{msgws2vdr=NewMsgList},
+		                            common:send_vdr_table_operation(VDRTablePid, {self(), insert, NewVDRItem, noresp}),
+
+									process_pos_info(ID, MsgIdx, HeadInfo, PosInfo, NewState#vdritem{msgws2vdr=NewMsgList});
 								_ ->
 									{error, vdrerror, NewState}
 							end;
