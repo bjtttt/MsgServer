@@ -89,7 +89,15 @@ parse_data(RawData, State) ->
 								25 ->
 									get_system_info_reponse(Req);
 								26 ->
-									get_driver_count_response(Req, State);
+									get_driver_count_response(State);
+								27 ->
+									set_vdr_log(Req, State);
+								28 ->
+									clear_vdr_log(Req, State);
+								29 ->
+									reset_vdr_log(State);
+								30 ->
+									get_vdr_log(State);
                                 _ ->
                                     create_unknown_msg_id_response(ID)
                             end
@@ -239,7 +247,7 @@ create_reset_all_response() ->
                                  '_', '_', '_', '_', '_',
                                  '_', '_', '_', '_', '_',
                                  '_', '_', '_', '_', '_',
-								 '_', '_', '_'}),
+								 '_', '_', '_', '_'}),
 	SockList = compose_one_item_list_array_to_list(Socks),
 	close_all_sockets(SockList),
     Content = <<2:?LEN_DWORD, 0:?LEN_BYTE, 5:?LEN_BYTE>>,
@@ -278,7 +286,7 @@ create_all_device_ids_response() ->
                                 '_', '_', '_', '_', '_', 
                                 '_', '_', '_', '_', '_',
                                 '_', '_', '_', '_', '_',
-								'_', '_', '_'}),
+								'_', '_', '_', '_'}),
 	%common:loginfo("vdrtable all device IDs : ~p~n", [DIDs]),
 	DIDList = compose_one_item_list_array_to_list(DIDs),
 	DIDsBin = convert_integer_list_to_4_bytes_binary_list(DIDList),
@@ -296,7 +304,7 @@ create_all_vehicle_ids_response() ->
                                 '_', '_', '_', '_', '_',
                                 '_', '_', '_', '_', '_', 
                                 '_', '_', '_', '_', '_',
-								'_', '_', '_'}),
+								'_', '_', '_', '_'}),
 	VIDList = compose_one_item_list_array_to_list(VIDs),
 	VIDsBin = convert_integer_list_to_4_bytes_binary_list(VIDList),
 	Size = byte_size(VIDsBin),
@@ -315,7 +323,7 @@ create_spec_vehicle_count_response(VID) ->
                                 '_', '_', '_', '_', '_',
                                 '_', '_', '_', '_', '_', 
                                 '_', '_', '_', '_', '_',
-								'_', '_', '_'}),
+								'_', '_', '_', '_'}),
     Count = length(VIDs),
     Content = <<6:?LEN_DWORD, 0:?LEN_BYTE, 7:?LEN_BYTE, Count:?LEN_DWORD>>,
     Xor = vdr_data_parser:bxorbytelist(Content),
@@ -332,7 +340,7 @@ create_spec_device_count_response(DID) ->
                                 '_', '_', '_', '_', '_',
                                 '_', '_', '_', '_', '_',
                                 '_', '_', '_', '_', '_',
-								'_', '_', '_'}),
+								'_', '_', '_', '_'}),
     Count = length(VIDs),
     Content = <<6:?LEN_DWORD, 0:?LEN_BYTE, 8:?LEN_BYTE, Count:?LEN_DWORD>>,
     Xor = vdr_data_parser:bxorbytelist(Content),
@@ -349,7 +357,7 @@ create_spec_vehicle_info_response(VID) ->
                                 '_', '_', '_', '_', '_',
                                 '_', '_', '_', '_', '_',
                                 '_', '_', '_', '_', '_',
-								'_', '_', '_'}),
+								'_', '_', '_', '_'}),
     Count = length(VIDs),
     Content = <<6:?LEN_DWORD, 0:?LEN_BYTE, 9:?LEN_BYTE, Count:?LEN_DWORD>>,
     Xor = vdr_data_parser:bxorbytelist(Content),
@@ -366,7 +374,7 @@ create_spec_device_info_response(DID) ->
                                 '_', '_', '_', '_', '_',
                                 '_', '_', '_', '_', '_',
                                 '_', '_', '_', '_', '_',
-								'_', '_', '_'}),
+								'_', '_', '_', '_'}),
     Count = length(VIDs),
     Content = <<6:?LEN_DWORD, 0:?LEN_BYTE, 10:?LEN_BYTE, Count:?LEN_DWORD>>,
     Xor = vdr_data_parser:bxorbytelist(Content),
@@ -381,7 +389,7 @@ create_undef_count_response() ->
                                 '_', '_', '_', '_', '_',
 								'_', '_', '_', '_', '_',
                                 '_', '_', '_', '_', '_',
-								'_', '_', '_'}),
+								'_', '_', '_', '_'}),
 	Count = length(VIDs),
     Content = <<6:?LEN_DWORD, 0:?LEN_BYTE, 11:?LEN_BYTE, Count:?LEN_DWORD>>,
     Xor = vdr_data_parser:bxorbytelist(Content),
@@ -398,7 +406,7 @@ create_def_count_reponse() ->
                                 '_', '_', '_', '_', '_',
 								'_', '_', '_', '_', '_',
                                 '_', '_', '_', '_', '_',
-								'_', '_', '_'}),
+								'_', '_', '_', '_'}),
 	Count = length(VIDs),
 	case V1 of
 		undefined ->
@@ -427,7 +435,7 @@ create_vehicle_stored_msg_info_reponse(VID) ->
                                 '_', '_', '_', '_', '$1',
                                 '_', '_', '_', '_', '_',
                                 '_', '_', '_', '_', '_',
-								'_', '_', '_'}),
+								'_', '_', '_', '_'}),
 	[[RealMsgs]] = Msgs,
 	Bin = convert_integer_list_list_to_4_byte_binary_list(RealMsgs),
 	Size = byte_size(Bin),
@@ -451,7 +459,7 @@ create_device_stored_msg_info_reponse(DID) ->
                                 '_', '_', '_', '_', '$1',
                                 '_', '_', '_', '_', '_',
                                 '_', '_', '_', '_', '_',
-								'_', '_', '_'}),
+								'_', '_', '_', '_'}),
 	[[RealMsgs]] = Msgs,
 	Bin = convert_integer_list_list_to_4_byte_binary_list(RealMsgs),
 	Size = byte_size(Bin),
@@ -783,7 +791,7 @@ find_Tuple_in_turple_list(TupleList, Key) when is_list(TupleList),
 find_Tuple_in_turple_list(_TupleList, _Key) ->
 	0.
 
-get_driver_count_response(_Req, State) ->
+get_driver_count_response(State) ->
 	DriverTablePid = State#monitem.driverpid,
 	Pid = State#monitem.pid,
 	DriverTablePid ! {Pid, count},
@@ -797,4 +805,64 @@ get_driver_count_response(_Req, State) ->
 		    Xor = vdr_data_parser:bxorbytelist(Content),
 			list_to_binary([Content, Xor])
 	end.
+
+set_vdr_log(Req, State) ->
+    BS = bit_size(Req),
+    <<ReqValue:BS>> = Req,
+	%common:loginfo("ReqValue ~p", [ReqValue]),
+	VDRLogPid = State#monitem.vdrlogpid,
+	VDRLogPid ! {set, ReqValue},
+    Content = <<2:?LEN_DWORD, 0:?LEN_BYTE, 27:?LEN_BYTE>>,
+    Xor = vdr_data_parser:bxorbytelist(Content),
+	list_to_binary([Content, Xor]).
+
+clear_vdr_log(Req, State) ->
+    BS = bit_size(Req),
+    <<ReqValue:BS>> = Req,
+	%common:loginfo("ReqValue ~p", [ReqValue]),
+	VDRLogPid = State#monitem.vdrlogpid,
+	VDRLogPid ! {clear, ReqValue},
+    Content = <<2:?LEN_DWORD, 0:?LEN_BYTE, 28:?LEN_BYTE>>,
+    Xor = vdr_data_parser:bxorbytelist(Content),
+	list_to_binary([Content, Xor]).
+
+reset_vdr_log(State) ->
+	VDRLogPid = State#monitem.vdrlogpid,
+	VDRLogPid ! reset,
+    Content = <<2:?LEN_DWORD, 0:?LEN_BYTE, 29:?LEN_BYTE>>,
+    Xor = vdr_data_parser:bxorbytelist(Content),
+	list_to_binary([Content, Xor]).
+
+get_vdr_log(State) ->
+	Pid = self(),
+	VDRLogPid = State#monitem.vdrlogpid,
+	VDRLogPid ! {Pid, get},
+	receive
+		{Pid, VDRList} ->
+			%common:loginfo("VDRList ~p", [VDRList]),
+			VDRListBin = convert_numbers_to_4_bytes_list(VDRList),
+			Len = byte_size(VDRListBin),
+		    Content = list_to_binary([<<(2+Len):?LEN_DWORD, 0:?LEN_BYTE, 30:?LEN_BYTE>>, VDRListBin]),
+		    Xor = vdr_data_parser:bxorbytelist(Content),
+			list_to_binary([Content, Xor])
+	after ?TIMEOUT_MON ->
+		    Content = <<2:?LEN_DWORD, 0:?LEN_BYTE, 30:?LEN_BYTE>>,
+		    Xor = vdr_data_parser:bxorbytelist(Content),
+			list_to_binary([Content, Xor])
+	end.
+
+convert_numbers_to_4_bytes_list(Numbers) when is_list(Numbers),
+											  length(Numbers) > 0 ->
+	[H|T] = Numbers,
+	TBytes = convert_numbers_to_4_bytes_list(T),
+	if
+		TBytes == <<"">> ->
+			list_to_binary([<<H:32>>]);
+		true ->
+			list_to_binary([<<H:32>>, TBytes])
+	end;
+convert_numbers_to_4_bytes_list(_Numbers) ->
+	<<"">>.
+
+
 

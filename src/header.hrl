@@ -134,7 +134,8 @@
 					lastpostablepid=undefined,
 					drivercertcode=undefined,
 					httpgpspid=undefined,
-					encrypt=false
+					encrypt=false,
+					vdrlogpid=undefined
                  }).
 
 -record(vdrdbitem, {  authencode=undefined,		% VDRAuthenCode
@@ -168,7 +169,8 @@
                     timeout=undefined,
 					dbpid=undefined,
 					wspid=undefined,
-					driverpid=undefined
+					driverpid=undefined,
+					vdrlogpid=undefined
                  }).
 
 -record(mpitem, {  socket=undefined, 

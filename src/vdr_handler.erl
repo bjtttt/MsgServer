@@ -37,11 +37,12 @@ init([Sock, Addr]) ->
     [{dboperationpid, DBOperationPid}] = ets:lookup(msgservertable, dboperationpid),
     [{httpgpspid, HttpGpsPid}] = ets:lookup(msgservertable, httpgpspid),
     [{dbstate, DBState}] = ets:lookup(msgservertable, dbstate),
+    [{vdrlogpid, VDRLogPid}] = ets:lookup(msgservertable, vdrlogpid),
 	if
 		DBState == true ->
 		    State = #vdritem{socket=Sock, pid=Pid, dboperid=DBOperationPid, addr=Addr, msgflownum=1, 
 							 errorcount=0, dbpid=DBPid, wspid=WSPid, ccpid=CCPid, linkpid=LinkPid, 
-							 vdrtablepid=VDRTablePid, drivertablepid=DriverTablePid, lastpostablepid=LastPosTablePid, httpgpspid=HttpGpsPid},
+							 vdrtablepid=VDRTablePid, drivertablepid=DriverTablePid, lastpostablepid=LastPosTablePid, httpgpspid=HttpGpsPid, vdrlogpid=VDRLogPid},
 			common:send_stat_err(State, conn),
 		    common:send_vdr_table_operation(VDRTablePid, {self(), insert, State, noresp}),
 		    inet:setopts(Sock, [{active, once}, {send_timeout, ?VDR_MSG_TIMEOUT}, {send_timeout_close, true}]),
@@ -49,7 +50,7 @@ init([Sock, Addr]) ->
 		true ->
 		    State = #vdritem{socket=Sock, pid=Pid, dboperid=DBOperationPid, addr=Addr, msgflownum=1, 
 							 errorcount=0, dbpid=unused, wspid=WSPid, ccpid=CCPid, linkpid=LinkPid, 
-							 vdrtablepid=VDRTablePid, drivertablepid=DriverTablePid, lastpostablepid=LastPosTablePid, httpgpspid=HttpGpsPid},
+							 vdrtablepid=VDRTablePid, drivertablepid=DriverTablePid, lastpostablepid=LastPosTablePid, httpgpspid=HttpGpsPid, vdrlogpid=VDRLogPid},
 			common:send_stat_err(State, conn),
 		    common:send_vdr_table_operation(VDRTablePid, {self(), insert, State, noresp}),
 		    inet:setopts(Sock, [{active, once}, {send_timeout, ?VDR_MSG_TIMEOUT}, {send_timeout_close, true}]),
@@ -68,6 +69,55 @@ handle_call(_Request, _From, State) ->
 handle_cast(_Msg, State) ->    
 	{noreply, State}. 
 
+safe_save_msg_4_vdr(Data, State) ->
+	safe_save_msg_4_vdr(Data, State, true).
+
+safe_save_msg_4_vdr(Data, State, InOut) ->
+	try
+		save_msg_4_vdr(Data, State, InOut)
+	catch
+		_:Why ->
+			common:logerror("Cannot save data.~n~p", [Why])
+	end.
+
+save_msg_4_vdr(Data, State, InOut) ->
+	Pid = State#vdritem.pid,
+	VDRLogPid = State#vdritem.vdrlogpid,
+	VID = State#vdritem.id,
+	if
+		VDRLogPid =/= undefined andalso VID =/= undefined ->
+			VDRLogPid ! {Pid, check, VID},
+			receive
+				{Pid, VDRLogState} ->
+					if
+						VDRLogState == 1 ->
+							%common:loginfo("0 ~p", ["/tmp/log/VDR" ++ integer_to_list(VID) ++ ".log"]),
+							File = "/tmp/log/vdr/VDR" ++ integer_to_list(VID) ++ ".log",
+							case file:open(File, [append]) of
+								{ok, IOFile} ->
+									case InOut of
+										true ->
+											io:format(IOFile, "VDR=> ~p~n", [Data]);
+										_ ->
+											io:format(IOFile, "=>VDR ~p~n", [Data])
+									end,
+									file:close(IOFile);
+								{error, Reason} ->
+									common:logerror("Cannot open ~p : ~p", [File, Reason]);
+								_ ->
+									common:logerror("Cannot open ~p : unknown", [File])
+							end;
+						true ->
+							ok
+					end
+			after ?VDR_MSG_RESP_TIMEOUT ->
+					ok
+			end;
+		true ->
+			ok
+	end.
+	
+
 %%%
 %%%
 %%%
@@ -75,6 +125,7 @@ handle_info({tcp, Socket, Data}, OriState) ->
 	LinkPid = OriState#vdritem.linkpid,
 	Pid = OriState#vdritem.pid,
 	LinkPid ! {Pid, vdrmsggot},
+	safe_save_msg_4_vdr(Data, OriState),
 	%common:loginfo("Driver ID when MSG : ~p", [OriState#vdritem.driverid]),
     %common:loginfo("~p : Data from VDR (~p) (id:~p, serialno:~p, authen_code:~p, vehicleid:~p, vehiclecode:~p)~n~p",
 	%			   [self(),
@@ -86,7 +137,7 @@ handle_info({tcp, Socket, Data}, OriState) ->
 	%				OriState#vdritem.vehiclecode,
 	%				Data]),
     % Update active time for VDR
-    DateTime = {erlang:date(), erlang:time()},
+	DateTime = {erlang:date(), erlang:time()},
     State = OriState#vdritem{acttime=DateTime},
     %State = OriState#vdritem{acttime=DateTime, vehicleid=1},
     %DataDebug = <<126,1,2,0,2,1,86,121,16,51,112,0,14,81,82,113,126>>,
@@ -1568,7 +1619,7 @@ update_vehicle_alarm(VehicleID, DriverID, TimeS, TimeTuple, Alarm, Index, MsgIdx
 	AlarmList = State#vdritem.alarmlist,
     Flag = 1 bsl Index,
 	BitState = Alarm band Flag,
-	[ID, AreaLineType, AreaLineID, AreaLineOper] = AreaLineAlarm,
+	[_ID, AreaLineType, AreaLineID, AreaLineOper] = AreaLineAlarm,
 	if
 		BitState == 1 ->
             AlarmEntry = get_alarm_item(Index, AlarmList),
@@ -1782,16 +1833,16 @@ send_data_to_vdr(ID, Tel, FlowIdx, MsgBody, State) ->
 							<<IndexInt:16>> = Index,
 							Tail = binary:part(MsgBody, 24, MsgLen-24),
 							Msg = vdr_data_processor:create_final_msg(ID, Tel, FlowIdx, Tail, TotalInt, IndexInt),
-							do_send_data_to_vdr(Pid, Socket, Msg, ID, FlowIdx, LinkPid);
+							do_send_data_to_vdr(Pid, Socket, Msg, ID, FlowIdx, LinkPid, State);
 						true ->
 				            Msg = vdr_data_processor:create_final_msg(ID, Tel, FlowIdx, MsgBody),
-							do_send_data_to_vdr(Pid, Socket, Msg, ID, FlowIdx, LinkPid)
+							do_send_data_to_vdr(Pid, Socket, Msg, ID, FlowIdx, LinkPid, State)
 					end;
 				true ->
 					%common:loginfo("2"),
 		            Msg = vdr_data_processor:create_final_msg(ID, Tel, FlowIdx, MsgBody),
 					%common:loginfo("4"),
-					do_send_data_to_vdr(Pid, Socket, Msg, ID, FlowIdx, LinkPid)
+					do_send_data_to_vdr(Pid, Socket, Msg, ID, FlowIdx, LinkPid, State)
 			end;
 		_ ->
 			try
@@ -1814,13 +1865,13 @@ send_data_to_vdr(ID, Tel, FlowIdx, MsgBody, State) ->
 					ok
 			end,
             Msg = vdr_data_processor:create_final_msg(ID, Tel, FlowIdx, MsgBody),
-			do_send_data_to_vdr(Pid, Socket, Msg, ID, FlowIdx, LinkPid)
+			do_send_data_to_vdr(Pid, Socket, Msg, ID, FlowIdx, LinkPid, State)
     end.
 
-do_send_data_to_vdr(Pid, Socket, Msg, ID, FlowIdx, LinkPid) ->
+do_send_data_to_vdr(Pid, Socket, Msg, ID, FlowIdx, LinkPid, State) ->
 	case is_list(Msg) of
 		true ->
-			do_send_msg2vdr(Pid, Socket, Msg, LinkPid);
+			do_send_msg2vdr(Pid, Socket, Msg, LinkPid, State);
 		_ ->
 			case is_binary(Msg) of
 				true ->
@@ -1828,10 +1879,10 @@ do_send_data_to_vdr(Pid, Socket, Msg, ID, FlowIdx, LinkPid) ->
 						Msg == <<>> andalso ID =/= 16#8702 ->
 							common:logerror("~p send_data_to_vdr NULL final message : ID (~p), FlowIdx (~p), Msg (~p)", [Pid, ID, FlowIdx, Msg]);
 						Msg == <<>> andalso ID == 16#8702 ->
-							do_send_msg2vdr(Pid, Socket, Msg, LinkPid),
+							do_send_msg2vdr(Pid, Socket, Msg, LinkPid, State),
 							get_new_flow_index(FlowIdx);
 						Msg =/= <<>> ->
-							do_send_msg2vdr(Pid, Socket, Msg, LinkPid),
+							do_send_msg2vdr(Pid, Socket, Msg, LinkPid, State),
 							get_new_flow_index(FlowIdx)
 					end;
 				_ ->
@@ -1855,8 +1906,8 @@ get_new_flow_index(FlowIdx) ->
 			end
 	end.
 
-do_send_msg2vdr(Pid, Socket, Msg, LinkPid) when is_binary(Msg),
-									   byte_size(Msg) > 0 ->
+do_send_msg2vdr(Pid, Socket, Msg, LinkPid, State) when is_binary(Msg),
+													   byte_size(Msg) > 0 ->
 	LinkPid ! {Pid, vdrmsgsent},
 	try
 	    MsgResult1 = binary:replace(Msg, <<125,1>>, <<255,254,253,252,251,250,251,252,253,254,255>>, [global]),
@@ -1881,6 +1932,7 @@ do_send_msg2vdr(Pid, Socket, Msg, LinkPid) when is_binary(Msg),
 		_:_ ->
 			ok
 	end,
+	safe_save_msg_4_vdr(Msg, State, false),
 	try
 		gen_tcp:send(Socket, Msg)
 	catch
@@ -1893,11 +1945,11 @@ do_send_msg2vdr(Pid, Socket, Msg, LinkPid) when is_binary(Msg),
 			end
 	end;
 	%VDRPid ! {Pid, Socket, Msg, noresp};
-do_send_msg2vdr(_Pid, _Socket, Msg, _LinkPid) when is_binary(Msg),
-									   byte_size(Msg) < 1 ->
+do_send_msg2vdr(_Pid, _Socket, Msg, _LinkPid, _State) when is_binary(Msg),
+														  byte_size(Msg) < 1 ->
 	ok;
-do_send_msg2vdr(Pid, Socket, Msg, LinkPid) when is_list(Msg),
-									   length(Msg) > 0 ->
+do_send_msg2vdr(Pid, Socket, Msg, LinkPid, State) when is_list(Msg),
+													   length(Msg) > 0 ->
 	[H|T] = Msg,
 	LinkPid ! {Pid, vdrmsgsent},
 	try
@@ -1923,6 +1975,7 @@ do_send_msg2vdr(Pid, Socket, Msg, LinkPid) when is_list(Msg),
 		_:_ ->
 			ok
 	end,
+	safe_save_msg_4_vdr(H, State, false),
 	try
 		gen_tcp:send(Socket, H)
 	catch
@@ -1935,11 +1988,11 @@ do_send_msg2vdr(Pid, Socket, Msg, LinkPid) when is_list(Msg),
 			end
 	end,
 	%VDRPid ! {Pid, Socket, H, noresp},
-	do_send_msg2vdr(Pid, Socket, T, LinkPid);
-do_send_msg2vdr(_Pid, _Socket, Msg, _LinkPid) when is_list(Msg),
-									     length(Msg) < 1 ->
+	do_send_msg2vdr(Pid, Socket, T, LinkPid, State);
+do_send_msg2vdr(_Pid, _Socket, Msg, _LinkPid, _State) when is_list(Msg),
+														  length(Msg) < 1 ->
 	ok;
-do_send_msg2vdr(_Pid, _Socket, _Msg, _LinkPid) ->
+do_send_msg2vdr(_Pid, _Socket, _Msg, _LinkPid, _State) ->
 	ok.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

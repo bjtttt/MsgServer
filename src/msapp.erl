@@ -93,17 +93,29 @@ startserver(StartType, StartArgs) ->
     ets:new(lastpostable,[set,public,named_table,{keypos,#lastposinfo.vehicleid},{read_concurrency,true},{write_concurrency,true}]),
     ets:new(montable,[set,public,named_table,{keypos,#monitem.socket},{read_concurrency,true},{write_concurrency,true}]),
     common:loginfo("Tables are initialized."),
+	case file:make_dir(Path ++ "/log") of
+		ok ->
+			common:loginfo("Successfully create directory log");
+		{error, DirError0} ->
+			common:logerror("Cannot create directory media : ~p", [DirError0])
+	end,
+	case file:make_dir(Path ++ "/log/vdr") of
+		ok ->
+			common:loginfo("Successfully create directory vdr");
+		{error, DirError00} ->
+			common:logerror("Cannot create directory media : ~p", [DirError00])
+	end,
 	case file:make_dir(Path ++ "/media") of
 		ok ->
 			common:loginfo("Successfully create directory media");
-		{error, DirError0} ->
-			common:logerror("Cannot create directory media : ~p", [DirError0])
+		{error, DirError1} ->
+			common:logerror("Cannot create directory media : ~p", [DirError1])
 	end,
 	case file:make_dir(Path ++ "/upgrade") of
 		ok ->
 			common:loginfo("Successfully create directory upgrade");
-		{error, DirError1} ->
-			common:logerror("Cannot create directory upgrade : ~p", [DirError1])
+		{error, DirError2} ->
+			common:logerror("Cannot create directory upgrade : ~p", [DirError2])
 	end,
     case supervisor:start_link(mssup, []) of
         {ok, SupPid} ->
@@ -131,6 +143,7 @@ startserver(StartType, StartArgs) ->
 		                    LastPosTablePid = spawn(fun() -> lastpostable_insert_delete_process() end),
 							DBOperationPid = spawn(fun() -> db_data_operation_process(DBPid) end),
 							MysqlActivePid = spawn(fun() -> mysql_active_process(DBPid) end),
+							VDRLogPid = spawn(fun() -> vdr_log_process([]) end),
 							%HttpGpsPid = spawn(fun() -> http_gps_deamon(HttpGpsServer, uninit, 0, 0, 0, 0) end),
 							%DBMaintainPid = spawn(fun() -> db_data_maintain_process(DBPid, DBOperationPid, Mode) end),
 		                    ets:insert(msgservertable, {dbpid, DBPid}),
@@ -143,6 +156,7 @@ startserver(StartType, StartArgs) ->
 		                    ets:insert(msgservertable, {lastpostablepid, LastPosTablePid}),
 							ets:insert(msgservertable, {dboperationpid, DBOperationPid}),
 							ets:insert(msgservertable, {mysqlactivepid, MysqlActivePid}),
+							ets:insert(msgservertable, {vdrlogpid, VDRLogPid}),
 							%ets:insert(msgservertable, {httpgpspid, HttpGpsPid}),
 		                    %ets:insert(msgservertable, {dbmaintainpid, VdrTablePid}),
 		                    common:loginfo("WS client process PID is ~p", [WSPid]),
@@ -154,6 +168,7 @@ startserver(StartType, StartArgs) ->
 		                    common:loginfo("Last pos table processor process PID is ~p", [LastPosTablePid]),
 							common:loginfo("DB operation process PID is ~p", [DBOperationPid]),
 							common:loginfo("Mysql active process PID is ~p", [MysqlActivePid]),
+							common:loginfo("VDR Log process PID is ~p", [VDRLogPid]),
 							%common:loginfo("HTTP GPS process PID is ~p", [HttpGpsPid]),
 							%common:loginfo("DB miantain process PID is ~p", [DBMaintainPid]),
 
@@ -227,6 +242,7 @@ startserver(StartType, StartArgs) ->
 		                    LastPosTablePid = spawn(fun() -> lastpostable_insert_delete_process() end),
 							DBOperationPid = spawn(fun() -> db_data_operation_process(DBPid) end),
 							MysqlActivePid = spawn(fun() -> mysql_active_process(DBPid) end),
+							VDRLogPid = spawn(fun() -> vdr_log_process(0) end),
 							%HttpGpsPid = spawn(fun() -> http_gps_deamon(HttpGpsServer, uninit, 0, 0, 0, 0) end),
 							%DBMaintainPid = spawn(fun() -> db_data_maintain_process(DBPid, DBOperationPid, Mode) end),
 		                    ets:insert(msgservertable, {dbpid, DBPid}),
@@ -238,6 +254,7 @@ startserver(StartType, StartArgs) ->
 		                    ets:insert(msgservertable, {lastpostablepid, LastPosTablePid}),
 							ets:insert(msgservertable, {dboperationpid, DBOperationPid}),
 							ets:insert(msgservertable, {mysqlactivepid, MysqlActivePid}),
+							ets:insert(msgservertable, {vdrlogpid, VDRLogPid}),
 							%ets:insert(msgservertable, {httpgpspid, HttpGpsPid}),
 							%ets:insert(msgservertable, {dbmaintainpid, DBMaintainPid}),
 		                    common:loginfo("DB client process PID is ~p", [DBPid]),
@@ -248,6 +265,7 @@ startserver(StartType, StartArgs) ->
 		                    common:loginfo("Last pos table processor process PID is ~p", [LastPosTablePid]),
 		                    common:loginfo("DB operation process PID is ~p", [DBOperationPid]),
 							common:loginfo("Mysql active process PID is ~p", [MysqlActivePid]),
+							common:loginfo("VDR Log process PID is ~p", [VDRLogPid]),
 							%common:loginfo("HTTP GPS process PID is ~p", [HttpGpsPid]),
 		                    %common:loginfo("DB miantain process PID is ~p", [DBMaintainPid]),
 		                    
@@ -752,6 +770,38 @@ mysql_active_process(DBPid) ->
 			mysql_active_process(DBPid)
 	end.
 
+vdr_log_process(VDRList) ->
+	receive
+		stop ->
+			common:logerror("VDR log process stops.");
+		reset ->
+			vdr_log_process([]);
+		{Pid, check, VID} ->
+			MidVDRList = [C || C <- VDRList, C == VID],
+			Len = length(MidVDRList),
+			if
+				Len < 1 ->
+					Pid ! {Pid, 0};
+				true ->
+					Pid ! {Pid, 1}
+			end,
+			vdr_log_process(VDRList);
+		{set, VID} ->
+			MidVDRList = [C || C <- VDRList, C =/= VID],
+			NewVDRList = lists:merge([MidVDRList, [VID]]),
+			%common:loginfo("SET : VDRList ~p, MidVDRList ~p, NewVDRList ~p", [VDRList, MidVDRList, NewVDRList]),
+			vdr_log_process(NewVDRList);
+		{clear, VID} ->
+			MidVDRList = [C || C <- VDRList, C =/= VID],
+			%common:loginfo("CLEAR : VDRList ~p, MidVDRList ~pp", [VDRList, MidVDRList]),
+			vdr_log_process(MidVDRList);
+		{Pid, get} ->
+			Pid ! {Pid, VDRList},
+			vdr_log_process(VDRList);
+		_ ->
+			vdr_log_process(VDRList)
+	end.
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %
 % This process will operate device\vehicle table and alarm table
@@ -1078,6 +1128,13 @@ stop(_State) ->
             ok;
         _ ->
             HttpGpsPid ! stop
+    end,
+    [{vdrlogpid, VDRLogPid}] = ets:lookup(msgservertable, vdrlogpid),
+    case VDRLogPid of
+        undefined ->
+            ok;
+        _ ->
+            VDRLogPid ! stop
     end,
     error_logger:info_msg("Message server stops.").
 
