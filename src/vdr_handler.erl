@@ -95,11 +95,13 @@ save_msg_4_vdr(Data, State, InOut) ->
 							File = "/tmp/log/vdr/VDR" ++ integer_to_list(VID) ++ ".log",
 							case file:open(File, [append]) of
 								{ok, IOFile} ->
+									{Year,Month,Day} = erlang:date(),
+									{Hour,Min,Second} = erlang:time(),
 									case InOut of
 										true ->
-											io:format(IOFile, "VDR=> ~p~n", [Data]);
+											io:format(IOFile, "(~p ~p ~p, ~p:~p:~p)VDR=> ~p~n", [Year,Month,Day,Hour,Min,Second,Data]);
 										_ ->
-											io:format(IOFile, "=>VDR ~p~n", [Data])
+											io:format(IOFile, "(~p ~p ~p, ~p:~p:~p)=>VDR ~p~n", [Year,Month,Day,Hour,Min,Second,Data])
 									end,
 									file:close(IOFile);
 								{error, Reason} ->
