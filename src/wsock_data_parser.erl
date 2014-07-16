@@ -742,7 +742,7 @@ connect_ws_to_vdr(Msg) ->
                 16#8201 ->
                     [SN, VIDList] = Res,
 					%common:loginfo("0");
-                    %update_vdrs_ws2vdr_msg_id_flowidx(16#8201, SN, VIDList, null),
+                    update_vdrs_ws2vdr_msg_id_flowidx(16#8201, SN, VIDList, null),
 					%common:loginfo("1");
                     send_msg_to_vdrs(16#8201, VIDList, <<>>);
                 16#8203 ->

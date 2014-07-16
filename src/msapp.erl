@@ -867,53 +867,6 @@ vdrtable_insert_delete_process() ->
 			Pid ! {Pid, ok},
 			vdrtable_insert_delete_process();
 		{_Pid, insert, Object, noresp} ->
-			Sock = Object#vdritem.socket,
-			VDRID = Object#vdritem.id,
-		    Scks = ets:match(vdrtable, {'_', 
-		                                '$1', VDRID, '_', '_', '_', 
-		                                '_', '_', '_', '_', '_', 
-		                                '_', '_', '_', '_', '_', 
-		                                '_', '_', '_', '_', '_', 
-		                                '_', '_', '_', '_', '_',
-		                                '_', '_', '_', '_', '_',
-		                                '_', '_', '_', '_', '_',
-										'_', '_', '_', '_'}),
-			LenScks0 = length(Scks),
-			if
-				LenScks0 > 0 ->
-					common:loginfo("vdrtable already has ~p VDR ~p", [LenScks0, VDRID]);
-				true ->
-					ok
-			end,
-			try
-				discremove_vdr_by_socket(Scks, Sock)
-			catch
-				_:_ ->
-					ok
-			end,
-			VID = Object#vdritem.vehicleid,
-		    Scks1 = ets:match(vdrtable, {'_', 
-		                                '$1', '_', '_', '_', VID, 
-		                                '_', '_', '_', '_', '_', 
-		                                '_', '_', '_', '_', '_', 
-		                                '_', '_', '_', '_', '_', 
-		                                '_', '_', '_', '_', '_',
-		                                '_', '_', '_', '_', '_',
-		                                '_', '_', '_', '_', '_',
-										'_', '_', '_', '_'}),
-			LenScks1 = length(Scks1),
-			if
-				LenScks1 > 0 ->
-					common:loginfo("vdrtable already has ~p Vechile ~p", [LenScks1, VID]);
-				true ->
-					ok
-			end,
-			try
-				discremove_vdr_by_socket(Scks1, Sock)
-			catch
-				_:_ ->
-					ok
-			end,
 			ets:insert(vdrtable, Object),
 			vdrtable_insert_delete_process();
 		{Pid, delete, Key} ->
