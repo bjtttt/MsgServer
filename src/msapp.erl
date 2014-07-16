@@ -781,9 +781,9 @@ vdr_log_process(VDRList) ->
 			Len = length(MidVDRList),
 			if
 				Len < 1 ->
-					Pid ! {Pid, 0};
+					Pid ! {Pid, false};
 				true ->
-					Pid ! {Pid, 1}
+					Pid ! {Pid, true}
 			end,
 			vdr_log_process(VDRList);
 		{set, VID} ->
@@ -867,6 +867,52 @@ vdrtable_insert_delete_process() ->
 			Pid ! {Pid, ok},
 			vdrtable_insert_delete_process();
 		{_Pid, insert, Object, noresp} ->
+			VDRID = Object#vdritem.id,
+		    Scks = ets:match(vdrtable, {'_', 
+		                                '$1', VDRID, '_', '_', '_', 
+		                                '_', '_', '_', '_', '_', 
+		                                '_', '_', '_', '_', '_', 
+		                                '_', '_', '_', '_', '_', 
+		                                '_', '_', '_', '_', '_',
+		                                '_', '_', '_', '_', '_',
+		                                '_', '_', '_', '_', '_',
+										'_', '_', '_', '_'}),
+			LenScks0 = length(Scks),
+			if
+				LenScks0 > 0 ->
+					common:loginfo("vdrtable already has ~p VDR ~p", [LenScks0, VDRID]);
+				true ->
+					ok
+			end,
+			try
+				discremove_vdr_by_socket(Scks)
+			catch
+				_:_ ->
+					ok
+			end,
+			VID = Object#vdritem.vehicleid,
+		    Scks1 = ets:match(vdrtable, {'_', 
+		                                '$1', '_', '_', '_', VID, 
+		                                '_', '_', '_', '_', '_', 
+		                                '_', '_', '_', '_', '_', 
+		                                '_', '_', '_', '_', '_', 
+		                                '_', '_', '_', '_', '_',
+		                                '_', '_', '_', '_', '_',
+		                                '_', '_', '_', '_', '_',
+										'_', '_', '_', '_'}),
+			LenScks1 = length(Scks1),
+			if
+				LenScks1 > 0 ->
+					common:loginfo("vdrtable already has ~p Vechile ~p", [LenScks1, VID]);
+				true ->
+					ok
+			end,
+			try
+				discremove_vdr_by_socket(Scks1)
+			catch
+				_:_ ->
+					ok
+			end,
 			ets:insert(vdrtable, Object),
 			vdrtable_insert_delete_process();
 		{Pid, delete, Key} ->
@@ -888,6 +934,20 @@ vdrtable_insert_delete_process() ->
 			common:logerror("VDR table insert/delete process receive unknown msg."),
 			vdrtable_insert_delete_process()
 	end.
+
+discremove_vdr_by_socket(Scks) when is_list(Scks),
+									length(Scks) > 0 ->
+	[[H]|T] = Scks,
+	ets:delete(vdrtable, H),
+	try
+		gen_tcp:close(H)
+	catch
+		_:_ ->
+			ok
+	end,
+	discremove_vdr_by_socket(T);
+discremove_vdr_by_socket(_Scks) ->
+	ok.
 
 drivertable_insert_delete_process() ->
 	receive

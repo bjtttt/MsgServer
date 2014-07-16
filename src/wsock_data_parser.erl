@@ -741,7 +741,9 @@ connect_ws_to_vdr(Msg) ->
                     send_msg_to_vdrs(16#8104, VIDList, <<>>);
                 16#8201 ->
                     [SN, VIDList] = Res,
-                    update_vdrs_ws2vdr_msg_id_flowidx(16#8201, SN, VIDList, null),
+					%common:loginfo("0");
+                    %update_vdrs_ws2vdr_msg_id_flowidx(16#8201, SN, VIDList, null),
+					%common:loginfo("1");
                     send_msg_to_vdrs(16#8201, VIDList, <<>>);
                 16#8203 ->
 					%[SN, VIDList, DataList] = Res,
@@ -1274,12 +1276,10 @@ send_msg_to_vdr(ID, VID, Msg) when is_binary(Msg) ->
 		            NewVDRItem = VDRItem#vdritem{msgws2vdrflownum=NewFlowIdx},
 		            common:send_vdr_table_operation(VDRTablePid, {self(), insert, NewVDRItem, noresp});
 				Count1 ->
-					common:logerr("WS Server : Find ~p VID (~p) in vdrtable by socket", [Count1, VID])
+					common:loginfo("WS Server : Find ~p VID (~p) in vdrtable by socket", [Count1, VID])
 			end;
-		%0 ->
-        %    common:logerr("WS Server : Find 0 VID (~p) in vdrtable", [VID]);
         _ ->
-            common:logerr("WS Server : Find ~p VID (~p) in vdrtable", [LenVidRes, VID])
+            common:loginfo("WS Server : Find ~p VID (~p) in vdrtable", [LenVidRes, VID])
     end;
 send_msg_to_vdr(_ID, _VID, _Msg) ->
     ok.

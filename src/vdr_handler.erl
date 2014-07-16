@@ -76,8 +76,8 @@ safe_save_msg_4_vdr(Data, State, InOut) ->
 	try
 		save_msg_4_vdr(Data, State, InOut)
 	catch
-		_:Why ->
-			common:logerror("Cannot save data.~n~p", [Why])
+		_:_ ->
+			ok
 	end.
 
 save_msg_4_vdr(Data, State, InOut) ->
@@ -88,32 +88,28 @@ save_msg_4_vdr(Data, State, InOut) ->
 		VDRLogPid =/= undefined andalso VID =/= undefined ->
 			VDRLogPid ! {Pid, check, VID},
 			receive
-				{Pid, VDRLogState} ->
-					if
-						VDRLogState == 1 ->
-							%common:loginfo("0 ~p", ["/tmp/log/VDR" ++ integer_to_list(VID) ++ ".log"]),
-							File = "/tmp/log/vdr/VDR" ++ integer_to_list(VID) ++ ".log",
-							case file:open(File, [append]) of
-								{ok, IOFile} ->
-									{Year,Month,Day} = erlang:date(),
-									{Hour,Min,Second} = erlang:time(),
-									case InOut of
-										true ->
-											io:format(IOFile, "(~p ~p ~p, ~p:~p:~p) VDR=> ~p~n", [Year,Month,Day,Hour,Min,Second,Data]);
-										_ ->
-											io:format(IOFile, "(~p ~p ~p, ~p:~p:~p) =>VDR ~p~n", [Year,Month,Day,Hour,Min,Second,Data])
-									end,
-									file:close(IOFile);
-								{error, Reason} ->
-									common:logerror("Cannot open ~p : ~p", [File, Reason]);
+				{Pid, true} ->
+					File = "/tmp/log/vdr/VDR" ++ integer_to_list(VID) ++ ".log",
+					case file:open(File, [append]) of
+						{ok, IOFile} ->
+							{Year,Month,Day} = erlang:date(),
+							{Hour,Min,Second} = erlang:time(),
+							case InOut of
+								true ->
+									io:format(IOFile, "(~p ~p ~p, ~p:~p:~p) VDR=> ~p~n", [Year,Month,Day,Hour,Min,Second,Data]);
 								_ ->
-									common:logerror("Cannot open ~p : unknown", [File])
-							end;
-						true ->
-							ok
-					end
-			after ?VDR_MSG_RESP_TIMEOUT ->
+									io:format(IOFile, "(~p ~p ~p, ~p:~p:~p) =>VDR ~p~n", [Year,Month,Day,Hour,Min,Second,Data])
+							end,
+							file:close(IOFile);
+						{error, Reason} ->
+							common:loginfo("Cannot open ~p : ~p", [File, Reason]);
+						_ ->
+							common:loginfo("Cannot open ~p : unknown", [File])
+					end;
+				{Pid, false} ->
 					ok
+			after ?VDR_MSG_RESP_TIMEOUT ->
+					common:loginfo("TIMEOUT : vdr log process")
 			end;
 		true ->
 			ok
@@ -227,13 +223,15 @@ handle_info({tcp_closed, _Socket}, State) ->
 handle_info(timeout, State) ->
 	common:send_stat_err(State, vdrtimeout),
 	{stop, vdrtimeout, State};
-handle_info(_Info, State) ->    
+handle_info(Info, State) ->   
+	common:loginfo("~p handle_info UNKNWON STATE : ~p", [self(), Info]),
 	{stop, unknown, State}. 
 
 %%%
 %%% When VDR handler process is terminated, do the clean jobs here
 %%%
 terminate(_Reason, State) ->
+	common:loginfo("~p terminate", [self()]),
 	Pid = State#vdritem.pid,
     VehicleID = State#vdritem.vehicleid,
     Socket = State#vdritem.socket,
@@ -290,6 +288,7 @@ process_vdr_msges(Socket, Msges, State) ->
                 {error, ErrorType, NewState} ->
                     {error, ErrorType, NewState};
                 _ ->
+					common:loginfo("process_vdr_msges UNKNWON STATE : ~p", [Result]),
                     {error, unknown, State}
             end
     end.
@@ -1934,7 +1933,9 @@ do_send_msg2vdr(Pid, Socket, Msg, LinkPid, State) when is_binary(Msg),
 		_:_ ->
 			ok
 	end,
+	%common:loginfo("=>VDR : begin"),
 	safe_save_msg_4_vdr(Msg, State, false),
+	%common:loginfo("=>VDR : ~p", [Msg]),
 	try
 		gen_tcp:send(Socket, Msg)
 	catch
@@ -1977,7 +1978,9 @@ do_send_msg2vdr(Pid, Socket, Msg, LinkPid, State) when is_list(Msg),
 		_:_ ->
 			ok
 	end,
+	%common:loginfo("=>VDR : begin"),
 	safe_save_msg_4_vdr(H, State, false),
+	%common:loginfo("=>VDR : ~p", [H]),
 	try
 		gen_tcp:send(Socket, H)
 	catch
