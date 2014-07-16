@@ -867,6 +867,7 @@ vdrtable_insert_delete_process() ->
 			Pid ! {Pid, ok},
 			vdrtable_insert_delete_process();
 		{_Pid, insert, Object, noresp} ->
+			Sock = Object#vdritem.socket,
 			VDRID = Object#vdritem.id,
 		    Scks = ets:match(vdrtable, {'_', 
 		                                '$1', VDRID, '_', '_', '_', 
@@ -885,7 +886,7 @@ vdrtable_insert_delete_process() ->
 					ok
 			end,
 			try
-				discremove_vdr_by_socket(Scks)
+				discremove_vdr_by_socket(Scks, Sock)
 			catch
 				_:_ ->
 					ok
@@ -908,7 +909,7 @@ vdrtable_insert_delete_process() ->
 					ok
 			end,
 			try
-				discremove_vdr_by_socket(Scks1)
+				discremove_vdr_by_socket(Scks1, Sock)
 			catch
 				_:_ ->
 					ok
@@ -935,18 +936,23 @@ vdrtable_insert_delete_process() ->
 			vdrtable_insert_delete_process()
 	end.
 
-discremove_vdr_by_socket(Scks) when is_list(Scks),
-									length(Scks) > 0 ->
+discremove_vdr_by_socket(Scks, Sock) when is_list(Scks),
+									      length(Scks) > 0 ->
 	[[H]|T] = Scks,
 	ets:delete(vdrtable, H),
-	try
-		gen_tcp:close(H)
-	catch
-		_:_ ->
+	if
+		Sock =/= H ->
+			try
+				gen_tcp:close(H)
+			catch
+				_:_ ->
+					ok
+			end;
+		true ->
 			ok
 	end,
-	discremove_vdr_by_socket(T);
-discremove_vdr_by_socket(_Scks) ->
+	discremove_vdr_by_socket(T, Sock);
+discremove_vdr_by_socket(_Scks, _Sock) ->
 	ok.
 
 drivertable_insert_delete_process() ->

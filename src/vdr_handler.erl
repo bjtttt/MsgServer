@@ -1891,24 +1891,8 @@ do_send_data_to_vdr(Pid, Socket, Msg, ID, FlowIdx, LinkPid, State) ->
 			end
 	end.
 
-get_new_flow_index(FlowIdx) ->
-	NewFlowIdx = FlowIdx + 1,
-	NewFlowIdxRem = NewFlowIdx rem ?WS2VDRFREQ,
-	case NewFlowIdxRem of
-		0 ->
-			NewFlowIdx + 1;
-		_ ->
-			FlowIdxRem = FlowIdx rem ?WS2VDRFREQ,
-			case FlowIdxRem of
-				0 ->
-					FlowIdx + ?WS2VDRFREQ;
-				_ ->
-					NewFlowIdx
-			end
-	end.
-
-do_send_msg2vdr(Pid, Socket, Msg, LinkPid, State) when is_binary(Msg),
-													   byte_size(Msg) > 0 ->
+do_send_msg2vdr(Pid, Socket, Msg, LinkPid, _State) when is_binary(Msg),
+													    byte_size(Msg) > 0 ->
 	LinkPid ! {Pid, vdrmsgsent},
 	try
 	    MsgResult1 = binary:replace(Msg, <<125,1>>, <<255,254,253,252,251,250,251,252,253,254,255>>, [global]),
@@ -1934,9 +1918,10 @@ do_send_msg2vdr(Pid, Socket, Msg, LinkPid, State) when is_binary(Msg),
 			ok
 	end,
 	%common:loginfo("=>VDR : begin"),
-	safe_save_msg_4_vdr(Msg, State, false),
+	%safe_save_msg_4_vdr(Msg, State, false),
 	%common:loginfo("=>VDR : ~p", [Msg]),
 	try
+		%common:loginfo("Socket : ~p", [Socket]),
 		gen_tcp:send(Socket, Msg)
 	catch
 		_:_ ->
@@ -1979,9 +1964,10 @@ do_send_msg2vdr(Pid, Socket, Msg, LinkPid, State) when is_list(Msg),
 			ok
 	end,
 	%common:loginfo("=>VDR : begin"),
-	safe_save_msg_4_vdr(H, State, false),
+	%safe_save_msg_4_vdr(H, State, false),
 	%common:loginfo("=>VDR : ~p", [H]),
 	try
+		%common:loginfo("Socket : ~p", [Socket]),
 		gen_tcp:send(Socket, H)
 	catch
 		_:_ ->
@@ -1999,6 +1985,22 @@ do_send_msg2vdr(_Pid, _Socket, Msg, _LinkPid, _State) when is_list(Msg),
 	ok;
 do_send_msg2vdr(_Pid, _Socket, _Msg, _LinkPid, _State) ->
 	ok.
+
+get_new_flow_index(FlowIdx) ->
+	NewFlowIdx = FlowIdx + 1,
+	NewFlowIdxRem = NewFlowIdx rem ?WS2VDRFREQ,
+	case NewFlowIdxRem of
+		0 ->
+			NewFlowIdx + 1;
+		_ ->
+			FlowIdxRem = FlowIdx rem ?WS2VDRFREQ,
+			case FlowIdxRem of
+				0 ->
+					FlowIdx + ?WS2VDRFREQ;
+				_ ->
+					NewFlowIdx
+			end
+	end.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %

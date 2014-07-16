@@ -808,13 +808,17 @@ send_vdr_table_operation(VDRTablePid, Oper) ->
 		                    case Oper of
 		                        {Pid, insert, _Object} ->
 									%common:loginfo("undefined VDRTablePid insert response"),
+									%common:loginfo("_00"),
 		                            VDRTablePid1 ! Oper,
+									%common:loginfo("_01"),
 		                            receive
 		                                {Pid, ok} ->
+											%common:loginfo("_02"),
 		                                    ok
 		                            end;
 		                        {_Pid, insert, _Object, noresp} ->
 									%common:loginfo("undefined VDRTablePid insert no response"),
+									%common:loginfo("_10"),
 		                            VDRTablePid1 ! Oper;
 		                        {Pid, delete, _Key} ->
 		                            VDRTablePid1 ! Oper,
@@ -845,13 +849,17 @@ send_vdr_table_operation(VDRTablePid, Oper) ->
             case Oper of
                 {Pid, insert, _Object} ->
 					%common:loginfo("VDRTablePid insert response"),
+					%common:loginfo("00"),
                     VDRTablePid ! Oper,
+					%common:loginfo("01"),
                     receive
                         {Pid, ok} ->
+							%common:loginfo("02"),
                             ok
                     end;
                 {_Pid, insert, _Object, noresp} ->
 					%common:loginfo("VDRTablePid insert no response"),
+					%common:loginfo("10"),
                     VDRTablePid ! Oper;
                 {Pid, delete, _Key} ->
                     VDRTablePid! Oper,
