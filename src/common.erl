@@ -687,19 +687,28 @@ split_msg_to_single(Msg, Tag) ->
                 HeadFlag == 16#7e andalso TailFlag == 16#7e andalso HeadFlag1 =/= 16#7e andalso TailFlag1 =/= 16#7e ->
                     Mid = lists:sublist(List, 2, Len-2),
                     BinMid = list_to_binary(Mid),
-                    BinMidNew = binary:replace(BinMid, <<16#7e, 16#7e>>, <<16#ff>>, [global]),
-                    BinMidNewStr = binary_to_list(BinMidNew),
-                    Index = string:str(BinMidNewStr, binary_to_list(<<16#7e>>)),
-                    if
-                        Index == 0 ->
-                            [list_to_binary([<<16#7e>>, BinMidNew, <<16#7e>>])];
-                        true ->
-                            split_list(List, Tag)
-                    end;
+                    BinMids = binary:split(BinMid, <<16#7e, 16#7e>>, [global]),
+					convert_bin_array_to_list_array(BinMids);
                 true ->
                     []
             end
     end.
+
+convert_bin_array_to_list_array(Bins) when is_list(Bins),
+										   length(Bins) > 0 ->
+	[H|T] = Bins,
+	HList = binary_to_list(H),
+	HListAll = lists:append([[126],HList,[126]]),
+	HListAllBin = list_to_binary(HListAll),
+	TList = convert_bin_array_to_list_array(T),
+	case TList of
+		[] ->
+			[HListAllBin];
+		_ ->
+			lists:merge([HListAllBin], TList)
+	end;
+convert_bin_array_to_list_array(_Bins) ->
+	[].
 
 %%%
 %%%

@@ -1261,9 +1261,10 @@ send_msg_to_vdr(ID, VID, Msg) when is_binary(Msg) ->
                                '_', '_', '_', '_', '_',
                                '_', '_', '_', '_', '_',
 							   '_', '_', '_', '_'}),
-	case length(VidRes) of
+	LenVidRes = length(VidRes),
+	case LenVidRes of
         1 ->
-            [[Sock, VDRID]] = VidRes,
+            [[Sock, _VDRID]] = VidRes,
             Res = ets:lookup(vdrtable, Sock),
             case length(Res) of
 				1 ->
@@ -1273,14 +1274,12 @@ send_msg_to_vdr(ID, VID, Msg) when is_binary(Msg) ->
 		            NewVDRItem = VDRItem#vdritem{msgws2vdrflownum=NewFlowIdx},
 		            common:send_vdr_table_operation(VDRTablePid, {self(), insert, NewVDRItem, noresp});
 				Count1 ->
-					common:logerr("WS Server : Find ~p VID (~p) in vdrtable", [Count1, VID])
+					common:logerr("WS Server : Find ~p VID (~p) in vdrtable by socket", [Count1, VID])
 			end;
-		0 ->
-            common:logerr("WS Server : Find 0 VID (~p) in vdrtable~n", [VID]),
-            ok;
-        Count ->
-            common:logerr("WS Server : Find ~p VID (~p) in vdrtable~n", [Count, VID]),
-            ok
+		%0 ->
+        %    common:logerr("WS Server : Find 0 VID (~p) in vdrtable", [VID]);
+        _ ->
+            common:logerr("WS Server : Find ~p VID (~p) in vdrtable", [LenVidRes, VID])
     end;
 send_msg_to_vdr(_ID, _VID, _Msg) ->
     ok.
