@@ -123,7 +123,7 @@ handle_info({tcp, Socket, Data}, OriState) ->
 	LinkPid = OriState#vdritem.linkpid,
 	Pid = OriState#vdritem.pid,
 	LinkPid ! {Pid, vdrmsggot},
-	safe_save_msg_4_vdr(Data, OriState),
+	%safe_save_msg_4_vdr(Data, OriState),
 	%common:loginfo("Driver ID when MSG : ~p", [OriState#vdritem.driverid]),
     %common:loginfo("~p : Data from VDR (~p) (id:~p, serialno:~p, authen_code:~p, vehicleid:~p, vehiclecode:~p)~n~p",
 	%			   [self(),
