@@ -776,8 +776,8 @@ vdr_log_process(VDRList) ->
 			common:logerror("VDR log process stops.");
 		reset ->
 			vdr_log_process([]);
-		{Pid, check, VID} ->
-			MidVDRList = [C || C <- VDRList, C == VID],
+		{Pid, check, VDRID} ->
+			MidVDRList = [C || C <- VDRList, C == VDRID],
 			Len = length(MidVDRList),
 			if
 				Len < 1 ->
@@ -798,8 +798,42 @@ vdr_log_process(VDRList) ->
 		{Pid, get} ->
 			Pid ! {Pid, VDRList},
 			vdr_log_process(VDRList);
+		{_Pid, save, VDRID, FromVDR, MsgBin} ->
+			MidVDRList = [C || C <- VDRList, C == VDRID],
+			Len = length(MidVDRList),
+			if
+				Len < 1 ->
+					ok;
+				true ->
+					save_msg_4_vdr(VDRID, FromVDR, MsgBin)
+			end,
+			vdr_log_process(VDRList);
 		_ ->
 			vdr_log_process(VDRList)
+	end.
+
+save_msg_4_vdr(VDRID, FromVDR, MsgBin) ->
+	if
+		VDRID =/= undefined ->
+			File = "/tmp/log/vdr/VDR" ++ integer_to_list(VDRID) ++ ".log",
+			case file:open(File, [append]) of
+				{ok, IOFile} ->
+					{Year,Month,Day} = erlang:date(),
+					{Hour,Min,Second} = erlang:time(),
+					case FromVDR of
+						true ->
+							io:format(IOFile, "(~p ~p ~p, ~p:~p:~p) VDR=> ~p~n", [Year,Month,Day,Hour,Min,Second,MsgBin]);
+						_ ->
+							io:format(IOFile, "(~p ~p ~p, ~p:~p:~p) =>VDR ~p~n", [Year,Month,Day,Hour,Min,Second,MsgBin])
+					end,
+					file:close(IOFile);
+				{error, Reason} ->
+					common:loginfo("Cannot open ~p : ~p", [File, Reason]);
+				_ ->
+					common:loginfo("Cannot open ~p : unknown", [File])
+			end;
+		true ->
+			ok
 	end.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

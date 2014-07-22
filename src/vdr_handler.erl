@@ -69,52 +69,9 @@ handle_call(_Request, _From, State) ->
 handle_cast(_Msg, State) ->    
 	{noreply, State}. 
 
-safe_save_msg_4_vdr(Data, State) ->
-	safe_save_msg_4_vdr(Data, State, true).
-
-safe_save_msg_4_vdr(Data, State, InOut) ->
-	try
-		save_msg_4_vdr(Data, State, InOut)
-	catch
-		_:_ ->
-			ok
-	end.
-
-save_msg_4_vdr(Data, State, InOut) ->
-	Pid = State#vdritem.pid,
-	VDRLogPid = State#vdritem.vdrlogpid,
-	VID = State#vdritem.id,
-	if
-		VDRLogPid =/= undefined andalso VID =/= undefined ->
-			VDRLogPid ! {Pid, check, VID},
-			receive
-				{Pid, true} ->
-					File = "/tmp/log/vdr/VDR" ++ integer_to_list(VID) ++ ".log",
-					case file:open(File, [append]) of
-						{ok, IOFile} ->
-							{Year,Month,Day} = erlang:date(),
-							{Hour,Min,Second} = erlang:time(),
-							case InOut of
-								true ->
-									io:format(IOFile, "(~p ~p ~p, ~p:~p:~p) VDR=> ~p~n", [Year,Month,Day,Hour,Min,Second,Data]);
-								_ ->
-									io:format(IOFile, "(~p ~p ~p, ~p:~p:~p) =>VDR ~p~n", [Year,Month,Day,Hour,Min,Second,Data])
-							end,
-							file:close(IOFile);
-						{error, Reason} ->
-							common:loginfo("Cannot open ~p : ~p", [File, Reason]);
-						_ ->
-							common:loginfo("Cannot open ~p : unknown", [File])
-					end;
-				{Pid, false} ->
-					ok
-			after ?VDR_MSG_RESP_TIMEOUT ->
-					common:loginfo("TIMEOUT : vdr log process")
-			end;
-		true ->
-			ok
-	end.
-	
+save_msg_4_vdr(State, Msg) ->
+	VDRID = State#vdritem.id,
+	ok.
 
 %%%
 %%%
@@ -123,6 +80,7 @@ handle_info({tcp, Socket, Data}, OriState) ->
 	LinkPid = OriState#vdritem.linkpid,
 	Pid = OriState#vdritem.pid,
 	LinkPid ! {Pid, vdrmsggot},
+	MidState = save_msg_4_vdr(OriState, Data),
 	%safe_save_msg_4_vdr(Data, OriState),
 	%common:loginfo("Driver ID when MSG : ~p", [OriState#vdritem.driverid]),
     %common:loginfo("~p : Data from VDR (~p) (id:~p, serialno:~p, authen_code:~p, vehicleid:~p, vehiclecode:~p)~n~p",
@@ -136,7 +94,7 @@ handle_info({tcp, Socket, Data}, OriState) ->
 	%				Data]),
     % Update active time for VDR
 	DateTime = {erlang:date(), erlang:time()},
-    State = OriState#vdritem{acttime=DateTime},
+    State = MidState#vdritem{acttime=DateTime},
     %State = OriState#vdritem{acttime=DateTime, vehicleid=1},
     %DataDebug = <<126,1,2,0,2,1,86,121,16,51,112,0,14,81,82,113,126,126,1,2,0,2,1,86,121,16,51,112,123,14,81,82,144,126>>,
     %DataDebug = <<126,1,2,0,2,1,86,121,16,51,112,44,40,81,82,123,126>>,
