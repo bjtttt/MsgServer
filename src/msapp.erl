@@ -773,19 +773,9 @@ mysql_active_process(DBPid) ->
 vdr_log_process(VDRList) ->
 	receive
 		stop ->
-			common:logerror("VDR log process stops.");
+			common:loginfo("VDR log process stops.");
 		reset ->
 			vdr_log_process([]);
-		{Pid, check, VDRID} ->
-			MidVDRList = [C || C <- VDRList, C == VDRID],
-			Len = length(MidVDRList),
-			if
-				Len < 1 ->
-					Pid ! {Pid, false};
-				true ->
-					Pid ! {Pid, true}
-			end,
-			vdr_log_process(VDRList);
 		{set, VID} ->
 			MidVDRList = [C || C <- VDRList, C =/= VID],
 			NewVDRList = lists:merge([MidVDRList, [VID]]),
@@ -798,28 +788,28 @@ vdr_log_process(VDRList) ->
 		{Pid, get} ->
 			Pid ! {Pid, VDRList},
 			vdr_log_process(VDRList);
-		{_Pid, save, VDRID, FromVDR, MsgBin} ->
+		{_Pid, save, VDRID, FromVDR, MsgBin, DateTime} ->
 			MidVDRList = [C || C <- VDRList, C == VDRID],
 			Len = length(MidVDRList),
 			if
 				Len < 1 ->
 					ok;
 				true ->
-					save_msg_4_vdr(VDRID, FromVDR, MsgBin)
+					save_msg_4_vdr(VDRID, FromVDR, MsgBin, DateTime)
 			end,
 			vdr_log_process(VDRList);
 		_ ->
+			common:loginfo("VDR log process : unknown message"),
 			vdr_log_process(VDRList)
 	end.
 
-save_msg_4_vdr(VDRID, FromVDR, MsgBin) ->
+save_msg_4_vdr(VDRID, FromVDR, MsgBin, DateTime) ->
 	if
 		VDRID =/= undefined ->
 			File = "/tmp/log/vdr/VDR" ++ integer_to_list(VDRID) ++ ".log",
 			case file:open(File, [append]) of
 				{ok, IOFile} ->
-					{Year,Month,Day} = erlang:date(),
-					{Hour,Min,Second} = erlang:time(),
+					{Year,Month,Day,Hour,Min,Second} = DateTime,
 					case FromVDR of
 						true ->
 							io:format(IOFile, "(~p ~p ~p, ~p:~p:~p) VDR=> ~p~n", [Year,Month,Day,Hour,Min,Second,MsgBin]);

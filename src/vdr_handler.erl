@@ -76,12 +76,17 @@ save_msg_4_vdr(State, FromVDR, Msg) ->
 	Pid = State#vdritem.pid,
 	if
 		VDRID == undefined ->
-			NewMsg = [{FromVDR, Msg}],
+			{Year,Month,Day} = erlang:date(),
+			{Hour,Min,Second} = erlang:time(),
+			NewMsg = [{FromVDR, Msg, Year, Month, Day, Hour, Min, Second}],
 			NewStoredMsg = lists:merge([StoredMsg, NewMsg]),
 			State#vdritem{storedmsg4save=NewStoredMsg};
 		true ->
 			save_stored_msg_4_vdr(Pid, VDRID, StoredMsg, VDRLogPid),
-			VDRLogPid ! {Pid, save, VDRID, FromVDR, Msg},
+			{Year,Month,Day} = erlang:date(),
+			{Hour,Min,Second} = erlang:time(),
+			DateTime = {Year, Month, Day, Hour, Min, Second},
+			VDRLogPid ! {Pid, save, VDRID, FromVDR, Msg, DateTime},
 			State#vdritem{storedmsg4save=[]}
 	end.
 
@@ -89,8 +94,9 @@ save_stored_msg_4_vdr(Pid, VDRID, StoredMsg, VDRLogPid) when VDRLogPid =/= undef
 												 is_list(StoredMsg),
 												 length(StoredMsg) > 0 ->
 	[H|T] = StoredMsg,
-	{FromVDR, MsgBin} = H,
-	VDRLogPid ! {Pid, save, VDRID, FromVDR, MsgBin},
+	{FromVDR, MsgBin, Year, Month, Day, Hour, Min, Second} = H,
+	DateTime = {Year, Month, Day, Hour, Min, Second},
+	VDRLogPid ! {Pid, save, VDRID, FromVDR, MsgBin, DateTime},
 	save_stored_msg_4_vdr(Pid, VDRID, T, VDRLogPid);
 save_stored_msg_4_vdr(_Pid, _VDRID, _StoredMsg, _VDRLogPid) ->
 	ok.
