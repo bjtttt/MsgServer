@@ -56,7 +56,7 @@ terminate(Reason, State) ->
 		gen_tcp:close(State#monitem.socket)
 	catch
 		_:Ex ->
-			common:logerror("Monitor (~p) : exception when gen_tcp:close : ~p~n", [State#monitem.addr, Ex])
+			common:loginfo("Monitor (~p) : exception when gen_tcp:close : ~p~n", [State#monitem.addr, Ex])
 	end,
     common:loginfo("Monitor (~p) is terminated~n", [State#monitem.addr]).
 

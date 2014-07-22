@@ -263,14 +263,14 @@ close_all_sockets(SockList) when is_list(SockList),
 				gen_tcp:close(H)
 			catch
 				Oper:Msg ->
-					common:logerror("Exception when closing ~p:~p : ~p:~p~n", [Address, Port, Oper, Msg])
+					common:loginfo("Exception when closing ~p:~p : ~p:~p~n", [Address, Port, Oper, Msg])
 			end;
 		{error, _Reason} ->
 			try
 				gen_tcp:close(H)
 			catch
 				Oper:Msg ->
-					common:logerror("Exception when closing ~p : ~p:~p~n", [H, Oper, Msg])
+					common:loginfo("Exception when closing ~p : ~p:~p~n", [H, Oper, Msg])
 			end
 	end,
 	close_all_sockets(T);

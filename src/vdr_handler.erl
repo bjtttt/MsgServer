@@ -146,7 +146,7 @@ handle_info({tcp, Socket, Data}, OriState) ->
         [] ->
 			common:send_stat_err(State, spliterr),
             ErrCount = State#vdritem.errorcount + 1,
-            common:logerror("VDR (~p) data empty : continous error count is ~p (max is 3)", [State#vdritem.addr, ErrCount]),
+            common:loginfo("VDR (~p) data empty : continous error count is ~p (max is 3)", [State#vdritem.addr, ErrCount]),
             if
                 ErrCount >= ?MAX_VDR_ERR_COUNT ->
 					common:send_stat_err(State, errdisc),

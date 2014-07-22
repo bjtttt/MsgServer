@@ -39,7 +39,7 @@ gbk_to_utf8([Char | S], U, RowIndex, ColIndex) when Char < 128 ->
 gbk_to_utf8([A, B | S], U, RowIndex, ColIndex) ->
     case get({gbk, A, B}) of
         undefined ->
-            common:logerror("gbk not found: ~p, ~p", [{gbk, A, B}, {index, RowIndex, ColIndex}]),
+            common:loginfo("gbk not found: ~p, ~p", [{gbk, A, B}, {index, RowIndex, ColIndex}]),
             gbk_to_utf8(S, U, RowIndex, ColIndex + 2);
         Other ->  
 			gbk_to_utf8(S, list_append(Other, U), RowIndex, ColIndex + 2)
@@ -99,7 +99,7 @@ utf8_to_gbk([A, B, C | S], U, RowIndex, ColIndex) when A == 226 orelse  % 3
     %common:loginfo("utf8 (2): ~p", [{utf8, A, B, C}]),
     case get({utf8, A, B, C}) of
         undefined ->
-            common:logerror("utf8 not found: ~p, ~p", [{utf8, A, B, C}, {index, RowIndex, ColIndex}]),
+            common:loginfo("utf8 not found: ~p, ~p", [{utf8, A, B, C}, {index, RowIndex, ColIndex}]),
             utf8_to_gbk(S, U, RowIndex, ColIndex + 2);
         Other ->  
 			utf8_to_gbk(S, list_append(Other, U), RowIndex, ColIndex + 2)
@@ -117,7 +117,7 @@ utf8_to_gbk([A, B | S], U, RowIndex, ColIndex) when A == 194 orelse  % 2
     %common:loginfo("utf8 (3): ~p", [{utf8, A, B}]),
     case get({utf8, A, B}) of
         undefined ->
-            common:logerror("utf8 not found: ~p, ~p", [{utf8, A, B}, {index, RowIndex, ColIndex}]),
+            common:loginfo("utf8 not found: ~p, ~p", [{utf8, A, B}, {index, RowIndex, ColIndex}]),
             utf8_to_gbk(S, U, RowIndex, ColIndex + 2);
         Other ->  
 			utf8_to_gbk(S, list_append(Other, U), RowIndex, ColIndex + 2)
@@ -126,7 +126,7 @@ utf8_to_gbk([A | S], U, RowIndex, ColIndex) when A == 63 ->	% 1
     %common:loginfo("utf8 (4): ~p", [{utf8, A}]),
     case get({utf8, A}) of
         undefined ->
-            common:logerror("utf8 not found: ~p, ~p", [{utf8, A}, {index, RowIndex, ColIndex}]),
+            common:loginfo("utf8 not found: ~p, ~p", [{utf8, A}, {index, RowIndex, ColIndex}]),
             utf8_to_gbk(S, U, RowIndex, ColIndex + 2);
         Other ->  
 			utf8_to_gbk(S, list_append(Other, U), RowIndex, ColIndex + 2)
