@@ -135,7 +135,8 @@
 					drivercertcode=undefined,
 					httpgpspid=undefined,
 					encrypt=false,
-					vdrlogpid=undefined
+					vdrlogpid=undefined,
+					storedmsg4save=[]
                  }).
 
 -record(vdrdbitem, {  authencode=undefined,		% VDRAuthenCode

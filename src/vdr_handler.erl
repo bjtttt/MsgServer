@@ -69,8 +69,30 @@ handle_call(_Request, _From, State) ->
 handle_cast(_Msg, State) ->    
 	{noreply, State}. 
 
-save_msg_4_vdr(State, Msg) ->
+save_msg_4_vdr(State, FromVDR, Msg) ->
 	VDRID = State#vdritem.id,
+	StoredMsg = State#vdritem.storedmsg4save,
+	VDRLogPid = State#vdritem.vdrlogpid,
+	Pid = State#vdritem.pid,
+	if
+		VDRID == undefined ->
+			NewMsg = [{FromVDR, Msg}],
+			NewStoredMsg = lists:merge([StoredMsg, NewMsg]),
+			State#vdritem{storedmsg4save=NewStoredMsg};
+		true ->
+			save_stored_msg_4_vdr(Pid, VDRID, StoredMsg, VDRLogPid),
+			VDRLogPid ! {Pid, save, VDRID, FromVDR, Msg},
+			State#vdritem{storedmsg4save=[]}
+	end.
+
+save_stored_msg_4_vdr(Pid, VDRID, StoredMsg, VDRLogPid) when VDRLogPid =/= undefined,
+												 is_list(StoredMsg),
+												 length(StoredMsg) > 0 ->
+	[H|T] = StoredMsg,
+	{FromVDR, MsgBin} = H,
+	VDRLogPid ! {Pid, save, VDRID, FromVDR, MsgBin},
+	save_stored_msg_4_vdr(Pid, VDRID, T, VDRLogPid);
+save_stored_msg_4_vdr(_Pid, _VDRID, _StoredMsg, _VDRLogPid) ->
 	ok.
 
 %%%
@@ -80,7 +102,7 @@ handle_info({tcp, Socket, Data}, OriState) ->
 	LinkPid = OriState#vdritem.linkpid,
 	Pid = OriState#vdritem.pid,
 	LinkPid ! {Pid, vdrmsggot},
-	MidState = save_msg_4_vdr(OriState, Data),
+	MidState = save_msg_4_vdr(OriState, true, Data),
 	%safe_save_msg_4_vdr(Data, OriState),
 	%common:loginfo("Driver ID when MSG : ~p", [OriState#vdritem.driverid]),
     %common:loginfo("~p : Data from VDR (~p) (id:~p, serialno:~p, authen_code:~p, vehicleid:~p, vehiclecode:~p)~n~p",
@@ -1741,7 +1763,7 @@ disconn_socket_by_vehicle_id(VehicleID) ->
 	                     '_', '_', '_', '_', '_',
                          '_', '_', '_', '_', '_',
                          '_', '_', '_', '_', '_',
-						 '_', '_'}),
+						 '_', '_', '_', '_', '_'}),
 	disconn_socket_by_id(SockList).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
