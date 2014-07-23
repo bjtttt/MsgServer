@@ -99,10 +99,12 @@ parse_data(RawData, State) ->
 								30 ->
 									get_vdr_log(State);
 								31 ->
-									get_vdr_online(Req, State);
+									get_vdr_online_count(State);
 								32 ->
-									clear_vdr_online(Req, State);
+									get_vdr_online(Req, State);
 								33 ->
+									clear_vdr_online(Req, State);
+								34 ->
 									reset_vdr_online(State);
                                 _ ->
                                     create_unknown_msg_id_response(ID)
@@ -869,6 +871,9 @@ convert_numbers_to_4_bytes_list(Numbers) when is_list(Numbers),
 	end;
 convert_numbers_to_4_bytes_list(_Numbers) ->
 	<<"">>.
+
+get_vdr_online_count(State) ->
+	ok.
 
 get_vdr_online(Req, State) ->
 	Pid = self(),
