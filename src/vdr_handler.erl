@@ -85,7 +85,12 @@ save_msg_4_vdr(State, FromVDR, Msg) ->
 			State#vdritem{storedmsg4save=NewStoredMsg};
 		true ->
 			%common:loginfo("Stored Data : ~p", [StoredMsg]),
-			save_stored_msg_4_vdr(Pid, VDRID, StoredMsg, VDRLogPid),
+			%if
+			%	FromVDR == true ->
+			save_stored_msg_4_vdr(Pid, VDRID, StoredMsg, VDRLogPid),%;
+			%	true ->
+			%		ok
+			%end,
 			{Year,Month,Day} = erlang:date(),
 			{Hour,Min,Second} = erlang:time(),
 			DateTime = {Year, Month, Day, Hour, Min, Second},
