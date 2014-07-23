@@ -173,7 +173,8 @@
 					dbpid=undefined,
 					wspid=undefined,
 					driverpid=undefined,
-					vdrlogpid=undefined
+					vdrlogpid=undefined,
+					vdronlinepid=undefined
                  }).
 
 -record(mpitem, {  socket=undefined, 

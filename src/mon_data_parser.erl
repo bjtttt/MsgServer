@@ -98,6 +98,12 @@ parse_data(RawData, State) ->
 									reset_vdr_log(State);
 								30 ->
 									get_vdr_log(State);
+								31 ->
+									get_vdr_online(Req, State);
+								32 ->
+									clear_vdr_online(Req, State);
+								33 ->
+									reset_vdr_online(State);
                                 _ ->
                                     create_unknown_msg_id_response(ID)
                             end
@@ -864,5 +870,34 @@ convert_numbers_to_4_bytes_list(Numbers) when is_list(Numbers),
 convert_numbers_to_4_bytes_list(_Numbers) ->
 	<<"">>.
 
+get_vdr_online(Req, State) ->
+	Pid = self(),
+	VDROnlinePid = State#monitem.vdronlinepid,
+	ok.
 
+clear_vdr_online(Req, State) ->
+	Pid = self(),
+	VDROnlinePid = State#monitem.vdronlinepid,
+	IsBin = is_binary(Req),
+	if
+		IsBin == true ->
+			try
+				Int = binary_to_integer(Req),
+				VDROnlinePid ! {Pid, clear, Int}
+			catch
+				_:_ ->
+					ok
+			end;
+		true ->
+			IsInt = is_integer(Req),
+			if
+				IsInt == true ->
+					VDROnlinePid ! {Pid, clear, Req};
+				true ->
+					ok
+			end
+	end.
 
+reset_vdr_online(State) ->
+	VDROnlinePid = State#monitem.vdronlinepid,
+	VDROnlinePid ! reset.

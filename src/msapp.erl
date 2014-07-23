@@ -852,6 +852,10 @@ vdr_online_process(VDROnlineList) ->
 				true ->
 					vdr_online_process(MidVDROnlineList)
 			end;
+		{Pid, count} ->
+			CountList = get_vdr_online_count(VDROnlineList),
+			Pid ! {Pid, CountList},
+			vdr_online_process(VDROnlineList);
 		{Pid, get, VID} ->
 			VIDVDROnlineList = [{VDRID0, DTList0} || {VDRID0, DTList0} <- VDROnlineList, VDRID0 == VID],
 			Length = length(VIDVDROnlineList),
@@ -865,10 +869,29 @@ vdr_online_process(VDROnlineList) ->
 					Pid ! {Pid, []},
 					vdr_online_process(MidVDROnlineList)
 			end;
+		{_Pid, clear, VID} ->
+			MidVDROnlineList = [{VDRID, DTList} || {VDRID, DTList} <- VDROnlineList, VDRID =/= VID],
+			vdr_online_process(MidVDROnlineList);
 		_ ->
 			common:loginfo("VDR Online process : unknown message"),
 			vdr_online_process(VDROnlineList)
 	end.
+
+get_vdr_online_count(VDROnlineList) when is_list(VDROnlineList),
+										 length(VDROnlineList) > 0 ->
+	[H|T] = VDROnlineList,
+	{VDRID, DTList} = H,
+	DTCount = length(DTList),
+	if
+		DTCount > 1 ->
+			NewH = {VDRID, DTCount},
+			NewT = get_vdr_online_count(T),
+			lists:merge([NewH], NewT);
+		true ->
+			get_vdr_online_count(T)
+	end;
+get_vdr_online_count(_VDROnlineList) ->
+	[].
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %

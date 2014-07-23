@@ -17,14 +17,15 @@ init([Socket]) ->
     [{wspid, WSPid}] = ets:lookup(msgservertable, wspid),
 	[{drivertablepid, DriverTablePid}] = ets:lookup(msgservertable, drivertablepid),
 	[{vdrlogpid, VDRLogPid}] = ets:lookup(msgservertable, vdrlogpid),
+	[{vdronlinepid, VDROnlinePid}] = ets:lookup(msgservertable, vdronlinepid),
     case common:safepeername(Socket) of
         {ok, {Address, _Port}} ->
-            State=#monitem{socket=Socket, pid=self(), addr=Address, dbpid=DBPid, wspid=WSPid, driverpid=DriverTablePid, vdrlogpid=VDRLogPid},
+            State=#monitem{socket=Socket, pid=self(), addr=Address, dbpid=DBPid, wspid=WSPid, driverpid=DriverTablePid, vdrlogpid=VDRLogPid, vdronlinepid=VDROnlinePid},
             ets:insert(montable, State), 
             inet:setopts(Socket, [{active, once}]),
             {ok, State};
         {error, _Reason} ->
-            State=#monitem{socket=Socket, pid=self(), addr="0.0.0.0", dbpid=DBPid, wspid=WSPid, driverpid=DriverTablePid, vdrlogpid=VDRLogPid},
+            State=#monitem{socket=Socket, pid=self(), addr="0.0.0.0", dbpid=DBPid, wspid=WSPid, driverpid=DriverTablePid, vdrlogpid=VDRLogPid, vdronlinepid=VDROnlinePid},
             ets:insert(montable, State), 
             inet:setopts(Socket, [{active, once}]),
             {ok, State}
