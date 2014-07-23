@@ -94,6 +94,8 @@
 %%% 
 -record(user, {id=undefined, name=undefined, level=undefined, ip=undefined, time=undefined}).
 
+-record(vdronlineitem, {id=undefined, online=[]}).
+
 %%%
 %%%
 %%%

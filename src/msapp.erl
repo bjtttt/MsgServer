@@ -92,6 +92,7 @@ startserver(StartType, StartArgs) ->
     ets:new(drivertable,[set,public,named_table,{keypos,#driverinfo.driverid},{read_concurrency,true},{write_concurrency,true}]),
     ets:new(lastpostable,[set,public,named_table,{keypos,#lastposinfo.vehicleid},{read_concurrency,true},{write_concurrency,true}]),
     ets:new(montable,[set,public,named_table,{keypos,#monitem.socket},{read_concurrency,true},{write_concurrency,true}]),
+    %ets:new(vdronlinetable,[set,public,named_table,{keypos,#vdronlineitem.id},{read_concurrency,true},{write_concurrency,true}]),
     common:loginfo("Tables are initialized."),
 	case file:make_dir(Path ++ "/log") of
 		ok ->
@@ -144,6 +145,7 @@ startserver(StartType, StartArgs) ->
 							DBOperationPid = spawn(fun() -> db_data_operation_process(DBPid) end),
 							MysqlActivePid = spawn(fun() -> mysql_active_process(DBPid) end),
 							VDRLogPid = spawn(fun() -> vdr_log_process([]) end),
+							VDROnlinePid = spawn(fun() -> vdr_online_process([]) end),
 							%HttpGpsPid = spawn(fun() -> http_gps_deamon(HttpGpsServer, uninit, 0, 0, 0, 0) end),
 							%DBMaintainPid = spawn(fun() -> db_data_maintain_process(DBPid, DBOperationPid, Mode) end),
 		                    ets:insert(msgservertable, {dbpid, DBPid}),
@@ -157,6 +159,7 @@ startserver(StartType, StartArgs) ->
 							ets:insert(msgservertable, {dboperationpid, DBOperationPid}),
 							ets:insert(msgservertable, {mysqlactivepid, MysqlActivePid}),
 							ets:insert(msgservertable, {vdrlogpid, VDRLogPid}),
+							ets:insert(msgservertable, {vdronlinepid, VDROnlinePid}),
 							%ets:insert(msgservertable, {httpgpspid, HttpGpsPid}),
 		                    %ets:insert(msgservertable, {dbmaintainpid, VdrTablePid}),
 		                    common:loginfo("WS client process PID is ~p", [WSPid]),
@@ -169,6 +172,7 @@ startserver(StartType, StartArgs) ->
 							common:loginfo("DB operation process PID is ~p", [DBOperationPid]),
 							common:loginfo("Mysql active process PID is ~p", [MysqlActivePid]),
 							common:loginfo("VDR Log process PID is ~p", [VDRLogPid]),
+							common:loginfo("VDR Online process PID is ~p", [VDROnlinePid]),
 							%common:loginfo("HTTP GPS process PID is ~p", [HttpGpsPid]),
 							%common:loginfo("DB miantain process PID is ~p", [DBMaintainPid]),
 
@@ -242,7 +246,8 @@ startserver(StartType, StartArgs) ->
 		                    LastPosTablePid = spawn(fun() -> lastpostable_insert_delete_process() end),
 							DBOperationPid = spawn(fun() -> db_data_operation_process(DBPid) end),
 							MysqlActivePid = spawn(fun() -> mysql_active_process(DBPid) end),
-							VDRLogPid = spawn(fun() -> vdr_log_process(0) end),
+							VDRLogPid = spawn(fun() -> vdr_log_process([]) end),
+							VDROnlinePid = spawn(fun() -> vdr_online_process([]) end),
 							%HttpGpsPid = spawn(fun() -> http_gps_deamon(HttpGpsServer, uninit, 0, 0, 0, 0) end),
 							%DBMaintainPid = spawn(fun() -> db_data_maintain_process(DBPid, DBOperationPid, Mode) end),
 		                    ets:insert(msgservertable, {dbpid, DBPid}),
@@ -255,6 +260,7 @@ startserver(StartType, StartArgs) ->
 							ets:insert(msgservertable, {dboperationpid, DBOperationPid}),
 							ets:insert(msgservertable, {mysqlactivepid, MysqlActivePid}),
 							ets:insert(msgservertable, {vdrlogpid, VDRLogPid}),
+							ets:insert(msgservertable, {vdronlinepid, VDROnlinePid}),
 							%ets:insert(msgservertable, {httpgpspid, HttpGpsPid}),
 							%ets:insert(msgservertable, {dbmaintainpid, DBMaintainPid}),
 		                    common:loginfo("DB client process PID is ~p", [DBPid]),
@@ -266,6 +272,7 @@ startserver(StartType, StartArgs) ->
 		                    common:loginfo("DB operation process PID is ~p", [DBOperationPid]),
 							common:loginfo("Mysql active process PID is ~p", [MysqlActivePid]),
 							common:loginfo("VDR Log process PID is ~p", [VDRLogPid]),
+							common:loginfo("VDR Online process PID is ~p", [VDROnlinePid]),
 							%common:loginfo("HTTP GPS process PID is ~p", [HttpGpsPid]),
 		                    %common:loginfo("DB miantain process PID is ~p", [DBMaintainPid]),
 		                    
@@ -826,6 +833,43 @@ save_msg_4_vdr(VDRID, FromVDR, MsgBin, DateTime) ->
 			ok
 	end.
 
+vdr_online_process(VDROnlineList) ->
+	receive
+		stop ->
+			common:loginfo("VDR Online process stops.");
+		reset ->
+			vdr_online_process([]);
+		{_Pid, add, VID, DateTime} ->
+			MidVDROnlineList = [{VDRID, DTList} || {VDRID, DTList} <- VDROnlineList, VDRID =/= VID],
+			VIDVDROnlineList = [{VDRID0, DTList0} || {VDRID0, DTList0} <- VDROnlineList, VDRID0 == VID],
+			Length = length(VIDVDROnlineList),
+			if
+				Length == 1 ->
+					[{VDRID1, DTList1}] = VIDVDROnlineList,
+					NewDTList1 = lists:merge([DTList1, [DateTime]]),
+					NewVDROnlineList = lists:merge([MidVDROnlineList, [{VDRID1, NewDTList1}]]),
+					vdr_online_process(NewVDROnlineList);
+				true ->
+					vdr_online_process(MidVDROnlineList)
+			end;
+		{Pid, get, VID} ->
+			VIDVDROnlineList = [{VDRID0, DTList0} || {VDRID0, DTList0} <- VDROnlineList, VDRID0 == VID],
+			Length = length(VIDVDROnlineList),
+			if
+				Length == 1 ->
+					[{_VDRID1, DTList1}] = VIDVDROnlineList,
+					Pid ! {Pid, DTList1},
+					vdr_online_process(VDROnlineList);
+				true ->
+					MidVDROnlineList = [{VDRID, DTList} || {VDRID, DTList} <- VDROnlineList, VDRID =/= VID],
+					Pid ! {Pid, []},
+					vdr_online_process(MidVDROnlineList)
+			end;
+		_ ->
+			common:loginfo("VDR Online process : unknown message"),
+			vdr_online_process(VDROnlineList)
+	end.
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %
 % This process will operate device\vehicle table and alarm table
@@ -1174,6 +1218,13 @@ stop(_State) ->
     end,
     [{vdrlogpid, VDRLogPid}] = ets:lookup(msgservertable, vdrlogpid),
     case VDRLogPid of
+        undefined ->
+            ok;
+        _ ->
+            VDRLogPid ! stop
+    end,
+    [{vdronlinepid, VDROnlinePid}] = ets:lookup(msgservertable, vdronlinepid),
+    case VDROnlinePid of
         undefined ->
             ok;
         _ ->
