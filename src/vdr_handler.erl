@@ -80,8 +80,11 @@ save_msg_4_vdr(State, FromVDR, Msg) ->
 			{Hour,Min,Second} = erlang:time(),
 			NewMsg = [{FromVDR, Msg, Year, Month, Day, Hour, Min, Second}],
 			NewStoredMsg = lists:merge([StoredMsg, NewMsg]),
+			%common:loginfo("Stored Data : ~p", [StoredMsg]),
+			%common:loginfo("Storing Data : ~p", [Msg]),
 			State#vdritem{storedmsg4save=NewStoredMsg};
 		true ->
+			%common:loginfo("Stored Data : ~p", [StoredMsg]),
 			save_stored_msg_4_vdr(Pid, VDRID, StoredMsg, VDRLogPid),
 			{Year,Month,Day} = erlang:date(),
 			{Hour,Min,Second} = erlang:time(),

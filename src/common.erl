@@ -41,7 +41,8 @@
 
 -export([safepeername/1, forcesafepeername/1, printsocketinfo/2, forceprintsocketinfo/2]).
 
--export([logerror/1, logerror/2, loginfo/1, loginfo/2]).
+%-export([logerror/1, logerror/2, loginfo/1, loginfo/2]).
+-export([loginfo/1, loginfo/2]).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%
