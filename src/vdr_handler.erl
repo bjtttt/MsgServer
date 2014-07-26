@@ -38,11 +38,13 @@ init([Sock, Addr]) ->
     [{httpgpspid, HttpGpsPid}] = ets:lookup(msgservertable, httpgpspid),
     [{dbstate, DBState}] = ets:lookup(msgservertable, dbstate),
     [{vdrlogpid, VDRLogPid}] = ets:lookup(msgservertable, vdrlogpid),
+    [{vdronlinepid, VDROnlinePid}] = ets:lookup(msgservertable, vdronlinepid),
 	if
 		DBState == true ->
 		    State = #vdritem{socket=Sock, pid=Pid, dboperid=DBOperationPid, addr=Addr, msgflownum=1, 
 							 errorcount=0, dbpid=DBPid, wspid=WSPid, ccpid=CCPid, linkpid=LinkPid, 
-							 vdrtablepid=VDRTablePid, drivertablepid=DriverTablePid, lastpostablepid=LastPosTablePid, httpgpspid=HttpGpsPid, vdrlogpid=VDRLogPid},
+							 vdrtablepid=VDRTablePid, drivertablepid=DriverTablePid, lastpostablepid=LastPosTablePid,
+							 httpgpspid=HttpGpsPid, vdrlogpid=VDRLogPid, vdronlinepid=VDROnlinePid},
 			common:send_stat_err(State, conn),
 		    common:send_vdr_table_operation(VDRTablePid, {self(), insert, State, noresp}),
 		    inet:setopts(Sock, [{active, once}, {send_timeout, ?VDR_MSG_TIMEOUT}, {send_timeout_close, true}]),
@@ -50,7 +52,8 @@ init([Sock, Addr]) ->
 		true ->
 		    State = #vdritem{socket=Sock, pid=Pid, dboperid=DBOperationPid, addr=Addr, msgflownum=1, 
 							 errorcount=0, dbpid=unused, wspid=WSPid, ccpid=CCPid, linkpid=LinkPid, 
-							 vdrtablepid=VDRTablePid, drivertablepid=DriverTablePid, lastpostablepid=LastPosTablePid, httpgpspid=HttpGpsPid, vdrlogpid=VDRLogPid},
+							 vdrtablepid=VDRTablePid, drivertablepid=DriverTablePid, lastpostablepid=LastPosTablePid,
+							 httpgpspid=HttpGpsPid, vdrlogpid=VDRLogPid, vdronlinepid=VDROnlinePid},
 			common:send_stat_err(State, conn),
 		    common:send_vdr_table_operation(VDRTablePid, {self(), insert, State, noresp}),
 		    inet:setopts(Sock, [{active, once}, {send_timeout, ?VDR_MSG_TIMEOUT}, {send_timeout_close, true}]),
@@ -108,6 +111,18 @@ save_stored_msg_4_vdr(Pid, VDRID, StoredMsg, VDRLogPid) when VDRLogPid =/= undef
 	save_stored_msg_4_vdr(Pid, VDRID, T, VDRLogPid);
 save_stored_msg_4_vdr(_Pid, _VDRID, _StoredMsg, _VDRLogPid) ->
 	ok.
+
+save_online_msg(VID, State) ->
+	Pid = State#vdritem.pid,
+	VDROnlinePid = State#vdritem.vdronlinepid,
+	if
+		VDROnlinePid =/= undefined ->
+			{Year,Month,Day} = erlang:date(),
+			{Hour,Min,Second} = erlang:time(),
+			VDROnlinePid ! {Pid, add, VID, {Year,Month,Day,Hour,Min,Second}};
+		true ->
+			ok
+	end.
 
 %%%
 %%%
@@ -525,6 +540,7 @@ process_vdr_data(Socket, Data, State) ->
 									%common:loginfo("VDR DB Item : ~p", [VDRDBItem]),
 									% DriverID is undefined because DB is designed in thisway
 									{vdrdbitem, VDRAuthenCode, VDRID, VDRSerialNo, VehicleCode, VehicleID, DriverID} = VDRDBItem,
+									save_online_msg(VDRID, NewState),
                                     if
                                         VehicleID == undefined orelse VehicleCode==undefined ->
                                             {error, autherror, NewState};
@@ -631,6 +647,8 @@ process_vdr_data(Socket, Data, State) ->
 																						   vehicleid=VehicleID,
 																						   driverid=DriverID},
 																	DBOperationPid ! {Pid, insert, vdrdbtable, VDRDBItem, noresp},
+																	
+																	save_online_msg(VDRID, NewState),
 																	
 																	disconn_socket_by_vehicle_id(VehicleID),
 				                                                    SockVdrList = ets:lookup(vdrtable, Socket),
@@ -1781,7 +1799,8 @@ disconn_socket_by_vehicle_id(VehicleID) ->
 	                     '_', '_', '_', '_', '_',
                          '_', '_', '_', '_', '_',
                          '_', '_', '_', '_', '_',
-						 '_', '_', '_', '_', '_'}),
+						 '_', '_', '_', '_', '_',
+						 '_'}),
 	disconn_socket_by_id(SockList).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

@@ -255,7 +255,8 @@ create_reset_all_response() ->
                                  '_', '_', '_', '_', '_',
                                  '_', '_', '_', '_', '_',
                                  '_', '_', '_', '_', '_',
-								 '_', '_', '_', '_', '_'}),
+								 '_', '_', '_', '_', '_',
+								 '_'}),
 	SockList = compose_one_item_list_array_to_list(Socks),
 	close_all_sockets(SockList),
     Content = <<2:?LEN_DWORD, 0:?LEN_BYTE, 5:?LEN_BYTE>>,
@@ -294,7 +295,8 @@ create_all_device_ids_response() ->
                                 '_', '_', '_', '_', '_', 
                                 '_', '_', '_', '_', '_',
                                 '_', '_', '_', '_', '_',
-								'_', '_', '_', '_', '_'}),
+								'_', '_', '_', '_', '_',
+								'_'}),
 	%common:loginfo("vdrtable all device IDs : ~p~n", [DIDs]),
 	DIDList = compose_one_item_list_array_to_list(DIDs),
 	DIDsBin = convert_integer_list_to_4_bytes_binary_list(DIDList),
@@ -312,7 +314,8 @@ create_all_vehicle_ids_response() ->
                                 '_', '_', '_', '_', '_',
                                 '_', '_', '_', '_', '_', 
                                 '_', '_', '_', '_', '_',
-								'_', '_', '_', '_', '_'}),
+								'_', '_', '_', '_', '_',
+								'_'}),
 	VIDList = compose_one_item_list_array_to_list(VIDs),
 	VIDsBin = convert_integer_list_to_4_bytes_binary_list(VIDList),
 	Size = byte_size(VIDsBin),
@@ -331,7 +334,8 @@ create_spec_vehicle_count_response(VID) ->
                                 '_', '_', '_', '_', '_',
                                 '_', '_', '_', '_', '_', 
                                 '_', '_', '_', '_', '_',
-								'_', '_', '_', '_', '_'}),
+								'_', '_', '_', '_', '_',
+								'_'}),
     Count = length(VIDs),
     Content = <<6:?LEN_DWORD, 0:?LEN_BYTE, 7:?LEN_BYTE, Count:?LEN_DWORD>>,
     Xor = vdr_data_parser:bxorbytelist(Content),
@@ -348,7 +352,8 @@ create_spec_device_count_response(DID) ->
                                 '_', '_', '_', '_', '_',
                                 '_', '_', '_', '_', '_',
                                 '_', '_', '_', '_', '_',
-								'_', '_', '_', '_', '_'}),
+								'_', '_', '_', '_', '_',
+								'_'}),
     Count = length(VIDs),
     Content = <<6:?LEN_DWORD, 0:?LEN_BYTE, 8:?LEN_BYTE, Count:?LEN_DWORD>>,
     Xor = vdr_data_parser:bxorbytelist(Content),
@@ -365,7 +370,8 @@ create_spec_vehicle_info_response(VID) ->
                                 '_', '_', '_', '_', '_',
                                 '_', '_', '_', '_', '_',
                                 '_', '_', '_', '_', '_',
-								'_', '_', '_', '_', '_'}),
+								'_', '_', '_', '_', '_',
+								'_'}),
     Count = length(VIDs),
     Content = <<6:?LEN_DWORD, 0:?LEN_BYTE, 9:?LEN_BYTE, Count:?LEN_DWORD>>,
     Xor = vdr_data_parser:bxorbytelist(Content),
@@ -382,7 +388,8 @@ create_spec_device_info_response(DID) ->
                                 '_', '_', '_', '_', '_',
                                 '_', '_', '_', '_', '_',
                                 '_', '_', '_', '_', '_',
-								'_', '_', '_', '_', '_'}),
+								'_', '_', '_', '_', '_',
+								'_'}),
     Count = length(VIDs),
     Content = <<6:?LEN_DWORD, 0:?LEN_BYTE, 10:?LEN_BYTE, Count:?LEN_DWORD>>,
     Xor = vdr_data_parser:bxorbytelist(Content),
@@ -397,7 +404,8 @@ create_undef_count_response() ->
                                 '_', '_', '_', '_', '_',
 								'_', '_', '_', '_', '_',
                                 '_', '_', '_', '_', '_',
-								'_', '_', '_', '_', '_'}),
+								'_', '_', '_', '_', '_',
+								'_'}),
 	Count = length(VIDs),
     Content = <<6:?LEN_DWORD, 0:?LEN_BYTE, 11:?LEN_BYTE, Count:?LEN_DWORD>>,
     Xor = vdr_data_parser:bxorbytelist(Content),
@@ -414,7 +422,8 @@ create_def_count_reponse() ->
                                 '_', '_', '_', '_', '_',
 								'_', '_', '_', '_', '_',
                                 '_', '_', '_', '_', '_',
-								'_', '_', '_', '_', '_'}),
+								'_', '_', '_', '_', '_',
+								'_'}),
 	Count = length(VIDs),
 	case V1 of
 		undefined ->
@@ -443,7 +452,8 @@ create_vehicle_stored_msg_info_reponse(VID) ->
                                 '_', '_', '_', '_', '$1',
                                 '_', '_', '_', '_', '_',
                                 '_', '_', '_', '_', '_',
-								'_', '_', '_', '_', '_'}),
+								'_', '_', '_', '_', '_',
+								'_'}),
 	[[RealMsgs]] = Msgs,
 	Bin = convert_integer_list_list_to_4_byte_binary_list(RealMsgs),
 	Size = byte_size(Bin),
@@ -467,7 +477,8 @@ create_device_stored_msg_info_reponse(DID) ->
                                 '_', '_', '_', '_', '$1',
                                 '_', '_', '_', '_', '_',
                                 '_', '_', '_', '_', '_',
-								'_', '_', '_', '_', '_'}),
+								'_', '_', '_', '_', '_',
+								'_'}),
 	[[RealMsgs]] = Msgs,
 	Bin = convert_integer_list_list_to_4_byte_binary_list(RealMsgs),
 	Size = byte_size(Bin),
@@ -873,12 +884,127 @@ convert_numbers_to_4_bytes_list(_Numbers) ->
 	<<"">>.
 
 get_vdr_online_count(State) ->
-	ok.
+	Pid = self(),
+	VDROnlinePid = State#monitem.vdronlinepid,
+	VDROnlinePid ! {Pid, count},
+	receive
+		{Pid, OLList} ->
+			OLListBin = compose_online_count(OLList),
+			OLListBinSize = byte_size(OLListBin),
+		    Content = list_to_binary([<<(2+OLListBinSize):?LEN_DWORD, 0:?LEN_BYTE, 31:?LEN_BYTE>>, OLListBin]),
+		    Xor = vdr_data_parser:bxorbytelist(Content),
+			list_to_binary([Content, Xor])
+	after ?PROC_RESP_TIMEOUT ->
+		    Content = <<2:?LEN_DWORD, 0:?LEN_BYTE, 31:?LEN_BYTE>>,
+		    Xor = vdr_data_parser:bxorbytelist(Content),
+			list_to_binary([Content, Xor])
+	end.		
+
+compose_online_count(OLList) when is_list(OLList),
+								  length(OLList) > 0 ->
+	[H|T] = OLList,
+	{VID, Count} = H,
+	HBin=get_2_dword_from_online(VID, Count),
+	TBin=compose_online_count(T),
+	list_to_binary([HBin, TBin]);
+compose_online_count(_OLList) ->
+	<<>>.
+
+get_2_dword_from_online(VID, Count) when is_integer(VID),
+										 is_integer(Count) ->
+	<<VID:32,Count:32>>;
+get_2_dword_from_online(VID, Count) when is_binary(VID),
+										 is_integer(Count) ->
+	try
+		VIDInt = binary_to_integer(VID),
+		get_2_dword_from_online(VIDInt, Count)
+	catch
+		_:_ ->
+			<<>>
+	end;
+get_2_dword_from_online(VID, Count) when is_binary(VID),
+										 is_binary(Count) ->
+	try
+		VIDInt = binary_to_integer(VID),
+		CountInt = binary_to_integer(Count),
+		get_2_dword_from_online(VIDInt, CountInt)
+	catch
+		_:_ ->
+			<<>>
+	end;
+get_2_dword_from_online(VID, Count) when is_integer(VID),
+										 is_binary(Count) ->
+	try
+		CountInt = binary_to_integer(Count),
+		get_2_dword_from_online(VID, CountInt)
+	catch
+		_:_ ->
+			<<>>
+	end;
+get_2_dword_from_online(_VID, _Count) ->
+	<<>>.
 
 get_vdr_online(Req, State) ->
 	Pid = self(),
 	VDROnlinePid = State#monitem.vdronlinepid,
-	ok.
+	IsBin = is_binary(Req),
+	if
+		IsBin == true ->
+			try
+				Int = binary_to_integer(Req),
+				VDROnlinePid ! {Pid, get, Int},
+				receive
+					{Pid, DTList} ->
+						DTListBin = compose_vdr_online_table(DTList),
+						DTListBinSize = byte_size(DTListBin),
+					    Content = list_to_binary([<<(2+DTListBinSize):?LEN_DWORD, 0:?LEN_BYTE, 32:?LEN_BYTE>>, DTListBin]),
+					    Xor = vdr_data_parser:bxorbytelist(Content),
+						list_to_binary([Content, Xor])
+				after ?PROC_RESP_TIMEOUT ->
+				    Content = <<2:?LEN_DWORD, 0:?LEN_BYTE, 32:?LEN_BYTE>>,
+				    Xor = vdr_data_parser:bxorbytelist(Content),
+					list_to_binary([Content, Xor])
+				end
+			catch
+				_:_ ->
+				    Content1 = <<2:?LEN_DWORD, 0:?LEN_BYTE, 32:?LEN_BYTE>>,
+				    Xor1 = vdr_data_parser:bxorbytelist(Content1),
+					list_to_binary([Content1, Xor1])
+			end;
+		true ->
+			IsInt = is_integer(Req),
+			if
+				IsInt == true ->
+					VDROnlinePid ! {Pid, get, Req},
+					receive
+						{Pid, DTList} ->
+							DTListBin = compose_vdr_online_table(DTList),
+							DTListBinSize = byte_size(DTListBin),
+						    Content = list_to_binary([<<(2+DTListBinSize):?LEN_DWORD, 0:?LEN_BYTE, 32:?LEN_BYTE>>, DTListBin]),
+						    Xor = vdr_data_parser:bxorbytelist(Content),
+							list_to_binary([Content, Xor])
+					after ?PROC_RESP_TIMEOUT ->
+					    Content = <<2:?LEN_DWORD, 0:?LEN_BYTE, 32:?LEN_BYTE>>,
+					    Xor = vdr_data_parser:bxorbytelist(Content),
+						list_to_binary([Content, Xor])
+					end;
+				true ->
+				    Content = <<2:?LEN_DWORD, 0:?LEN_BYTE, 32:?LEN_BYTE>>,
+				    Xor = vdr_data_parser:bxorbytelist(Content),
+					list_to_binary([Content, Xor])
+			end
+	end.
+
+compose_vdr_online_table(DTList) when is_list(DTList),
+									  length(DTList) > 0 ->
+	[H|T] = DTList,
+	{_VID, {YY,MM,DD,Hh,Mm,Ss}} = H,
+	YYNew = YY rem 100,
+	HBin = <<YYNew:8,MM:8,DD:8,Hh:8,Mm:8,Ss:8>>,
+	TBin=compose_vdr_online_table(T),
+	list_to_binary([HBin, TBin]);
+compose_vdr_online_table(_DTList) ->
+	<<>>.
 
 clear_vdr_online(Req, State) ->
 	Pid = self(),
@@ -888,21 +1014,34 @@ clear_vdr_online(Req, State) ->
 		IsBin == true ->
 			try
 				Int = binary_to_integer(Req),
-				VDROnlinePid ! {Pid, clear, Int}
+				VDROnlinePid ! {Pid, clear, Int},
+			    Content = <<2:?LEN_DWORD, 0:?LEN_BYTE, 33:?LEN_BYTE>>,
+			    Xor = vdr_data_parser:bxorbytelist(Content),
+				list_to_binary([Content, Xor])
 			catch
 				_:_ ->
-					ok
+				    Content0 = <<2:?LEN_DWORD, 0:?LEN_BYTE, 33:?LEN_BYTE>>,
+				    Xor0 = vdr_data_parser:bxorbytelist(Content0),
+					list_to_binary([Content0, Xor0])
 			end;
 		true ->
 			IsInt = is_integer(Req),
 			if
 				IsInt == true ->
-					VDROnlinePid ! {Pid, clear, Req};
+					VDROnlinePid ! {Pid, clear, Req},
+				    Content = <<2:?LEN_DWORD, 0:?LEN_BYTE, 33:?LEN_BYTE>>,
+				    Xor = vdr_data_parser:bxorbytelist(Content),
+					list_to_binary([Content, Xor]);
 				true ->
-					ok
+				    Content = <<2:?LEN_DWORD, 0:?LEN_BYTE, 33:?LEN_BYTE>>,
+				    Xor = vdr_data_parser:bxorbytelist(Content),
+					list_to_binary([Content, Xor])
 			end
 	end.
 
 reset_vdr_online(State) ->
 	VDROnlinePid = State#monitem.vdronlinepid,
-	VDROnlinePid ! reset.
+	VDROnlinePid ! reset,
+    Content = <<2:?LEN_DWORD, 0:?LEN_BYTE, 34:?LEN_BYTE>>,
+    Xor = vdr_data_parser:bxorbytelist(Content),
+	list_to_binary([Content, Xor]).

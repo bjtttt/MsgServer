@@ -35,7 +35,7 @@
 
 -define(TIMEOUT_VDR, 60000). 
 %-define(TIMEOUT_MAN, 30000). 
--define(TIMEOUT_MON, 30000). 
+-define(TIMEOUT_MON, 10000). 
 -define(TIMEOUT_DB, 30000). 
 
 -define(TIMEOUT_CC_INIT_PROCESS, 5000). 
@@ -138,7 +138,8 @@
 					httpgpspid=undefined,
 					encrypt=false,
 					vdrlogpid=undefined,
-					storedmsg4save=[]
+					storedmsg4save=[],
+					vdronlinepid=undefined
                  }).
 
 -record(vdrdbitem, {  authencode=undefined,		% VDRAuthenCode
