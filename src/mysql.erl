@@ -568,9 +568,9 @@ do_sql(Sql) ->
 			if
 				SqlLen > 1024 ->
 					PartSql1 = binary:part(Sql, 0, 1024),
-					common:logerror("Fail to send SQL (~p)......... to DB : ~p~n(Operation)~p:(Message)~p", [PartSql1, conn, Oper, Msg]);
+					common:loginfo("Fail to send SQL (~p)......... to DB : ~p~n(Operation)~p:(Message)~p", [PartSql1, conn, Oper, Msg]);
 				true ->
-					common:logerror("Fail to send SQL (~p) to DB : ~p~n(Operation)~p:(Message)~p", [Sql, conn, Oper, Msg])
+					common:loginfo("Fail to send SQL (~p) to DB : ~p~n(Operation)~p:(Message)~p", [Sql, conn, Oper, Msg])
 			end,
             try
                 [{db, DB}] = ets:lookup(msgservertable, db),
@@ -581,7 +581,7 @@ do_sql(Sql) ->
 				%mysql:fetch(conn, Sql)
             catch
                 Oper1:Msg1 ->
-                    common:logerror("Fail to start new DB client: ~n(Operation)~p:(Message)~p", [Oper1, Msg1]),
+                    common:loginfo("Fail to start new DB client: ~n(Operation)~p:(Message)~p", [Oper1, Msg1]),
 					<<"">>
             end
 	end.

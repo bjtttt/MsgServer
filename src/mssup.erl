@@ -35,11 +35,11 @@ start_child_vdr(Socket, Addr) ->
         {error, Reason} ->
             case Reason of
                 already_present ->
-                    common:logerror("mssup:start_child_vdr fails : already_present~n");
+                    common:loginfo("mssup:start_child_vdr fails : already_present~n");
                 {already_strated, CPid} ->
-                    common:logerror("mssup:start_child_vdr fails : already_started PID : ~p~n", [CPid]);
+                    common:loginfo("mssup:start_child_vdr fails : already_started PID : ~p~n", [CPid]);
                 Msg ->
-                    common:logerror("mssup:start_child_vdr fails : ~p~n", [Msg])
+                    common:loginfo("mssup:start_child_vdr fails : ~p~n", [Msg])
             end,
             {error, Reason}
     end.                    
@@ -60,11 +60,11 @@ start_child_man(Socket) ->
         {error, Reason} ->
             case Reason of
                 already_present ->
-                    common:logerror("mssup:start_child_man fails : already_present~n");
+                    common:loginfo("mssup:start_child_man fails : already_present~n");
                 {already_strated, CPid} ->
-                    common:logerror("mssup:start_child_man fails : already_started PID : ~p~n", [CPid]);
+                    common:loginfo("mssup:start_child_man fails : already_started PID : ~p~n", [CPid]);
                 Msg ->
-                    common:logerror("mssup:start_child_man fails : ~p~n", [Msg])
+                    common:loginfo("mssup:start_child_man fails : ~p~n", [Msg])
             end,
             {error, Reason}
     end.                    
@@ -85,11 +85,11 @@ start_child_mon(Socket) ->
         {error, Reason} ->
             case Reason of
                 already_present ->
-                    common:logerror("mssup:start_child_mon fails : already_present~n");
+                    common:loginfo("mssup:start_child_mon fails : already_present~n");
                 {already_strated, CPid} ->
-                    common:logerror("mssup:start_child_mon fails : already_started PID : ~p~n", [CPid]);
+                    common:loginfo("mssup:start_child_mon fails : already_started PID : ~p~n", [CPid]);
                 Msg ->
-                    common:logerror("mssup:start_child_mon fails : ~p~n", [Msg])
+                    common:loginfo("mssup:start_child_mon fails : ~p~n", [Msg])
             end,
             {error, Reason}
     end.                    
@@ -110,11 +110,11 @@ start_child_mp(Socket) ->
         {error, Reason} ->
             case Reason of
                 already_present ->
-                    common:logerror("mssup:start_child_mp fails : already_present~n");
+                    common:loginfo("mssup:start_child_mp fails : already_present~n");
                 {already_strated, CPid} ->
-                    common:logerror("mssup:start_child_mp fails : already_started PID : ~p~n", [CPid]);
+                    common:loginfo("mssup:start_child_mp fails : already_started PID : ~p~n", [CPid]);
                 Msg ->
-                    common:logerror("mssup:start_child_mp fails : ~p~n", [Msg])
+                    common:loginfo("mssup:start_child_mp fails : ~p~n", [Msg])
             end,
             {error, Reason}
     end.                    
@@ -135,11 +135,11 @@ start_child_db(DB, PortDB) ->
         {error, Reason} ->
             case Reason of
                 already_present ->
-                    common:logerror("mssup:start_child_db(~p:~p) fails : already_present~n", [DB, PortDB]);
+                    common:loginfo("mssup:start_child_db(~p:~p) fails : already_present~n", [DB, PortDB]);
                 {already_strated, CPid} ->
-                    common:logerror("mssup:start_child_db(~p:~p) fails : already_started PID : ~p~n", [CPid, DB, PortDB]);
+                    common:loginfo("mssup:start_child_db(~p:~p) fails : already_started PID : ~p~n", [CPid, DB, PortDB]);
                 Msg ->
-                    common:logerror("mssup:start_child_db(~p:~p) fails : ~p~n", [Msg, DB, PortDB])
+                    common:loginfo("mssup:start_child_db(~p:~p) fails : ~p~n", [Msg, DB, PortDB])
             end,
             {error, Reason}
     end.                    
@@ -153,7 +153,7 @@ stop_child_vdr(Pid) ->
         ok ->
             ok;
         {error, Reason} ->
-            common:logerror("mssup:stop_child_vdr(PID : ~p) fails : ~p~n", [Reason, Pid]),
+            common:loginfo("mssup:stop_child_vdr(PID : ~p) fails : ~p~n", [Reason, Pid]),
             {error, Reason}
     end.
 %%%
@@ -165,7 +165,7 @@ stop_child_man(Pid) ->
         ok ->
             ok;
         {error, Reason} ->
-            common:logerror("mssup:stop_child_man(PID : ~p) fails : ~p~n", [Reason, Pid]),
+            common:loginfo("mssup:stop_child_man(PID : ~p) fails : ~p~n", [Reason, Pid]),
             {error, Reason}
     end.
 %%%
@@ -177,7 +177,7 @@ stop_child_mon(Pid) ->
         ok ->
             ok;
         {error, Reason} ->
-            common:logerror("mssup:stop_child_mon fails(PID : ~p) : ~p~n", [Reason, Pid]),
+            common:loginfo("mssup:stop_child_mon fails(PID : ~p) : ~p~n", [Reason, Pid]),
             {error, Reason}
     end.
 %%%
@@ -189,7 +189,7 @@ stop_child_mp(Pid) ->
         ok ->
             ok;
         {error, Reason} ->
-            common:logerror("mssup:stop_child_mp fails(PID : ~p) : ~p~n", [Reason, Pid]),
+            common:loginfo("mssup:stop_child_mp fails(PID : ~p) : ~p~n", [Reason, Pid]),
             {error, Reason}
     end.
 %%%
@@ -201,7 +201,7 @@ stop_child_db(Pid) ->
         ok ->
             ok;
         {error, Reason} ->
-            common:logerror("mssup:stop_child_db fails(PID : ~p) : ~p~n", [Reason, Pid]),
+            common:loginfo("mssup:stop_child_db fails(PID : ~p) : ~p~n", [Reason, Pid]),
             {error, Reason}
     end.
 
@@ -218,16 +218,16 @@ start_link() ->
         {ok, Pid} ->
             {ok, Pid};
         ignore ->
-            common:logerror("mssup:start_link : ignore~n"),
+            common:loginfo("mssup:start_link : ignore~n"),
             ignore;
         {error, Reason} ->
             case Reason of
                 {shutdown, Info} ->
-                    common:logerror("mssup:start_link fails : shutdown : ~p~n", [Info]);
+                    common:loginfo("mssup:start_link fails : shutdown : ~p~n", [Info]);
                 {already_strated, CPid} ->
-                    common:logerror("mssup:start_link fails : already_started PID : ~p~n", [CPid]);
+                    common:loginfo("mssup:start_link fails : already_started PID : ~p~n", [CPid]);
                 Msg ->
-                    common:logerror("mssup:start_link fails : ~p~n", [Msg])
+                    common:loginfo("mssup:start_link fails : ~p~n", [Msg])
             end,
             {error, Reason}
     end.

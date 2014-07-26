@@ -183,7 +183,7 @@ handle_info({tcp, Socket, Data}, OriState) ->
             case process_vdr_msges(Socket, Msgs, State) of
                 {error, vdrerror, NewState} ->
                     ErrCount = NewState#vdritem.errorcount + 1,
-                    common:logerror("VDR (~p) data error : continous count is ~p (max is 3)", [NewState#vdritem.addr, ErrCount]),
+                    common:loginfo("VDR (~p) data error : continous count is ~p (max is 3)", [NewState#vdritem.addr, ErrCount]),
                     if
                         ErrCount >= ?MAX_VDR_ERR_COUNT ->
 							common:send_stat_err(State, errdisc),
@@ -270,7 +270,7 @@ terminate(_Reason, State) ->
 	try gen_tcp:close(State#vdritem.socket)
     catch
         _:Ex ->
-            common:logerror("VDR (~p) : exception when gen_tcp:close : ~p", [State#vdritem.addr, Ex])
+            common:loginfo("VDR (~p) : exception when gen_tcp:close : ~p", [State#vdritem.addr, Ex])
     end.
 
 code_change(_OldVsn, State, _Extra) ->    
@@ -313,7 +313,7 @@ safe_process_vdr_msg(Socket, Msg, State) ->
     catch
         _ ->
 			[ST] = erlang:get_stacktrace(),
-			common:logerror("Exception MSG : ~p~nStack trace :~n~p", [Msg, ST]),
+			common:loginfo("Exception MSG : ~p~nStack trace :~n~p", [Msg, ST]),
             {error, exception, State}
     end.
 
@@ -365,7 +365,7 @@ process_vdr_data(Socket, Data, State) ->
                                         {ok, empty} -> % No vehicle and no VDR. However, only reply no vehicle here.
                                             FlowIdx = NewState#vdritem.msgflownum,
                                             MsgBody = vdr_data_processor:create_reg_resp(MsgIdx, 2, empty),
-                                            common:logerror("~p sends VDR (~p) registration response (no such vechile in DB) : ~p", [NewState#vdritem.pid, State#vdritem.addr, MsgBody]),
+                                            common:loginfo("~p sends VDR (~p) registration response (no such vechile in DB) : ~p", [NewState#vdritem.pid, State#vdritem.addr, MsgBody]),
                                             NewFlowIdx = send_data_to_vdr(16#8100, Tel, FlowIdx, MsgBody, NewState),
                                             
                                             % return error to terminate VDR connection
@@ -390,7 +390,7 @@ process_vdr_data(Socket, Data, State) ->
                                                         VehicleID == undefined ->
                                                             FlowIdx = NewState#vdritem.msgflownum,
                                                             MsgBody = vdr_data_processor:create_reg_resp(MsgIdx, 2, empty),
-                                                            common:logerror("~p sends VDR (~p) registration response (no such vechile in DB) : ~p", [NewState#vdritem.pid, NewState#vdritem.addr, MsgBody]),
+                                                            common:loginfo("~p sends VDR (~p) registration response (no such vechile in DB) : ~p", [NewState#vdritem.pid, NewState#vdritem.addr, MsgBody]),
                                                             NewFlowIdx = send_data_to_vdr(16#8100, Tel, FlowIdx, MsgBody, NewState),
                                                             
                                                             % return error to terminate VDR connection
@@ -398,7 +398,7 @@ process_vdr_data(Socket, Data, State) ->
                                                         true -> % DeviceID == undefined ->
                                                             FlowIdx = NewState#vdritem.msgflownum,
                                                             MsgBody = vdr_data_processor:create_reg_resp(MsgIdx, 4, empty),
-                                                            common:logerror("~p sends VDR (~p) registration response (no such VDR in DB) : ~p", [NewState#vdritem.pid, NewState#vdritem.addr, MsgBody]),
+                                                            common:loginfo("~p sends VDR (~p) registration response (no such VDR in DB) : ~p", [NewState#vdritem.pid, NewState#vdritem.addr, MsgBody]),
                                                             NewFlowIdx = send_data_to_vdr(16#8100, Tel, FlowIdx, MsgBody, NewState),
                                                             
                                                             % return error to terminate VDR connection
@@ -409,7 +409,7 @@ process_vdr_data(Socket, Data, State) ->
                                                         VehicleDeviceID =/= DeviceID ->
                                                             FlowIdx = NewState#vdritem.msgflownum,
                                                             MsgBody = vdr_data_processor:create_reg_resp(MsgIdx, 1, empty),
-                                                            common:logerror("~p sends VDR (~p) registration response (vehicle registered) : ~p", [NewState#vdritem.pid, NewState#vdritem.addr, MsgBody]),
+                                                            common:loginfo("~p sends VDR (~p) registration response (vehicle registered) : ~p", [NewState#vdritem.pid, NewState#vdritem.addr, MsgBody]),
                                                             NewFlowIdx = send_data_to_vdr(16#8100, Tel, FlowIdx, MsgBody, NewState),
                                                             
                                                             % return error to terminate VDR connection
@@ -417,7 +417,7 @@ process_vdr_data(Socket, Data, State) ->
                                                         DeviceVehicleID =/= VehicleID ->
                                                             FlowIdx = NewState#vdritem.msgflownum,
                                                             MsgBody = vdr_data_processor:create_reg_resp(MsgIdx, 3, empty),
-                                                            common:logerror("~p sends VDR (~p) registration response (VDR registered) : ~p", [NewState#vdritem.pid, NewState#vdritem.addr, MsgBody]),
+                                                            common:loginfo("~p sends VDR (~p) registration response (VDR registered) : ~p", [NewState#vdritem.pid, NewState#vdritem.addr, MsgBody]),
                                                             NewFlowIdx = send_data_to_vdr(16#8100, Tel, FlowIdx, MsgBody, NewState),
                                                             
                                                             % return error to terminate VDR connection
@@ -450,7 +450,7 @@ process_vdr_data(Socket, Data, State) ->
                                                         VehicleDeviceID =/= DeviceID ->
                                                             FlowIdx = NewState#vdritem.msgflownum,
                                                             MsgBody = vdr_data_processor:create_reg_resp(MsgIdx, 1, empty),
-                                                            common:logerror("~p sends VDR (~p) registration response (vehicle registered) : ~p", [NewState#vdritem.pid, NewState#vdritem.addr, MsgBody]),
+                                                            common:loginfo("~p sends VDR (~p) registration response (vehicle registered) : ~p", [NewState#vdritem.pid, NewState#vdritem.addr, MsgBody]),
                                                             NewFlowIdx = send_data_to_vdr(16#8100, Tel, FlowIdx, MsgBody, NewState),
                                                             
                                                             % return error to terminate VDR connection
@@ -478,7 +478,7 @@ process_vdr_data(Socket, Data, State) ->
                                                         DeviceVehicleID =/= VehicleID ->
                                                             FlowIdx = NewState#vdritem.msgflownum,
                                                             MsgBody = vdr_data_processor:create_reg_resp(MsgIdx, 3, empty),
-                                                            common:logerror("~p sends VDR (~p) registration response (VDR registered) : ~p", [NewState#vdritem.pid, NewState#vdritem.addr, MsgBody]),
+                                                            common:loginfo("~p sends VDR (~p) registration response (VDR registered) : ~p", [NewState#vdritem.pid, NewState#vdritem.addr, MsgBody]),
                                                             NewFlowIdx = send_data_to_vdr(16#8100, Tel, FlowIdx, MsgBody, NewState),
                                                             
                                                             % return error to terminate VDR connection
@@ -629,7 +629,7 @@ process_vdr_data(Socket, Data, State) ->
 		                                            {<<"vehicle">>, <<"code">>, VehicleCode} = get_record_field(<<"vehicle">>, Rec, <<"code">>),
 													if
 														VehicleCode =/= undefined andalso binary_part(VehicleCode, 0, 1) == <<"?">> ->
-															common:logerror("VDR (~p) Vehicle Code has invalid character \"?\" and will be disconnected : ~p", [State#vdritem.addr, VehicleCode]),
+															common:loginfo("VDR (~p) Vehicle Code has invalid character \"?\" and will be disconnected : ~p", [State#vdritem.addr, VehicleCode]),
 															{error, charerror, NewState};
 														true ->
 															{VDRID, VDRSerialNo, VDRAuthenCode, VehicleCode, VehicleID, DriverID} = get_record_column_info(Rec),
@@ -727,7 +727,7 @@ process_vdr_data(Socket, Data, State) ->
 		                            end
 							end;
                         true ->
-                            common:logerror("Invalid common message from unknown/unregistered/unauthenticated VDR (~p) (id:~p, serialno:~p, authen_code:~p, vehicleid:~p, vehiclecode:~p) MSG ID : ~p", [NewState#vdritem.addr, NewState#vdritem.id, NewState#vdritem.serialno, NewState#vdritem.auth, NewState#vdritem.vehicleid, NewState#vdritem.vehiclecode, ID]),
+                            common:loginfo("Invalid common message from unknown/unregistered/unauthenticated VDR (~p) (id:~p, serialno:~p, authen_code:~p, vehicleid:~p, vehiclecode:~p) MSG ID : ~p", [NewState#vdritem.addr, NewState#vdritem.id, NewState#vdritem.serialno, NewState#vdritem.auth, NewState#vdritem.vehicleid, NewState#vdritem.vehiclecode, ID]),
                             % Unauthorized/Unregistered VDR can only accept 16#100/16#102
                             {error, unautherror, State}
                     end;
@@ -792,7 +792,7 @@ process_vdr_data(Socket, Data, State) ->
                                             %common:loginfo("Gateway receives VDR (~p) response to WS request ~p : ~p", [NewState#vdritem.addr, RespID, WSUpdate]),
                                             send_msg_to_ws_nowait(WSUpdate, NewState);
                                         ItemCount ->
-                                            common:logerror("(FATAL) vdritem.msgws2vdr has ~p item(s) for wsid ~p", [ItemCount, RespID])
+                                            common:loginfo("(FATAL) vdritem.msgws2vdr has ~p item(s) for wsid ~p", [ItemCount, RespID])
                                     end,
                                     
                                     NewMsgList = [{WSID, WSFlowIdx, WSValue} || {WSID, WSFlowIdx, WSValue} <- MsgList, WSID =/= RespID],
@@ -873,7 +873,7 @@ process_vdr_data(Socket, Data, State) ->
                                             %common:loginfo("Gateway receives VDR (~p) response to WS request ~p : ~p", [NewState#vdritem.addr, RespID, WSUpdate]),
                                             send_msg_to_ws_nowait(WSUpdate, NewState);
 		                                ItemCount ->
-		                                    common:logerror("(FATAL) vdritem.msgws2vdr has ~p item(s) for wsid ~p", [ItemCount, 16#8201])
+		                                    common:loginfo("(FATAL) vdritem.msgws2vdr has ~p item(s) for wsid ~p", [ItemCount, 16#8201])
 		                            end,
 		                                    
 		                            NewMsgList = [{WSID, WSFlowIdx, WSValue} || {WSID, WSFlowIdx, WSValue} <- MsgList, WSID =/= 16#8201],
@@ -909,7 +909,7 @@ process_vdr_data(Socket, Data, State) ->
                                     %common:loginfo("Gateway receives VDR (~p) response to WS request ~p : ~p", [NewState#vdritem.addr, 16#8302, WSUpdate]),
                                     send_msg_to_ws_nowait(WSUpdate, NewState);
                                 ItemCount ->
-                                    common:logerror("(FATAL) vdritem.msgws2vdr has ~p item(s) for wsid ~p", [ItemCount, 16#8302])
+                                    common:loginfo("(FATAL) vdritem.msgws2vdr has ~p item(s) for wsid ~p", [ItemCount, 16#8302])
                             end,
                                     
                             NewMsgList = [{WSID, WSFlowIdx, WSValue} || {WSID, WSFlowIdx, WSValue} <- MsgList, WSID =/= 16#8302],
@@ -949,7 +949,7 @@ process_vdr_data(Socket, Data, State) ->
                                     %common:loginfo("Gateway receives VDR (~p) response to WS request ~p : ~p", [NewState#vdritem.addr, 16#8500, WSUpdate]),
                                     send_msg_to_ws_nowait(WSUpdate, NewState);
                                 ItemCount ->
-                                    common:logerror("(FATAL) vdritem.msgws2vdr has ~p item(s) for wsid ~p", [ItemCount, 16#8500])
+                                    common:loginfo("(FATAL) vdritem.msgws2vdr has ~p item(s) for wsid ~p", [ItemCount, 16#8500])
                             end,
                                     
                             NewMsgList = [{WSID, WSFlowIdx, WSValue} || {WSID, WSFlowIdx, WSValue} <- MsgList, WSID =/= 16#8500],
@@ -1001,10 +1001,10 @@ process_vdr_data(Socket, Data, State) ->
 															DriverSqlResult = send_sql_to_db(conn, DriverSql , NewState),
 															case vdr_handler:extract_db_resp(DriverSqlResult) of
 																error ->
-																	common:logerror("Message server cannot read driver table"),
+																	common:loginfo("Message server cannot read driver table"),
 																	{ok, NewState#vdritem{msgflownum=NewFlowIdx,driverid=DriverIDCC,drivercertcode=CBin}};
 																{ok, empty} ->
-																    common:logerror("Message server get no driver info from driver table for certificate_code : ~p", [C]),
+																    common:loginfo("Message server get no driver info from driver table for certificate_code : ~p", [C]),
 																	{ok, NewState#vdritem{msgflownum=NewFlowIdx,driverid=DriverIDCC,drivercertcode=CBin}};
 																{ok, Records} ->
 																	RecordCount = length(Records),
@@ -1017,13 +1017,13 @@ process_vdr_data(Socket, Data, State) ->
 																			DriverTablePid ! {SelfPid, chkinsdriverinfo, {DriverID, LicNo, CertCode, VDRAuthCode}},
 																			{ok, NewState#vdritem{msgflownum=NewFlowIdx,driverid=DriverID,drivercertcode=CertCode}};
 																		true ->
-																    		common:logerror("Message server get ~p driver info from driver table for certificate_code : ~p", [RecordCount, C]),
+																    		common:loginfo("Message server get ~p driver info from driver table for certificate_code : ~p", [RecordCount, C]),
 																			{ok, NewState#vdritem{msgflownum=NewFlowIdx,driverid=DriverIDCC,drivercertcode=CBin}}
 																	end
 															end
 													end
 											after ?PROC_RESP_TIMEOUT ->
-													common:logerror("Message server fails to get driver info from driver table for certificate_code (~p) : timeout", [C]),
+													common:loginfo("Message server fails to get driver info from driver table for certificate_code (~p) : timeout", [C]),
 													{ok, NewState#vdritem{msgflownum=NewFlowIdx,driverid=undefined,drivercertcode=CBin}}
 											end;
 										MsgLength == 2 ->
@@ -1090,7 +1090,7 @@ process_vdr_data(Socket, Data, State) ->
                                     %common:loginfo("Gateway receives VDR (~p) response to WS request ~p : ~p", [NewState#vdritem.addr, 16#8801, WSUpdate]),
                                     send_msg_to_ws_nowait(WSUpdate, NewState);
                                 ItemCount ->
-                                    common:logerror("(FATAL) vdritem.msgws2vdr has ~p item(s) for wsid ~p", [ItemCount, 16#8801])
+                                    common:loginfo("(FATAL) vdritem.msgws2vdr has ~p item(s) for wsid ~p", [ItemCount, 16#8801])
                             end,
                                     
                             NewMsgList = [{WSID, WSFlowIdx, WSValue} || {WSID, WSFlowIdx, WSValue} <- MsgList, WSID =/= 16#8801],
@@ -1895,7 +1895,7 @@ do_send_data_to_vdr(Pid, Socket, Msg, ID, FlowIdx, LinkPid, State) ->
 				true ->
 					if
 						Msg == <<>> andalso ID =/= 16#8702 ->
-							common:logerror("~p send_data_to_vdr NULL final message : ID (~p), FlowIdx (~p), Msg (~p)", [Pid, ID, FlowIdx, Msg]);
+							common:loginfo("~p send_data_to_vdr NULL final message : ID (~p), FlowIdx (~p), Msg (~p)", [Pid, ID, FlowIdx, Msg]);
 						Msg == <<>> andalso ID == 16#8702 ->
 							do_send_msg2vdr(Pid, Socket, Msg, LinkPid, State),
 							get_new_flow_index(FlowIdx);
@@ -2427,13 +2427,13 @@ create_sql_from_vdr(HeaderInfo, Msg, Address, State) ->
 			%	ok ->
 			%		common:loginfo("Successfully create directory media");
 			%	{error, DirError} ->
-			%		common:logerror("Cannot create directory media : ~p", [DirError])
+			%		common:loginfo("Cannot create directory media : ~p", [DirError])
 			%end,
 			%case file:get_cwd() of
 			%	{ok, Dir} ->
 			%		common:loginfo("Current directory ~p", [Dir]);
 			%	{error, CwdError} ->
-			%		common:logerror("Cannot get the current directory : ~p", [CwdError])
+			%		common:loginfo("Cannot get the current directory : ~p", [CwdError])
 			%end,
 			FileNameDB = common:combine_strings([integer_to_list(State#vdritem.tel), "_",
 											     binary_to_list(ServerTimeSFile), "_",
@@ -2455,7 +2455,7 @@ create_sql_from_vdr(HeaderInfo, Msg, Address, State) ->
 				ok ->
 					common:loginfo("Successfully save media file ~p", [FileName]);
 				{error, FileError} ->
-					common:logerror("Cannot save media file ~p : ~p", [FileName, FileError])
+					common:loginfo("Cannot save media file ~p : ~p", [FileName, FileError])
 			end,
 			%file:write_file("media1", Pack2),
             %SQL = list_to_binary([<<"insert into record_media(vehicle_id, rec_time, mediadata, mediatype, mediaformat, mediaid, eventid, mediachannelid, file_name) values(">>,

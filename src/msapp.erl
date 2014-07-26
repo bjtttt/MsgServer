@@ -37,15 +37,15 @@ start(StartType, StartArgs) ->
 		14 ->
 			startserver(StartType, StartArgs);
 		_ ->
-			common:logerror("Parameter count error : ~p", [Len])
+			common:loginfo("Parameter count error : ~p", [Len])
 	end.
 
 init_httpgps_state(HttpGpsServer) when is_list(HttpGpsServer),
 									   length(HttpGpsServer) > 0 ->
-	common:logerror("HTTP GPS service is enabled : ~p", [HttpGpsServer]),
+	common:loginfo("HTTP GPS service is enabled : ~p", [HttpGpsServer]),
 	1;
 init_httpgps_state(HttpGpsServer) ->
-	common:logerror("HTTP GPS service is disabled : ~p", [HttpGpsServer]),
+	common:loginfo("HTTP GPS service is disabled : ~p", [HttpGpsServer]),
 	0.
 
 startserver(StartType, StartArgs) ->
@@ -98,25 +98,25 @@ startserver(StartType, StartArgs) ->
 		ok ->
 			common:loginfo("Successfully create directory log");
 		{error, DirError0} ->
-			common:logerror("Cannot create directory media : ~p", [DirError0])
+			common:loginfo("Cannot create directory media : ~p", [DirError0])
 	end,
 	case file:make_dir(Path ++ "/log/vdr") of
 		ok ->
 			common:loginfo("Successfully create directory vdr");
 		{error, DirError00} ->
-			common:logerror("Cannot create directory media : ~p", [DirError00])
+			common:loginfo("Cannot create directory media : ~p", [DirError00])
 	end,
 	case file:make_dir(Path ++ "/media") of
 		ok ->
 			common:loginfo("Successfully create directory media");
 		{error, DirError1} ->
-			common:logerror("Cannot create directory media : ~p", [DirError1])
+			common:loginfo("Cannot create directory media : ~p", [DirError1])
 	end,
 	case file:make_dir(Path ++ "/upgrade") of
 		ok ->
 			common:loginfo("Successfully create directory upgrade");
 		{error, DirError2} ->
-			common:logerror("Cannot create directory upgrade : ~p", [DirError2])
+			common:loginfo("Cannot create directory upgrade : ~p", [DirError2])
 	end,
     case supervisor:start_link(mssup, []) of
         {ok, SupPid} ->
@@ -334,10 +334,10 @@ startserver(StartType, StartArgs) ->
                     {error, ErrMsg}
             end;
         ignore ->
-            common:logerror("Message server fails to start : ignore"),
+            common:loginfo("Message server fails to start : ignore"),
             ignore;
         {error, Error} ->
-            common:logerror("Message server fails to start : ~p", [Error]),
+            common:loginfo("Message server fails to start : ~p", [Error]),
             {error, Error}
     end.
 
@@ -363,7 +363,7 @@ extract_vdrdbtable_count(Result) ->
 		Count
 	catch
 		Ex:Msg ->
-			common:logerror("Cannot extract device/vehicle db table count.\n(Exception)~p:(Message)~p~n", [Ex, Msg]),
+			common:loginfo("Cannot extract device/vehicle db table count.\n(Exception)~p:(Message)~p~n", [Ex, Msg]),
 			0
 	end.	
 
@@ -404,15 +404,15 @@ init_vdrdbtable_once(_AppPid, _DBPid, _Count, _Index) ->
 init_vdrdbtable_once(Result) ->
 	case vdr_handler:extract_db_resp(Result) of
 		error ->
-			common:logerror("Message server cannot init vdr db table");
+			common:loginfo("Message server cannot init vdr db table");
 		{ok, empty} ->
-		    common:logerror("Message server init empty vdr db table");
+		    common:loginfo("Message server init empty vdr db table");
 		{ok, Records} ->
 			try
 				do_init_vdrdbtable_once(Records)
 			catch
 				_:Msg ->
-					common:logerror("Message server fails to init vdr db table : ~p", [Msg])
+					common:loginfo("Message server fails to init vdr db table : ~p", [Msg])
 			end
 	end.
 
@@ -436,7 +436,7 @@ do_init_vdrdbtable_once(Result) when is_list(Result),
 			ets:insert(vdrdbtable, VDRDBItem),
 			do_init_vdrdbtable_once(T);
 		true ->
-			common:logerror("Failt to insert Device/Vehicle : VDRAuthenCode ~p, VDRID ~p, VDRSerialNo ~p, VehicleCode ~p, VehicleID ~p, DriverID ~p",
+			common:loginfo("Failt to insert Device/Vehicle : VDRAuthenCode ~p, VDRID ~p, VDRSerialNo ~p, VehicleCode ~p, VehicleID ~p, DriverID ~p",
 							[VDRAuthenCode, VDRID, VDRSerialNo, VehicleCode, VehicleID, DriverID]),
 			do_init_vdrdbtable_once(T)
 	end;
@@ -465,7 +465,7 @@ extract_drivertable_count(Result) ->
 		Count
 	catch
 		Ex:Msg ->
-			common:logerror("Cannot extract driver table count.\n(Exception)~p:(Message)~p~n", [Ex, Msg]),
+			common:loginfo("Cannot extract driver table count.\n(Exception)~p:(Message)~p~n", [Ex, Msg]),
 			0
 	end.	
 
@@ -506,15 +506,15 @@ init_drivertable_once(_AppPid, _DBPid, _Count, _Index) ->
 init_drivertable_once(DriverResult) ->
 	case vdr_handler:extract_db_resp(DriverResult) of
 		error ->
-			common:logerror("Message server cannot init driver table");
+			common:loginfo("Message server cannot init driver table");
 		{ok, empty} ->
-		    common:logerror("Message server init empty driver table");
+		    common:loginfo("Message server init empty driver table");
 		{ok, Records} ->
 			try
 				do_init_drivertable(Records)
 			catch
 				_:Msg ->
-					common:logerror("Message server fails to init driver table : ~p", [Msg])
+					common:loginfo("Message server fails to init driver table : ~p", [Msg])
 			end
 	end.
 
@@ -555,7 +555,7 @@ extract_lastpostable_count(Result) ->
 		Count
 	catch
 		Ex:Msg ->
-			common:logerror("Cannot extract last pos table count.\n(Exception)~p:(Message)~p~n", [Ex, Msg]),
+			common:loginfo("Cannot extract last pos table count.\n(Exception)~p:(Message)~p~n", [Ex, Msg]),
 			0
 	end.	
 
@@ -596,15 +596,15 @@ init_lastpostable_once(_AppPid, _DBPid, _Count, _Index) ->
 init_lastpostable_once(DriverResult) ->
 	case vdr_handler:extract_db_resp(DriverResult) of
 		error ->
-			common:logerror("Message server cannot init last pos table");
+			common:loginfo("Message server cannot init last pos table");
 		{ok, empty} ->
-		    common:logerror("Message server init empty last pos table");
+		    common:loginfo("Message server init empty last pos table");
 		{ok, Records} ->
 			try
 				do_init_lastpostable(Records)
 			catch
 				_:Msg ->
-					common:logerror("Message server fails to init last pos table : ~p", [Msg])
+					common:loginfo("Message server fails to init last pos table : ~p", [Msg])
 			end
 	end.
 
@@ -648,7 +648,7 @@ extract_alarmtable_count(Result) ->
 		Count
 	catch
 		Ex:Msg ->
-			common:logerror("Cannot extract alarm table count.\n(Exception)~p:(Message)~p~n", [Ex, Msg]),
+			common:loginfo("Cannot extract alarm table count.\n(Exception)~p:(Message)~p~n", [Ex, Msg]),
 			0
 	end.	
 
@@ -689,15 +689,15 @@ init_alarmtable_once(_AppPid, _DBPid, _Count, _Index) ->
 init_alarmtable_once(AlarmResult) ->
 	case vdr_handler:extract_db_resp(AlarmResult) of
 		error ->
-			common:logerror("Message server cannot init alarm table");
+			common:loginfo("Message server cannot init alarm table");
 		{ok, empty} ->
-		    common:logerror("Message server init empty alarm table");
+		    common:loginfo("Message server init empty alarm table");
 		{ok, Records} ->
 			try
 				do_init_alarmtable(Records)
 			catch
 				_:Msg ->
-					common:logerror("Message server fails to init alarm table : ~p", [Msg])
+					common:loginfo("Message server fails to init alarm table : ~p", [Msg])
 			end
 	end.
 
@@ -718,7 +718,7 @@ do_init_alarmtable(AlarmResult) when is_list(AlarmResult),
 			ets:insert(alarmtable, AlarmItem),
 			do_init_alarmtable(T);
 		true ->
-			common:logerror("Failt to insert alarm : VehicleID ~p, TypeID ~p, ClearTime ~p",
+			common:loginfo("Failt to insert alarm : VehicleID ~p, TypeID ~p, ClearTime ~p",
 							[VehicleID, TypeID, AlarmTime]),
 			do_init_alarmtable(T)
 	end;
@@ -736,7 +736,7 @@ do_init_alarmtable(_AlarmResult) ->
 %db_data_maintain_process_dummy(DBPid, DBOperationPid, Mode) ->
 %	receive
 %		stop ->
-%			common:logerror("DB maintain process receive unknown msg.");
+%			common:loginfo("DB maintain process receive unknown msg.");
 %		_ ->
 %			db_data_maintain_process(DBPid, DBOperationPid, Mode)
 %	after ?DB_HASH_UPDATE_INTERVAL ->
@@ -769,7 +769,7 @@ do_init_alarmtable(_AlarmResult) ->
 mysql_active_process(DBPid) ->
 	receive
 		stop ->
-			common:logerror("Mysql active process stops.");
+			common:loginfo("Mysql active process stops.");
 		_ ->
 			mysql_active_process(DBPid)
 	after ?MAX_DB_PROC_WAIT_INTERVAL ->
@@ -901,7 +901,7 @@ get_vdr_online_count(_VDROnlineList) ->
 db_data_operation_process(DBPid) ->
 	receive
 		stop ->
-			common:logerror("DB operation process stops.");
+			common:loginfo("DB operation process stops.");
 		%{Pid, update, devicevehicle} ->
 		%	common:loginfo("DB operation process update device/vehicle."),
 		%	ProcPid = self(),
@@ -945,7 +945,7 @@ db_data_operation_process(DBPid) ->
 			ets:delete_all_objects(Table),
 			db_data_operation_process(DBPid);
 		Msg ->
-			common:logerror("DB operation process receive unknown msg : ~p", [Msg]),
+			common:loginfo("DB operation process receive unknown msg : ~p", [Msg]),
 			db_data_operation_process(DBPid)
 	end.
 
@@ -976,7 +976,7 @@ vdrtable_insert_delete_process() ->
 			Pid ! {Pid, Res},
 			vdrtable_insert_delete_process();
 		_ ->
-			common:logerror("VDR table insert/delete process receive unknown msg."),
+			common:loginfo("VDR table insert/delete process receive unknown msg."),
 			vdrtable_insert_delete_process()
 	end.
 
@@ -1076,7 +1076,7 @@ drivertable_insert_delete_process() ->
 			Pid ! {Pid, Count},
 			drivertable_insert_delete_process();
 		_ ->
-			common:logerror("Driver table insert/delete process receive unknown msg."),
+			common:loginfo("Driver table insert/delete process receive unknown msg."),
 			drivertable_insert_delete_process()
 	end.
 
@@ -1114,7 +1114,7 @@ lastpostable_insert_delete_process() ->
 			Pid ! {Pid, Count},
 			lastpostable_insert_delete_process();
 		_ ->
-			common:logerror("Last pos table insert/delete process receive unknown msg."),
+			common:loginfo("Last pos table insert/delete process receive unknown msg."),
 			lastpostable_insert_delete_process()
 	end.
 
@@ -1128,7 +1128,7 @@ lastpostable_insert_delete_process() ->
 %			try gen_tcp:send(Socket, Msg)
 %		    catch
 %		        _:Ex ->
-%		            common:logerror("Exception when gen_tcps:send ~p : ~p", [Msg, Ex])
+%		            common:loginfo("Exception when gen_tcps:send ~p : ~p", [Msg, Ex])
 %		    end,
 %			Pid ! {Pid, ok};
 %		{_Pid, Socket, Msg, noresp} ->
@@ -1137,7 +1137,7 @@ lastpostable_insert_delete_process() ->
 %			try gen_tcp:send(Socket, Msg)
 %		    catch
 %		        _:Ex ->
-%		            common:logerror("Exception when gen_tcps:send ~p : ~p", [Msg, Ex])
+%		            common:loginfo("Exception when gen_tcps:send ~p : ~p", [Msg, Ex])
 %		    end;
 %		Unknown ->
 %			common:loginfo("Msg from VDR to VDRPid unknwon : ~p", [Unknown]),
@@ -1270,7 +1270,7 @@ code_convertor_process() ->
                 Pid ! Value
             catch
                 _:_ ->
-                    common:logerror("CC process ~p : EXCEPTION when converting GBK to UTF8 : ~p", [self(), Src]),
+                    common:loginfo("CC process ~p : EXCEPTION when converting GBK to UTF8 : ~p", [self(), Src]),
                     Pid ! Src
             end,
             code_convertor_process();
@@ -1282,7 +1282,7 @@ code_convertor_process() ->
                 Pid ! Value
             catch
                 _:_ ->
-                    common:logerror("CC process ~p : EXCEPTION when converting GBK to UTF8 : ~p", [self(), Src]),
+                    common:loginfo("CC process ~p : EXCEPTION when converting GBK to UTF8 : ~p", [self(), Src]),
                     Pid ! Src
             end,
             code_convertor_process();
@@ -1294,7 +1294,7 @@ code_convertor_process() ->
                 Pid ! Value
             catch
                 _:_ ->
-                    common:logerror("CC process ~p : EXCEPTION when converting UTF8 to GBK : ~p", [self(), Src]),
+                    common:loginfo("CC process ~p : EXCEPTION when converting UTF8 to GBK : ~p", [self(), Src]),
                     Pid ! Src
             end,
             code_convertor_process();
@@ -1306,7 +1306,7 @@ code_convertor_process() ->
                 Pid ! Value
             catch
                 _:_ ->
-                    common:logerror("CC process ~p : EXCEPTION when converting UTF8 to GBK : ~p", [self(), Src]),
+                    common:loginfo("CC process ~p : EXCEPTION when converting UTF8 to GBK : ~p", [self(), Src]),
                     Pid ! Src
             end,
             code_convertor_process();
@@ -1767,59 +1767,59 @@ http_gps_deamon(InitialIPPort, State, Count, ACount, FCount, FACount) ->
 																				end,
 																				http_gps_deamon(InitialIPPort, State, Count+1, ACount, FCount, FACount);
 																			{error, Reason2} ->
-																				common:logerror("HTTP GPS address request fails : ~p", [Reason2]),
+																				common:loginfo("HTTP GPS address request fails : ~p", [Reason2]),
 																				Pid ! [Lon, Lat, []],
 																				http_gps_deamon(InitialIPPort, State, Count, ACount, FCount+1, FACount)
 																		end
 																	catch
 																		Oper2:ExReason2 ->
-																			common:logerror("HTTP GPS address request exception : (~p) ~p", [Oper2, ExReason2]),
+																			common:loginfo("HTTP GPS address request exception : (~p) ~p", [Oper2, ExReason2]),
 																			Pid ! [Lon, Lat, []],
 																			http_gps_deamon(InitialIPPort, State, Count, ACount, FCount+1, FACount)
 																	end;
 																error ->
-																	common:logerror("HTTP GPS address request fails because of conversion error"),
+																	common:loginfo("HTTP GPS address request fails because of conversion error"),
 																	Pid ! [Lon, Lat, []],
 																	http_gps_deamon(InitialIPPort, State, Count, ACount, FCount+1, FACount)
 															end
 														catch
 															_:_ ->
-																common:logerror("HTTP GPS request fails : cannot convert longitude and latitude ~p", [Body]),
+																common:loginfo("HTTP GPS request fails : cannot convert longitude and latitude ~p", [Body]),
 																Pid ! [LonReq, LatReq, []],
 																http_gps_deamon(InitialIPPort, State, Count, ACount, FCount+1, FACount)
 														end;
 													_ ->
-														common:logerror("HTTP GPS request fails : cannot convert longitude/latitude ~p", [Body]),
+														common:loginfo("HTTP GPS request fails : cannot convert longitude/latitude ~p", [Body]),
 														Pid ! [LonReq, LatReq, []],
 														http_gps_deamon(InitialIPPort, State, Count, ACount, FCount+1, FACount)
 												end;
 											_ ->
-												common:logerror("HTTP GPS request fails : response error ~p", [Body]),
+												common:loginfo("HTTP GPS request fails : response error ~p", [Body]),
 												Pid ! [LonReq, LatReq, []],
 												http_gps_deamon(InitialIPPort, State, Count, ACount, FCount+1, FACount)
 										end;
 									{error, Reason} ->
-										common:logerror("HTTP GPS request fails : ~p", [Reason]),
+										common:loginfo("HTTP GPS request fails : ~p", [Reason]),
 										Pid ! [LonReq, LatReq, []],
 										http_gps_deamon(InitialIPPort, State, Count, ACount, FCount+1, FACount)
 								end
 							catch
 								Oper:ExReason ->
-									common:logerror("HTTP GPS request exception : (~p) ~p", [Oper, ExReason]),
+									common:loginfo("HTTP GPS request exception : (~p) ~p", [Oper, ExReason]),
 									Pid ! [LonReq, LatReq, []],
 									http_gps_deamon(InitialIPPort, State, Count, ACount, FCount+1, FACount)
 							end;
 						uninit ->
-							%common:logerror("HTTP GPS request fails because of uninit state"),
+							%common:loginfo("HTTP GPS request fails because of uninit state"),
 							Pid ! [LonReq, LatReq, []],
 							http_gps_deamon(InitialIPPort, State, Count, ACount, FCount+1, FACount);
 						_ ->
-							common:logerror("HTTP GPS request fails because of unknown state"),
+							common:loginfo("HTTP GPS request fails because of unknown state"),
 							Pid ! [LonReq, LatReq, []],
 							http_gps_deamon(InitialIPPort, State, Count, ACount, FCount+1, FACount)
 					end;
 				error ->
-					common:logerror("HTTP GPS request fails because of unknown state"),
+					common:loginfo("HTTP GPS request fails because of unknown state"),
 					Pid ! [LonReq, LatReq, []],
 					http_gps_deamon(InitialIPPort, State, Count, ACount, FCount+1, FACount)
 			end;
@@ -1849,27 +1849,27 @@ http_gps_deamon(InitialIPPort, State, Count, ACount, FCount, FACount) ->
 										end,
 										http_gps_deamon(InitialIPPort, State, Count, ACount+1, FCount, FACount);
 									{error, Reason} ->
-										common:logerror("HTTP GPS address request fails : ~p", [Reason]),
+										common:loginfo("HTTP GPS address request fails : ~p", [Reason]),
 										Pid ! [LonReq, LatReq, []],
 										http_gps_deamon(InitialIPPort, State, Count, ACount, FCount, FACount+1)
 								end
 							catch
 								Oper:ExReason ->
-									common:logerror("HTTP GPS address request exception : (~p) ~p", [Oper, ExReason]),
+									common:loginfo("HTTP GPS address request exception : (~p) ~p", [Oper, ExReason]),
 									Pid ! [LonReq, LatReq, []],
 									http_gps_deamon(InitialIPPort, State, Count, ACount, FCount, FACount+1)
 							end;
 						uninit ->
-							%common:logerror("HTTP GPS address request fails because of uninit state"),
+							%common:loginfo("HTTP GPS address request fails because of uninit state"),
 							Pid ! [LonReq, LatReq, []],
 							http_gps_deamon(InitialIPPort, State, Count, ACount, FCount, FACount+1);
 						_ ->
-							common:logerror("HTTP GPS request fails because of unknown state"),
+							common:loginfo("HTTP GPS request fails because of unknown state"),
 							Pid ! [LonReq, LatReq, []],
 							http_gps_deamon(InitialIPPort, State, Count, ACount, FCount, FACount+1)
 					end;
 				error ->
-					common:logerror("HTTP GPS address request fails because of conversion error"),
+					common:loginfo("HTTP GPS address request fails because of conversion error"),
 					Pid ! [LonReq, LatReq, []],
 					http_gps_deamon(InitialIPPort, State, Count, ACount, FCount, FACount+1)
 			end;
@@ -1882,42 +1882,42 @@ http_gps_deamon(InitialIPPort, State, Count, ACount, FCount, FACount) ->
 						ok ->
 							http_gps_deamon(InitialIPPort, inited, 0, 0, 0, 0);
 						{error, Reason} ->
-							common:logerror("Cannot start HTTP GPS inets : ~p", [Reason]),
+							common:loginfo("Cannot start HTTP GPS inets : ~p", [Reason]),
 							http_gps_deamon(InitialIPPort, State, Count, ACount, FCount, FACount)
 					end;
 				inited ->
-					common:logerror("HTTP GPS inets already inited for init command"),
+					common:loginfo("HTTP GPS inets already inited for init command"),
 					http_gps_deamon(InitialIPPort, State, Count, ACount, FCount, FACount);
 				_ ->
-					common:logerror("HTTP GPS inets unknown state for init command"),
+					common:loginfo("HTTP GPS inets unknown state for init command"),
 					http_gps_deamon(InitialIPPort, State, Count, ACount, FCount, FACount)
 			end;
 		release ->
 			case State of
 				uninit ->
-					common:logerror("HTTP GPS inets already uninit for release command"),
+					common:loginfo("HTTP GPS inets already uninit for release command"),
 					http_gps_deamon(InitialIPPort, State, Count, ACount, FCount, FACount);
 				inited ->
 					inets:stop(),
 					http_gps_deamon(InitialIPPort, uninit, Count, ACount, FCount, FACount);
 				_ ->
-					common:logerror("HTTP GPS inets unknwon state for release command"),
+					common:loginfo("HTTP GPS inets unknwon state for release command"),
 					http_gps_deamon(InitialIPPort, State, Count, ACount, FCount, FACount)
 			end;
 		stop ->
 			case State of
 				uninit ->
-					common:logerror("HTTP GPS inets already uninit for stop command");
+					common:loginfo("HTTP GPS inets already uninit for stop command");
 				inited ->
 					inets:stop();
 				_ ->
-					common:logerror("HTTP GPS inets unknwon state for stop command")
+					common:loginfo("HTTP GPS inets unknwon state for stop command")
 			end;
 		{Pid, get} ->
 			Pid ! {InitialIPPort, State, Count, ACount, FCount, FACount},
 			http_gps_deamon(InitialIPPort, State, Count, ACount, FCount, FACount);
 		_ ->
-			common:logerror("HTTP GPS process receive unknown msg."),
+			common:loginfo("HTTP GPS process receive unknown msg."),
 			http_gps_deamon(InitialIPPort, State, Count, ACount, FCount, FACount)
 	end.
 

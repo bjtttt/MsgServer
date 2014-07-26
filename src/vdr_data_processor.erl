@@ -163,7 +163,7 @@ parse_msg_body(ID, Body) ->
     catch
         _:Exception ->
 			[ST] = erlang:get_stacktrace(),
-            common:logerror("vdr_data_processor:do_parse_msg_body(ID=~p, Body) exception : ~p~nStack trace :~n~p", [ID, Exception, ST]),
+            common:loginfo("vdr_data_processor:do_parse_msg_body(ID=~p, Body) exception : ~p~nStack trace :~n~p", [ID, Exception, ST]),
             {error, msgerr}
     end.
 
@@ -670,7 +670,7 @@ compose_term_args_binary(ID, Value) when is_integer(ID) ->
             <<>>
     end;
 compose_term_args_binary(_ID, _Value) ->
-    common:logerror("vdr_data_processor:compose_term_args_binary(ID, Value) fails : ID not list or integer"),
+    common:loginfo("vdr_data_processor:compose_term_args_binary(ID, Value) fails : ID not list or integer"),
     <<>>.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

@@ -26,10 +26,10 @@ start_link(PortMon) ->
         {ok, Pid} ->
             {ok, Pid};
         ignore ->
-            common:logerror("mssup:start_child_mon(~p) fails : ignore~n", [PortMon]),
+            common:loginfo("mssup:start_child_mon(~p) fails : ignore~n", [PortMon]),
             ignore;
         {already_started, Pid} ->
-            common:logerror("mssup:start_child_mon(~p) fails : already_started : ~p~n", [PortMon, Pid]),
+            common:loginfo("mssup:start_child_mon(~p) fails : already_started : ~p~n", [PortMon, Pid]),
             {already_started, Pid}
     end.
 
@@ -47,11 +47,11 @@ init([PortMon]) ->
                 {ok, Ref} ->
                     {ok, #serverstate{lsock=LSock, acceptor=Ref}};
                 Error ->
-                    common:logerror("Monitor server prim_inet:async_accept accept fails : ~p~n", [Error]),
+                    common:loginfo("Monitor server prim_inet:async_accept accept fails : ~p~n", [Error]),
                     {stop, Error}
             end;
         {error, Reason} ->          
-            common:logerror("Monitor server gen_tcp:listen fails : ~p~n", [Reason]),
+            common:loginfo("Monitor server gen_tcp:listen fails : ~p~n", [Reason]),
             {stop, Reason}    
     end. 
 
@@ -68,7 +68,7 @@ handle_info({inet_async, LSock, Ref, {ok, CSock}}, #serverstate{lsock=LSock, acc
             ok -> 
                 ok;         
             {error, Reason} -> 
-                common:logerror("Monitor server set_sockopt fails : ~p~n", [Reason]),
+                common:loginfo("Monitor server set_sockopt fails : ~p~n", [Reason]),
                 % Why use exit here?
                 % {stop, set_sockpt, Reason}
                 % Please consider it in the future
@@ -84,12 +84,12 @@ handle_info({inet_async, LSock, Ref, {ok, CSock}}, #serverstate{lsock=LSock, acc
                         %ets:insert(montable, #monitem{socket=CSock, pid=Pid});
                         ok;
                     {error, Reason1} ->
-                        common:logerror("Monitor server gen_server:controlling_process(Socket, PID : ~p) fails : ~p~n", [Pid, Reason1]),
+                        common:loginfo("Monitor server gen_server:controlling_process(Socket, PID : ~p) fails : ~p~n", [Pid, Reason1]),
                         case mssup:stop_child_monr(Pid) of
                             ok ->
                                 ok;
                             {error, Reason2} ->
-                                common:logerror("Monitor server mssup:stop_child_mon(PID : ~p) fails : ~p~n", [Pid, Reason2])
+                                common:loginfo("Monitor server mssup:stop_child_mon(PID : ~p) fails : ~p~n", [Pid, Reason2])
                         end
                 end;
             {ok, Pid, _Info} ->
@@ -98,27 +98,27 @@ handle_info({inet_async, LSock, Ref, {ok, CSock}}, #serverstate{lsock=LSock, acc
                         %ets:insert(montable, #monitem{socket=CSock, pid=Pid});
                         ok;
                     {error, Reason1} ->
-                        common:logerror("Monitor server gen_server:controlling_process(Socket, PID : ~p) fails: ~p~n", [Pid, Reason1]),
+                        common:loginfo("Monitor server gen_server:controlling_process(Socket, PID : ~p) fails: ~p~n", [Pid, Reason1]),
                          case mssup:stop_child_mon(Pid) of
                             ok ->
                                 ok;
                             {error, Reason2} ->
-                                common:logerror("Monitor server mssup:stop_child_mon(PID : ~p) fails : ~p~n", [Pid, Reason2])
+                                common:loginfo("Monitor server mssup:stop_child_mon(PID : ~p) fails : ~p~n", [Pid, Reason2])
                         end
                 end;
             {error, already_present} ->
-                common:logerror("Monitor server mssup:start_child_mon fails : already_present~n");
+                common:loginfo("Monitor server mssup:start_child_mon fails : already_present~n");
             {error, {already_started, Pid}} ->
-                common:logerror("Monitor server mssup:start_child_mon fails : already_started PID : ~p~n", [Pid]);
+                common:loginfo("Monitor server mssup:start_child_mon fails : already_started PID : ~p~n", [Pid]);
             {error, Msg} ->
-                common:logerror("Monitor server mssup:start_child_mon fails : ~p~n", [Msg])
+                common:loginfo("Monitor server mssup:start_child_mon fails : ~p~n", [Msg])
         end,
         %% Signal the network driver that we are ready to accept another connection        
         case prim_inet:async_accept(LSock, -1) of           
             {ok, NewRef} -> 
                 {noreply, State#serverstate{acceptor=NewRef}};
             Error ->
-                common:logerror("Monitor server prim_inet:async_accept fails : ~p~n", [inet:format_error(Error)]),
+                common:loginfo("Monitor server prim_inet:async_accept fails : ~p~n", [inet:format_error(Error)]),
                 % Why use exit here?
                 % {stop, Error, State}
                 % Please consider it in the future
@@ -126,7 +126,7 @@ handle_info({inet_async, LSock, Ref, {ok, CSock}}, #serverstate{lsock=LSock, acc
         end
     catch 
         exit:Why ->        
-            common:logerror("Monitor server error in async accept : ~p~n", [Why]),            
+            common:loginfo("Monitor server error in async accept : ~p~n", [Why]),            
             {stop, Why, State}    
     end;
 %%%
@@ -134,17 +134,17 @@ handle_info({inet_async, LSock, Ref, {ok, CSock}}, #serverstate{lsock=LSock, acc
 %%%
 handle_info({tcp, Socket, Data}, State) ->  
     common:printsocketinfo(Socket, "Monitor server receives data from"),
-    common:logerror("ERROR : Monitor server receives data : ~p~n", [Data]),
+    common:loginfo("ERROR : Monitor server receives data : ~p~n", [Data]),
     inet:setopts(Socket, [{active, once}]),
     {noreply, State}; 
 handle_info({inet_async, LSock, Ref, Error}, #serverstate{lsock=LSock, acceptor=Ref}=State) ->    
-    common:logerror("Monitor server error in socket acceptor : ~p~n", [Error]),
+    common:loginfo("Monitor server error in socket acceptor : ~p~n", [Error]),
     {stop, Error, State}; 
 handle_info(_Info, State) ->    
     {noreply, State}. 
 
 terminate(Reason, State) ->    
-    common:logerror("Monitor server is terminated~n", [Reason]),
+    common:loginfo("Monitor server is terminated~n", [Reason]),
     gen_tcp:close(State#serverstate.lsock),    
     ok. 
 

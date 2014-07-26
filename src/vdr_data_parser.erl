@@ -84,7 +84,7 @@ do_process_data(State, Data) ->
                                     end;
                                 BodyLen =/= ActBodyLen ->
 									common:send_stat_err(State, lenerr),
-                                    common:logerror("Length error for msg (~p) from (~p) : (Field)~p:(Actual)~p", [MsgIdx, State#vdritem.addr, BodyLen, ActBodyLen]),
+                                    common:loginfo("Length error for msg (~p) from (~p) : (Field)~p:(Actual)~p", [MsgIdx, State#vdritem.addr, BodyLen, ActBodyLen]),
                                     {warning, HeadInfo, ?P_GENRESP_ERRMSG, State}
                             end;
                         1 ->
@@ -95,17 +95,17 @@ do_process_data(State, Data) ->
                             if
                                 Total =< 1 ->
 									common:send_stat_err(State, packerr),
-                                    common:logerror("Total error for msg (~p) from (~p) : ~p", [MsgIdx, State#vdritem.addr, Total]),
+                                    common:loginfo("Total error for msg (~p) from (~p) : ~p", [MsgIdx, State#vdritem.addr, Total]),
                                     {warning, HeadInfo, ?P_GENRESP_ERRMSG, State};
                                 Total > 1 ->
                                     if
                                         Index < 1 ->
 											common:send_stat_err(State, packerr),
-                                            common:logerror("Index error for msg (~p) from (~p) : (Index)~p", [MsgIdx, State#vdritem.addr, Index]),
+                                            common:loginfo("Index error for msg (~p) from (~p) : (Index)~p", [MsgIdx, State#vdritem.addr, Index]),
                                             {warning, HeadInfo, ?P_GENRESP_ERRMSG, State};
                                         Index > Total ->
 											common:send_stat_err(State, packerr),
-                                            common:logerror("Index error for msg (~p) from (~p) : (Total)~p:(Index)~p", [MsgIdx, State#vdritem.addr, Total, Index]),
+                                            common:loginfo("Index error for msg (~p) from (~p) : (Total)~p:(Index)~p", [MsgIdx, State#vdritem.addr, Total, Index]),
                                             {warning, HeadInfo, ?P_GENRESP_ERRMSG, State};
                                         Index =< Total ->
                                             if
@@ -132,7 +132,7 @@ do_process_data(State, Data) ->
                                                     end;
                                                 BodyLen =/= ActBodyLen ->
 													common:send_stat_err(State, lenerr),
-                                                    common:logerror("Length error for msg (~p) from (~p) : (Field)~p:(Actual)~p", [MsgIdx, State#vdritem.addr, BodyLen, ActBodyLen]),
+                                                    common:loginfo("Length error for msg (~p) from (~p) : (Field)~p:(Actual)~p", [MsgIdx, State#vdritem.addr, BodyLen, ActBodyLen]),
                                                     {warning, HeadInfo, ?P_GENRESP_ERRMSG, State}
                                             end
                                     end
@@ -140,7 +140,7 @@ do_process_data(State, Data) ->
                     end;
                 CalcParity =/= Parity ->
 					common:send_stat_err(State, parerr),
-                    common:logerror("Parity error (calculated)~p:(data)~p from ~p", [CalcParity, Parity, State#vdritem.addr]),
+                    common:loginfo("Parity error (calculated)~p:(data)~p from ~p", [CalcParity, Parity, State#vdritem.addr]),
                     {error, parityerror, State}
             end;
         error ->
@@ -184,7 +184,7 @@ restore_7d_7e_msg(State, Data) ->
 		    FinalResult = binary:replace(Result, <<245,244,243,242,241,240,241,242,243,244,245>>, <<126>>, [global]),
             {ok, FinalResult};
         true ->
-            common:logerror("Wrong data head/tail from ~p~n: (Head)~p / (Tail)~p",[State#vdritem.addr, Head, Tail]),
+            common:loginfo("Wrong data head/tail from ~p~n: (Head)~p / (Tail)~p",[State#vdritem.addr, Head, Tail]),
             error
     end.
 
@@ -561,7 +561,7 @@ check_msg(Packages, Total) ->
                     error
             end;
         Len =/= Total ->
-			common:logerror("Check message error : Packages length ~p =/= Total ~p", [Len, Total]),
+			common:loginfo("Check message error : Packages length ~p =/= Total ~p", [Len, Total]),
             error
     end.
 
