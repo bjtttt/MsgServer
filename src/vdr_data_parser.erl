@@ -31,12 +31,23 @@
 %%%
 process_data(State, Data) ->
     %DataDebug = <<126,2,0,0,46,1,86,121,16,51,112,0,14,0,0,0,0,0,0,0,17,0,0,0,0,0,0,0,0,0,0,0,0,0,0,19,3,20,0,64,34,1,4,0,0,0,0,2,2,0,0,3,2,0,0,4,2,0,0,42,126>>,
-    try do_process_data(State, Data)
+    NewData = get_data_binary(Data),
+    try do_process_data(State, NewData)
     catch
         _:Why ->
-			[ST] = erlang:get_stacktrace(),
+            [ST] = erlang:get_stacktrace(),
             common:logerr("Parsing VDR data exception : ~p~n~p~nStack trace :~n~p", [Why, Data, ST]),
             {error, exception, State}
+    end.
+
+get_data_binary(Data) ->
+    IsList = is_list(Data),
+    if
+        IsList == true ->
+            [BinData] = Data,
+            BinData;
+        true ->
+            Data
     end.
 
 %%%
