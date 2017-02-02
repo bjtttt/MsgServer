@@ -67,7 +67,8 @@ start_child_man(Socket) ->
                     common:loginfo("mssup:start_child_man fails : ~p~n", [Msg])
             end,
             {error, Reason}
-    end.                    
+    end.
+
 %%% 
 %%% startchild_ret() = {ok, Child :: child()}
 %%%                  | {ok, Child :: child(), Info :: term()}
