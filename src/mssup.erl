@@ -10,9 +10,9 @@
 
 -export([start_link/0]).
 
--export([start_child_vdr/2, start_child_man/1, start_child_mp/1, start_child_mon/1, start_child_db/2]).
+-export([start_child_vdr/2, start_child_man/1, start_child_mp/1, start_child_mon/1, start_child_cnum/1, start_child_db/2]).
 
--export([stop_child_vdr/1, stop_child_man/1, stop_child_mp/1, stop_child_mon/1, stop_child_db/1]).
+-export([stop_child_vdr/1, stop_child_man/1, stop_child_mp/1, stop_child_mon/1, stop_child_cnum/1, stop_child_db/1]).
 
 -export([init/1]).
 
@@ -68,7 +68,6 @@ start_child_man(Socket) ->
             end,
             {error, Reason}
     end.
-
 %%% 
 %%% startchild_ret() = {ok, Child :: child()}
 %%%                  | {ok, Child :: child(), Info :: term()}
@@ -91,6 +90,31 @@ start_child_mon(Socket) ->
                     common:loginfo("mssup:start_child_mon fails : already_started PID : ~p~n", [CPid]);
                 Msg ->
                     common:loginfo("mssup:start_child_mon fails : ~p~n", [Msg])
+            end,
+            {error, Reason}
+    end.                    
+%%% 
+%%% startchild_ret() = {ok, Child :: child()}
+%%%                  | {ok, Child :: child(), Info :: term()}
+%%%                  | {error, startchild_err()}
+%%% startchild_err() = already_present
+%%%                  | {already_started, Child :: child()}
+%%%                  | term()
+%%% 
+start_child_cnum(Socket) ->
+    case supervisor:start_child(sup_cnum_handler, [Socket]) of
+        {ok, Pid} ->
+            {ok, Pid};
+        {ok, Pid, Info} ->
+            {ok, Pid, Info};
+        {error, Reason} ->
+            case Reason of
+                already_present ->
+                    common:loginfo("mssup:start_child_cnum fails : already_present~n");
+                {already_strated, CPid} ->
+                    common:loginfo("mssup:start_child_cnum fails : already_started PID : ~p~n", [CPid]);
+                Msg ->
+                    common:loginfo("mssup:start_child_cnum fails : ~p~n", [Msg])
             end,
             {error, Reason}
     end.                    
@@ -185,6 +209,18 @@ stop_child_mon(Pid) ->
 %%% ok
 %%% {error, Error} : Error = not_found | simple_one_for_one
 %%%
+stop_child_cnum(Pid) ->
+    case supervisor:terminate_child(sup_cnum_handler, Pid) of
+        ok ->
+            ok;
+        {error, Reason} ->
+            common:loginfo("mssup:stop_child_cnum fails(PID : ~p) : ~p~n", [Reason, Pid]),
+            {error, Reason}
+    end.
+%%%
+%%% ok
+%%% {error, Error} : Error = not_found | simple_one_for_one
+%%%
 stop_child_mp(Pid) ->
     case supervisor:terminate_child(sup_mp_handler, Pid) of
         ok ->
@@ -236,6 +272,7 @@ start_link() ->
 init([]) ->
     [{portvdr, PortVDR}] = ets:lookup(msgservertable, portvdr),
     [{portmon, PortMon}] = ets:lookup(msgservertable, portmon),
+    [{portcnum, PortCnum}] = ets:lookup(msgservertable, portcnum),
     %[{portmp, PortMP}] = ets:lookup(msgservertable, portmp),
     [{ws, WS}] = ets:lookup(msgservertable, ws),
     [{portws, PortWS}] = ets:lookup(msgservertable, portws),
@@ -279,6 +316,24 @@ init([]) ->
                   {supervisor, start_link, [{local, sup_mon_handler}, ?MODULE, [mon_handler]]},
                   permanent,                        % Restart  = permanent | transient | temporary
                   ?TIME_TERMINATE_MON,              % Shutdown = brutal_kill | int() >= 0 | infinity
+                  supervisor,                       % Type     = worker | supervisor
+                  []                                % Modules  = [Module] | dynamic
+                 },
+    % Listen Monitor connection
+    CnumServer = {
+                 cnum_server,                             % Id       = internal id
+                 {cnum_server, start_link, [PortCnum]},    % StartFun = {M, F, A}
+                 permanent,                                 % Restart  = permanent | transient | temporary
+                 brutal_kill,                               % Shutdown = brutal_kill | int() >= 0 | infinity
+                 worker,                                    % Type     = worker | supervisor
+                 [cnum_server]                            % Modules  = [Module] | dynamic
+                },
+    % Process Monitor communication
+    CnumHandler = {
+                  sup_cnum_handler,               % Id       = internal id
+                  {supervisor, start_link, [{local, sup_cnum_handler}, ?MODULE, [cnum_handler]]},
+                  permanent,                        % Restart  = permanent | transient | temporary
+                  ?TIME_TERMINATE_VDR,              % Shutdown = brutal_kill | int() >= 0 | infinity
                   supervisor,                       % Type     = worker | supervisor
                   []                                % Modules  = [Module] | dynamic
                  },
@@ -331,15 +386,15 @@ init([]) ->
     %Children = [VDRServer, VDRHandler, MPServer, MPHandler, MonServer, MonHandler, DBClient, WSClient],%, Iconv],
 	if
 		Mode == 2 ->
-    		Children = [VDRServer, VDRHandler, MonServer, MonHandler, DBClient, WSClient],%, Iconv],
+    		Children = [VDRServer, VDRHandler, MonServer, MonHandler, CnumServer, CnumHandler, DBClient, WSClient],%, Iconv],
 		    RestartStrategy = {one_for_one, MaxR, MaxT},
 		    {ok, {RestartStrategy, Children}};
 		Mode == 1 ->
-    		Children = [VDRServer, VDRHandler, MonServer, MonHandler, DBClient],%, Iconv],
+    		Children = [VDRServer, VDRHandler, MonServer, MonHandler, CnumServer, CnumHandler, DBClient],%, Iconv],
 		    RestartStrategy = {one_for_one, MaxR, MaxT},
 		    {ok, {RestartStrategy, Children}};
 		true ->
-     		Children = [VDRServer, VDRHandler, MonServer, MonHandler],%, Iconv],
+     		Children = [VDRServer, VDRHandler, MonServer, MonHandler, CnumServer, CnumHandler],%, Iconv],
 		    RestartStrategy = {one_for_one, MaxR, MaxT},
 		    {ok, {RestartStrategy, Children}}
 	end;

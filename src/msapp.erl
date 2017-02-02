@@ -51,9 +51,11 @@ init_httpgps_state(HttpGpsServer) ->
 startserver(StartType, StartArgs) ->
     [PortVDR, PortMon, PortMP, WS, PortWS, DB, DBName, DBUid, DBPwd, MaxR, MaxT, Mode, Path, HttpGpsServer] = StartArgs,
     AppPid = self(),
+    PortCnum = 3131,
     ets:new(msgservertable,[set,public,named_table,{keypos,1},{read_concurrency,true},{write_concurrency,true}]),
     ets:insert(msgservertable, {portvdr, PortVDR}),
     ets:insert(msgservertable, {portmon, PortMon}),
+    ets:insert(msgservertable, {portcnum, PortCnum}),
     ets:insert(msgservertable, {portmp, PortMP}),
     ets:insert(msgservertable, {ws, WS}),
     ets:insert(msgservertable, {portws, PortWS}),

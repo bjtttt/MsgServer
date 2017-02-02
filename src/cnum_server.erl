@@ -2,7 +2,7 @@
 %%% Need considering how management server sends message to Management
 %%%
 
--module(mon_server).
+-module(cnum_server).
 
 -behaviour(gen_server).
 
@@ -21,37 +21,37 @@
 %%%    Pid = pid()
 %%%  Error = {already_started,Pid} | term()
 %%%
-start_link(PortMon) ->  
-    case gen_server:start_link({local, ?MODULE}, ?MODULE, [PortMon], []) of
+start_link(PortCnum) ->  
+    case gen_server:start_link({local, ?MODULE}, ?MODULE, [PortCnum], []) of
         {ok, Pid} ->
             {ok, Pid};
         ignore ->
-            common:loginfo("mssup:start_child_mon(~p) fails : ignore~n", [PortMon]),
+            common:loginfo("mssup:start_child_cnum(~p) fails : ignore~n", [PortCnum]),
             ignore;
         {already_started, Pid} ->
-            common:loginfo("mssup:start_child_mon(~p) fails : already_started : ~p~n", [PortMon, Pid]),
+            common:loginfo("mssup:start_child_cnum(~p) fails : already_started : ~p~n", [PortCnum, Pid]),
             {already_started, Pid}
     end.
 
 %%%
 %%% {backlog, 30} specifies the length of the OS accept queue. 
 %%%
-init([PortMon]) ->    
+init([PortCnum]) ->    
     process_flag(trap_exit, true),    
     Opts = [binary, {packet, 0}, {reuseaddr, true}, {keepalive, true}, {active, once}],    
     % Management server start listening
-    case gen_tcp:listen(PortMon, Opts) of       
+    case gen_tcp:listen(PortCnum, Opts) of       
         {ok, LSock} -> 
             % Create first accepting process            
             case prim_inet:async_accept(LSock, -1) of
                 {ok, Ref} ->
                     {ok, #serverstate{lsock=LSock, acceptor=Ref}};
                 Error ->
-                    common:loginfo("Monitor server prim_inet:async_accept accept fails : ~p~n", [Error]),
+                    common:loginfo("Cnum server prim_inet:async_accept accept fails : ~p~n", [Error]),
                     {stop, Error}
             end;
         {error, Reason} ->          
-            common:loginfo("Monitor server gen_tcp:listen fails : ~p~n", [Reason]),
+            common:loginfo("Cnum server gen_tcp:listen fails : ~p~n", [Reason]),
             {stop, Reason}    
     end. 
 
@@ -62,13 +62,12 @@ handle_cast(_Msg, State) ->
     {noreply, State}. 
 
 handle_info({inet_async, LSock, Ref, {ok, CSock}}, #serverstate{lsock=LSock, acceptor=Ref}=State) ->
-    common:printsocketinfo(CSock, "Accepted a monitor from"),
     try        
-        case common:set_sockopt(LSock, CSock, "Monitor Server") of            
+        case common:set_sockopt(LSock, CSock, "Cnum Server") of            
             ok -> 
                 ok;         
             {error, Reason} -> 
-                common:loginfo("Monitor server set_sockopt fails : ~p~n", [Reason]),
+                common:loginfo("Cnum server set_sockopt fails : ~p~n", [Reason]),
                 % Why use exit here?
                 % {stop, set_sockpt, Reason}
                 % Please consider it in the future
@@ -77,7 +76,7 @@ handle_info({inet_async, LSock, Ref, {ok, CSock}}, #serverstate{lsock=LSock, acc
         % New client connected
         % Spawn a new process using the simple_one_for_one supervisor.
         % Why it is "the simple_one_for_one supervisor"?
-        case mssup:start_child_mon(CSock) of
+        case mssup:start_child_cnum(CSock) of
             {ok, Pid} ->
                 case gen_tcp:controlling_process(CSock, Pid) of
                     ok ->
@@ -85,7 +84,7 @@ handle_info({inet_async, LSock, Ref, {ok, CSock}}, #serverstate{lsock=LSock, acc
                         ok;
                     {error, Reason1} ->
                         common:loginfo("Monitor server gen_server:controlling_process(Socket, PID : ~p) fails : ~p~n", [Pid, Reason1]),
-                        case mssup:stop_child_mon(Pid) of
+                        case mssup:stop_child_cnum(Pid) of
                             ok ->
                                 ok;
                             {error, Reason2} ->
@@ -99,7 +98,7 @@ handle_info({inet_async, LSock, Ref, {ok, CSock}}, #serverstate{lsock=LSock, acc
                         ok;
                     {error, Reason1} ->
                         common:loginfo("Monitor server gen_server:controlling_process(Socket, PID : ~p) fails: ~p~n", [Pid, Reason1]),
-                         case mssup:stop_child_mon(Pid) of
+                         case mssup:stop_child_cnum(Pid) of
                             ok ->
                                 ok;
                             {error, Reason2} ->
@@ -126,7 +125,7 @@ handle_info({inet_async, LSock, Ref, {ok, CSock}}, #serverstate{lsock=LSock, acc
         end
     catch 
         exit:Why ->        
-            common:loginfo("Monitor server error in async accept : ~p~n", [Why]),            
+            common:loginfo("Cnum server error in async accept : ~p~n", [Why]),            
             {stop, Why, State}    
     end;
 %%%
