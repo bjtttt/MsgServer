@@ -1,0 +1,31 @@
+18:32:31,210 I: (ErlangCore.java:63) : Starting CORE Thread[Worker-0,5,main]
+18:32:31,215 I: (ErlangCore.java:78) : *** starting Erlide v0.33.0.201605251547 (core=0.32.2.201605251547) (model api=0.32.1.201605251547) *** (Cp1252) ui
+18:32:31,223 I: (ErlangCore.java:85) : Started CORE
+18:32:31,223 F: (ErlangPlugin.java:89) : Core started
+18:32:32,609 F: (ErlangHostnameRetriever.java:42) : Erlang long hostname: CND44270RV.bei.is.keysight.com
+18:32:33,647 F: (ErlangHostnameRetriever.java:42) : Erlang short hostname: CND44270RV
+18:32:34,164 F: (HostnameChecker.java:205) : Detected:: 'CND44270RV' && 'CND44270RV.bei.is.keysight.com'
+18:32:34,179 F: (BackendActivator.java:25) : Backend plugin started
+18:32:34,184 I: (ErlideUIPlugin.java:121) : Starting UI Thread[Worker-0,5,main]
+18:32:34,186 F: (ModelActivator.java:19) : Starting Erlang model api
+18:32:34,206 F: (BackendFactory.java:40) : Create ide backend 19.0.0
+18:32:34,206 F: (BackendFactory.java:54) : Create backend 9ff05_cn569363_3baa98_erlide
+18:32:34,224 F: (OtpNodeProxy.java:420) : START node :> ["c:\program files\erl8.0/bin/erl", -name, 9ff05_cn569363_3baa98_erlide@CND44270RV.bei.is.keysight.com, -setcookie, erlide] *** C:\Works\Workspace\MsgServer
+18:32:34,225 F: (OtpNodeProxy.java:302) : Runtime 9ff05_cn569363_3baa98_erlide@CND44270RV.bei.is.keysight.com starting
+18:32:34,246 F: (OtpNodeProxy.java:213) : 9ff05_cn569363_3baa98_erlide@CND44270RV.bei.is.keysight.com: waiting connection to peer... 
+18:32:34,653 F: (OtpNodeProxy.java:220) : connected!
+18:32:34,802 F: (OtpNodeProxy.java:307) : Runtime 9ff05_cn569363_3baa98_erlide@CND44270RV.bei.is.keysight.com running
+18:32:34,905 F: (LogEventHandler.java:27) : info: {"Monitoring java node",'jerlide_93baabe@CND44270RV.bei.is.keysight.com'}
+18:32:34,905 F: (LogEventHandler.java:27) : info: {"Start monitor process: ",10000000,50000000}
+18:32:35,324 F: (ModelActivator.java:30) : Started model api
+18:32:35,343 I: (ErlideUIPlugin.java:142) : Started UI
+18:33:17,963 F: (OtpNodeProxy.java:312) : Runtime 9ff05_cn569363_3baa98_erlide@CND44270RV.bei.is.keysight.com stopping
+18:33:18,042 F: (OtpNodeProxy.java:272) : Runtime 9ff05_cn569363_3baa98_erlide@CND44270RV.bei.is.keysight.com terminated
+
+--------------------------------------------------------------
+*** RpcMonitor statistics
+ - 16 calls
+
+RpcMonitor was not enabled.
+
+Use -Derlide.rpcmonitor to enable it.
