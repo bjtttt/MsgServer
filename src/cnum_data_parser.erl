@@ -14,7 +14,8 @@
 %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 parse_data(RawData, State) ->
-    try do_process_data(RawData, State)
+    NewData = get_data_binary(RawData),
+    try do_process_data(NewData, State)
     catch
         _:Why ->
             [ST] = erlang:get_stacktrace(),
@@ -22,36 +23,117 @@ parse_data(RawData, State) ->
             {error, exception, State}
     end.
 
-do_process_data(RawData, State)
-    Size = byte_size(RawData),
-    if
-		% LEN:1 byte, ID:1 byte, XOR:1 byte
-		% So the minimum length should be 3
-        Size < 3 ->
-            create_error_resp(3);
-        true ->
-            ContentSize = Size-1,
-            ContentBitSize = ContentSize*?LEN_BYTE,
-            <<Content:ContentBitSize, Xor:?LEN_BYTE>> = RawData,
-            CalcXor = vdr_data_parser:bxorbytelist(<<Content:ContentBitSize>>),
+do_process_data(RawData, State) ->
+    case restore_7d_7e_msg(State, RawData) of
+        {ok, RawData} ->
+            NoParityLen = byte_size(RawData) - 1,
+            {HeaderBody, Parity} = split_binary(RawData, NoParityLen),
+            CalcParity = bxorbytelist(HeaderBody),
             if
-                CalcXor =/= <<Xor:?LEN_BYTE>> ->
-                    create_error_resp(4);
-                true ->
-                    <<BodyLen:?LEN_BYTE, Body/binary>> = <<Content:ContentBitSize>>,
-                    if
-                        BodyLen =/= Size-2 ->
-                            create_error_resp(5);
-                        true ->
-                            <<ID:?LEN_BYTE, Req/binary>> = Body,
-                            case ID of
-                                0 ->
-                                    create_test_conn_response();
-                                _ ->
-                                    create_unknown_msg_id_response(ID)
+                CalcParity == Parity ->
+                    <<ID:16, Property:16, Tel:48, MsgIdx:16, Tail/binary>> = HeaderBody,
+                    <<_Reserved:2, Pack:1, CryptoType:3, BodyLen:10>> = <<Property:16>>,
+                    HeadInfo = {ID, MsgIdx, Tel, CryptoType},
+                    case Pack of
+                        0 ->
+                            % Single package message
+                            Body = Tail,
+                            ActBodyLen = byte_size(Body),
+                            if
+                                BodyLen == ActBodyLen ->
+                                    case vdr_data_processor:parse_msg_body(ID, Body) of
+                                        {ok, Result} ->
+                                            {ok, HeadInfo, Result, State};
+                                        {error, msgerror} ->
+                                            {warning, HeadInfo, ?P_GENRESP_ERRMSG, State};
+                                        {error, unsupported} ->
+                                            {warning, HeadInfo, ?P_GENRESP_NOTSUPPORT, State}
+                                    end;
+                                BodyLen =/= ActBodyLen ->
+                                    common:send_stat_err(State, lenerr),
+                                    common:loginfo("Length error for msg (~p) from (~p) : (Field)~p:(Actual)~p", [MsgIdx, State#vdritem.addr, BodyLen, ActBodyLen]),
+                                    {warning, HeadInfo, ?P_GENRESP_ERRMSG, State}
+                            end;
+                        1 ->
+                            % Multi package message
+                            <<PackInfo:32,Body/binary>> = Tail,
+                            ActBodyLen = byte_size(Body),
+                            <<Total:16,Index:16>> = <<PackInfo:32>>,
+                            if
+                                Total =< 1 ->
+                                    common:send_stat_err(State, packerr),
+                                    common:loginfo("Total error for msg (~p) from (~p) : ~p", [MsgIdx, State#vdritem.addr, Total]),
+                                    {warning, HeadInfo, ?P_GENRESP_ERRMSG, State};
+                                Total > 1 ->
+                                    if
+                                        Index < 1 ->
+                                            common:send_stat_err(State, packerr),
+                                            common:loginfo("Index error for msg (~p) from (~p) : (Index)~p", [MsgIdx, State#vdritem.addr, Index]),
+                                            {warning, HeadInfo, ?P_GENRESP_ERRMSG, State};
+                                        Index > Total ->
+                                            common:send_stat_err(State, packerr),
+                                            common:loginfo("Index error for msg (~p) from (~p) : (Total)~p:(Index)~p", [MsgIdx, State#vdritem.addr, Total, Index]),
+                                            {warning, HeadInfo, ?P_GENRESP_ERRMSG, State};
+                                        Index =< Total ->
+                                            if
+                                                BodyLen == ActBodyLen ->
+                                                    case combine_msg_packs(State, ID, MsgIdx, Total, Index, Body) of
+                                                        {complete, Msg, NewState} ->
+                                                            common:loginfo("VDR (~p) (id:~p, serialno:~p, authen_code:~p, vehicleid:~p, vehiclecode:~p)~nMsg packages is combined successfully (ID :~p)", 
+                                                                           [State#vdritem.addr,
+                                                                            State#vdritem.id,
+                                                                            State#vdritem.serialno,
+                                                                            State#vdritem.auth,
+                                                                            State#vdritem.vehicleid,
+                                                                            State#vdritem.vehiclecode, ID]),
+                                                            case vdr_data_processor:parse_msg_body(ID, Msg) of
+                                                                {ok, Result} ->
+                                                                    {ok, HeadInfo, Result, NewState};
+                                                                {warning, msgerror} ->
+                                                                    {warning, HeadInfo, ?P_GENRESP_ERRMSG, NewState};
+                                                                {warning, unsupported} ->
+                                                                    {warning, HeadInfo, ?P_GENRESP_NOTSUPPORT, NewState}
+                                                            end;
+                                                        {notcomplete, NewState} ->
+                                                            {ignore, HeadInfo, NewState}
+                                                    end;
+                                                BodyLen =/= ActBodyLen ->
+                                                    common:send_stat_err(State, lenerr),
+                                                    common:loginfo("Length error for msg (~p) from (~p) : (Field)~p:(Actual)~p", [MsgIdx, State#vdritem.addr, BodyLen, ActBodyLen]),
+                                                    {warning, HeadInfo, ?P_GENRESP_ERRMSG, State}
+                                            end
+                                    end
                             end
-                    end
-            end
+                    end;
+                CalcParity =/= Parity ->
+                    common:send_stat_err(State, parerr),
+                    common:loginfo("Parity error (calculated)~p:(data)~p from ~p", [CalcParity, Parity, State#vdritem.addr]),
+                    {error, parityerror, State}
+            end;
+        error ->
+            common:send_stat_err(State, resterr),
+            {error, formaterror, State}
+    end.
+
+%%%
+%%% XOR a binary list
+%%% The caller must make sure of the length of data must be larger than or equal to 1
+%%% Input : Data is a binary list
+%%%
+bxorbytelist(Data) ->
+    Len = byte_size(Data),
+    case Len of
+        1 ->
+            Data;
+        2 ->
+            <<HInt:8,TInt:8>> = Data,
+            Res = HInt bxor TInt,
+            <<Res>>;
+        _ ->
+            <<HInt:8, T/binary>> = Data,
+            <<TInt:8>> = bxorbytelist(T),
+            Res = HInt bxor TInt,
+            <<Res>>
     end.
 
 get_data_binary(Data) ->
