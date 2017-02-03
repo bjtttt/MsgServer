@@ -1,4 +1,4 @@
--module(mon_handler).
+-module(cnum_handler).
 
 -behaviour(gen_server).
 
@@ -38,28 +38,28 @@ handle_cast(_Msg, State) ->
     {noreply, State}. 
 
 handle_info({tcp, Socket, Data}, State) ->    
-    %common:loginfo("Data from monitor (~p) : ~p~n", [State#monitem.addr, Data]),
-    Resp = mon_data_parser:parse_data(Data, State),
+    %common:loginfo("Data from CNUM (~p) : ~p~n", [State#monitem.addr, Data]),
+    Resp = cnum_data_parser:parse_data(Data, State),
     gen_tcp:send(Socket, Resp),
-    %common:loginfo("Response to monitor (~p) : ~p~n", [State#monitem.addr, Resp]),
+    %common:loginfo("Response to CNUM (~p) : ~p~n", [State#monitem.addr, Resp]),
     inet:setopts(Socket, [{active, once}]),
     {noreply, State}; 
 handle_info({tcp_closed, _Socket}, State) ->    
-    common:loginfo("Monitor ~p is disconnected and monitor PID ~p stops~n", [State#monitem.addr, State#monitem.pid]),
+    common:loginfo("Cnum ~p is disconnected and CNUM PID ~p stops~n", [State#monitem.addr, State#monitem.pid]),
     {stop, normal, State}; 
 handle_info(_Info, State) ->    
     {noreply, State}. 
 
 terminate(Reason, State) ->
-    common:loginfo("Monitor (~p) starts being terminated~nReason : ~p~n", [State#monitem.addr, Reason]),
+    common:loginfo("CNUM (~p) starts being terminated~nReason : ~p~n", [State#monitem.addr, Reason]),
 	ets:delete(montable, State#monitem.socket),
     try
 		gen_tcp:close(State#monitem.socket)
 	catch
 		_:Ex ->
-			common:loginfo("Monitor (~p) : exception when gen_tcp:close : ~p~n", [State#monitem.addr, Ex])
+			common:loginfo("CNUM (~p) : exception when gen_tcp:close : ~p~n", [State#monitem.addr, Ex])
 	end,
-    common:loginfo("Monitor (~p) is terminated~n", [State#monitem.addr]).
+    common:loginfo("CNUM (~p) is terminated~n", [State#monitem.addr]).
 
 code_change(_OldVsn, State, _Extra) ->    
     {ok, State}.
