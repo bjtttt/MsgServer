@@ -14,18 +14,17 @@ start_link(Socket) ->
 init([Socket]) ->
 	process_flag(trap_exit, true),
     [{dbpid, DBPid}] = ets:lookup(msgservertable, dbpid),
-    [{wspid, WSPid}] = ets:lookup(msgservertable, wspid),
 	[{drivertablepid, DriverTablePid}] = ets:lookup(msgservertable, drivertablepid),
 	[{vdrlogpid, VDRLogPid}] = ets:lookup(msgservertable, vdrlogpid),
 	[{vdronlinepid, VDROnlinePid}] = ets:lookup(msgservertable, vdronlinepid),
     case common:safepeername(Socket) of
         {ok, {Address, _Port}} ->
-            State=#monitem{socket=Socket, pid=self(), addr=Address, dbpid=DBPid, wspid=WSPid, driverpid=DriverTablePid, vdrlogpid=VDRLogPid, vdronlinepid=VDROnlinePid},
+            State=#monitem{socket=Socket, pid=self(), addr=Address, dbpid=DBPid, driverpid=DriverTablePid, vdrlogpid=VDRLogPid, vdronlinepid=VDROnlinePid},
             ets:insert(montable, State), 
             inet:setopts(Socket, [{active, once}]),
             {ok, State};
         {error, _Reason} ->
-            State=#monitem{socket=Socket, pid=self(), addr="0.0.0.0", dbpid=DBPid, wspid=WSPid, driverpid=DriverTablePid, vdrlogpid=VDRLogPid, vdronlinepid=VDROnlinePid},
+            State=#monitem{socket=Socket, pid=self(), addr="0.0.0.0", dbpid=DBPid, driverpid=DriverTablePid, vdrlogpid=VDRLogPid, vdronlinepid=VDROnlinePid},
             ets:insert(montable, State), 
             inet:setopts(Socket, [{active, once}]),
             {ok, State}
@@ -39,8 +38,7 @@ handle_cast(_Msg, State) ->
 
 handle_info({tcp, Socket, Data}, State) ->    
     %common:loginfo("Data from CNUM (~p) : ~p~n", [State#monitem.addr, Data]),
-    Resp = cnum_data_parser:parse_data(Data, State),
-    gen_tcp:send(Socket, Resp),
+    cnum_data_parser:parse_data(Data, State),
     %common:loginfo("Response to CNUM (~p) : ~p~n", [State#monitem.addr, Resp]),
     inet:setopts(Socket, [{active, once}]),
     {noreply, State}; 

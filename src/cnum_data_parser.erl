@@ -13,18 +13,17 @@
 % 
 %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-parse_data(RawData, State) ->
-    NewData = get_data_binary(RawData),
+parse_data(Data, State) ->
+    NewData = get_data_binary(Data),
     try do_process_data(NewData, State)
     catch
         _:Why ->
             [ST] = erlang:get_stacktrace(),
-            common:logerr("Parsing CNUM data exception : ~p~n~p~nStack trace :~n~p", [Why, RawData, ST]),
-            {error, exception, State}
+            common:logerr("Parsing CNUM data exception : ~p~n~p~nStack trace :~n~p", [Why, Data, ST])
     end.
 
-do_process_data(RawData, State) ->
-    case restore_7d_7e_msg(State, RawData) of
+do_process_data(Data, State) ->
+    case restore_7d_7e_msg(State, Data) of
         {ok, RawData} ->
             NoParityLen = byte_size(RawData) - 1,
             {HeaderBody, Parity} = split_binary(RawData, NoParityLen),
